@@ -174,7 +174,7 @@
 - stability reports across folds and seeds
 - no model or feature adopted solely on in-sample score or importance
 - library implementation/version is recorded and numerical regression tests pass
-- 5日・20日は全3 familyを比較可能な3 seed development-only軽量screenへ先に通し、複数seed/fold、paired uncertainty、全objective、ensemble追加価値、cost / turnover / downsideの全条件で明確に劣位なfamilyだけ追加探索を停止する。通過・保留したhorizon × familyはfull F1〜F12 ablationを行う。1日は事前固定した安定性・非重複性・増分OOF・cost・turnover・downside gateをすべて通過した場合だけfull ablationへ戻す
+- 1日は3 seed development-only軽量screenを完走し、事前固定した安定性・非重複性・増分OOF・cost・turnover・downside gateをすべて通過した場合だけfull ablationへ戻す。5日・20日は事前screenを省略し、全3 family × 3 seedを直接full F1〜F12 ablationへ進める。family pruningはFull Ablation完走後に複数seed/fold、paired uncertainty、全objective、ensemble追加価値、cost / turnover / downsideの全条件で明確に劣位なfamilyだけに限定する
 
 ## M7 — Multi-horizon and Downside
 
@@ -228,7 +228,7 @@
 
 - stacking trained only on OOF
 - stable against seed and period changes
-- family数の削減目標は置かず、軽量screenで明確に棄却できない候補はFinal Candidate比較まで保持する
+- family数の削減目標は置かず、5日・20日はFull Ablationで明確に棄却できない候補をFinal Candidate比較まで保持する
 
 ## M10 — Neural and TDnet Challengers
 

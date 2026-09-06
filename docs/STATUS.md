@@ -608,3 +608,11 @@ read-only specialist reviewを5系統（PIT/leakage、quant、portfolio、tax/co
 - screen configはV2全列、3 trial / 900秒、50 estimator、500 / 60 / 60 session、holdout境界120、Ablation / diagnosticsなしで結果前に固定した。full Ablationはscreen判定後の通過・保留候補だけへ限定する
 - read-only進捗入口は`powershell -NoProfile -ExecutionPolicy Bypass -File runner/goal3-phase-runner.ps1 -Action status`。今後もユーザーが「進捗」と求めた時だけ1回実行し、継続監視しない
 - PowerShell 5.1 parser、Ruff、境界・status・Task登録の隔離testをpass。API key、locked holdout、model source、既存manifest / checkpoint / report / Registryは変更していない
+
+## 2026-09-06 Goal 3 core horizonのFull Ablation直行へ変更
+
+- D080として、1日screenの実測が1 batch数時間であることと、既存seed 17 OOFで5日・20日の全3 familyに役割別の有用性があることを踏まえ、5日・20日のlightweight screenを廃止した。現在実行中の1日screenは停止・再起動せず6 batchを完走する
+- 1日はD077の固定gateを変更せず、全screen reportを結び付けたdevelopment-only判定artifactで残留・除外を決める。判定artifactがない間、更新phase runnerは`ONE_DAY_EVALUATION_READY`で停止する
+- 判定後の長時間処理は5日Full Ablation → 20日Full Ablationの順とし、各horizonでLightGBM / XGBoost / CatBoost × seed 17 / 29 / 43、20 trial / 900秒、300 estimator、F1〜F12 Ablation、OOS diagnosticsを維持する。1日を残す場合だけ、両core horizon完了後かつ特徴量固定前に1日Full Ablationを実行する
+- 稼働中processが保持する旧D079遷移だけを安全境界で止めるため、未作成だった`goal3-screen-5d20d-v1.json` pathへdirectory型fail-closed latchを設置した。現在の1日worker、screen manifest、checkpoint、report、Experiment Registry、model sourceには触れていない
+- model-family pruningはFull Ablation後だけ行い、複数seed/fold、全objective、ensemble、realistic cost、turnover、downsideの全棄却条件を満たすfamilyに限定する。削減数目標は置かず、locked holdoutは未開封を維持する

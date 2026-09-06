@@ -340,10 +340,154 @@ def test_goal3_phase_task_show_is_read_only_and_keeps_progress_entrypoint() -> N
     )
 
     assert result.returncode == 0, result.stderr
-    assert "boundary seed17 -> 1d screen -> 5d/20d screen" in result.stdout
+    assert "1d screen -> fixed decision -> 5d full ablation" in result.stdout
     assert "goal3-phase-runner.ps1 -Action status" in result.stdout
     assert "current_worker_action" in result.stdout
     assert ": none; waits on existing runner lock" in result.stdout
     assert "locked_holdout_accessed" in result.stdout
     assert ": False" in result.stdout
     assert "test-placeholder-never-print" not in result.stdout + result.stderr
+
+
+def _phase_status_for_completed_one_day(
+    tmp_path: Path,
+    *,
+    decision: str | None = None,
+    decision_campaign_id: str = "one-day-campaign",
+    all_gates_passed: bool | None = None,
+) -> subprocess.CompletedProcess[str]:
+    boundary_path = tmp_path / "boundary.json"
+    one_day_path = tmp_path / "one-day.json"
+    core_latch = tmp_path / "legacy-core.json"
+    decision_path = tmp_path / "decision.json"
+    five_day_path = tmp_path / "five-day.json"
+    twenty_day_path = tmp_path / "twenty-day.json"
+    one_day_ablation_path = tmp_path / "one-day-ablation.json"
+    core_latch.mkdir()
+    boundary_path.write_text(
+        json.dumps({"batches": [{"batch_id": "h1-lightgbm-s17", "status": "SUCCEEDED"}]}),
+        encoding="utf-8",
+    )
+    report_ids = [f"report-{index}" for index in range(6)]
+    one_day_path.write_text(
+        json.dumps(
+            {
+                "campaign_id": "one-day-campaign",
+                "build_id": "build-id",
+                "code_commit": "code-commit",
+                "batches": [
+                    {"status": "SUCCEEDED", "report_id": report_id}
+                    for report_id in report_ids
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    if decision is not None:
+        all_pass = (
+            decision == "KEEP_FOR_FULL_ABLATION"
+            if all_gates_passed is None
+            else all_gates_passed
+        )
+        decision_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "goal3-one-day-screen-decision-v1",
+                    "criteria_version": "D080",
+                    "one_day_campaign_id": decision_campaign_id,
+                    "build_id": "build-id",
+                    "code_commit": "code-commit",
+                    "screen_report_ids": report_ids,
+                    "gates": {
+                        "stable_across_seeds_and_folds": all_pass,
+                        "non_redundant_with_h5_h20": all_pass,
+                        "improves_development_oof_stack": all_pass,
+                        "improves_realistic_cost": all_pass,
+                        "non_worsening_turnover_downside_large_loss": all_pass,
+                    },
+                    "decision": decision,
+                    "locked_holdout_accessed": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+    project_root = Path(__file__).resolve().parents[1]
+    return subprocess.run(
+        [
+            str(_powershell()),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(project_root / "runner" / "goal3-phase-runner.ps1"),
+            "-Action",
+            "status",
+            "-BoundaryManifest",
+            str(boundary_path),
+            "-OneDayScreenManifest",
+            str(one_day_path),
+            "-CoreScreenManifest",
+            str(core_latch),
+            "-OneDayDecisionArtifact",
+            str(decision_path),
+            "-FiveDayAblationManifest",
+            str(five_day_path),
+            "-TwentyDayAblationManifest",
+            str(twenty_day_path),
+            "-OneDayAblationManifest",
+            str(one_day_ablation_path),
+        ],
+        cwd=project_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+def test_phase_waits_for_fixed_one_day_decision_before_core_ablation(tmp_path: Path) -> None:
+    result = _phase_status_for_completed_one_day(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["phase"] == "ONE_DAY_EVALUATION_READY"
+    assert payload["legacy_core_screen_latch"] == "ARMED"
+    assert payload["locked_holdout_accessed"] is False
+
+
+@pytest.mark.parametrize(
+    "decision",
+    ["KEEP_FOR_FULL_ABLATION", "EXCLUDE_FROM_FULL_ABLATION_AND_FINAL"],
+)
+def test_phase_skips_core_screen_and_queues_five_day_full_ablation(
+    tmp_path: Path, decision: str
+) -> None:
+    result = _phase_status_for_completed_one_day(tmp_path, decision=decision)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["phase"] == "FIVE_DAY_ABLATION_QUEUED"
+    assert payload["active_manifest"] is None
+    assert payload["one_day_decision"]["decision"] == decision
+
+
+def test_phase_rejects_decision_for_different_screen_campaign(tmp_path: Path) -> None:
+    result = _phase_status_for_completed_one_day(
+        tmp_path,
+        decision="EXCLUDE_FROM_FULL_ABLATION_AND_FINAL",
+        decision_campaign_id="wrong-campaign",
+    )
+
+    assert result.returncode != 0
+    assert "one-day screen decision campaign mismatch" in result.stderr
+
+
+def test_phase_rejects_keep_decision_when_any_fixed_gate_fails(tmp_path: Path) -> None:
+    result = _phase_status_for_completed_one_day(
+        tmp_path,
+        decision="KEEP_FOR_FULL_ABLATION",
+        all_gates_passed=False,
+    )
+
+    assert result.returncode != 0
+    assert "contradicts fixed D080 gates" in result.stderr

@@ -808,3 +808,25 @@ phase runnerはAPI keyを研究childへ渡さず、locked holdout評価を呼ば
 ユーザーが「進捗」と求めた場合は`goal3-phase-runner.ps1 -Action status`を一度だけ実行し、現在phaseとactive campaignの
 horizon / family / seed / foldをread-only表示できる状態を維持する。screen完了後は`SCREEN_EVALUATION_READY`で、
 D077 / D078の事前固定ruleによるdevelopment-only判定へ引き渡す。
+
+### D080 — 実測時間を踏まえ5日・20日はscreenを省略してFull Ablationへ直行する
+
+1日lightweight screenの実測が1 batchあたり数時間となり、5日・20日は既存seed 17 development OOFで
+LightGBM / XGBoost / CatBoostの各familyに少なくとも一つの役割上の有用性が確認されているため、D078 / D079のうち
+5日・20日を事前screenへ通す部分を廃止する。これは結果を見ながらmodelを削る変更ではなく、重複計算を除きながら
+3 family × seed 17 / 29 / 43のFull F1〜F12 Ablationを維持する変更である。
+
+現在進行中の1日XGBoost / CatBoost × seed 17 / 29 / 43 screenは停止・再起動せず完走する。1日の判定にはD077で
+事前固定済みの全gateをそのまま使用し、欠損・評価不能をpassへ補完しない。判定artifactはscreen campaign ID、
+Production Build ID、code commit、全screen report ID、各gateの真偽、`locked_holdout_accessed=false`を固定し、
+全gate成立時だけ`KEEP_FOR_FULL_ABLATION`、それ以外は`EXCLUDE_FROM_FULL_ABLATION_AND_FINAL`とする。
+
+判定後は5日Full Ablation、20日Full Ablationの順で全3 family × 3 seedを実行する。1日を残した場合の1日Full Ablationは
+この2 horizon完了後、特徴量固定前に実行する。Full Ablation後にだけ、複数seed / foldの一貫した劣位、ensemble追加価値なし、
+regression / ranking / quantile / large-lossの全役割で価値なし、realistic cost / turnover / downsideでも追加価値なし、の
+全条件が確認できたfamilyをFinal Candidateから除外できる。一条件でも不明なら保持し、削減数目標は置かない。
+
+旧phase runnerがprocess内に保持するD079遷移は、現在の1日workerを変更せず、旧5日・20日screen manifest pathを
+directory型fail-closed latchにすることで1日完了境界後の新規core-screenだけを阻止する。更新runnerは1日判定artifactが
+存在しない間`ONE_DAY_EVALUATION_READY`で正常終了し、認証済み判定後だけ5日・20日Full Ablationへ進む。
+locked holdoutは全選択固定まで開かず、認証可能なreport / OOF / fold / Optuna trial / checkpointを再利用する。
