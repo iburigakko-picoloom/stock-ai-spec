@@ -1,0 +1,54 @@
+{
+  "schema_version": "goal3-one-day-screen-decision-v1",
+  "criteria_version": "D080",
+  "one_day_campaign_id": "f2f4e225ffe9503a874508054c65eaec6d659cab60fe74ec8a65471f628bae5c",
+  "build_id": "2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f",
+  "code_commit": "000812e09be3ceef5491aab073b47778a757c165",
+  "screen_report_ids": [
+    "394e3fd60aa4284ebe5d26bb59e7d4115d68f74edf24f21790ef5ea42b2dab73",
+    "d3793c85db47175558375b1d170fff54e6db392f0c27f3450a2e250f62d34863",
+    "483e57dfb2779ddcb56aec228a81562936b905bbcd1baea4b9cfcf224ad299aa",
+    "4b702101475125557d991a25e91f7b532c6643f284483208d9a03671e8235501",
+    "6103344f61932d640d9a519585230e216b21299ed0f6f918d0bc4b9c48f8608a",
+    "b29ad125bd6d4cd05ea0f16adcf1d2a7d4dfd2a834147369f2eae135249359cb"
+  ],
+  "gates": {
+    "stable_across_seeds_and_folds": true,
+    "non_redundant_with_h5_h20": null,
+    "improves_development_oof_stack": null,
+    "improves_realistic_cost": null,
+    "non_worsening_turnover_downside_large_loss": null
+  },
+  "decision": "EXCLUDE_FROM_FULL_ABLATION_AND_FINAL",
+  "reason": "All six authenticated reports have cost_evaluation_status=BLOCKED_BY_DATA_CAPABILITY. D077/D080 excludes unevaluable candidates. Insufficient evidence, not demonstrated lack of incremental value. Remaining incremental gates not evaluated after decisive missing prerequisite; null means not established.",
+  "authentication": "Six metadata/report identities, Parquet byte and full OOF logical hashes verified using load_advanced_research_run; batch config/code/seed/horizon/family and pre-holdout OOF dates checked.",
+  "stability_evidence": {
+    "seed_order": [
+      17,
+      29,
+      43
+    ],
+    "xgboost_regression_rank_ic": [
+      0.010231298819020575,
+      0.0157803792257148,
+      0.0118967961615957
+    ],
+    "positive_folds": [
+      5,
+      5,
+      5
+    ],
+    "catboost_ranking_rank_ic": [
+      0.04192865257099684,
+      0.04129071706445689,
+      0.044628196572247966
+    ],
+    "catboost_ranking_positive_folds": [
+      5,
+      5,
+      6
+    ],
+    "folds_per_seed": 6
+  },
+  "locked_holdout_accessed": false
+}

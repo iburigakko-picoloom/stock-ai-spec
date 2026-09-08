@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-09-08 14:56 JST — 5日Full Ablation再開
+
+- 1日screen全6 reportのmetadata/report identity、Parquet byte hash、OOF全内容hashを認証。XGBoost回帰は3 seedでRank IC 0.01023 / 0.01578 / 0.01190、各5/6 foldが正。CatBoost rankingは0.04193 / 0.04129 / 0.04463、正foldは5/6・5/6・6/6。
+- 全reportのrealistic-cost評価がBLOCKED_BY_DATA_CAPABILITYのため、D077/D080の評価不能時除外ルールを適用。1日は今回のFull Ablation / Final Candidateから除外。追加価値なしを実証したのではなく必須証拠不足。他の増分gateは未評価をnullで保存し、測定失敗と混同しない。
+- 判定はartifacts/decisions/goal3-one-day-screen-v1.json、監査入口はrunner/audit-one-day-screen.pyに保存。
+- 既存StockAI-Goal3-Phasedを起動。開始確認1回でFIVE_DAY_ABLATION、h5-lightgbm-s17 RUNNING / ALIVE、campaign 3247a20775984f2676f63d1d3e8c86e64c036edda1060efb78965fcafe0c1843を確認。5日9 batch → 20日9 batchへ独立runnerが進む。
+- 研究source/seed/特徴定義は不変、holdout未開封。進捗要求時のみread-only statusを1回実行し、継続監視しない。
+
 更新日: 2026-09-05
 状態: `GOAL3_INDEPENDENT_RESEARCH_RUNNING`
 
