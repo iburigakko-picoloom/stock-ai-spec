@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-09-09 — CPU cloud試運転の事前調査
+
+- `docs/CLOUD_CPU_PILOT.md`に1台の試運転案、起動前gate、費用・終了条件を記録。クラウド作成・課金・転送・学習起動は未実施。
+- SSH関連CLIは利用可能。固定Dataset Parquet単体は1,858,772,624 bytes。BuildのWindows絶対パス参照を確認し、Linuxへ単純コピーして実行可能とは扱わない。
+- 次はユーザー所有アカウント・予算の確認と、隔離したdevelopment-only export/import・Linux互換検証。J-Quantsの本人専用cloud利用範囲も転送前に確認する。
+- 今回は文書のみ変更。研究source / lock / local worker / campaign / checkpoint / Registryには書き込まず、holdout未開封。継続監視は行っていない。
+
 ## 2026-09-08 14:56 JST — 5日Full Ablation再開
 
 - 1日screen全6 reportのmetadata/report identity、Parquet byte hash、OOF全内容hashを認証。XGBoost回帰は3 seedでRank IC 0.01023 / 0.01578 / 0.01190、各5/6 foldが正。CatBoost rankingは0.04193 / 0.04129 / 0.04463、正foldは5/6・5/6・6/6。
