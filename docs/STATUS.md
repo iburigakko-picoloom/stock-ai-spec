@@ -1,11 +1,15 @@
 # Project Status
 
-## 2026-09-20 — 20日Full Ablationの検証停止を修正中
+## 2026-09-20 — 20日Full Ablationの検証停止修正・再開準備完了
 
 - 5日Full Ablationは9/9完了。20日v1は最初のh20-lightgbm-s17が学習前の期間検証（579日／必要580日）で10回失敗。遅い学習とは区別する。
 - 正常なPython workerが存在しない安全境界でStockAI-Goal3-PhasedをDisable。workerの停止・重複起動はしていない。
 - D081を結果前に固定。必要日数・seed数・研究条件を緩めずcausal timestampで境界を補正する。旧成果物を保持し20日v2へ移行する。
-- 修正・品質gate・Git checkpoint後に同じ独立runnerを再開予定。holdout未評価、実注文なし。
+- 修正source commitは`d40d33c3020af5063b34321cf5444a8ef1a940b1`。20日v2 manifest/checkpoint/logを別namespaceで使用する。5日v1全9 report/OOFの内容hash認証は成功し、再学習しない。
+- 実Datasetのdate / label_end / status列だけで構造preflightを実施。20日development 936日、修正後tuning 580日（2,151,856行、末尾2024-08-13）、outer境界2024-09-12（候補1,253,466行）。holdout境界2026-03-04は不変、target値・成績は参照していない。
+- `.venv\\Scripts\\python.exe -m ruff check .` / `mypy src`（48 file）pass、`pytest -q` 258 pass、`pytest --cov -q` 258 pass / branch込み85.36%。runner隔離test 17 pass。未完了campaignをhistorical-completedとしてskipする試みも拒否。
+- `web`のnpm lint / typecheck / test（6 pass）/ build / test:e2e（Microsoft Edge 1 pass）を全pass。既存Starlette deprecation warning 1件のみ。uvはこのshellのPATHにないため既存固定`.venv`を直接使用し依存更新なし。
+- 同じStockAI-Goal3-Phasedを再開する準備完了。今後のstatus入口は変更なし。holdout未評価、実注文なし。
 
 ## 2026-09-09 — CPU cloud試運転の事前調査
 

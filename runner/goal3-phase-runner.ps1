@@ -10,7 +10,7 @@ param(
     [string]$TwentyDayAblationManifest = 'artifacts/campaigns/goal3-ablation-20d-v2.json',
     [string]$OneDayAblationManifest = 'artifacts/campaigns/goal3-ablation-1d-v1.json',
     [string]$BuildManifest = 'data/live/builds/production/2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f/2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f.json',
-    [string]$CodeCommit = '000812e09be3ceef5491aab073b47778a757c165',
+    [string]$CodeCommit = 'd40d33c3020af5063b34321cf5444a8ef1a940b1',
     [string]$ExperimentRegistry = 'artifacts/experiments/advanced.jsonl',
     [string]$LogRoot = 'artifacts/logs/goal3-phased'
 )

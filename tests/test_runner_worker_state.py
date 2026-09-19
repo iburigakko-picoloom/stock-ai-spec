@@ -314,6 +314,18 @@ def test_research_runner_status_avoids_windows_os_kill_and_is_read_only(
     assert batch["effective_status"] == "INTERRUPTED"
     assert manifest_path.read_bytes() == manifest_before
 
+    # A historical-source verification entry point must never skip unfinished
+    # work or launch a worker merely because it bypasses current-source checks.
+    historical = subprocess.run(
+        [str(_powershell()), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+         str(project_root / "runner" / "research-runner.ps1"),
+         "-Action", "verify-completed", "-Manifest", str(manifest_path)],
+        cwd=project_root, check=False, capture_output=True, text=True, timeout=90,
+    )
+    assert historical.returncode != 0
+    assert "completed campaign contains unfinished batches" in historical.stderr
+    assert manifest_path.read_bytes() == manifest_before
+
 
 def test_goal3_phase_task_show_is_read_only_and_keeps_progress_entrypoint() -> None:
     project_root = Path(__file__).resolve().parents[1]
