@@ -456,6 +456,40 @@ def test_campaign_cli_runs_batches_and_persists_success(
     assert "JQUANTS_API_KEY" not in _CompletedProcess.last_environment
 
 
+def test_campaign_cli_preserves_deterministic_validation_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class BlockedProcess(_CompletedProcess):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)
+            stream = kwargs["stdout"]
+            stream.write("advanced research blocked: BLOCKED_BY_VALIDATION: too short\n")
+            stream.flush()
+
+        def wait(self, timeout: int | None = None) -> int:
+            return 2
+
+    build = tmp_path / "build.json"
+    build.touch()
+    monkeypatch.setattr("stock_ai.cli.load_campaign_build_id", lambda _path: "b" * 64)
+    monkeypatch.setattr("stock_ai.cli.subprocess.Popen", BlockedProcess)
+    manifest_path = tmp_path / "campaign.json"
+    result = CliRunner().invoke(app, [
+        "research", "campaign", "--build-manifest", str(build),
+        "--code-commit", "abc1234", "--horizons", "20",
+        "--model-families", "lightgbm", "--campaign-manifest", str(manifest_path),
+        "--report-root", str(tmp_path / "reports"),
+        "--experiment-registry", str(tmp_path / "experiments.jsonl"),
+        "--log-root", str(tmp_path / "logs"),
+    ])
+    assert result.exit_code == 2
+    batch = load_campaign_manifest(manifest_path).batches[0]
+    assert batch.status is CampaignBatchStatus.FAILED
+    assert batch.last_error == (
+        "BLOCKED_BY_VALIDATION: requires audited repair; automatic retry disabled"
+    )
+
+
 def test_campaign_cli_rejects_manifest_for_different_plan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

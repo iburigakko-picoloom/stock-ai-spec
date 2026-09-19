@@ -54,6 +54,59 @@ from stock_ai.ml.research_metrics import (
 )
 
 
+@pytest.mark.parametrize("horizon", [1, 5, 20])
+def test_stage_split_repairs_causal_shortfall_without_relaxing_minimum(horizon: int) -> None:
+    config = AdvancedResearchConfig(initial_train_periods=500, validation_periods=60)
+    dates = pd.bdate_range("2020-01-01", periods=900)
+    frame = pd.DataFrame({
+        "trading_date": dates,
+        "label_end": dates + pd.offsets.BDay(horizon + 1),
+        "target": np.arange(len(dates), dtype=float),
+    })
+    result = advanced_module._split_research_stages(
+        frame, horizon=horizon, label_end_column="label_end", config=config
+    )
+    expected_index = 500 + 60 + 2 * horizon + 1
+    assert result.model_evaluation_start == dates[expected_index]
+    assert result.tuning.trading_date.nunique() == 500 + horizon + 60
+    assert (result.tuning.label_end < result.model_evaluation_start).all()
+    assert (frame.trading_date >= result.model_evaluation_start).sum() >= 60
+    frame["target"] = -1e9
+    changed = advanced_module._split_research_stages(
+        frame, horizon=horizon, label_end_column="label_end", config=config
+    )
+    assert changed.boundary == result.boundary
+
+
+def test_stage_split_keeps_existing_valid_boundary_and_handles_missing_labels() -> None:
+    dates = pd.bdate_range("2020-01-01", periods=1100)
+    frame = pd.DataFrame({"trading_date": dates, "label_end": dates + pd.offsets.BDay(21)})
+    config = AdvancedResearchConfig(initial_train_periods=500, validation_periods=60)
+    result = advanced_module._split_research_stages(
+        frame, horizon=20, label_end_column="label_end", config=config
+    )
+    assert result.model_evaluation_start == dates[660]
+    frame.loc[:99, "label_end"] = pd.NaT
+    result = advanced_module._split_research_stages(
+        pd.concat([frame, frame]), horizon=20, label_end_column="label_end", config=config
+    )
+    assert result.model_evaluation_start == dates[701]
+    assert result.tuning.trading_date.nunique() == 580
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_stage_split_fails_closed_without_enough_outer_or_causal_dates(missing: bool) -> None:
+    dates = pd.bdate_range("2020-01-01", periods=660)
+    frame = pd.DataFrame({"trading_date": dates, "label_end": dates + pd.offsets.BDay(21)})
+    if missing:
+        frame["label_end"] = pd.NaT
+    with pytest.raises(ValueError, match="BLOCKED_BY_VALIDATION"):
+        advanced_module._split_research_stages(
+            frame, horizon=20, label_end_column="label_end",
+            config=AdvancedResearchConfig(initial_train_periods=500, validation_periods=60),
+        )
+
+
 def test_cross_sectional_metrics_are_date_grouped_and_exact() -> None:
     dates = pd.Series(["2026-01-05"] * 5 + ["2026-01-06"] * 5)
     target = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 8.0, 6.0, 4.0, 2.0])

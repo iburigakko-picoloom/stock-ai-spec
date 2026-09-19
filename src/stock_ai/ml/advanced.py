@@ -1790,14 +1790,38 @@ def _split_research_stages(
         + (2 * horizon)
     )
     evaluation_index = max(minimum_index, math.ceil(len(dates) * 0.60))
+    trading_date = pd.to_datetime(development["trading_date"])
+    label_end = pd.to_datetime(development[label_end_column])
+    required_tuning_dates = (
+        config.initial_train_periods + horizon + config.validation_periods
+    )
+    # Count distinct causal dates, not an assumed horizon offset. Production
+    # labels and missing sessions can require a later boundary. Only timestamp
+    # availability determines this repair; target values never select the split.
+    first_available = (
+        pd.DataFrame({"trading_date": trading_date, "label_end": label_end})
+        .dropna()
+        .groupby("trading_date")["label_end"]
+        .min()
+        .reset_index()
+        .max(axis=1)
+        .sort_values()
+    )
+    if len(first_available) >= required_tuning_dates:
+        causal_index = int(dates.searchsorted(
+            first_available.iloc[required_tuning_dates - 1], side="right"
+        ))
+        evaluation_index = max(evaluation_index, causal_index)
+    else:
+        raise ValueError(
+            f"BLOCKED_BY_VALIDATION: {horizon}d insufficient causal tuning dates"
+        )
     if evaluation_index + config.validation_periods > len(dates):
         raise ValueError(
             f"BLOCKED_BY_VALIDATION: {horizon}d development history cannot separate "
             "tuning from outer model evaluation"
         )
     evaluation_start = dates[evaluation_index]
-    trading_date = pd.to_datetime(development["trading_date"])
-    label_end = pd.to_datetime(development[label_end_column])
     tuning = development.loc[
         (trading_date < evaluation_start)
         & label_end.notna()
@@ -1806,9 +1830,6 @@ def _split_research_stages(
     if tuning.empty:
         raise ValueError(f"BLOCKED_BY_VALIDATION: no causal tuning rows for {horizon}d")
     tuning_dates = pd.DatetimeIndex(pd.to_datetime(tuning["trading_date"]).sort_values().unique())
-    required_tuning_dates = (
-        config.initial_train_periods + horizon + config.validation_periods
-    )
     if len(tuning_dates) < required_tuning_dates:
         raise ValueError(
             f"BLOCKED_BY_VALIDATION: {horizon}d tuning history has "

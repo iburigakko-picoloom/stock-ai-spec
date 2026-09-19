@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-09-20 — 20日Full Ablationの検証停止を修正中
+
+- 5日Full Ablationは9/9完了。20日v1は最初のh20-lightgbm-s17が学習前の期間検証（579日／必要580日）で10回失敗。遅い学習とは区別する。
+- 正常なPython workerが存在しない安全境界でStockAI-Goal3-PhasedをDisable。workerの停止・重複起動はしていない。
+- D081を結果前に固定。必要日数・seed数・研究条件を緩めずcausal timestampで境界を補正する。旧成果物を保持し20日v2へ移行する。
+- 修正・品質gate・Git checkpoint後に同じ独立runnerを再開予定。holdout未評価、実注文なし。
+
 ## 2026-09-09 — CPU cloud試運転の事前調査
 
 - `docs/CLOUD_CPU_PILOT.md`に1台の試運転案、起動前gate、費用・終了条件を記録。クラウド作成・課金・転送・学習起動は未実施。

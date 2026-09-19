@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('run', 'status')]
+    [ValidateSet('run', 'status', 'verify-completed')]
     [string]$Action = 'status',
     [string]$Manifest = 'artifacts/campaigns/goal3-base-v3.json',
     [string]$LogRoot = '',
@@ -31,7 +31,7 @@ function Invoke-PythonCode([string]$Python, [string]$Code, [string[]]$Arguments)
     return $LASTEXITCODE
 }
 
-function Invoke-PythonValidation([string]$ManifestPath, [bool]$FullArtifactCheck) {
+function Invoke-PythonValidation([string]$ManifestPath, [bool]$FullArtifactCheck, [bool]$RequireComplete = $false) {
     $python = Join-Path $ProjectRoot '.venv\Scripts\python.exe'
     if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
         throw "research runner Python is missing: $python"
@@ -48,11 +48,13 @@ manifest = load_campaign_manifest(path)
 observed_build_id = load_campaign_build_id(Path(manifest.build_manifest_path))
 if observed_build_id != manifest.build_id:
     raise RuntimeError("campaign and Production Build identities differ")
-if sys.argv[2] == "verify":
+if sys.argv[2] in ("verify", "completed"):
+    if sys.argv[2] == "completed" and any(batch.status != "SUCCEEDED" for batch in manifest.batches):
+        raise RuntimeError("completed campaign contains unfinished batches")
     completed = frozenset(batch.batch_id for batch in manifest.batches if batch.status == "SUCCEEDED")
     reconcile_campaign(manifest, batch_ids=completed)
 '@
-    $mode = if ($FullArtifactCheck) { 'verify' } else { 'metadata' }
+    $mode = if ($RequireComplete) { 'completed' } elseif ($FullArtifactCheck) { 'verify' } else { 'metadata' }
     $exitCode = Invoke-PythonCode $python $validation @($ManifestPath, $mode)
     if ($exitCode -ne 0) {
         throw 'campaign manifest, build, or completed artifact authentication failed'
@@ -267,6 +269,13 @@ function Invoke-Campaign([string]$ManifestPath, [string]$RunnerLogRoot) {
 
     $payload = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $remaining = @($payload.batches | Where-Object { $_.status -ne 'SUCCEEDED' })
+    $blocked = @($remaining | Where-Object {
+        [string]$_.last_error -like 'BLOCKED_BY_VALIDATION:*'
+    })
+    if ($blocked.Count -gt 0) {
+        Write-RunnerEvent $RunnerLogRoot 'BLOCKED_BY_VALIDATION' (($blocked.batch_id) -join ',')
+        return 2
+    }
     if ($remaining.Count -eq 0) {
         Write-RunnerEvent $RunnerLogRoot 'COMPLETE' ([string]$payload.campaign_id)
         return 0
@@ -319,6 +328,12 @@ function Invoke-Campaign([string]$ManifestPath, [string]$RunnerLogRoot) {
 }
 
 $manifestPath = Resolve-ProjectPath $Manifest
+if ($Action -eq 'verify-completed') {
+    # Historical results authenticate against their recorded commit/config,
+    # never against today's source. This entry point cannot launch workers.
+    Invoke-PythonValidation $manifestPath $true $true
+    exit 0
+}
 if ($Action -eq 'status') {
     $status = Get-RunnerStatus $manifestPath ([bool]$VerifyArtifacts)
     if ($Json) {

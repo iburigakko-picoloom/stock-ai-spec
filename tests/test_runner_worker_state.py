@@ -349,6 +349,41 @@ def test_goal3_phase_task_show_is_read_only_and_keeps_progress_entrypoint() -> N
     assert "test-placeholder-never-print" not in result.stdout + result.stderr
 
 
+def test_runner_does_not_retry_deterministic_validation_failure(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    manifest = tmp_path / "blocked.json"
+    manifest.write_text(json.dumps({"batches": [{
+        "batch_id": "h20-lightgbm-s17", "status": "FAILED",
+        "last_error": "BLOCKED_BY_VALIDATION: requires audited repair",
+    }]}), encoding="utf-8")
+    before = manifest.read_bytes()
+    script = f"""
+$ast = [System.Management.Automation.Language.Parser]::ParseFile(
+    {_quote(root / 'runner' / 'research-runner.ps1')}, [ref]$null, [ref]$null)
+$fn = $ast.Find({{param($n)
+    $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+    $n.Name -eq 'Invoke-Campaign'
+}}, $true)
+Invoke-Expression $fn.Extent.Text
+function Get-RunnerStatus {{ return [pscustomobject]@{{batches=@(); campaign_id='test'}} }}
+function Get-PauseAfterBatch {{ return $null }}
+function Set-StaleBatchesInterrupted {{ if ($args[1].Count -gt 0) {{throw 'unexpected mutation'}} }}
+function Write-RunnerEvent {{
+    param($Root, $Event, $Detail)
+    if ($Event -ne 'BLOCKED_BY_VALIDATION') {{throw 'unexpected event'}}
+}}
+$ProjectRoot = 'must-not-launch'
+Invoke-Campaign {_quote(manifest)} {_quote(tmp_path)}
+"""
+    result = subprocess.run(
+        [str(_powershell()), "-NoProfile", "-Command", script],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "2"
+    assert manifest.read_bytes() == before
+
+
 def _phase_status_for_completed_one_day(
     tmp_path: Path,
     *,

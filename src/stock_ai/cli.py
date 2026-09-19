@@ -1426,6 +1426,14 @@ def research_campaign(
         batch.status = CampaignBatchStatus.FAILED
         batch.completed_at = datetime.now(UTC)
         batch.last_error = batch.last_error or f"advanced child exit code {return_code}"
+        # A deterministic split/validation failure cannot heal by retrying the
+        # identical immutable campaign. Persist only a fixed, non-secret marker.
+        if return_code != 0 and "BLOCKED_BY_VALIDATION:" in log_path.read_text(
+            encoding="utf-8", errors="replace"
+        ):
+            batch.last_error = (
+                "BLOCKED_BY_VALIDATION: requires audited repair; automatic retry disabled"
+            )
         write_campaign_manifest(manifest, campaign_manifest)
         typer.echo(
             f"batch={batch.batch_id} status=FAILED reason={batch.last_error} log={log_path}",

@@ -809,6 +809,23 @@ phase runnerはAPI keyを研究childへ渡さず、locked holdout評価を呼ば
 horizon / family / seed / foldをread-only表示できる状態を維持する。screen完了後は`SCREEN_EVALUATION_READY`で、
 D077 / D078の事前固定ruleによるdevelopment-only判定へ引き渡す。
 
+### D081 — 20日研究のcausal期間不足修正と新campaignへの安全移行（2026-09-20）
+
+20日Full Ablation v1は学習前にtuning期間579日／必要580日の検証で停止し、同一条件の再試行を10回行っていた。
+性能結果を見る前に、従来の境界（60%または最小学習長の大きい方）を下限として、実際のtrading_dateとlabel_endだけから
+必要なdistinct tuning日数を確保できる最初の境界まで進める、と固定する。label_end < outer開始を厳守し、
+outerにも最低60日を要求する。不足なら引き続きBLOCKED_BY_VALIDATION。target値・モデル成績で境界を選ばない。
+500日initial train、60日validation/step、120日holdout、3 family × seed17/29/43、20 trial/900秒、300 estimatorを変更しない。
+
+完了済み1日・5日は元commit/config/report/OOFの認証だけ行い再学習しない。修正版20日はv2の別manifest/checkpoint/logを使い、
+修正commitを固定する。旧v1失敗記録、全既存成果物とRegistryを保持し、古いcheckpointを新commitへ付け替えない。
+異commitのhorizon成果物は同一条件のseed比較へ混ぜない。将来のfeature freeze/Final Candidateで必要なprovenance対応は
+別途監査し、現行の不一致拒否を緩めない。
+
+新workerの決定的BLOCKED_BY_VALIDATIONは固定markerを保存し、同じcampaignを自動再学習しない。
+Windows再起動後の通常resumeと、ユーザー要求時1回のread-only status入口は維持する。
+locked holdoutの評価・特徴量/ラベル定義・採否基準・実注文機能には触れない。
+
 ### D080 — 実測時間を踏まえ5日・20日はscreenを省略してFull Ablationへ直行する
 
 1日lightweight screenの実測が1 batchあたり数時間となり、5日・20日は既存seed 17 development OOFで

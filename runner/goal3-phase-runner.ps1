@@ -7,7 +7,7 @@ param(
     [string]$CoreScreenManifest = 'artifacts/campaigns/goal3-screen-5d20d-v1.json',
     [string]$OneDayDecisionArtifact = 'artifacts/decisions/goal3-one-day-screen-v1.json',
     [string]$FiveDayAblationManifest = 'artifacts/campaigns/goal3-ablation-5d-v1.json',
-    [string]$TwentyDayAblationManifest = 'artifacts/campaigns/goal3-ablation-20d-v1.json',
+    [string]$TwentyDayAblationManifest = 'artifacts/campaigns/goal3-ablation-20d-v2.json',
     [string]$OneDayAblationManifest = 'artifacts/campaigns/goal3-ablation-1d-v1.json',
     [string]$BuildManifest = 'data/live/builds/production/2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f/2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f.json',
     [string]$CodeCommit = '000812e09be3ceef5491aab073b47778a757c165',
@@ -226,8 +226,13 @@ function Assert-SourceProvenance {
 }
 
 function Invoke-ResearchRunner([string]$ManifestPath) {
+    $runnerAction = if (Test-AllSucceeded (Get-ManifestPayload $ManifestPath)) {
+        'verify-completed'
+    } else {
+        'run'
+    }
     & $WindowsPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass `
-        -File $ResearchRunner -Action run -Manifest $ManifestPath | Out-Host
+        -File $ResearchRunner -Action $runnerAction -Manifest $ManifestPath | Out-Host
     $exitCode = $LASTEXITCODE
     return $exitCode
 }
@@ -347,8 +352,8 @@ $OneDayLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-screen-1d-v1'
 $CoreReportRoot = Resolve-ProjectPath 'artifacts/reports/advanced'
 $FiveDayCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-ablation-5d-v1'
 $FiveDayLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-ablation-5d-v1'
-$TwentyDayCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-ablation-20d-v1'
-$TwentyDayLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-ablation-20d-v1'
+$TwentyDayCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-ablation-20d-v2'
+$TwentyDayLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-ablation-20d-v2'
 $OneDayAblationCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-ablation-1d-v1'
 $OneDayAblationLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-ablation-1d-v1'
 
