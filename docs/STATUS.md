@@ -1,6 +1,6 @@
 # Project Status
 
-## 2026-09-20 — 20日Full Ablationの検証停止修正・再開準備完了
+## 2026-09-20 02:09 JST — 20日Full Ablationの検証停止修正・独立runner再開
 
 - 5日Full Ablationは9/9完了。20日v1は最初のh20-lightgbm-s17が学習前の期間検証（579日／必要580日）で10回失敗。遅い学習とは区別する。
 - 正常なPython workerが存在しない安全境界でStockAI-Goal3-PhasedをDisable。workerの停止・重複起動はしていない。
@@ -9,7 +9,9 @@
 - 実Datasetのdate / label_end / status列だけで構造preflightを実施。20日development 936日、修正後tuning 580日（2,151,856行、末尾2024-08-13）、outer境界2024-09-12（候補1,253,466行）。holdout境界2026-03-04は不変、target値・成績は参照していない。
 - `.venv\\Scripts\\python.exe -m ruff check .` / `mypy src`（48 file）pass、`pytest -q` 258 pass、`pytest --cov -q` 258 pass / branch込み85.36%。runner隔離test 17 pass。未完了campaignをhistorical-completedとしてskipする試みも拒否。
 - `web`のnpm lint / typecheck / test（6 pass）/ build / test:e2e（Microsoft Edge 1 pass）を全pass。既存Starlette deprecation warning 1件のみ。uvはこのshellのPATHにないため既存固定`.venv`を直接使用し依存更新なし。
-- 同じStockAI-Goal3-Phasedを再開する準備完了。今後のstatus入口は変更なし。holdout未評価、実注文なし。
+- 同じStockAI-Goal3-PhasedをEnable/Start。起動確認でTask `Running`、新campaign `4b9ec00d4b844320480e4b865f9cce58e265f8e19de139d586d91b695777c6d8`、h20-lightgbm-s17 `RUNNING` / attempt 1 / 02:09:36 JST開始、後続8 batch `PENDING`を確認。開始直後のためデータ認証を含むbatch起動の確認であり、fold学習完了の確認ではない。
+- source checkpoint `d40d33c`、全gate後のrunner pin checkpoint `d643a6e`。Registryの既存未commit追記は保持し今回のcode commitへ混ぜていない。
+- 今後の進捗入口は`powershell -NoProfile -ExecutionPolicy Bypass -File runner/goal3-phase-runner.ps1 -Action status`をユーザー要求時に1回だけ実行。長時間処理はrunnerへ委譲し、継続監視なし。holdout未評価、実注文なし。
 
 ## 2026-09-09 — CPU cloud試運転の事前調査
 
