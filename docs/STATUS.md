@@ -1,5 +1,16 @@
 # Project Status
 
+## 2026-09-24 — PWAのUI整理（研究とは独立）
+
+- ユーザーの追加要望に沿って`web/`だけを改善。下部5ナビをアイコン付きで統一し、設定を「口座・資金 / AI・データ / 通知」のタブで整理。ランキング・検証も共通タブへ統一した。
+- 白・薄灰・青の簡素な画面へ変更。Todayは株数・変更量・取引後の推定現金を優先し、説明文・口座別の詳細・モデル情報は折りたたむ。Homeの金額表示と保有一覧も整理。D082に方針を記録。
+- stale提案をTodayと直接review URLで遮断。Paper観測0件は未観測表示。空欄金額を0円へ変換せず、更新時刻はJST固定。実注文・採用モデル・提案計算の仕様は変更していない。
+- `web`で`npm run lint` / `npm run typecheck` / `npm run test`（18 pass）/ `npm run build` / `npm run test:e2e`（Edge 6 pass）。既存の判断変更→保存→一部約定→翌日保有へのE2Eも維持。360 / 390 / 430 / 1280pxの5主要画面で横はみ出しなし。キーボードのタブ操作・stale遮断をブラウザでも確認。
+- `web/test-results/ui-layout-UI-routes-stay-readable-at-*/`にfixture画面の確認用スクリーンショットを生成し、目視確認済み。表示用fixtureはテスト用一時DBのみで、実台帳へ入力していない。
+- Python source、`pyproject.toml`、`uv.lock`はrunner固定source `d40d33c`との差分なし。runner・workerの停止／再起動／重複起動／監視は行っていない。Registryの既存未commit追記は保持し、UI checkpointへ含めない。Python全suiteは今回のfrontend-only変更では再実行していない。
+- ローカルPWAをbuild済み。`hosted/`と公開サイトは今回更新・配信していない。実データ受入・研究・前場データ等の既存BLOCKED条件は未変更、locked holdout未評価、実注文なし。
+- 研究の再開地点・手順は下の2026-09-20記録を参照。最新研究進捗はこのUI作業では取得していない。引き続きユーザーが進捗を要求した時だけread-only statusを1回実行する。
+
 ## 2026-09-20 02:09 JST — 20日Full Ablationの検証停止修正・独立runner再開
 
 - 5日Full Ablationは9/9完了。20日v1は最初のh20-lightgbm-s17が学習前の期間検証（579日／必要580日）で10回失敗。遅い学習とは区別する。

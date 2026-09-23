@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
-import { ActionBadge, PageHeader, StatePanel } from "../components";
+import { ActionBadge, PageHeader, StatePanel, TabBar } from "../components";
 import { useApiData } from "../hooks";
 import type { RankingRow } from "../types";
 
@@ -15,16 +15,17 @@ export function RankingPage(): ReactNode {
   const [rankType, setRankType] = useState("overall");
   const [search, setSearch] = useState("");
   const { data, error, loading } = useApiData<RankingRow[]>(`/api/v1/ranking?rankType=${rankType}&limit=50`);
-  const rows = (data || []).filter((row) => `${row.symbol}${row.company_name}`.toLowerCase().includes(search.toLowerCase()));
+  const query = search.trim().toLowerCase();
+  const rows = (data || []).filter((row) => `${row.symbol}${row.company_name}`.toLowerCase().includes(query));
   return (
     <div className="page">
-      <PageHeader eyebrow="予測順位 ≠ 最終売買" title="ランキング" />
-      <div className="segmented" role="tablist" aria-label="ランキング期間">
-        {tabs.map(([value, label]) => <button role="tab" aria-selected={rankType === value} className={rankType === value ? "active" : ""} key={value} onClick={() => setRankType(value)}>{label}</button>)}
-      </div>
-      <label className="search"><span className="sr-only">銘柄名・コードで検索</span><input placeholder="銘柄名・コードで検索" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-      <p className="explain">順位は予測評価です。最終提案は保有、現金、税、コスト、リスクも考慮します。</p>
-      {loading ? <StatePanel title="ランキングを読み込んでいます" /> : error ? <StatePanel tone="error" title="ランキングを取得できません" detail={error} /> : rows.length === 0 ? <StatePanel title="このランキングはまだありません" detail="認証済み予測を運用台帳へ登録すると表示されます。" /> : (
+      <PageHeader eyebrow="銘柄を探す" title="ランキング" />
+      <TabBar label="ランキング期間" options={tabs} value={rankType} onChange={setRankType} panelId="ranking-panel" />
+      <div id="ranking-panel" role="tabpanel" aria-labelledby={`ranking-panel-${rankType}`}>
+      <label className="search"><span className="sr-only">銘柄名・コードで検索</span><input type="search" placeholder="表示中の上位50件から検索" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+      <p className="explain">予測順位です。売買の提案は「今日」で確認。</p>
+      {!loading && !error && !!data?.length && <p className="list-count" role="status">{rows.length}件を表示 <span>取得した上位{data.length}件が対象</span></p>}
+      {loading ? <StatePanel title="ランキングを読み込んでいます" /> : error ? <StatePanel tone="error" title="ランキングを取得できません" detail={error} /> : rows.length === 0 ? <StatePanel title={query && data?.length ? "検索に一致する銘柄がありません" : "このランキングはまだありません"} detail={query && data?.length ? "表示対象の上位50件を検索しています。銘柄名またはコードを変えてください。" : "認証済み予測を運用台帳へ登録すると表示されます。"} /> : (
         <div className="ranking-list">
           {rows.map((row) => <Link className="ranking-row" key={row.ranking_id} to={`/stocks/${row.symbol}`}>
             <strong className="rank-number">{row.rank}</strong>
@@ -33,6 +34,7 @@ export function RankingPage(): ReactNode {
           </Link>)}
         </div>
       )}
+      </div>
     </div>
   );
 }

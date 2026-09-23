@@ -847,3 +847,18 @@ regression / ranking / quantile / large-lossの全役割で価値なし、realis
 directory型fail-closed latchにすることで1日完了境界後の新規core-screenだけを阻止する。更新runnerは1日判定artifactが
 存在しない間`ONE_DAY_EVALUATION_READY`で正常終了し、認証済み判定後だけ5日・20日Full Ablationへ進む。
 locked holdoutは全選択固定まで開かず、認証可能なreport / OOF / fold / Optuna trial / checkpointを再利用する。
+
+### D082 — 学習と独立したPWAの簡素化・タブ整理（2026-09-24）
+
+ユーザーの「今のうちにUIだけ」「タブで整理」「細かい説明を減らしてシンプルに」に従い、
+実操作画面である`web/`だけを改善する。`hosted/`の公開readiness companionの改修・配信は今回の対象外。
+研究source、runner、worker、seed、採否基準、checkpoint、Experiment Registry、locked holdoutには触れず、
+学習statusの監視・再起動も行わない。
+
+- 固定5ナビは維持。設定は「口座・資金 / AI・データ / 通知」に分ける。ランキング・検証も同じタブ部品を使い、矢印/Home/Endキーと関連panelのARIAを揃える。
+- Todayでは株数の変更とAPI由来の推定現金を主役にする。口座別現金・推定改善・モデル版は折りたたみ、情報そのものは失わない。
+- 「提案を見る → 判断を保存 → 結果を記録」は現在ページの案内であり、未確認の保存済み状態を意味しない。
+- UI_SPECに沿って白・薄灰・青を基調とし、グラデーション・過剰な影を除去。数値は等幅数字、主要操作は44px以上、360〜430pxとPC幅で確認する。
+- 詳細説明は必要時に開く。fixture・未設定・stale・未観測・自動発注なし等の安全上の区別は省略しない。
+- APIがstaleと明示した提案はTodayと直接review URLの両方で遮断する。Paper観測0件は成績0%に見せず未観測とする。時刻表示はJST固定。
+- 既存API・100株判断・実約定記録の契約は変更しない。見た目のテストには既存の一時fixture DBのみを使い、実台帳・実データを補完しない。

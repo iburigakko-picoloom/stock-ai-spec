@@ -14,21 +14,21 @@ export function HomePage(): ReactNode {
     return [...result.entries()];
   }, [data]);
 
-  if (loading) return <StatePanel title="実資産を読み込んでいます" />;
-  if (error) return <StatePanel tone="error" title="資産データを取得できません" detail={error} />;
+  if (loading || error) return <div className="page"><PageHeader eyebrow="実際の状態" title="ホーム" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "実資産を読み込んでいます" : "資産データを取得できません"} detail={error} /></div>;
   if (!data?.portfolio) {
     return (
       <div className="page">
         <PageHeader eyebrow="実際の状態" title="ホーム" />
         <RuntimeBanner mode={data?.runtimeMode || "UNCONFIGURED"} />
-        <StatePanel title="保有株が登録されていません" detail="手入力またはCSV取込で登録してください" />
+        <StatePanel title="資産データが未登録です" detail={data?.blockingReason || "保有株・口座区分・現金残高を登録すると、実資産を表示します。"} />
+        <Link className="button button--secondary" to="/settings">登録・口座の設定を確認</Link>
       </div>
     );
   }
 
   return (
     <div className="page">
-      <PageHeader eyebrow="実際の状態" title="ホーム" meta={`更新 ${dateTime(data.portfolio.asOf)}`} />
+      <PageHeader eyebrow="実際の状態" title="ホーム" meta={`更新 ${dateTime(data.portfolio.asOf)} JST`} />
       <RuntimeBanner mode={data.runtimeMode} />
       <section className="hero-balance" aria-labelledby="assets-title">
         <p id="assets-title">総資産</p>
@@ -38,6 +38,7 @@ export function HomePage(): ReactNode {
           <Metric label="株式" value={yen(data.portfolio.equityValue)} />
         </div>
       </section>
+      <Link className="next-action" to="/today"><strong>今日の提案を確認</strong><span aria-hidden="true">→</span></Link>
 
       <section className="section">
         <div className="section-title">
@@ -59,6 +60,7 @@ export function HomePage(): ReactNode {
                       <span>{symbol} ・ 合計 {shares.toLocaleString("ja-JP")}株</span>
                     </div>
                     <b>{yen(marketValue)}</b>
+                    <span className="disclosure-chevron" aria-hidden="true">⌄</span>
                   </summary>
                   {holdings.map((holding) => (
                     <Link className="holding-row" to={`/stocks/${holding.symbol}`} key={holding.accountBucketId}>
@@ -78,10 +80,10 @@ export function HomePage(): ReactNode {
           </div>
         )}
       </section>
-      <section className="info-strip">
-        <strong>実状態を正本にしています</strong>
-        <span>提案や保存済み判断は、実約定を記録するまで保有へ反映されません。</span>
-      </section>
+      <details className="metadata-details">
+        <summary>実状態を正本にしています</summary>
+        <p className="explain">実約定を記録するまで、提案や保存済み判断は保有に反映されません。</p>
+      </details>
     </div>
   );
 }

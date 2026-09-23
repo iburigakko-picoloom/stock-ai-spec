@@ -1,9 +1,7 @@
 import { type ReactNode, useState } from "react";
-import { Metric, PageHeader, StatePanel, dateTime, pct, yen } from "../components";
+import { Metric, PageHeader, StatePanel, TabBar, dateTime, pct, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { PaperSeriesPoint, PaperSummary } from "../types";
-
-type ValidationMode = "paper" | "live" | "historical";
 
 function PaperPerformanceChart({ series }: { series: PaperSeriesPoint[] }): ReactNode {
   if (series.length < 2) return <StatePanel title="チャートに必要な観測が不足しています" detail="1営業日Paperを2件以上記録すると表示します。" />;
@@ -28,17 +26,14 @@ function PaperPerformanceChart({ series }: { series: PaperSeriesPoint[] }): Reac
 }
 
 export function ValidationPage(): ReactNode {
-  const [mode, setMode] = useState<ValidationMode>("paper");
+  const [mode, setMode] = useState("paper");
   const { data, error, loading } = useApiData<PaperSummary & { blockingReason?: string }>(`/api/v1/validation?mode=${mode}`);
   return (
     <div className="page">
-      <PageHeader eyebrow="モデル診断と提案成績を分離" title="検証" />
-      <div className="segmented segmented--3" role="tablist">
-        <button role="tab" aria-selected={mode === "paper"} className={mode === "paper" ? "active" : ""} onClick={() => setMode("paper")}>提案Paper</button>
-        <button role="tab" aria-selected={mode === "live"} className={mode === "live" ? "active" : ""} onClick={() => setMode("live")}>実運用</button>
-        <button role="tab" aria-selected={mode === "historical"} className={mode === "historical" ? "active" : ""} onClick={() => setMode("historical")}>過去検証</button>
-      </div>
-      {loading ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : mode === "paper" && data ? <>
+      <PageHeader eyebrow="提案と実績を振り返る" title="検証" />
+      <TabBar label="検証の種類" options={[["paper", "提案Paper"], ["live", "実運用"], ["historical", "過去検証"]]} value={mode} onChange={setMode} panelId="validation-panel" />
+      <div id="validation-panel" role="tabpanel" aria-labelledby={`validation-panel-${mode}`}>
+      {loading ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : mode === "paper" && data?.observations === 0 ? <StatePanel title="Paperの観測はまだありません" detail="実データの観測を記録すると、成績を表示します。" /> : mode === "paper" && data ? <>
         <section className="validation-hero">
           <span>提案戦略（1営業日・記録済み将来観測）</span>
           <strong>{pct(data.proposal_return)}</strong>
@@ -56,7 +51,8 @@ export function ValidationPage(): ReactNode {
             <Metric label="平均税影響誤差" value={yen(data.mean_tax_error)} />
           </div>
         </section>
-        <section className="section">
+        <details className="section metadata-details">
+          <summary>モデル診断の詳細</summary>
           <div className="section-heading">
             <div><span>MODEL MONITOR</span><h2>Champion / Challenger</h2></div>
           </div>
@@ -70,7 +66,7 @@ export function ValidationPage(): ReactNode {
             <div><dt>直近/直前の誤差比</dt><dd>{data.drift_ratio == null ? "—" : `${data.drift_ratio.toFixed(2)}x`}</dd></div>
           </dl>
           <p className="explain">同じ現行モデル版の{data.drift_window}件ずつを比較します。Challenger比較は同じ組合せの分母だけです。自動的なモデル昇格には使いません。</p>
-        </section>
+        </details>
         <section className="section">
           <div className="section-heading">
             <div><span>PERIODIC READOUT</span><h2>週次・月次</h2></div>
@@ -89,6 +85,7 @@ export function ValidationPage(): ReactNode {
           {!data.model_monitoring_ready && <p>モデル版ごとの監視・比較件数はまだ不足しています。</p>}
         </section>
       </> : <StatePanel title="実運用データはまだありません" detail="実行結果を記録すると表示されます。" />}
+      </div>
     </div>
   );
 }
