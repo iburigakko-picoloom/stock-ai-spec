@@ -1,5 +1,15 @@
 # Project Status
 
+## 2026-09-24 — Sites公開版のUI更新完了
+
+- ユーザーの公開指示を受け、D083に従い既存Sites companionへUIを移植。同一URL `https://stock-ai-decision-support.manato0618.chatgpt.site`、public閲覧のままversion 3を公開。Sites deployment `appgdep_6ab3fbefd368819185dc93b0ae2650e0`は`succeeded`（2026-09-24 01:19 JST）。
+- 公開source commit `e9d53ca44fdf978b42b2feb0f5d1dc9c64c82483`、保存version `appgprj_6a8db03cc2148191ab25ed902dd2b950~appgver_1912e3b101688191b5eadbf71cf40908`。同一commitのWorker/client成果物だけをarchive化して保存・公開した。
+- ホーム / 今日 / ランキング / 検証 / 設定を切替可能。設定の分類タブ、折りたたみ説明、白・薄灰・青のUIを反映。公開版は実台帳と未接続のまま、金額は`—`、提案は`NO PROPOSAL`。古い取得期間・固定の進捗表示は撤去した。
+- `hosted`のESLint、TypeScript noEmit、production buildをpass。ローカルHTTP 200・初期HTMLを確認。Edgeで360pxの5画面、設定タブ、直接hash遷移、横はみ出しなし、page error 0を確認。Sites本番の成功はnative deployment結果で確認した。
+- Windowsの公式公開helperのnpm shim解決とGNU tarのdrive-letter解釈に失敗したため、既存npm CLIの直接入口と一時`TAR_OPTIONS=--force-local`で再実行。依存・lockfile・認証・DB schemaは変更せず、成功した検証とbuildを再利用した。
+- 認証済み本人の安全確認だけを保存する仕組み、D1、既存OG画像は維持。APIキー、実口座・提案・約定台帳、J-Quants data、研究成果物をアップロードしていない。localhost APIへのproxy / tunnelなし。
+- 研究コード・runner・worker・locked holdoutは未変更、進捗statusの取得や学習監視も行っていない。Registryの既存未commit追記は引き続き保持し、公開用checkpointには含めない。
+
 ## 2026-09-24 — PWAのUI整理（研究とは独立）
 
 - ユーザーの追加要望に沿って`web/`だけを改善。下部5ナビをアイコン付きで統一し、設定を「口座・資金 / AI・データ / 通知」のタブで整理。ランキング・検証も共通タブへ統一した。
