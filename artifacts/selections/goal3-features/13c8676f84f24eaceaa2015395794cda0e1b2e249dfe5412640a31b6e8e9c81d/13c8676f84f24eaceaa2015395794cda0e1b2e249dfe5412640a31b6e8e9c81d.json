@@ -1,0 +1,639 @@
+{
+  "feature_selection": {
+    "ablation_campaign_ids": [
+      "3247a20775984f2676f63d1d3e8c86e64c036edda1060efb78965fcafe0c1843",
+      "4b9ec00d4b844320480e4b865f9cce58e265f8e19de139d586d91b695777c6d8"
+    ],
+    "adoption_eligible": false,
+    "build_id": "2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f",
+    "created_at": "2026-09-27T10:11:32.941320Z",
+    "data_snapshot_id": "3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d",
+    "feature_manifest_hash": "83859eb61896ca0d6ee4420b78f078a1990618c4e8de9427d5699574a2aff9a3",
+    "feature_selection_id": "13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d",
+    "feature_snapshot_id": "909ee85573ea9465da253ffa1884cab80ab0a8d7548d9cfa296f7b58cf8ba804",
+    "holdout_periods": 120,
+    "horizons": [
+      {
+        "feature_families": [
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F1",
+            "family_name": "MA / long-term position",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F2",
+            "family_name": "MACD",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17,
+              29,
+              43
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": true,
+            "selected_features": [
+              "macd.value_pct_price",
+              "macd.signal_pct_price",
+              "macd.histogram_pct_price",
+              "macd.golden_cross",
+              "macd.dead_cross",
+              "macd.days_since_golden_cross",
+              "macd.days_since_dead_cross"
+            ]
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F3",
+            "family_name": "RSI / oscillator",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              43
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F4",
+            "family_name": "Bollinger",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F5",
+            "family_name": "ADX / DI",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              29
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F6",
+            "family_name": "Volatility / downside",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F7",
+            "family_name": "Volume / money flow",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 9,
+            "evidence_reports": 0,
+            "family_id": "F8",
+            "family_name": "Valuation / quality / growth",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 9,
+            "evidence_reports": 0,
+            "family_id": "F9",
+            "family_name": "Revision / surprise",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F10",
+            "family_name": "Relative / market context",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 9,
+            "evidence_reports": 0,
+            "family_id": "F11",
+            "family_name": "Supply / demand",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F12",
+            "family_name": "Candle / breakout",
+            "horizon": 5,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17,
+              43
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": true,
+            "selected_features": [
+              "candle.body_pct_close",
+              "candle.body_to_range",
+              "candle.upper_wick_ratio",
+              "candle.lower_wick_ratio",
+              "candle.close_location",
+              "candle.gap_pct",
+              "breakout.above_20d_high",
+              "breakout.below_20d_low",
+              "breakout.above_60d_high",
+              "breakout.below_60d_low"
+            ]
+          }
+        ],
+        "feature_names": [
+          "price.return_1d",
+          "price.return_5d",
+          "price.return_20d",
+          "price.return_60d",
+          "price.return_120d",
+          "risk.realized_vol_20d",
+          "risk.realized_vol_60d",
+          "volume.ratio_20d",
+          "liquidity.trading_value",
+          "liquidity.trading_value_mean_20d",
+          "price.distance_52w_high",
+          "relative.topix_5d",
+          "relative.topix_20d",
+          "relative.topix_60d",
+          "relative.sector_5d",
+          "relative.sector_20d",
+          "relative.sector_60d",
+          "fundamental.per",
+          "fundamental.pbr",
+          "fundamental.roe",
+          "fundamental.operating_margin",
+          "fundamental.revenue_growth_yoy",
+          "fundamental.operating_profit_growth_yoy",
+          "fundamental.forecast_revision",
+          "macd.value_pct_price",
+          "macd.signal_pct_price",
+          "macd.histogram_pct_price",
+          "macd.golden_cross",
+          "macd.dead_cross",
+          "macd.days_since_golden_cross",
+          "macd.days_since_dead_cross",
+          "candle.body_pct_close",
+          "candle.body_to_range",
+          "candle.upper_wick_ratio",
+          "candle.lower_wick_ratio",
+          "candle.close_location",
+          "candle.gap_pct",
+          "breakout.above_20d_high",
+          "breakout.below_20d_low",
+          "breakout.above_60d_high",
+          "breakout.below_60d_low"
+        ],
+        "feature_names_hash": "05291f534168d34bed54f59f5ca673466f6c1893cdfd8ad28b98bc231d190bd9",
+        "horizon": 5
+      },
+      {
+        "feature_families": [
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F1",
+            "family_name": "MA / long-term position",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F2",
+            "family_name": "MACD",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F3",
+            "family_name": "RSI / oscillator",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F4",
+            "family_name": "Bollinger",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F5",
+            "family_name": "ADX / DI",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              43
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F6",
+            "family_name": "Volatility / downside",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17,
+              29,
+              43
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": true,
+            "selected_features": [
+              "risk.realized_vol_20d",
+              "risk.realized_vol_60d",
+              "risk.atr_14",
+              "risk.natr_14",
+              "market.volatility_20d",
+              "risk.downside_vol_20d",
+              "risk.max_drawdown_60d",
+              "risk.max_drawdown_120d",
+              "risk.return_skew_60d",
+              "risk.return_quantile_10_60d"
+            ]
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F7",
+            "family_name": "Volume / money flow",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17,
+              29,
+              43
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": true,
+            "selected_features": [
+              "volume.ratio_20d",
+              "liquidity.trading_value",
+              "liquidity.trading_value_mean_20d",
+              "volume.ratio_5_60",
+              "liquidity.turnover_20d",
+              "volume.obv_slope_5d",
+              "volume.mfi_14",
+              "volume.zscore_20d",
+              "liquidity.trading_value_ratio_20_60",
+              "volume.obv_slope_20d",
+              "volume.cmf_20"
+            ]
+          },
+          {
+            "blocked_reports": 9,
+            "evidence_reports": 0,
+            "family_id": "F8",
+            "family_name": "Valuation / quality / growth",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 9,
+            "evidence_reports": 0,
+            "family_id": "F9",
+            "family_name": "Revision / surprise",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F10",
+            "family_name": "Relative / market context",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17,
+              43
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": true,
+            "selected_features": [
+              "relative.topix_5d",
+              "relative.topix_20d",
+              "relative.topix_60d",
+              "relative.sector_5d",
+              "relative.sector_20d",
+              "relative.sector_60d",
+              "market.volatility_20d",
+              "market.breadth"
+            ]
+          },
+          {
+            "blocked_reports": 9,
+            "evidence_reports": 0,
+            "family_id": "F11",
+            "family_name": "Supply / demand",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": false,
+            "selected_features": []
+          },
+          {
+            "blocked_reports": 0,
+            "evidence_reports": 9,
+            "family_id": "F12",
+            "family_name": "Candle / breakout",
+            "horizon": 20,
+            "rule": "at_least_two_thirds_of_seeds_tuning_only",
+            "seed_votes_selected": [
+              17,
+              29
+            ],
+            "seeds": [
+              17,
+              29,
+              43
+            ],
+            "selected": true,
+            "selected_features": [
+              "candle.body_pct_close",
+              "candle.body_to_range",
+              "candle.upper_wick_ratio",
+              "candle.lower_wick_ratio",
+              "candle.close_location",
+              "candle.gap_pct",
+              "breakout.above_20d_high",
+              "breakout.below_20d_low",
+              "breakout.above_60d_high",
+              "breakout.below_60d_low"
+            ]
+          }
+        ],
+        "feature_names": [
+          "price.return_1d",
+          "price.return_5d",
+          "price.return_20d",
+          "price.return_60d",
+          "price.return_120d",
+          "risk.realized_vol_20d",
+          "risk.realized_vol_60d",
+          "volume.ratio_20d",
+          "liquidity.trading_value",
+          "liquidity.trading_value_mean_20d",
+          "price.distance_52w_high",
+          "relative.topix_5d",
+          "relative.topix_20d",
+          "relative.topix_60d",
+          "relative.sector_5d",
+          "relative.sector_20d",
+          "relative.sector_60d",
+          "fundamental.per",
+          "fundamental.pbr",
+          "fundamental.roe",
+          "fundamental.operating_margin",
+          "fundamental.revenue_growth_yoy",
+          "fundamental.operating_profit_growth_yoy",
+          "fundamental.forecast_revision",
+          "risk.atr_14",
+          "risk.natr_14",
+          "volume.ratio_5_60",
+          "liquidity.turnover_20d",
+          "volume.obv_slope_5d",
+          "volume.mfi_14",
+          "market.volatility_20d",
+          "market.breadth",
+          "risk.downside_vol_20d",
+          "risk.max_drawdown_60d",
+          "risk.max_drawdown_120d",
+          "risk.return_skew_60d",
+          "risk.return_quantile_10_60d",
+          "volume.zscore_20d",
+          "liquidity.trading_value_ratio_20_60",
+          "volume.obv_slope_20d",
+          "volume.cmf_20",
+          "candle.body_pct_close",
+          "candle.body_to_range",
+          "candle.upper_wick_ratio",
+          "candle.lower_wick_ratio",
+          "candle.close_location",
+          "candle.gap_pct",
+          "breakout.above_20d_high",
+          "breakout.below_20d_low",
+          "breakout.above_60d_high",
+          "breakout.below_60d_low"
+        ],
+        "feature_names_hash": "eb62ce8d4349d7f867a2b4b06914f209fb48112e21d6c0a781a514b97dc16e53",
+        "horizon": 20
+      }
+    ],
+    "locked_holdout_accessed": false,
+    "locked_holdout_start": "2026-03-04",
+    "one_day_exclusion_decision_hash": "88f343f91fa61e64ef71085e2ee72db82a63de5dac2c44b2dc03c9d7cb6e06a8",
+    "schema_version": "goal3-development-feature-selection-v1",
+    "seeds": [
+      17,
+      29,
+      43
+    ],
+    "selection_basis": "ablation_tuning_period_seed_vote_only",
+    "source_code_commits": [
+      "000812e09be3ceef5491aab073b47778a757c165",
+      "d40d33c3020af5063b34321cf5444a8ef1a940b1"
+    ],
+    "source_report_ids": [
+      "00a4f90aafbfbd3cb9b2567677866011430ad43428e3c5465057702c319f93dc",
+      "034301f6615e40e2afab32955b6156b4a59072a2e9d6c3b793a2ef1317737f44",
+      "03ebf6f6afee7e4779dcb65628d8ea45892e7324107cb99a2ea5861bddd925ef",
+      "07481ffeb4ad9c9255daef9b9e3c4d229c97fb230c6bbe3e094352482ec5b0ce",
+      "1bd79c2ee0e394733785d4fcc5b3b16237140d9f5b883abac66882707a0f76bb",
+      "2228983ea9c5a94a50da35980c4e431d69a9e14e0c91fc9b219a7c456244d944",
+      "3e26915b9cd463eb4b749615fae2855c5dd951a99b6df6ccf7dc766ce1743f94",
+      "6211dce1cf09044525e4362e809ee6fbe95926a8d173f4a7853b4c4525049353",
+      "7ca93ac4fc8e0405e4278d8357eedbaf5ab0f72c39fc88dfbca601ff7a7e4b47",
+      "8a4b1ba0c9c8e5bc5ea7fbe4c53e36b5119696b45ba2ef38bf392249b718035e",
+      "a6a47ea88a1ad1261345e3df90b5724bc673319cf8f069771a5f7894d84f3385",
+      "c24a6222c8c07158d40115a32549c58f2ad0bb92dc18c9be297afe7561f149a7",
+      "c9d2aa96c3a0b61d147c4d812cce62ffeada79681c80711775b2a6786215d0b7",
+      "d4cefef63931ba6cce9a4a7597c696ebc36cc6b4c2a42dae3ae65376c5e9f4ed",
+      "da2690271a26e9588fb2e67d002441c5757f96d926aae0d83d72ecec3e38429b",
+      "e0112ce4fc568683c64f1ad64dfa5d233e7ac6bd33c4eca59f9d0851b005dc2d",
+      "f9178ff8b49725c7498f40aef596d3fbb2fd2308b717fe59b9c0810f83f84d83",
+      "fc6e7f82aef557e1085a8880d43d35cedb7be8148e78d2596980aab6dbf6f03d"
+    ]
+  },
+  "feature_selection_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\selections\\goal3-features\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d.json",
+  "metadata_hash": "53999b8835d6dca19a1076504151792b94e8116b3828ffa6af348c337fcb82d0"
+}

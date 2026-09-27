@@ -870,3 +870,17 @@ D067のpublic閲覧範囲、本人別の安全確認のみを保存する認証�
 ローカルPWA/FastAPIを公開・proxy化したり、口座台帳・実提案・model・J-Quants dataをアップロードしたりしない。
 ホーム / 今日 / ランキング / 検証 / 設定を切り替えられるが、実データ接続がない欄は未接続、金額は`—`、
 提案は`NO PROPOSAL`とする。古い固定の履歴取得期間や進捗表示を撤去し、現在の研究statusを取得・推測しない。
+
+### D084 — 5日・20日のFeature voteを固定し、model familyは保留（2026-09-27）
+
+D080の1日screen判定`EXCLUDE_FROM_FULL_ABLATION_AND_FINAL`を維持する。完了した5日・20日の
+LightGBM / XGBoost / CatBoost × seed 17 / 29 / 43、計18件の認証済みFull Ablationだけで、
+D075のstrictly-earlier tuning vote（各seedでmodel family過半数、3 seed中2以上）を適用する。
+1日のFull Ablationを要求せずにfeature selectionを固定できるよう、5日・20日のみのartifactを認め、
+除外判定の内容hashをartifactへ含める。従来の1日・5日・20日を含む完全matrixも引き続き認める。
+
+- 5日: F2 MACD（3/3 seed）、F12 Candle / breakout（2/3 seed）を採用し、V0との和集合41特徴を固定。
+- 20日: F6 Volatility / downside（3/3）、F7 Volume / money flow（3/3）、F10 Relative / market context（2/3）、F12 Candle / breakout（2/3）を採用し、V0との和集合51特徴を固定。
+- 各feature familyの採否はtuning-period voteだけで決め、後続outer OOF・importance単独・locked holdoutでは変更しない。
+- Model family削減はD080の全棄却条件を満たした場合だけ行う。今回の18件はrealistic cost評価がすべて`BLOCKED_BY_DATA_CAPABILITY`で、ensemble追加価値・各objective・turnover / downsideも全条件を満たす棄却証拠がない。このため5日・20日とも3 familyを`ABLATION_HOLD`とし、Final Candidateで比較する。削減数を目標にしない。
+- Feature selection artifact `13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d`は18 source report、2 source commit、1日除外判定hash、Build / Dataset / Feature ID、holdout境界を固定し、`locked_holdout_accessed=false`である。これは特徴量の決定であり、Champion・ensemble weight・実運用採用の決定ではない。

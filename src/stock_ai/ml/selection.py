@@ -61,6 +61,12 @@ from stock_ai.ml.research_metrics import (
 _MODEL_FAMILIES: tuple[ModelFamily, ...] = ("lightgbm", "xgboost", "catboost")
 _MODEL_TASKS: tuple[ModelTask, ...] = ("regression", "ranking", "quantile", "large_loss")
 _SELECTION_SCHEMA = "goal3-development-selection-v1"
+_ALLOWED_HORIZON_SETS: tuple[tuple[int, ...], ...] = ((5, 20), HORIZONS)
+
+
+def _require_active_horizons(horizons: tuple[int, ...]) -> None:
+    if horizons not in _ALLOWED_HORIZON_SETS:
+        raise ValueError("selection requires ordered 5d/20d or 1d/5d/20d horizons")
 
 
 class FrozenModelComponent(BaseModel):
@@ -192,6 +198,7 @@ class DevelopmentFeatureSelectionArtifact(BaseModel):
     ablation_campaign_ids: tuple[str, ...]
     source_report_ids: tuple[str, ...]
     source_code_commits: tuple[str, ...]
+    one_day_exclusion_decision_hash: str | None = None
     seeds: tuple[int, ...]
     holdout_periods: int = Field(ge=1)
     locked_holdout_start: str
@@ -211,8 +218,14 @@ class DevelopmentFeatureSelectionArtifact(BaseModel):
 
     @model_validator(mode="after")
     def coherent_artifact(self) -> Self:
-        if tuple(item.horizon for item in self.horizons) != HORIZONS:
-            raise ValueError("feature selection requires ordered 1d/5d/20d horizons")
+        horizons = tuple(item.horizon for item in self.horizons)
+        _require_active_horizons(horizons)
+        if (horizons == (5, 20)) != (self.one_day_exclusion_decision_hash is not None):
+            raise ValueError("5d/20d feature selection requires one-day exclusion evidence")
+        if self.one_day_exclusion_decision_hash is not None and len(
+            self.one_day_exclusion_decision_hash
+        ) != 64:
+            raise ValueError("one-day exclusion decision hash is invalid")
         if len(self.seeds) < 3 or len(self.seeds) != len(set(self.seeds)):
             raise ValueError("feature selection requires at least three unique seeds")
         if any(
@@ -314,6 +327,7 @@ class DevelopmentSelectionArtifact(BaseModel):
     ablation_campaign_ids: tuple[str, ...]
     source_report_ids: tuple[str, ...]
     source_code_commits: tuple[str, ...]
+    one_day_exclusion_decision_hash: str | None = None
     seeds: tuple[int, ...]
     locked_holdout_start: str
     locked_holdout_accessed: Literal[False] = False
@@ -337,8 +351,14 @@ class DevelopmentSelectionArtifact(BaseModel):
 
     @model_validator(mode="after")
     def complete_before_holdout(self) -> Self:
-        if tuple(item.horizon for item in self.horizons) != HORIZONS:
-            raise ValueError("development selection requires ordered 1d/5d/20d horizons")
+        horizons = tuple(item.horizon for item in self.horizons)
+        _require_active_horizons(horizons)
+        if (horizons == (5, 20)) != (self.one_day_exclusion_decision_hash is not None):
+            raise ValueError("5d/20d development selection requires one-day exclusion evidence")
+        if self.one_day_exclusion_decision_hash is not None and len(
+            self.one_day_exclusion_decision_hash
+        ) != 64:
+            raise ValueError("one-day exclusion decision hash is invalid")
         if len(self.seeds) < 3 or len(self.seeds) != len(set(self.seeds)):
             raise ValueError("development selection requires at least three unique seeds")
         if not self.source_report_ids or len(self.source_report_ids) != len(
@@ -374,6 +394,7 @@ class _FeatureVoteEvidence:
     campaign_ids: tuple[str, ...]
     report_ids: tuple[str, ...]
     code_commits: tuple[str, ...]
+    one_day_exclusion_decision_hash: str | None
     data_snapshot_id: str
     feature_snapshot_id: str
     feature_manifest_hash: str
@@ -386,6 +407,7 @@ class _FeatureVoteEvidence:
 def freeze_development_features(
     *,
     ablation_campaign_paths: Sequence[Path],
+    one_day_decision_path: Path | None = None,
     created_at: datetime | None = None,
 ) -> DevelopmentFeatureSelectionArtifact:
     """Freeze tuning-only feature votes before any final-candidate campaign starts."""
@@ -394,6 +416,10 @@ def freeze_development_features(
         raise ValueError("feature selection requires completed ablation campaigns")
     runs = _load_completed_campaigns(ablation_campaign_paths, require_ablations=True)
     evidence = _derive_feature_votes(runs)
+    active_horizons = tuple(evidence.by_horizon)
+    exclusion_hash = _authenticate_one_day_exclusion(
+        one_day_decision_path, build_id=evidence.build_id, required=active_horizons == (5, 20)
+    )
     seeds = tuple(
         sorted(
             {
@@ -415,6 +441,7 @@ def freeze_development_features(
         "ablation_campaign_ids": evidence.campaign_ids,
         "source_report_ids": evidence.report_ids,
         "source_code_commits": evidence.code_commits,
+        "one_day_exclusion_decision_hash": exclusion_hash,
         "seeds": seeds,
         "holdout_periods": evidence.holdout_periods,
         "locked_holdout_start": evidence.locked_holdout_start,
@@ -427,7 +454,7 @@ def freeze_development_features(
                 feature_names_hash=_stable_hash(evidence.feature_names_by_horizon[horizon]),
                 feature_families=evidence.by_horizon[horizon],
             )
-            for horizon in HORIZONS
+            for horizon in active_horizons
         ),
         "adoption_eligible": False,
     }
@@ -436,6 +463,35 @@ def freeze_development_features(
         _feature_selection_identity(provisional)
     )
     return DevelopmentFeatureSelectionArtifact.model_validate(values)
+
+
+def _authenticate_one_day_exclusion(
+    path: Path | None, *, build_id: str, required: bool
+) -> str | None:
+    if not required:
+        if path is not None:
+            raise ValueError("one-day exclusion decision is incompatible with 1d ablation")
+        return None
+    if path is None:
+        raise ValueError("5d/20d feature selection requires one-day exclusion decision")
+    try:
+        raw = path.read_bytes()
+        decision = json.loads(raw)
+    except (OSError, ValueError):
+        raise ValueError("one-day exclusion decision is missing or invalid") from None
+    if not isinstance(decision, dict) or any(
+        (
+            decision.get("schema_version") != "goal3-one-day-screen-decision-v1",
+            decision.get("criteria_version") != "D080",
+            decision.get("build_id") != build_id,
+            decision.get("decision") != "EXCLUDE_FROM_FULL_ABLATION_AND_FINAL",
+            decision.get("locked_holdout_accessed") is not False,
+            not isinstance(decision.get("screen_report_ids"), list),
+            not decision.get("screen_report_ids"),
+        )
+    ):
+        raise ValueError("one-day exclusion decision does not match the research contract")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def write_development_feature_selection(
@@ -544,7 +600,8 @@ def _freeze_development_selection_from_evidence(
     *,
     created_at: datetime | None,
 ) -> DevelopmentSelectionArtifact:
-    _require_candidate_matrix(candidate_runs)
+    active_horizons = tuple(feature_votes.by_horizon)
+    _require_candidate_matrix(candidate_runs, horizons=active_horizons)
     build_ids = {run.build_id for run in candidate_runs}
     if len(build_ids) != 1:
         raise ValueError("candidate campaigns must use one Production Build")
@@ -566,7 +623,7 @@ def _freeze_development_selection_from_evidence(
     ):
         raise ValueError("ablation and candidate evidence do not share one data contract")
     horizons: list[HorizonDevelopmentSelection] = []
-    for horizon in HORIZONS:
+    for horizon in active_horizons:
         horizon_runs = tuple(run for run in candidate_runs if run.batch.horizon == horizon)
         expected_features = feature_votes.feature_names_by_horizon[horizon]
         if any(run.report.feature_names != expected_features for run in horizon_runs):
@@ -609,6 +666,7 @@ def _freeze_development_selection_from_evidence(
                 }
             )
         ),
+        "one_day_exclusion_decision_hash": feature_votes.one_day_exclusion_decision_hash,
         "seeds": seeds,
         "locked_holdout_start": reference.locked_holdout_start,
         "locked_holdout_accessed": False,
@@ -778,7 +836,9 @@ def _derive_feature_votes(runs: Sequence[_AuthenticatedRun]) -> _FeatureVoteEvid
     by_horizon: dict[int, tuple[FeatureFamilySelection, ...]] = {}
     features_by_horizon: dict[int, tuple[str, ...]] = {}
     canonical_plan = dict(_canonical_ablation_plan())
-    for horizon in HORIZONS:
+    active_horizons = tuple(sorted({run.batch.horizon for run in runs}))
+    _require_active_horizons(active_horizons)
+    for horizon in active_horizons:
         horizon_runs = tuple(run for run in runs if run.batch.horizon == horizon)
         seeds = tuple(sorted({cast(int, run.batch.seed) for run in horizon_runs}))
         if len(seeds) < 3:
@@ -846,6 +906,7 @@ def _derive_feature_votes(runs: Sequence[_AuthenticatedRun]) -> _FeatureVoteEvid
         campaign_ids=tuple(sorted({run.campaign_id for run in runs})),
         report_ids=tuple(sorted(run.report.report_id for run in runs)),
         code_commits=tuple(sorted({run.report.code_commit for run in runs})),
+        one_day_exclusion_decision_hash=None,
         data_snapshot_id=reference.data_snapshot_id,
         feature_snapshot_id=reference.feature_snapshot_id,
         feature_manifest_hash=reference.feature_manifest_hash,
@@ -864,6 +925,7 @@ def _feature_vote_evidence_from_artifact(
         campaign_ids=artifact.ablation_campaign_ids,
         report_ids=artifact.source_report_ids,
         code_commits=artifact.source_code_commits,
+        one_day_exclusion_decision_hash=artifact.one_day_exclusion_decision_hash,
         data_snapshot_id=artifact.data_snapshot_id,
         feature_snapshot_id=artifact.feature_snapshot_id,
         feature_manifest_hash=artifact.feature_manifest_hash,
@@ -891,7 +953,9 @@ def _canonical_ablation_plan() -> tuple[tuple[str, tuple[str, tuple[str, ...]]],
     )
 
 
-def _require_candidate_matrix(runs: Sequence[_AuthenticatedRun]) -> None:
+def _require_candidate_matrix(
+    runs: Sequence[_AuthenticatedRun], *, horizons: tuple[int, ...]
+) -> None:
     seeds = tuple(sorted({cast(int, run.batch.seed) for run in runs}))
     if len(seeds) < 3:
         raise ValueError("final candidate comparison requires at least three seeds")
@@ -900,7 +964,7 @@ def _require_candidate_matrix(runs: Sequence[_AuthenticatedRun]) -> None:
     }
     expected = {
         (horizon, family, seed)
-        for horizon in HORIZONS
+        for horizon in horizons
         for family in _MODEL_FAMILIES
         for seed in seeds
     }

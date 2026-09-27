@@ -1571,9 +1571,10 @@ def research_candidate_campaigns(
     except (ValueError, RuntimeError, OSError) as exc:
         typer.echo(f"final candidate campaigns blocked: {exc}", err=True)
         raise typer.Exit(code=2) from None
+    horizon_list = ",".join(str(horizon.horizon) for horizon in feature_plan.horizons)
     typer.echo(
         f"feature_selection={feature_plan.feature_selection_id} "
-        "candidate_campaigns=SUCCEEDED horizons=1,5,20 locked_holdout_accessed=false"
+        f"candidate_campaigns=SUCCEEDED horizons={horizon_list} locked_holdout_accessed=false"
     )
 
 
@@ -1692,6 +1693,10 @@ def research_freeze_features(
         Path,
         typer.Option(help="Content-addressed tuning-only feature-selection root."),
     ] = Path("artifacts/selections/goal3-features"),
+    one_day_decision: Annotated[
+        Path | None,
+        typer.Option(help="D080 exclusion decision when only 5d/20d ablations ran."),
+    ] = None,
     experiment_registry: Annotated[
         Path,
         typer.Option(help="Append-only Goal 3 feature/model selection registry."),
@@ -1701,7 +1706,8 @@ def research_freeze_features(
 
     try:
         feature_selection = freeze_development_features(
-            ablation_campaign_paths=tuple(ablation_campaign)
+            ablation_campaign_paths=tuple(ablation_campaign),
+            one_day_decision_path=one_day_decision,
         )
         path = write_development_feature_selection(
             feature_selection,

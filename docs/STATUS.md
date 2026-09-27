@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-09-27 — Goal 3 Feature Selection固定
+
+- 5日・20日のFull Ablationは各9/9、計18/18 batch `SUCCEEDED`。同一horizon内はLightGBM / XGBoost / CatBoost × seed 17 / 29 / 43。1日はD080判定どおりFinal Candidateから除外し、1日除外判定を変更していない。
+- 認証済み18 report / OOFと既存1日判定だけを入力に、D075のstrictly-earlier tuning-period seed voteを実行。feature selection artifact `artifacts/selections/goal3-features/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d.json`を不変保存し、Experiment Registryへidempotent追記。再読込認証で18 source report、horizon 5 / 20、`locked_holdout_accessed=false`を確認。
+- 5日はF2 MACD 3/3 seedとF12 Candle / breakout 2/3 seedを採用し、V0を含む41特徴を固定。20日はF6 Volatility / downside 3/3、F7 Volume / money flow 3/3、F10 Relative / market context 2/3、F12 Candle / breakout 2/3を採用し、51特徴を固定。exact列と全F1〜F12 voteはartifactを正本とする。
+- 18 reportのrealistic cost評価はすべて`BLOCKED_BY_DATA_CAPABILITY`。D080のmodel-family棄却全条件を満たせないため、5日・20日とも3 familyを`ABLATION_HOLD`としてFinal Candidate比較へ残す。これはChampion採用の判定ではない。
+- D084に沿い、1日除外証拠hash付きの5日・20日選択を研究schema / CLI / 後続選択・holdout reportで受け入れる。従来の1 / 5 / 20日構成も維持する。研究workerの停止・再起動・重複実行はなく、locked holdoutは未開封。
+- 次は固定artifactを使い、5日・20日の各3 family × 3 seedのFinal Candidate campaignを独立runnerへ委譲する。開始前にsource checkpointとcode commitを固定し、全候補完了までmodel / ensemble / hyperparameterを確定済みと扱わない。
+
 ## 2026-09-24 — Sites公開版のUI更新完了
 
 - ユーザーの公開指示を受け、D083に従い既存Sites companionへUIを移植。同一URL `https://stock-ai-decision-support.manato0618.chatgpt.site`、public閲覧のままversion 3を公開。Sites deployment `appgdep_6ab3fbefd368819185dc93b0ae2650e0`は`succeeded`（2026-09-24 01:19 JST）。

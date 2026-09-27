@@ -181,7 +181,9 @@ development OOFから残る全選択を固定する。
 
 ```text
 stock-ai research freeze-features \
-  --ablation-campaign <completed-v2-ablation-manifest> \
+  --ablation-campaign <completed-5d-v2-ablation-manifest> \
+  --ablation-campaign <completed-20d-v2-ablation-manifest> \
+  --one-day-decision <authenticated-1d-exclusion-decision.json> \
   --feature-selection-root artifacts/selections/goal3-features
 stock-ai research candidate-campaigns \
   --feature-selection <content-addressed-feature-selection.json> \
@@ -189,12 +191,12 @@ stock-ai research candidate-campaigns \
   --code-commit <exact-candidate-commit>
 stock-ai research finalize-selection \
   --feature-selection <content-addressed-feature-selection.json> \
-  --candidate-campaign <completed-h1-manifest> \
   --candidate-campaign <completed-h5-manifest> \
   --candidate-campaign <completed-h20-manifest>
 ```
 
-この段階で1 / 5 / 20日ごとのfeature family、expected-return / rank / downside / large-loss model、
+1日screenが全gateを通過してFull Ablationを完了した場合は、1日のablation / candidate manifestも加える。
+この段階で対象horizonごとのfeature family、expected-return / rank / downside / large-loss model、
 全hyperparameter、OOF ensemble weight、uncertainty calibrationが固定され、Experiment Registryには
 `locked_holdout_accessed=false`で記録される。不完全campaign、3 seed未満、snapshot / Build / feature / code不一致、
 holdoutを含むreportは拒否する。
