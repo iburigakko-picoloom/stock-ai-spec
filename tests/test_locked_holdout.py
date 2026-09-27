@@ -1094,6 +1094,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     environment = os.environ.copy()
     environment["JQUANTS_API_KEY"] = "test-placeholder-never-print"
     feature_before = feature_path.read_bytes()
+    campaign_root = tmp_path / "株AI campaigns"
 
     status_command = [
         str(powershell),
@@ -1110,8 +1111,10 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
         str(build_path),
         "-CodeCommit",
         "unused-for-read-only-status",
+        "-RunDiagnostics",
+        "1",
         "-CampaignRoot",
-        str(tmp_path / "campaigns"),
+        str(campaign_root),
     ]
     status = subprocess.run(
         status_command,
@@ -1132,7 +1135,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     ]
     assert "test-placeholder-never-print" not in status.stdout + status.stderr
     assert feature_path.read_bytes() == feature_before
-    assert not (tmp_path / "campaigns").exists()
+    assert not campaign_root.exists()
 
     registration = subprocess.run(
         [
@@ -1159,7 +1162,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     )
     assert registration.returncode == 0, registration.stderr
     assert "-TuningTrials 20" in registration.stdout
-    assert "-RunDiagnostics:true" in registration.stdout
+    assert "-RunDiagnostics 1" in registration.stdout
     assert "holdout_accessed" in registration.stdout
     assert ": False" in registration.stdout
 
@@ -1216,8 +1219,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     reused_pid.child_pid = os.getpid()
     reused_pid.started_at = datetime(2000, 1, 1, tzinfo=UTC)
     campaign_path = (
-        tmp_path
-        / "campaigns"
+        campaign_root
         / feature_selection.feature_selection_id
         / "h1.json"
     )

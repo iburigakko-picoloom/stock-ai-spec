@@ -884,3 +884,12 @@ D075のstrictly-earlier tuning vote（各seedでmodel family過半数、3 seed�
 - 各feature familyの採否はtuning-period voteだけで決め、後続outer OOF・importance単独・locked holdoutでは変更しない。
 - Model family削減はD080の全棄却条件を満たした場合だけ行う。今回の18件はrealistic cost評価がすべて`BLOCKED_BY_DATA_CAPABILITY`で、ensemble追加価値・各objective・turnover / downsideも全条件を満たす棄却証拠がない。このため5日・20日とも3 familyを`ABLATION_HOLD`とし、Final Candidateで比較する。削減数を目標にしない。
 - Feature selection artifact `13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d`は18 source report、2 source commit、1日除外判定hash、Build / Dataset / Feature ID、holdout境界を固定し、`locked_holdout_accessed=false`である。これは特徴量の決定であり、Champion・ensemble weight・実運用採用の決定ではない。
+
+### D085 — Final CandidateのWindows独立runner起動を修正（2026-09-27）
+
+Task Schedulerの`powershell.exe -File`から`[bool]`parameterへ文字列`-RunDiagnostics:true`を渡すと、
+Windows PowerShell 5.1がparameter bindingで終了コード1を返した。Task用CLI境界では値を`0 / 1`の
+`[int]`として渡し、runner内で真偽へ解釈する。候補statusのPython JSONに日本語を含む絶対pathがあるため、
+Windows PowerShellへ渡す前にASCII escapeして文字化けを避ける。Git実行ファイルはTaskのPATHにない場合、
+既定のGit for Windows pathへfallbackし、source preflight失敗時は例外型だけをrunner logへ記録する。
+model source、研究条件、seed、選択済み特徴量、locked holdoutは変更せず、既存workerを停止・再起動しない。

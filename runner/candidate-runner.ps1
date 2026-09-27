@@ -16,7 +16,8 @@ param(
     [int]$ValidationPeriods = 60,
     [int]$StepPeriods = 60,
     [int]$HoldoutPeriods = 120,
-    [bool]$RunDiagnostics = $true,
+    [ValidateSet(0, 1)]
+    [int]$RunDiagnostics = 1,
     [int]$MaxMaterializedOofRows = 20000000,
     [int]$MaxModelFits = 5000,
     [string]$CampaignRoot = 'artifacts/campaigns/goal3-candidates',
@@ -43,17 +44,26 @@ function Assert-SourceProvenance([string]$Commit) {
     if (-not $Commit.Trim() -or $Commit -eq 'UNSET') {
         throw 'candidate model code commit must be explicit'
     }
+    $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue
+    $gitExecutable = if ($null -ne $gitCommand) {
+        $gitCommand.Source
+    } else {
+        Join-Path $env:ProgramFiles 'Git\cmd\git.exe'
+    }
+    if (-not (Test-Path -LiteralPath $gitExecutable -PathType Leaf)) {
+        throw 'Git executable is unavailable for candidate source authentication'
+    }
     $safeDirectory = "safe.directory=$($ProjectRoot.Replace('\', '/'))"
-    & git -c $safeDirectory -C $ProjectRoot cat-file -e "$Commit`^{commit}" 2>$null
+    & $gitExecutable -c $safeDirectory -C $ProjectRoot cat-file -e "$Commit`^{commit}" 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw "candidate model code commit is unavailable: $Commit"
     }
-    & git -c $safeDirectory -C $ProjectRoot diff --quiet $Commit -- src pyproject.toml uv.lock
+    & $gitExecutable -c $safeDirectory -C $ProjectRoot diff --quiet $Commit -- src pyproject.toml uv.lock
     if ($LASTEXITCODE -ne 0) {
         throw 'current model source or dependency lock differs from candidate code commit'
     }
     $untrackedSource = @(
-        & git -c $safeDirectory -C $ProjectRoot ls-files --others --exclude-standard -- src
+        & $gitExecutable -c $safeDirectory -C $ProjectRoot ls-files --others --exclude-standard -- src
     )
     if ($LASTEXITCODE -ne 0 -or $untrackedSource.Count -gt 0) {
         throw 'untracked model source prevents candidate provenance authentication'
@@ -130,13 +140,19 @@ function Get-CandidateStatus() {
     # Windows query. Disable that read-only probe in this child; the runner
     # performs a tri-state identity check with Get-Process below.
     $statusReader = @'
+import contextlib
+import io
+import json
 from pathlib import Path
 import sys
 import stock_ai.ml.campaign as campaign
 from stock_ai.cli import research_candidate_status
 
 campaign._process_is_running = lambda _pid: True
-research_candidate_status(feature_selection=Path(sys.argv[1]), campaign_root=Path(sys.argv[2]))
+output = io.StringIO()
+with contextlib.redirect_stdout(output):
+    research_candidate_status(feature_selection=Path(sys.argv[1]), campaign_root=Path(sys.argv[2]))
+print(json.dumps(json.loads(output.getvalue()), ensure_ascii=True))
 '@
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($statusReader))
     $bootstrap = "import base64;exec(base64.b64decode('$encoded'))"
@@ -185,7 +201,12 @@ if ($Action -eq 'status') {
     exit 0
 }
 
-Assert-SourceProvenance $CodeCommit
+try {
+    Assert-SourceProvenance $CodeCommit
+} catch {
+    Write-RunnerEvent $logPath 'SOURCE_PREFLIGHT_FAILED' $_.Exception.GetType().FullName
+    throw
+}
 New-Item -ItemType Directory -Path $campaignPath -Force | Out-Null
 $selectionId = [System.IO.Path]::GetFileNameWithoutExtension($selectionPath)
 $lockPath = Join-Path $campaignPath "$selectionId.runner.lock"

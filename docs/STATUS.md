@@ -8,7 +8,9 @@
 - 18 reportのrealistic cost評価はすべて`BLOCKED_BY_DATA_CAPABILITY`。D080のmodel-family棄却全条件を満たせないため、5日・20日とも3 familyを`ABLATION_HOLD`としてFinal Candidate比較へ残す。これはChampion採用の判定ではない。
 - D084に沿い、1日除外証拠hash付きの5日・20日選択を研究schema / CLI / 後続選択・holdout reportで受け入れる。従来の1 / 5 / 20日構成も維持する。研究workerの停止・再起動・重複実行はなく、locked holdoutは未開封。
 - 選択source / artifact checkpointは`9f0f5a8ce04fd578822bf4b8b2f912a761f61a58`。`.venv`でRuff、strict mypy（48 source）、Python通常260 pass、coverage付き260 pass / 85.34%、web ESLint / TypeScript / Vitest 18 pass / build / Edge E2E 6 pass。既存Starlette deprecation warning 1件のみ。
-- 次は固定artifactを使い、5日・20日の各3 family × 3 seedのFinal Candidate campaignを独立runnerへ委譲する。開始前にsource checkpointとcode commitを固定し、全候補完了までmodel / ensemble / hyperparameterを確定済みと扱わない。
+- 固定artifactを使い、5日・20日の各3 family × 3 seedのFinal Candidate campaignを独立runnerへ委譲した。全候補完了までmodel / ensemble / hyperparameterを確定済みと扱わない。
+- Final Candidate source pinは`94aab783dce5d01cf5ee153297891a42cfdfe53e`。最初のTask Scheduler起動は終了コード1で、引数`-RunDiagnostics:true`のWindows PowerShell 5.1 bool binding失敗を再現。手動の同等runner入口で`h5-lightgbm-s17`を一度だけ開始し、停止・再起動なしで継続中。
+- D085のTask境界修正後、`StockAI-Goal3-Candidates`を同じsource pinとselectionで再登録。タスクの直近結果は`0`で、実行中runnerのexclusive lockを`LOCKED`として認識し重複workerを起動しなかった。Windows再起動後も同taskから同じmanifest / checkpointをresumeする。WinPS 5.1の日本語path入りSTARTED status・数値bool引数のread-only回帰test pass。今後の進捗確認はユーザー要求時だけ`runner/candidate-runner.ps1 -Action status`を1回実行し、継続監視しない。
 
 ## 2026-09-24 — Sites公開版のUI更新完了
 
