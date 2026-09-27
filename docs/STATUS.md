@@ -7,6 +7,7 @@
 - 5日はF2 MACD 3/3 seedとF12 Candle / breakout 2/3 seedを採用し、V0を含む41特徴を固定。20日はF6 Volatility / downside 3/3、F7 Volume / money flow 3/3、F10 Relative / market context 2/3、F12 Candle / breakout 2/3を採用し、51特徴を固定。exact列と全F1〜F12 voteはartifactを正本とする。
 - 18 reportのrealistic cost評価はすべて`BLOCKED_BY_DATA_CAPABILITY`。D080のmodel-family棄却全条件を満たせないため、5日・20日とも3 familyを`ABLATION_HOLD`としてFinal Candidate比較へ残す。これはChampion採用の判定ではない。
 - D084に沿い、1日除外証拠hash付きの5日・20日選択を研究schema / CLI / 後続選択・holdout reportで受け入れる。従来の1 / 5 / 20日構成も維持する。研究workerの停止・再起動・重複実行はなく、locked holdoutは未開封。
+- 選択source / artifact checkpointは`9f0f5a8ce04fd578822bf4b8b2f912a761f61a58`。`.venv`でRuff、strict mypy（48 source）、Python通常260 pass、coverage付き260 pass / 85.34%、web ESLint / TypeScript / Vitest 18 pass / build / Edge E2E 6 pass。既存Starlette deprecation warning 1件のみ。
 - 次は固定artifactを使い、5日・20日の各3 family × 3 seedのFinal Candidate campaignを独立runnerへ委譲する。開始前にsource checkpointとcode commitを固定し、全候補完了までmodel / ensemble / hyperparameterを確定済みと扱わない。
 
 ## 2026-09-24 — Sites公開版のUI更新完了
