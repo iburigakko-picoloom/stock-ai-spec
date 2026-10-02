@@ -929,3 +929,26 @@ import bridgeと旧新code・hashのreceiptを明示する別段階とする。�
 外部CPU移行はdocs/CLOUD_CPU_PILOT.mdのdevelopment-only export manifest・path map・
 import provenance・Linux/数値照合・J-Quants本人利用許諾を先に整える。多thread/GPUは別experiment。
 公式価格は参考であり、外部upload、VM/契約/課金、holdout転送、学習起動の許可ではない。
+
+### D088 — 値を保持する列単位fold copyと異なるcode_commit間の明示的import（2026-10-03）
+
+承認済みの最小復旧に限定し、D087の初期行copyに加えてOOF/diagnosticsのfold copyを列単位へ変更した。
+狭いtarget/date/symbol列で選択と安定sortを決めてから、全列を元dtypeで独立copyする。
+データ、特徴量、精度、seed、モデルparameter、iterations、評価とholdoutは変更しない。
+独立した旧実装との小規模OOF完全一致と、値/index/attrs/nullable/並び順/保存hashのparityで検証した。
+
+ML source commitが変わるため、旧pinの偽装やmetadata/hash書換えによるresumeは認めない。
+--checkpoint-import-planで指定した同一データ/config/特徴量順・CPU CatBoostの復旧だけを新namespaceへ受け入れる。
+旧namespace/progress/foldは読取専用にし、split位置hash・日付境界・raw/effective parameter・byte/content hashを照合する。
+新fold metadataは元foldの完全metadata、旧新identity、依存/runtime、passing fixture証拠、検証hashをlineageとしてatomic publishする。
+Optunaの元DBはread-only backupを介し、trial内容/number/date/durationを再現して残りtrial/time budgetを維持する。
+自動importは指定planがある時だけ動作し、不一致や改ざん、異なるdata/feature/thread/GPU、chained importを拒否する。
+これは同一ローカルデータの復旧であり、development export/異OS/cloud pilotの互換性は別途必要である。
+
+実データ15保存unitのevidence/OOF認証は01:39 JSTに成功したが、新namespaceへの実import・学習再開は未実施。
+01:34 JSTの空き物理6.309 GiBに対し、初期数値buffer下限7.771 GiB、後段8.802 + 0.523 GiBで安全条件を満たさない。
+下限には非float列/index/CatBoost内部などを含まない。必要RAMの確定や完了/残り時間は主張しない。
+旧taskはDisabledを維持し、十分な資源と真正な新source pin/planを整えるまで起動しない。
+旧h5 campaignの完成済み7 batchを新commitの結果へ黙って統合せず、採用は別途来歴付きで検証する。
+外部転送、VM、課金、注文、プロセス終了、OS/pagefile変更、他アプリ変更は行わない。
+

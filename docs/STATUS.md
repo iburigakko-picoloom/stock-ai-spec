@@ -1,5 +1,15 @@
 # Project Status
 
+## 2026-10-03 — メモリ局所修正と明示的checkpoint importを実装、RAM不足で起動保留
+
+- 前処理3箇所とOOF/diagnosticsのfold選択を列単位のdtype-preserving copyへ変更。対象行、並び順、値、特徴量、モデルparameter、300 iterations、CPU 1 thread、holdout境界を変更していない。usableはdevelopment構築後に解放。
+- 新しいcode_commit専用namespaceへの明示的import bridgeを追加。旧namespaceを読み取り認証し、データ/config/特徴量順/split/有効parameter/OOF hash一致と旧新code・依存lock・passing fixture証拠をlineageに保存。Optunaは元SQLiteを読み取りbackupし、trial内容・日時・duration・残りbudgetを継承。旧commit/hashを名乗らず、旧成果物・FAILED履歴を書き換えない。CLI --checkpoint-import-planは指定時だけ有効。
+- 旧実装との独立した小規模parity 54 pass、bridge 16 pass、本体追加テスト66 pass、既存checkpoint/stage/provenance対象14 pass。Ruffとstrict mypy 49 source pass。巨大実データの学習peakや残り所要時間は未測定。
+- 01:39 JSTの狭い実データ確認で、11 outer foldと4 tuning unit全15件のsplit位置hash/日付/特徴量/config/parameter evidenceを再導出して完全一致。保存OOFのbyte/content hashも認証し、旧manifest/progress hashは不変。Dataset bundle byte hashを確認したが、全列のlogical content IDは今回再計算していない。
+- 01:34 JSTの単発メモリ確認は物理15.666 GiB、空き6.309 GiB。実列/行数から初期float64配列だけで最低7.771 GiB、後段8.802 GiB + float32 model input 0.523 GiB。非float列/index/CatBoost内部/認証一時領域は含まない。安全条件を満たさないため実データimport・resumeは行わず、StockAI-Goal3-CandidatesはDisabledのまま。
+- 保存進捗はh5 Final Candidate 7/9、CatBoost29 regression1–6/ranking1–5保存、ranking6 FAILED、seed43 PENDING、h20 Final Candidate未初期化のまま。新source pinと明示的plan、十分なメモリを整えてから単発resumeを検証する。旧campaignの7件を新commitへ無断で混合しない。
+- 検証根拠: workspace stock-memory-review/{thin-data-preflight.json,memory-preflight.json,parity-results.xml,bridge-results.xml,main-results.xml,main-regression-results.xml}。外部upload/VM/課金/注文/OS変更/他アプリ変更は行っていない。D088参照。
+
 ## 2026-10-03 — 前処理の列単位copyパッチを合成fixtureで検証、外部CPU移行は設計のみ
 
 - 調査記録時刻: 2026-10-03 00:31 東京 (標準時)。同条件の再起動を行わず、候補taskの一時Disabledを維持。

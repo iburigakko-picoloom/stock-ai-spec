@@ -9,6 +9,7 @@ import os
 import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from importlib.metadata import version
@@ -597,18 +598,13 @@ def generate_oof_predictions(
     )
     outputs: list[pd.DataFrame] = []
     for fold in splitter.split(frame, label_end_column=label_end_column):
-        train = frame.iloc[list(fold.train_indices)].copy()
-        validation = frame.iloc[list(fold.validation_indices)].copy()
-        train = train.loc[train[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
+        train = _prepare_fold_rows(frame, fold.train_indices, target_column=target_column)
+        validation = _prepare_fold_rows(
+            frame,
+            fold.validation_indices,
+            target_column=target_column,
+            validation_not_before=validation_not_before,
         )
-        validation = validation.loc[validation[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
-        )
-        if validation_not_before is not None:
-            validation = validation.loc[
-                pd.to_datetime(validation["trading_date"]) >= validation_not_before
-            ]
         if train.empty or validation.empty:
             continue
         checkpoint_evidence = _fold_checkpoint_evidence(
@@ -773,6 +769,16 @@ def bounded_optuna_search(
         }
         study_identity = stable_hash(study_evidence)
         database = checkpoint_store.optuna_database_path
+        if not database.exists() and checkpoint_store.import_plan is not None:
+            from stock_ai.ml.checkpoint_import import import_authenticated_optuna_study
+
+            plan = checkpoint_store.import_plan
+            import_authenticated_optuna_study(
+                source_checkpoint=Path(plan["source_checkpoint_path"]),
+                destination=checkpoint_store,
+                study_evidence=study_evidence,
+                equivalence_proof=plan["equivalence_proof"],
+            )
         storage = optuna.storages.RDBStorage(
             url=f"sqlite:///{database.as_posix()}",
         )
@@ -791,9 +797,23 @@ def bounded_optuna_search(
             }
         }
         if study.user_attrs:
-            if study.user_attrs != expected_attributes:
+            observed_attributes = dict(study.user_attrs)
+            import_lineage = observed_attributes.pop("import_lineage", None)
+            if observed_attributes != expected_attributes:
                 storage.remove_session()
                 raise RuntimeError("persistent Optuna study provenance mismatch")
+            if import_lineage is not None:
+                from stock_ai.ml.checkpoint_import import authenticate_optuna_import_lineage
+
+                if not isinstance(import_lineage, dict):
+                    storage.remove_session()
+                    raise RuntimeError("persistent Optuna import lineage is invalid")
+                authenticate_optuna_import_lineage(
+                    import_lineage,
+                    destination_provenance=checkpoint_store.provenance,
+                    study_evidence=study_evidence,
+                    trials=study.get_trials(deepcopy=False),
+                )
         else:
             if study.trials:
                 storage.remove_session()
@@ -1375,18 +1395,13 @@ def oos_permutation_diagnostics(
     )
     fold_count = 0
     for fold in splitter.split(frame, label_end_column=label_end_column):
-        train = frame.iloc[list(fold.train_indices)].copy()
-        validation = frame.iloc[list(fold.validation_indices)].copy()
-        train = train.loc[train[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
+        train = _prepare_fold_rows(frame, fold.train_indices, target_column=target_column)
+        validation = _prepare_fold_rows(
+            frame,
+            fold.validation_indices,
+            target_column=target_column,
+            validation_not_before=validation_not_before,
         )
-        validation = validation.loc[validation[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
-        )
-        if validation_not_before is not None:
-            validation = validation.loc[
-                pd.to_datetime(validation["trading_date"]) >= validation_not_before
-            ]
         if train.empty or validation.empty:
             continue
         processor = FoldPreprocessor(
@@ -1822,11 +1837,12 @@ def _split_research_stages(
             "tuning from outer model evaluation"
         )
     evaluation_start = dates[evaluation_index]
-    tuning = development.loc[
+    tuning = _select_rows_columnwise(
+        development,
         (trading_date < evaluation_start)
         & label_end.notna()
-        & (label_end < evaluation_start)
-    ].copy()
+        & (label_end < evaluation_start),
+    )
     if tuning.empty:
         raise ValueError(f"BLOCKED_BY_VALIDATION: no causal tuning rows for {horizon}d")
     tuning_dates = pd.DatetimeIndex(pd.to_datetime(tuning["trading_date"]).sort_values().unique())
@@ -1872,9 +1888,12 @@ def run_advanced_research(
     feature_manifest_hash: str,
     feature_names: tuple[str, ...] = V2_EXTENDED_MANIFEST.feature_names,
     checkpoint_root: Path | None = None,
+    checkpoint_import_plan: Path | None = None,
 ) -> AdvancedResearchRun:
     """Run Goal 3 research and preserve partial progress if a later stage fails."""
 
+    if checkpoint_import_plan is not None and checkpoint_root is None:
+        raise ValueError("checkpoint import plan requires a destination checkpoint root")
     progress = _AdvancedResearchProgress()
     checkpoint_store = (
         ResearchCheckpointStore(
@@ -1889,6 +1908,7 @@ def run_advanced_research(
                 "config_hash": config.config_hash,
                 "locked_holdout_accessed": False,
             },
+            import_plan=checkpoint_import_plan,
         )
         if checkpoint_root is not None
         else None
@@ -1980,13 +2000,16 @@ def _run_advanced_research(
         missing = sorted(required - set(dataset.columns))
         if missing:
             raise ValueError(f"production research dataset is missing: {', '.join(missing)}")
-        usable = dataset.loc[
-            dataset[target_column].notna() & dataset[status_column].eq("AVAILABLE")
-        ].copy()
-        development = usable.loc[
+        usable = _select_rows_columnwise(
+            dataset,
+            dataset[target_column].notna() & dataset[status_column].eq("AVAILABLE"),
+        )
+        development = _select_rows_columnwise(
+            usable,
             (pd.to_datetime(usable["trading_date"]) < holdout.holdout_start)
-            & (pd.to_datetime(usable[label_end_column]) < holdout.holdout_start)
-        ].copy()
+            & (pd.to_datetime(usable[label_end_column]) < holdout.holdout_start),
+        )
+        del usable
         if development.empty:
             raise ValueError(f"BLOCKED_BY_VALIDATION: holdout purge removed all {horizon}d labels")
         stages = _split_research_stages(
@@ -2577,6 +2600,72 @@ def _report_identity(report: AdvancedResearchReport) -> dict[str, object]:
                     if isinstance(trial, dict):
                         trial.pop("duration_seconds", None)
     return payload
+
+
+def _select_rows_columnwise(frame: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
+    """Copy the selected rows without allocating a consolidated wide numeric block.
+
+    Callers supply a boolean mask derived from this exact frame. Array.take preserves
+    each column's dtype and copies its selected values independently; copy=False on
+    construction retains those separate arrays instead of consolidating them again.
+    """
+
+    if not mask.index.equals(frame.index):
+        raise ValueError("row selection mask must have the frame's exact index")
+    positions = np.flatnonzero(mask.to_numpy(dtype=bool, na_value=False))
+    return _take_rows_columnwise(frame, positions)
+
+
+def _take_rows_columnwise(
+    frame: pd.DataFrame, positions: Sequence[int] | np.ndarray[Any, Any],
+) -> pd.DataFrame:
+    """Preserve every selected column without consolidating a wide numeric block."""
+
+    indices = np.asarray(positions, dtype=np.intp)
+    selected = pd.DataFrame(
+        {
+            position: frame.iloc[:, position].array.take(indices)
+            for position in range(len(frame.columns))
+        },
+        index=frame.index.take(indices),
+        copy=False,
+    )
+    selected.columns = frame.columns.copy()
+    selected.attrs = deepcopy(frame.attrs)
+    selected.flags["allows_duplicate_labels"] = frame.flags["allows_duplicate_labels"]
+    return selected
+
+
+def _prepare_fold_rows(
+    frame: pd.DataFrame,
+    positions: Sequence[int],
+    *,
+    target_column: str,
+    validation_not_before: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """Select/filter/stably order on narrow vectors before copying each full column.
+
+    Original positional split indices remain unchanged for checkpoint evidence. Target
+    filtering, date parsing and the stable two-key sort match the previous fold path.
+    """
+
+    indices = np.asarray(positions, dtype=np.intp)
+    available = frame[target_column].iloc[indices].notna().to_numpy(dtype=bool)
+    indices = indices[available]
+    keys = pd.DataFrame(
+        {name: frame[name].array.take(indices) for name in ("trading_date", "symbol")},
+        copy=False,
+    )
+    order = keys.sort_values(["trading_date", "symbol"], kind="stable").index.to_numpy(
+        dtype=np.intp,
+    )
+    indices = indices[order]
+    if validation_not_before is not None:
+        allowed = (
+            pd.to_datetime(frame["trading_date"].iloc[indices]) >= validation_not_before
+        ).to_numpy(dtype=bool, na_value=False)
+        indices = indices[allowed]
+    return _take_rows_columnwise(frame, indices)
 
 
 def _finite_numeric(frame: pd.DataFrame) -> pd.DataFrame:

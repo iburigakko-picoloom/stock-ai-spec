@@ -1,5 +1,18 @@
 # Goal 3 CPU cloud pilot — ローカル設計・外部未実行
 
+## 2026-10-03 追記 — ローカル復旧の更新（D088）
+
+以下の00:31時点の設計記録に対し、同一ローカルデータ専用の列単位前処理/fold copyと
+--checkpoint-import-planによる明示的import bridgeを本体へ適用した。旧commitやhashは変更せず、
+真正な新commitのnamespaceに旧新lineageと一致証拠を保存する設計。小規模parity 54、bridge 16、
+本体66、既存対象14 testとRuff/strict mypy 49 sourceがpass。
+実保存11 outer +4 tuning unitのevidence/OOF hashは01:39 JSTに再認証したが、実importは未実施。
+01:34 JSTの空き物理RAM6.309 GiBに対し初期buffer下限7.771 GiBであり、学習は起動していない。
+全列logical Dataset IDの再認証・本番import/reload・残りfoldの成功・peak RAM/速度は未確認。
+旧taskのsource pinは新コードと一致しないためDisabledを維持し、新pin/plan/十分な資源が必要。
+このbridgeはexportの位置mapや異OSを受け入れない。以下のcloud export/互換性/本人利用条件確認は
+依然として設計段階であり、外部転送/VM/課金の承認を含まない。
+
 更新日: 2026-10-03 JST
 
 ## 現在地と今回の境界

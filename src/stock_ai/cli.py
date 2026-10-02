@@ -1030,6 +1030,14 @@ def research_advanced(
             help="Optional authenticated fold and Optuna root; campaigns always set it."
         ),
     ] = None,
+    checkpoint_import_plan: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            help="Explicit authenticated cross-code CPU recovery import plan.",
+        ),
+    ] = None,
 ) -> None:
     """Run leakage-safe GBDT/LTR/downside/OOF research; never open the holdout."""
 
@@ -1120,6 +1128,7 @@ def research_advanced(
             feature_manifest_hash=v2_snapshot.manifest_hash,
             feature_names=selected_feature_names,
             checkpoint_root=checkpoint_root,
+            checkpoint_import_plan=checkpoint_import_plan,
         )
         metadata_path, oof_path = write_advanced_research_run(run, report_root)
         # Read through the authenticated boundary before declaring publication complete.
