@@ -1,5 +1,16 @@
 # Project Status
 
+## 2026-10-03 00:06 JST — Final Candidateメモリ対策・復旧は未完了
+
+- h5 Final Candidateは7/9 SUCCEEDED。CatBoost seed29はranking fold5まで保存済み、fold6はFAILED、seed43はPENDING。h20 Final Candidate campaignはまだ作成されていない。Full Ablation完了と混同しない。
+- 元の失敗は2026-10-02 16:39 JSTまでに発生し、今回のSolver再開19:07 JSTより前。今回のSolver再開が元の失敗を起こしたとは判定しない。現在の大きなEdge割り当てと過去の失敗の因果も未確定。
+- 完了11 outer foldのメタデータ・Parquet・内容hashを、既存認証関数でread-only検証した。Optuna 4 unitを含む15 SUCCEEDED unitを保持。モデルsource/dependencyは固定commit `94aab783dce5d01cf5ee153297891a42cfdfe53e`と同一、41/51特徴、seed、300 iterations、1 thread、tuning/validation/diagnostics条件とlocked holdoutは変更していない。
+- 候補専用の自動再試行タスクを一時無効化し、子workerがない孤立candidate PowerShell wrapper1個だけを終了。独立の単発attempt19はデータ認証のreset-index copyで248 MiB allocationに失敗した。自動再試行や他アプリの終了は行っていない。
+- D086に従い、candidate runnerの子プロセスだけに`PANDAS_COPY_ON_WRITE=1`を設定。対象テスト15 pass、sorted/unsorted/non-default-indexのhash parity 3 case pass、既存11 foldは新copy modeでも認証pass。全件float64/object blockの冗長copyを抑える。モデルsourceや入力の精度・特徴数を変更したものではない。
+- 新設定の単発attempt20はデータ認証の従来エラー箇所を越えたが、後続準備で`Unable to allocate 2.64 GiB ... (89, 3985623) float64`となり23:59 JSTにFAILED。ranking fold6のattempt/statusは以前の2/FAILEDのままで、学習再開の検証は未達。失敗attempt19/20のログとcheckpointを保存した。
+- メモリの単発確認は物理15.67 GiB/空き4.88 GiB、commit limit63.62 GiB/空き19.12 GiB。Edge utility process1個はprivate約13.96 GiBで、通常ブラウザ配下（headless/一時自動化profileではない）。ブラウザやその他のアプリは終了していない。実際の学習peak未測定なので安全に必要なRAM量は未確定。
+- 復旧の残りは共有メモリの解放または明示的な追加対策判断後の単発resumeとcheckpoint進行確認。通常ブラウザの終了・OS/pagefile設定・有料resourceは今回実施しない。`StockAI-Goal3-Candidates`は一時Disabledのまま。失敗の再試行ループを再開しない。
+
 ## 2026-09-27 — Goal 3 Feature Selection固定
 
 - 5日・20日のFull Ablationは各9/9、計18/18 batch `SUCCEEDED`。同一horizon内はLightGBM / XGBoost / CatBoost × seed 17 / 29 / 43。1日はD080判定どおりFinal Candidateから除外し、1日除外判定を変更していない。

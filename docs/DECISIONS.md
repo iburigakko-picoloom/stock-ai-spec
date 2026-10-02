@@ -893,3 +893,21 @@ Windows PowerShell 5.1がparameter bindingで終了コード1を返した。Task
 Windows PowerShellへ渡す前にASCII escapeして文字化けを避ける。Git実行ファイルはTaskのPATHにない場合、
 既定のGit for Windows pathへfallbackし、source preflight失敗時は例外型だけをrunner logへ記録する。
 model source、研究条件、seed、選択済み特徴量、locked holdoutは変更せず、既存workerを停止・再起動しない。
+
+
+### D086 — Final Candidateのcopy ownershipを省メモリ化し、失敗時の自動再試行を一時保留（2026-10-02）
+
+ユーザー承認の復旧作業で、candidate runnerの子Pythonだけにpandas 2.3.3の
+`PANDAS_COPY_ON_WRITE=1`を設定する。既存snapshot認証のsort/reset-indexによる冗長な全件copyを
+減らすためのruntime memory modeであり、float32化・特徴数削減・評価条件変更ではない。
+RESOURCE_RUNTIME eventへ実際の設定を残す。OS環境や他アプリには設定しない。
+
+- モデルsource/dependency、固定source pin、dataset/feature/config/checkpoint identityを保持する。
+- 新copy modeでcheckpoint/advanced対象11 testとproduction対象4 testをpass。3種類のframeで
+  production content hashが従来modeと一致し、保存済み11 outer foldも元の認証境界をpassした。
+- これはcopy削減の検証であり、全campaignの収束・完了や十分なメモリの保証ではない。
+  実データのattempt20は後続準備の2.64 GiB allocationに失敗したので復旧は未完了と記録する。
+- 通常ブラウザなど他作業のprocessを勝手に終了せず、pagefile/OS設定や有料resourceも変更しない。
+  元の失敗16:39 JSTと今回Solver再開19:07 JSTの時系列から、今回再開を元の失敗原因とはしない。
+- 候補の自動再試行taskは一時Disabledとし、共有メモリ問題を解消してから単発resumeを確認する。
+  完了artifact/checkpointは削除せず、モデルsourceや研究条件を変える案は別途比較・判断する。

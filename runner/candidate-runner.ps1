@@ -133,6 +133,9 @@ if (-not (Test-Path -LiteralPath $buildPath -PathType Leaf)) {
 }
 
 $env:PYTHONPATH = Join-Path $ProjectRoot 'src'
+# Avoid redundant full-frame copies during pandas snapshot authentication.
+# This changes memory ownership, not research inputs or checkpoint provenance.
+$env:PANDAS_COPY_ON_WRITE = '1'
 Remove-Item Env:JQUANTS_API_KEY -ErrorAction SilentlyContinue
 
 function Get-CandidateStatus() {
@@ -282,6 +285,7 @@ try {
         '--log-root', $logPath
     )
     Write-RunnerEvent $logPath 'RUN_OR_RESUME' $selectionId
+    Write-RunnerEvent $logPath 'RESOURCE_RUNTIME' 'pandas_copy_on_write=1'
     & $python @arguments
     $exitCode = $LASTEXITCODE
     Write-RunnerEvent $logPath $(if ($exitCode -eq 0) { 'EXIT_SUCCESS' } else { 'EXIT_FAILED' }) "exit_code=$exitCode"
