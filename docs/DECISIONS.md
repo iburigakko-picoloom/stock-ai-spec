@@ -911,3 +911,21 @@ RESOURCE_RUNTIME eventへ実際の設定を残す。OS環境や他アプリに�
   元の失敗16:39 JSTと今回Solver再開19:07 JSTの時系列から、今回再開を元の失敗原因とはしない。
 - 候補の自動再試行taskは一時Disabledとし、共有メモリ問題を解消してから単発resumeを確認する。
   完了artifact/checkpointは削除せず、モデルsourceや研究条件を変える案は別途比較・判断する。
+
+
+### D087 — 前処理copyの局所パッチを隔離検証し、正式checkpoint互換を偽装しない（2026-10-03）
+
+ユーザー承認の追加復旧調査で、同条件再起動を中止したまま初期3行フィルタの
+`loc[mask].copy()`を列ごとのdtype-preserving array.takeへ置き換える未適用patchを作成する。
+float64の低精度化、列削減、行/label/split/parameter変更を行わず、合成fixtureで値・hash・
+OOF・評価指標・境界一致を検証する。大きな連続blockを分割しても総データ量と後続copyは残り、
+実データ復旧・安全RAM・速度倍率・残日数を保証しない。
+
+本体への適用でML source commitが変わるため、既存固定pinを名乗らせてcheckpointを流用しない。
+今回本体src/runner/依存/campaign/checkpointは変更せず、検証overlayはworkspaceに保存する。
+適用・11完了foldの新namespace再利用は、旧証拠を読み取り認証し、新split/入力/evidenceを照合した
+import bridgeと旧新code・hashのreceiptを明示する別段階とする。元metadata/hashを編集して迂回しない。
+
+外部CPU移行はdocs/CLOUD_CPU_PILOT.mdのdevelopment-only export manifest・path map・
+import provenance・Linux/数値照合・J-Quants本人利用許諾を先に整える。多thread/GPUは別experiment。
+公式価格は参考であり、外部upload、VM/契約/課金、holdout転送、学習起動の許可ではない。

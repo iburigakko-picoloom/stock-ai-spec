@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-10-03 — 前処理の列単位copyパッチを合成fixtureで検証、外部CPU移行は設計のみ
+
+- 調査記録時刻: 2026-10-03 00:31 東京 (標準時)。同条件の再起動を行わず、候補taskの一時Disabledを維持。
+- 初期usable / development / tuningの行選択を、値・列・dtypeを変えない列単位copyに置き換える未適用patchをworkspaceのstock-memory-reviewへ保存。本体src/runner/依存/研究条件/checkpointは今回未変更。
+- 合成fixture38 pass（9.46秒）。89 float64列の行選択、欠損・extension dtype・index・hash・独立性を確認。LightGBM/CatBoostの小規模OOF・report ID・指標・境界・parameterは旧版と完全一致。既存checkpoint/stage対象13 pass（3.62秒）、overlay Ruffとstrict mypy 48 source pass。
+- 一番大きいfloat64 blockを89列分から1列分へ分割できるが、総データ量は不変。後続fold/diagnosticsの深いcopyと実peakは未検証であり、実データ復旧を宣言しない。
+- code_commitを含むnamespaceに対する未検証の互換変更を避け、本体適用・11foldの新namespace import/reload・resumeは保留。旧保存成果を削除/改変しない。
+- docs/CLOUD_CPU_PILOT.mdをD087のexport manifest/path map/import bridge/許諾事項で更新。DO64/128 GiB・RunPod GPUの公式価格参考を記録し、起動許可や速度/残日数の見積もりとは扱わない。外部upload/VM/課金/他アプリ終了/OS変更/注文なし。
+
 ## 2026-10-03 00:06 JST — Final Candidateメモリ対策・復旧は未完了
 
 - h5 Final Candidateは7/9 SUCCEEDED。CatBoost seed29はranking fold5まで保存済み、fold6はFAILED、seed43はPENDING。h20 Final Candidate campaignはまだ作成されていない。Full Ablation完了と混同しない。
