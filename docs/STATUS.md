@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-03 10:40 JST — 株式の単独worker再開を実確認
+
+- 10:29 JSTに起動。起動前空きRAM6.015 GiB。旧4 taskはDisabledのまま。genuine source pinはa68e8327914e265e6594e22e02f24bdbbfee39a5、新namespaceはc7f55e21...。元15単位を元94aab78から直接引き継ぎ、設定・データ・41特徴量・精度・seed29・CPU1・300反復を保持。
+- 全入力を10:31:56 JSTに再認証。ranking fold6は10:32:32 JSTにRUNNINGへ更新。fit直前10:33:55 JSTの空きRAM3.668 GiBが3.5 GiB条件に合格。10:40:52 JSTに実PID11120生存と同fold実行中を一回確認。
+- 確認時working set3.838 GiB、ここまでのpeak5.641 GiB、private commit3.646 GiB、OS空き2.753 GiB。実学習全体のpeak保証ではない。継続PID/CPU監視はしていない。
+- 新しい完了foldはまだ0。元checkpoint/campaign hashは不変、h5元campaign7/9、seed43/h20 Final Candidate未起動。ranking6のみ旧ログから条件付き概算9〜12時間、全体完了日数は根拠不足で出さない。復旧実装は完了、残り計算と正式campaign統合は分ける。
+- 根拠: docs/evidence/memory-recovery-20261003/active-resume-confirmation.json、first-fit-headroom.json、guarded-checkpoint-import.json。元コード同値72 pass、統合80 pass、本番認証2 pass、Ruff/strict mypy50 source pass。Classic以外のアプリ終了、OS変更、外部upload/課金/注文なし。
+
 ## 2026-10-03 — 保存進捗移行とfit直前RAM条件
 
 - 09:59 JSTに旧11 outer fold + 4 tuning unitを新namespaceへimport/reloadし完全一致。Optuna4 terminal trialとduration/budgetを保持。元checkpoint/campaign hashは不変。新しいfitは0件。復旧peak working set1.444 GiB、private commit2.171 GiB。

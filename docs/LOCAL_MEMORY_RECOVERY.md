@@ -99,3 +99,39 @@ At 10:01 JST available physical RAM was 6.085 GiB. Start only one owned worker,
 using the unchanged original configuration, genuine source pin and explicit source
 import plan; no four-task reenable. Report actual guard results and first checkpoint
 state separately from newly completed learning. On guard failure, stop without retries.
+
+## Actual single-worker resume, 10:40 JST confirmation
+
+One independent worker was launched at 10:29 JST, with 6.015 GiB physical RAM free
+against the 5.5 GiB preparation requirement. The four legacy tasks remained Disabled.
+The genuine model/worker source pin is a68e8327914e265e6594e22e02f24bdbbfee39a5,
+and the namespace is c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2.
+Original 15 units were imported from the original source, with no chained import.
+
+Inputs authenticated at 10:31:56 JST. The new ranking fold6 unit became RUNNING at
+10:32:32 JST. At 10:33:55 JST the actual fit-boundary free RAM was 3.668 GiB, passing
+the 3.5 GiB condition. At 10:40:52 JST the matching actual worker PID11120 was alive,
+with the ranking6 checkpoint still RUNNING. Working set was 3.838 GiB, peak working
+set observed so far 5.641 GiB, private commit 3.646 GiB; system available RAM 2.753 GiB.
+This is a single confirmation, not continuous PID/CPU monitoring, and not proof of
+the full-run maximum. The initial worker-state file describes the last synchronous
+entry phase; actual in-progress status is in checkpoint/fit receipts and the separate
+active-resume-confirmation.json evidence.
+
+The actual largest training-date group is 3,822 rows, below the synthetic 5,000-row
+group used in memory probes. Exact original config/data/features/seed/precision and
+CPU1/300 iterations were preserved. Original namespace/campaign hashes are unchanged;
+new completed model folds remain zero, original h5 campaign remains 7/9. Seed43 and
+h20 Final Candidate were not started. No additional app closure or OS setting change.
+
+Existing saved ranking completion gaps increased from about 5.8 to 8.8 h over folds
+2-5. Fold6 has about 7.6% more training rows than fold5; roughly 9-12 h is a conditional
+estimate for ranking6 only. These gaps include preparation/I/O and possible interruptions.
+The remaining large-loss/quantile/diagnostic work and seed43/h20 lack an adequate
+end-to-end bound. Do not present this as the total completion time. Implementation
+of this recovery milestone is complete; remaining model execution is computation,
+with later campaign integration/Champion/holdout still separate.
+
+The final documentation checkpoint can be newer than the frozen model pin: all src,
+worker script and dependency files were verified unchanged from the genuine a68e832
+model commit. The report/checkpoint provenance remains that exact source pin.

@@ -1,0 +1,32 @@
+{
+  "LaunchedAt": "2026-10-03T10:29:18.5567827+09:00",
+  "PreparationCheckedAt": "2026-10-03T10:29:18.5129350+09:00",
+  "AvailablePhysicalGiB": 6.0150146484375,
+  "RequiredPreparationAvailableGiB": 5.5,
+  "RequiredFitAvailableGiB": 3.5,
+  "LauncherPid": 30272,
+  "WorkerScript": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\scripts\\run_stock_memory_recovery.py",
+  "WorkerRecord": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\active-worker.json",
+  "Stdout": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\active-worker.stdout.log",
+  "Stderr": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\active-worker.stderr.log",
+  "LegacyTasks": [
+    {
+      "TaskName": "StockAI-Goal3-Ablation",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Candidates",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Phased",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Research",
+      "State": 1
+    }
+  ],
+  "WorkerLaunched": true,
+  "NativeFitConfirmed": false
+}

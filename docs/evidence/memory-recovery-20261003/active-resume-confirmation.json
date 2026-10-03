@@ -1,0 +1,74 @@
+{
+  "CheckedAt": "2026-10-03T10:40:52.3092032+09:00",
+  "WorkerPid": 11120,
+  "WorkerStartedAtUtc": "2026-10-03T01:29:21.392704+00:00",
+  "ActualWorkerAlive": true,
+  "CodeCommit": "a68e8327914e265e6594e22e02f24bdbbfee39a5",
+  "ConfigHash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "CheckpointPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2",
+  "ImportedSucceededUnits": 15,
+  "NewCompletedModelFolds": 0,
+  "RunningTask": "ranking",
+  "RunningFold": 6,
+  "RunningUnitUpdatedAt": "2026-10-03T10:32:32.92418+09:00",
+  "ModelFamily": "catboost",
+  "Horizon": 5,
+  "Seed": 29,
+  "TrainRows": 3200734,
+  "FitHeadroomReceipt": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\active-scratch\\.stock-ai-arrays-3caap4ka.fit-headroom.json",
+  "FitHeadroomCheck": {
+    "checked_at_utc": "2026-10-03T10:33:55.289249+09:00",
+    "available_gib": 3.668384552001953,
+    "minimum_gib": 3.5,
+    "passed": true
+  },
+  "NativeLearningInProgress": true,
+  "ProcessWorkingSetGiB": 3.8383331298828125,
+  "ProcessPeakWorkingSetGiB": 5.641376495361328,
+  "ProcessPrivateCommitGiB": 3.64642333984375,
+  "AvailablePhysicalGiB": 2.7528419494628906,
+  "LegacyTaskStates": [
+    {
+      "Name": "StockAI-Goal3-Ablation",
+      "State": "Disabled"
+    },
+    {
+      "Name": "StockAI-Goal3-Candidates",
+      "State": "Disabled"
+    },
+    {
+      "Name": "StockAI-Goal3-Phased",
+      "State": "Disabled"
+    },
+    {
+      "Name": "StockAI-Goal3-Research",
+      "State": "Disabled"
+    }
+  ],
+  "ContinuousPidCpuMonitoring": false,
+  "FullRunPeakMemoryProven": false,
+  "OriginalCheckpointUnchanged": true,
+  "OriginalH5CampaignUnchanged": true,
+  "OriginalH5CampaignSucceededBatches": 7,
+  "OriginalH5CampaignTotalBatches": 9,
+  "OriginalConfigExact": true,
+  "CpuThreads": 1,
+  "Iterations": 300,
+  "Features": 41,
+  "ActualSourceMatchesGenuineCodeCommit": true,
+  "FirstFitCheckAtUtc": "2026-10-03T01:33:55.289249+00:00",
+  "NoAdditionalAppsClosed": true,
+  "NoOsSettingsChanged": true,
+  "NoOrdersSubmitted": true,
+  "EstimatedRanking6Hours": {
+    "low": 9,
+    "high": 12,
+    "type": "conditional rough estimate",
+    "basis": "Earlier ranking folds 2-5 took about 5.8/6.3/7.2/8.8 h between saved completions; current training rows are about 7.6% more than fold5.",
+    "limits": "Timestamp gaps include preprocessing/I/O and may include interruptions; new memory I/O and native resource use can change elapsed time. Other tasks/seed43/h20 are not bounded by this estimate."
+  },
+  "CompletedImplementationWork": "Value-preserving projected full authentication, file arrays, lifetime release, explicit lineage, per-fit RAM condition; old progress imported/reloaded.",
+  "RemainingImplementationTimeEstimate": null,
+  "RemainingScope": "Remaining learner execution and later campaign integration/Champion/holdout; no unsupported total completion date.",
+  "FinalizedAtUtc": "2026-10-03T01:44:10.121789+00:00"
+}
