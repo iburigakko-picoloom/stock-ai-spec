@@ -1,0 +1,16 @@
+{
+  "ObservedAtUtc": "2026-10-03T10:08:20.1024023+00:00",
+  "WorkerPid": 18400,
+  "WorkerPhase": "BLOCKED_BEFORE_FIT",
+  "WorkerError": "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.416 GiB below required headroom 3.500 GiB",
+  "FitHeadroomChecks": [
+    {
+      "checked_at_utc": "2026-10-03T19:08:07.677813+09:00",
+      "available_gib": 3.4163665771484375,
+      "minimum_gib": 3.5,
+      "passed": false
+    }
+  ],
+  "FiniteMetadataWaitOnly": true,
+  "TimedOut": false
+}

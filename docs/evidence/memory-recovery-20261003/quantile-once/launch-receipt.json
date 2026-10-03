@@ -1,0 +1,42 @@
+{
+  "LaunchedAtUtc": "2026-10-03T10:03:45.3885606+00:00",
+  "PreparationCheck": {
+    "CheckedAtUtc": "2026-10-03T10:03:45.3369255+00:00",
+    "ActualStockWorkersBeforeLaunch": 0,
+    "AvailablePhysicalGiB": 6.0334014892578125,
+    "RequiredPreparationGiB": 5.5,
+    "RequiredFitGiB": 3.5,
+    "FreeDiskGiB": 212.70521545410156,
+    "MaximumAuthorizedLaunches": 1,
+    "NoAutoRestart": true,
+    "SameCheckpointResume": true
+  },
+  "LauncherPid": 38412,
+  "WorkerRecord": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\quantile-resume-once\\worker.json",
+  "Stdout": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\quantile-resume-once\\worker.stdout.log",
+  "Stderr": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\quantile-resume-once\\worker.stderr.log",
+  "CheckpointPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2",
+  "CodeCommit": "a68e8327914e265e6594e22e02f24bdbbfee39a5",
+  "ConfigHash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "LegacyTasks": [
+    {
+      "TaskName": "StockAI-Goal3-Ablation",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Candidates",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Phased",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Research",
+      "State": 1
+    }
+  ],
+  "WorkerLaunched": true,
+  "FitStartedVerified": false,
+  "NoAutoRestart": true
+}

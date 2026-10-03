@@ -135,3 +135,14 @@ with later campaign integration/Champion/holdout still separate.
 The final documentation checkpoint can be newer than the frozen model pin: all src,
 worker script and dependency files were verified unchanged from the genuine a68e832
 model commit. The report/checkpoint provenance remains that exact source pin.
+
+
+## 2026-10-03 19:10 JST: one explicitly authorized quantile continuation remains blocked
+
+- ranking fold6 was saved at 15:59 JST. All 16 successful units were authenticated, including its 224,458 rows; each saved manifest/Parquet byte hash is unchanged after the continuation. The same `c7f55e2...` namespace was resumed: code/data/config were unchanged, so no new identity or chained import was fabricated. ranking6 remains attempt 1 and was reused without a new fit.
+- The old worker exited after the 16:00 quantile1 pre-fit guard: 3.423523 GiB available versus the unchanged 3.5 GiB requirement. Previous progress, failure registry, logs, array receipt and ranking6 bundle were archived before the explicitly permitted single continuation.
+- At 19:03 JST, actual stock workers were 0, all four legacy tasks Disabled, preparation RAM 6.033401 GiB (required 5.5), and the same genuine `a68e8327914e265e6594e22e02f24bdbbfee39a5` model/worker source and exact config were verified. One hidden worker was launched; full input authentication completed at 19:06.
+- At 19:08:07 JST, quantile1 attempt 2 again failed BEFORE FIT: available 3.416367 GiB, shortfall 0.083633 GiB / 85.64 MiB. No native fit started. At 19:10:44 JST, worker count was 0; exit-time free RAM 6.199165 GiB is not fit-time headroom. No further retry was performed or scheduled.
+- Previous ranking input matrices/preprocessor are explicitly deleted, and the fit guard runs gc/reap. The exit receipt has no ranking6-sized mapping. A fresh process that skips all ranking fits reproduced the shortfall, so old ranking native allocations alone cannot explain it. Current preparation, loaded OOF/model inputs and contemporaneous OS RAM are not separately measured at the guard.
+- The observed preparation reduction was 2.617035 GiB. Under identical conditions, 6.117035 GiB preparation availability would only mathematically reach the 3.5 GiB boundary; this is not a safe retry threshold or a capacity guarantee. No threshold, dtype/precision, feature, seed, split/evaluation, CPU1 or 300-iteration change was made. No app exit, OS setting, authentication, billing, holdout opening or real order occurred.
+- Verification: 16 saved fold bundles authenticated; all 16 byte hashes preserved; original checkpoint unchanged; prior failed registry is an unchanged prefix of the current registry. No code edit or new benchmark/test fit. Evidence: `docs/evidence/memory-recovery-20261003/quantile-once/` and the local one-attempt archive. Continuation is BLOCKED; full-run peak RAM and remaining runtime are unconfirmed.

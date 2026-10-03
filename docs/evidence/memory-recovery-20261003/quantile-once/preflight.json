@@ -1,0 +1,572 @@
+{
+  "checked_at_utc": "2026-10-03T10:01:32.211582+00:00",
+  "code_commit": "a68e8327914e265e6594e22e02f24bdbbfee39a5",
+  "config_hash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "authenticated": true,
+  "all_successful_units_authenticated": [
+    {
+      "unit_id": "0894f0c03ecb80681873235ba76352bdc44e8b650d5926ee11028c9c83005566",
+      "task": "ranking",
+      "scope": "outer-model-evaluation",
+      "fold": 2,
+      "rows": 225268,
+      "frame_sha256": "71628801dd1c0ded64ed4f4409a95e19c4f009dd8639baa91e397f8ed9523c06",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\0894f0c03ecb80681873235ba76352bdc44e8b650d5926ee11028c9c83005566",
+      "file_sha256": {
+        "manifest.json": "fb84362e832f5a838b1d4029548494852db302bbecb6465869de0319fb983281",
+        "oof.parquet": "69a9a69c8e532fbbd8ccf204a6de32908bb5bae44c67e0fd7bf8cbe7cf7a6770"
+      }
+    },
+    {
+      "unit_id": "09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+      "task": "ranking",
+      "scope": "outer-model-evaluation",
+      "fold": 6,
+      "rows": 224458,
+      "frame_sha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+      "file_sha256": {
+        "manifest.json": "9320bf39575d33ba1bb49a6d51ca0886094b36dab0185af83485a1dfadc6f315",
+        "oof.parquet": "7bb013fb429ea79d3deefdc86691bcf6f72efae120804a05cc93e3e178e3b020"
+      }
+    },
+    {
+      "unit_id": "1064668bc759ca77726946bb34834b506cc6b786393cb86e904e5532f79aac7a",
+      "task": "ranking",
+      "scope": "outer-model-evaluation",
+      "fold": 5,
+      "rows": 225055,
+      "frame_sha256": "2aec74035bf119fdd9a7a823922aca8f07ada89b7e26504a689a3da0bdb27584",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\1064668bc759ca77726946bb34834b506cc6b786393cb86e904e5532f79aac7a",
+      "file_sha256": {
+        "manifest.json": "3c4f18a8ba83b5f6f222e272d4cee22b82e2dac08dcd9ba7f57ff6adcdfc1cb4",
+        "oof.parquet": "4e71da4b6dcf58251034e19daf6d69221bc44943556d5ebff77f27140d7beee7"
+      }
+    },
+    {
+      "unit_id": "16dbd161dbecc3528cdbe40c50181183395b1ffc14eac0907c051e4a4659e2d3",
+      "task": "regression",
+      "scope": "outer-model-evaluation",
+      "fold": 5,
+      "rows": 225055,
+      "frame_sha256": "bb06acb6423c20d94d51ce8835b7e78adc99ff211fbb87a325ab3f0960666059",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\16dbd161dbecc3528cdbe40c50181183395b1ffc14eac0907c051e4a4659e2d3",
+      "file_sha256": {
+        "manifest.json": "983ba42a8061a9116b4c09d38afb2c0024d62a01802726f408f6399469326964",
+        "oof.parquet": "38ec3b667e0f207c17e187d41607a99534004fdab3febb3cd5ef468500265a8d"
+      }
+    },
+    {
+      "unit_id": "19ff0b0df3a403d42e69baac8707466f3af04bab6dd9fd4e6b7ae6530012a856",
+      "task": "regression",
+      "scope": "optuna-tuning",
+      "fold": 0,
+      "rows": 225842,
+      "frame_sha256": "4f5892299958c6311960720e213bbe3e7aba580690c7cff1374e4b0210ababa0",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\19ff0b0df3a403d42e69baac8707466f3af04bab6dd9fd4e6b7ae6530012a856",
+      "file_sha256": {
+        "manifest.json": "8bd6a9b53cf451fda183fb565420c2acd589f89938e9f18831f9c2c49eb1afa8",
+        "oof.parquet": "09c0803a8031f5789534bddfcfba6b251565ef5923027fc9e5ee9caaee1b0c3c"
+      }
+    },
+    {
+      "unit_id": "4e52463a3734b37d1dbf31c4eac088a05c547f9a9ccd484a08e8e174c05fd4fe",
+      "task": "ranking",
+      "scope": "outer-model-evaluation",
+      "fold": 3,
+      "rows": 225731,
+      "frame_sha256": "ec15abb280e8f9b8a7e104d81a9187f3d297ffce4cc488b6495c84e03e60d1d9",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\4e52463a3734b37d1dbf31c4eac088a05c547f9a9ccd484a08e8e174c05fd4fe",
+      "file_sha256": {
+        "manifest.json": "7b90f8a534f0abdc3c26aa22f91b00a443ca0cd0203908aeb089eaa0e748b02a",
+        "oof.parquet": "caaf658f9801461e747dd5c00c648c2d4df0605e891f358706a7512e815b43da"
+      }
+    },
+    {
+      "unit_id": "4ed2683cb42934601e2407006755e88b9efd10751034b0f87eaf641a4cdc5281",
+      "task": "ranking",
+      "scope": "outer-model-evaluation",
+      "fold": 1,
+      "rows": 202496,
+      "frame_sha256": "beeb758c8e03413ac339d9a9e425ee2de0beab48b9a11fec5b9815982950e0c3",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\4ed2683cb42934601e2407006755e88b9efd10751034b0f87eaf641a4cdc5281",
+      "file_sha256": {
+        "manifest.json": "31ba18df9f37a39bfd6aabd3524e5971777dc65d0e8f8ad4773ccf9d99df3583",
+        "oof.parquet": "af279a9ac86bc229bc695297717eec963f41c33bf3b5d0a8bc1b53bcfbde6232"
+      }
+    },
+    {
+      "unit_id": "524ed8444992cb3bc6bbdea4f95c2a7312dcfb1bbaccc78cf100aee44904d96c",
+      "task": "regression",
+      "scope": "outer-model-evaluation",
+      "fold": 1,
+      "rows": 202496,
+      "frame_sha256": "2a76fbdac68811a7c93333b675f5f44d01b12071a34ce36106b9d4ff35837ed9",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\524ed8444992cb3bc6bbdea4f95c2a7312dcfb1bbaccc78cf100aee44904d96c",
+      "file_sha256": {
+        "manifest.json": "ad1254ebd032bada3d267dfaca8253f97c8a0d15eb4e42d8a57d6fcd7628a92f",
+        "oof.parquet": "24f9204d651e0815f2a54c656e7ebc80228ae6052839d52e1576e5b28e271d6f"
+      }
+    },
+    {
+      "unit_id": "59000c098d14ca1f3cf6e820cc234bb1da4dfff9427614d28b36f1aa27e554a6",
+      "task": "regression",
+      "scope": "outer-model-evaluation",
+      "fold": 3,
+      "rows": 225731,
+      "frame_sha256": "6bd084a30bb5763a2a48d32e9d2618fe9aad28f847c52a28a4cd5cc84d08af9a",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\59000c098d14ca1f3cf6e820cc234bb1da4dfff9427614d28b36f1aa27e554a6",
+      "file_sha256": {
+        "manifest.json": "7a257110ce39925d027355884fe02875967981f70af6965e143bcf3855863c9a",
+        "oof.parquet": "977bcee4bfd4ef63df9428e05e83b1421a65078a5ec8901e5cbe7e135b02b577"
+      }
+    },
+    {
+      "unit_id": "741c8d7dc0e64d1a8712beb925f456a6bb5ec9c09e5881280a7d66010dd86207",
+      "task": "regression",
+      "scope": "outer-model-evaluation",
+      "fold": 4,
+      "rows": 224522,
+      "frame_sha256": "6e8ee9af2ea8b1f465ee4ef087ec956799e704fa0444a81a42a67ac5ca0c2de3",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\741c8d7dc0e64d1a8712beb925f456a6bb5ec9c09e5881280a7d66010dd86207",
+      "file_sha256": {
+        "manifest.json": "a3ac997937a6897e6db02073b947603f5394589815492af22420d763ca2ffae7",
+        "oof.parquet": "73b9ad6fc6be489517cc7449b35f06e3fb325ab6e08d657ee35d80e46031f129"
+      }
+    },
+    {
+      "unit_id": "753be3226c3356dd1a4602cca47c57ab27e2e7ea94072bea9514a5540fbfc7ac",
+      "task": "ranking",
+      "scope": "outer-model-evaluation",
+      "fold": 4,
+      "rows": 224522,
+      "frame_sha256": "7b870203b3babed4508c13aea1b5a59906f002e991fe2a23ab177af1009ed782",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\753be3226c3356dd1a4602cca47c57ab27e2e7ea94072bea9514a5540fbfc7ac",
+      "file_sha256": {
+        "manifest.json": "569daeb065fd2cbeb1f62969f1112b1a6e44d6ba552bc5dd46b09909085ad53d",
+        "oof.parquet": "b0110e2bd4501fa23cedcc04670f367326f4d65c19419ed92b57bbe65a7da75f"
+      }
+    },
+    {
+      "unit_id": "760b696fbcf5086962a1c27aebbd9f7201c9afe53d5da35b761319d198112295",
+      "task": "regression",
+      "scope": "outer-model-evaluation",
+      "fold": 6,
+      "rows": 224458,
+      "frame_sha256": "d54468884d548e53ec5573e3e29e844dfad631f6d4258a8e280b7a2462cd9430",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\760b696fbcf5086962a1c27aebbd9f7201c9afe53d5da35b761319d198112295",
+      "file_sha256": {
+        "manifest.json": "a0212cf5899caca3c2691b09252253174ffdbaa81d9460167bb313889e8fbe6f",
+        "oof.parquet": "22d897152c3340aac13573d725a7c5345417d89e15408de5a225b847a7ef69b8"
+      }
+    },
+    {
+      "unit_id": "8e22f2e8b8c128f9bda090c3b6ab1702c24aa04a82cab86bfae8f2d3d4c63cf9",
+      "task": "regression",
+      "scope": "optuna-tuning",
+      "fold": 0,
+      "rows": 225842,
+      "frame_sha256": "16b083971fa91aab453bbeb972f51a266edb4a59f59ee4b62ac50379f98b2476",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\8e22f2e8b8c128f9bda090c3b6ab1702c24aa04a82cab86bfae8f2d3d4c63cf9",
+      "file_sha256": {
+        "manifest.json": "5141f1e6943fa3414b052583da7285b7c6c60fed3dfe2e67e6de40a8d602672b",
+        "oof.parquet": "f9d7abe68cfa4b489aa26069145ae0b8378e4b5f59954061f524c1c77d8792cb"
+      }
+    },
+    {
+      "unit_id": "a16383537638a0e9e2620b1e7d2f7f8273c528c4f1be967bd960cb404d9d93bf",
+      "task": "regression",
+      "scope": "optuna-tuning",
+      "fold": 0,
+      "rows": 225842,
+      "frame_sha256": "5b538fca9339f19e737de302515ed6171349c61b2737e8b2c06a9bb384f47c84",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\a16383537638a0e9e2620b1e7d2f7f8273c528c4f1be967bd960cb404d9d93bf",
+      "file_sha256": {
+        "manifest.json": "c19421855c1ca61bee33bb93f9066db2b137542e3ccf2058d929b67c82f23329",
+        "oof.parquet": "edb74cdbe14184ccb6b7abe69c01c288ea0f069f40d7cc9b662d68bdd14f2aab"
+      }
+    },
+    {
+      "unit_id": "c750854b3fe1ddcb6694671e094efceb17e4366b0d9d2b3195e47ff0bd4ca374",
+      "task": "regression",
+      "scope": "optuna-tuning",
+      "fold": 0,
+      "rows": 225842,
+      "frame_sha256": "ca7fe8cd00ac14a0fd39b1cab71da6b48966963f2fafdb5bf804280d9456cce8",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\c750854b3fe1ddcb6694671e094efceb17e4366b0d9d2b3195e47ff0bd4ca374",
+      "file_sha256": {
+        "manifest.json": "8973974b6dc96c18bc0627acc0ec42931bbe1d6f8602fe5b222de16db07d5632",
+        "oof.parquet": "4f2ee87f38ec83533ba86e50f64390014e2d55281e372f6a4876758412d5fb4f"
+      }
+    },
+    {
+      "unit_id": "df63688e7dfbeee44be789d60fdf260d08f0f42bf57a91a43052a0e5a5d6c765",
+      "task": "regression",
+      "scope": "outer-model-evaluation",
+      "fold": 2,
+      "rows": 225268,
+      "frame_sha256": "aa14a42c753f654a0a3ab83909b85cf7926fa7fa28c8b27378ad912dc9824499",
+      "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\df63688e7dfbeee44be789d60fdf260d08f0f42bf57a91a43052a0e5a5d6c765",
+      "file_sha256": {
+        "manifest.json": "04c8137369d99c2665b529063dc32b73f472b78e99c2b2ac9e1c76587ad2a24f",
+        "oof.parquet": "176b5176a98ee181ed55b5d967bb1e6205804e3fb6ec87819e06e2bb9c0f1d66"
+      }
+    }
+  ],
+  "rank6": {
+    "unit_id": "09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+    "task": "ranking",
+    "scope": "outer-model-evaluation",
+    "fold": 6,
+    "rows": 224458,
+    "frame_sha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301",
+    "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+    "file_sha256": {
+      "manifest.json": "9320bf39575d33ba1bb49a6d51ca0886094b36dab0185af83485a1dfadc6f315",
+      "oof.parquet": "7bb013fb429ea79d3deefdc86691bcf6f72efae120804a05cc93e3e178e3b020"
+    }
+  },
+  "same_checkpoint_resume": true,
+  "checkpoint_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2",
+  "checkpoint_sha256_before": {
+    "manifest.json": "de803ffffc584067c0e307fa594dfedb36831b35e68be8dce30eb1858ac0aaf9",
+    "progress.json": "2e1c8fa7d35a43b85a1d705e028390ba4654bd3f9ad84e82e4963a4bf8a469fa"
+  },
+  "original_checkpoint_sha256": {
+    "manifest.json": "2905451647ce74b09807faa442aae37230de72a1b3005efdb6b756ebc791638c",
+    "progress.json": "77a062fba0e7c7af9f62e0bb24f2664d9b93ddbf96f233063fbaf8718d7ec623"
+  },
+  "original_checkpoint_unchanged": true,
+  "model_source_unchanged": true,
+  "minimum_fit_headroom_gib": 3.5,
+  "minimum_preparation_headroom_gib": 5.5,
+  "remaining_allocation_receipt_entries": [
+    {
+      "name": "000000.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000001.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000002.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000003.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000004.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000005.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000006.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000007.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000008.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000009.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000010.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000011.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000012.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000013.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000014.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000015.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000016.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000017.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000018.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000019.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000020.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000021.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000022.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000023.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000024.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000025.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000026.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000027.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000028.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000029.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000030.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000031.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000032.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000033.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000034.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000035.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000036.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000037.array",
+      "shape": [
+        3544857
+      ],
+      "dtype": "float64",
+      "bytes": 28358856
+    },
+    {
+      "name": "000221.array",
+      "shape": [
+        2074895
+      ],
+      "dtype": "float64",
+      "bytes": 16599160
+    },
+    {
+      "name": "000259.array",
+      "shape": [
+        202496
+      ],
+      "dtype": "float64",
+      "bytes": 1619968
+    }
+  ],
+  "remaining_rank6_sized_array_entries": [],
+  "diagnosis": "Previous input matrices and preprocessor are deleted; fit guard performs gc/reap. Exit receipt has no rank6-sized mapped array. Native allocator retention or contemporaneous non-worker RAM cannot be separated from existing logs. Fresh process resumes authenticated OOF without rerunning ranking6.",
+  "rank6_backup_verified": true,
+  "previous_failed_attempt_archived": true,
+  "launch_performed": false,
+  "preflight_does_not_prove_fit_headroom": true,
+  "no_model_or_data_parameter_change": true
+}
