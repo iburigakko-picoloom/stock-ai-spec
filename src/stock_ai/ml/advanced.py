@@ -40,7 +40,7 @@ from stock_ai.domain import Prediction, PredictionUncertainty
 from stock_ai.features import FEATURE_REGISTRY, V0_MANIFEST, V2_EXTENDED_MANIFEST
 from stock_ai.ml.checkpoint import ResearchCheckpointStore, stable_hash
 from stock_ai.ml.dataset import HORIZONS
-from stock_ai.ml.memory import allocate_array, array_workspace, take_column
+from stock_ai.ml.memory import allocate_array, array_workspace, check_fit_headroom, take_column
 from stock_ai.ml.research_metrics import (
     RankingMetrics,
     cross_sectional_relevance,
@@ -658,7 +658,12 @@ def generate_oof_predictions(
                 ).fit(train)
                 train_x = preprocessor.transform(train)
                 validation_x = preprocessor.transform(validation)
+                preserved = {"symbol", "trading_date", "as_of", target_column, label_end_column}
+                finished_features = [name for name in feature_names if name not in preserved]
+                train.drop(columns=finished_features, inplace=True)
+                validation.drop(columns=finished_features, inplace=True)
                 train_target = train[target_column].astype(float)
+                check_fit_headroom()
                 prediction = _fit_predict(
                     family=family,
                     task=task,
@@ -1426,6 +1431,11 @@ def oos_permutation_diagnostics(
         ).fit(train)
         train_x = processor.transform(train)
         validation_x = processor.transform(validation)
+        preserved = {"symbol", "trading_date", "as_of", target_column, label_end_column}
+        finished_features = [name for name in feature_names if name not in preserved]
+        train.drop(columns=finished_features, inplace=True)
+        validation.drop(columns=finished_features, inplace=True)
+        check_fit_headroom()
         model = _regressor(
             family,
             task="regression",
@@ -1880,6 +1890,7 @@ def run_advanced_research(
     checkpoint_import_plan: Path | None = None,
     memory_scratch_root: Path | None = None,
     release_source_frame: bool = False,
+    minimum_fit_headroom_gib: float = 0.0,
 ) -> AdvancedResearchRun:
     """Run Goal 3 research and preserve partial progress if a later stage fails."""
 
@@ -1908,7 +1919,7 @@ def run_advanced_research(
     )
     try:
         try:
-            with array_workspace(memory_scratch_root):
+            with array_workspace(memory_scratch_root, minimum_fit_headroom_gib):
                 return _run_advanced_research(
                     dataset,
                     data_snapshot_id=data_snapshot_id,

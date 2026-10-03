@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import ctypes
 import gc
 import json
 import shutil
+import sys
 import tempfile
 import weakref
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +22,11 @@ _ACTIVE: ContextVar[ArrayWorkspace | None] = ContextVar("stock_array_workspace",
 
 
 class ArrayWorkspace:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, minimum_fit_headroom_gib: float = 0.0):
+        if not np.isfinite(minimum_fit_headroom_gib) or minimum_fit_headroom_gib < 0:
+            raise ValueError("fit memory headroom must be finite and non-negative")
+        self.minimum_fit_headroom_gib = minimum_fit_headroom_gib
+        self.fit_checks: list[dict[str, object]] = []
         root.mkdir(parents=True, exist_ok=True)
         self.path = Path(tempfile.mkdtemp(prefix=".stock-ai-arrays-", dir=root)).resolve()
         self.files: list[tuple[Path, weakref.ReferenceType[Any]]] = []
@@ -63,6 +70,7 @@ class ArrayWorkspace:
                     "allocations": self.allocations,
                     "remaining_files": [path.name for path, _ in self.files],
                     "left_live_mappings_open": bool(self.files),
+                    "fit_headroom_checks": self.fit_checks,
                 },
                 indent=2,
             ),
@@ -73,11 +81,15 @@ class ArrayWorkspace:
 
 
 @contextmanager
-def array_workspace(root: Path | None) -> Iterator[ArrayWorkspace | None]:
+def array_workspace(
+    root: Path | None, minimum_fit_headroom_gib: float = 0.0
+) -> Iterator[ArrayWorkspace | None]:
     if root is None:
+        if minimum_fit_headroom_gib:
+            raise ValueError("fit memory headroom requires an explicit scratch root")
         yield None
         return
-    workspace = ArrayWorkspace(root)
+    workspace = ArrayWorkspace(root, minimum_fit_headroom_gib)
     token = _ACTIVE.set(workspace)
     try:
         yield workspace
@@ -89,6 +101,59 @@ def array_workspace(root: Path | None) -> Iterator[ArrayWorkspace | None]:
 def allocate_array(shape: tuple[int, ...], dtype: Any) -> np.ndarray[Any, Any]:
     active = _ACTIVE.get()
     return np.empty(shape, dtype=dtype) if active is None else active.allocate(shape, dtype)
+
+
+def _available_physical_bytes() -> int:
+    if sys.platform != "win32":
+        raise RuntimeError("explicit fit memory guard is currently Windows-only")
+
+    class MemoryStatus(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_uint32), ("load", ctypes.c_uint32)] + [
+            (name, ctypes.c_uint64)
+            for name in (
+                "total_physical",
+                "available_physical",
+                "total_pagefile",
+                "available_pagefile",
+                "total_virtual",
+                "available_virtual",
+                "available_extended_virtual",
+            )
+        ]
+
+    status = MemoryStatus()
+    status.length = ctypes.sizeof(status)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    if not kernel.GlobalMemoryStatusEx(ctypes.byref(status)):
+        raise OSError(ctypes.get_last_error(), "unable to read fit memory headroom")
+    return int(status.available_physical)
+
+
+def check_fit_headroom() -> None:
+    active = _ACTIVE.get()
+    if active is None or not active.minimum_fit_headroom_gib:
+        return
+    gc.collect()
+    active.reap()
+    available_gib = _available_physical_bytes() / 1024**3
+    passed = available_gib >= active.minimum_fit_headroom_gib
+    active.fit_checks.append(
+        {
+            "checked_at_utc": datetime.now(UTC).isoformat(),
+            "available_gib": available_gib,
+            "minimum_gib": active.minimum_fit_headroom_gib,
+            "passed": passed,
+        }
+    )
+    active.path.with_suffix(".fit-headroom.json").write_text(
+        json.dumps(active.fit_checks, indent=2), encoding="utf-8"
+    )
+    if not passed:
+        raise RuntimeError(
+            f"BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM "
+            f"{available_gib:.3f} GiB below required headroom "
+            f"{active.minimum_fit_headroom_gib:.3f} GiB"
+        )
 
 
 def take_column(series: Any, indices: np.ndarray[Any, Any]) -> Any:

@@ -124,6 +124,7 @@ def test_cli_memory_scratch_option_is_available():
     )
     assert result.exit_code == 0
     assert "--memory-scratch-root" in result.stdout
+    assert "--minimum-fit-headroom-gib" in result.stdout
 
 
 def test_source_release_requires_explicit_single_horizon(tmp_path):
@@ -140,4 +141,73 @@ def test_source_release_requires_explicit_single_horizon(tmp_path):
             feature_manifest_hash="c" * 64,
             memory_scratch_root=tmp_path,
             release_source_frame=True,
+        )
+
+
+@pytest.mark.parametrize("available,passed", [(2, False), (3.5, True), (5, True)])
+def test_fit_guard_blocks_before_model_and_records_actual_headroom(
+    tmp_path, monkeypatch, available, passed
+):
+    import stock_ai.ml.memory as memory_module
+
+    monkeypatch.setattr(
+        memory_module, "_available_physical_bytes", lambda: int(available * 1024**3)
+    )
+    with array_workspace(tmp_path, 3.5):
+        if passed:
+            memory_module.check_fit_headroom()
+        else:
+            with pytest.raises(RuntimeError, match="before fit available physical RAM"):
+                memory_module.check_fit_headroom()
+    measured = json.loads(next(tmp_path.glob("*.fit-headroom.json")).read_text())
+    assert measured[0]["available_gib"] == available
+    assert measured[0]["passed"] is passed
+
+
+def test_low_headroom_never_calls_fit(tmp_path, monkeypatch):
+    import stock_ai.ml.advanced as advanced
+    import stock_ai.ml.memory as memory_module
+    from stock_ai.ml.advanced import AdvancedResearchConfig, generate_oof_predictions
+
+    dates = pd.date_range("2024-01-01", periods=36)
+    frame = pd.DataFrame(
+        {
+            "symbol": ["A"] * 36,
+            "trading_date": dates,
+            "target": np.arange(36) / 100,
+            "label_end": dates + pd.Timedelta(days=1),
+            "f1": np.arange(36, dtype=float),
+            "f2": np.sin(np.arange(36)),
+        }
+    )
+    config = AdvancedResearchConfig(
+        horizons=(1,),
+        model_families=("catboost",),
+        seeds=(17,),
+        initial_train_periods=20,
+        validation_periods=5,
+        holdout_periods=5,
+        estimator_count=5,
+    )
+    monkeypatch.setattr(memory_module, "_available_physical_bytes", lambda: 2 * 1024**3)
+
+    def forbidden(**kwargs):
+        raise AssertionError("native fit must not run below required RAM")
+
+    monkeypatch.setattr(advanced, "_fit_predict", forbidden)
+    with (
+        array_workspace(tmp_path, 3.5),
+        pytest.raises(RuntimeError, match="before fit available physical RAM"),
+    ):
+        generate_oof_predictions(
+            frame,
+            feature_names=("f1", "f2"),
+            target_column="target",
+            label_end_column="label_end",
+            horizon=1,
+            family="catboost",
+            task="regression",
+            seed=17,
+            parameters={"depth": 3, "learning_rate": 0.05, "l2": 1.0},
+            config=config,
         )

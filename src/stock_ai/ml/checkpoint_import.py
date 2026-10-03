@@ -138,6 +138,10 @@ def create_memory_equivalence_proof(
         for module, names in (
             ("copy", ("deepcopy",)),
             ("stock_ai.ml.memory", ("allocate_array", "array_workspace", "take_column")),
+            (
+                "stock_ai.ml.memory",
+                ("allocate_array", "array_workspace", "check_fit_headroom", "take_column"),
+            ),
         )
     }
     if (

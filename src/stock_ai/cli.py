@@ -1044,6 +1044,12 @@ def research_advanced(
             help="Local scratch for identical arrays and authenticated input projection.",
         ),
     ] = None,
+    minimum_fit_headroom_gib: Annotated[
+        float,
+        typer.Option(
+            min=0.0, help="Require this much free physical RAM immediately before each fit."
+        ),
+    ] = 0.0,
 ) -> None:
     """Run leakage-safe GBDT/LTR/downside/OOF research; never open the holdout."""
 
@@ -1142,6 +1148,7 @@ def research_advanced(
             checkpoint_import_plan=checkpoint_import_plan,
             memory_scratch_root=memory_scratch_root,
             release_source_frame=memory_scratch_root is not None and len(config.horizons) == 1,
+            minimum_fit_headroom_gib=minimum_fit_headroom_gib,
         )
         metadata_path, oof_path = write_advanced_research_run(run, report_root)
         # Read through the authenticated boundary before declaring publication complete.

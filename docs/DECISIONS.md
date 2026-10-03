@@ -962,3 +962,11 @@ Optunaの元DBはread-only backupを介し、trial内容/number/date/durationを
 元94aab78系と新commitの同値比較、変更範囲のAST guard、同一lock/runtime、補助source hashをlineageへ結び、元namespace・FAILED記録・Optuna duration/budgetを保持する。実際の新namespace import/reloadと学習進捗は別の実測で報告する。保存済み7 batchのcommit/hashを書き換えたり、新しい結果へ混ぜて採用したりしない。
 
 詳細・66/76/2件のpassing evidence・実全データ認証・合成native測定と制約はLOCAL_MEMORY_RECOVERY.mdに記録した。最大実foldのnative memory上限はまだ実証されていない。必要RAMの安全余裕を示せるまで大規模なOOM試行はせず、4 taskの一括再有効化はしない。Classic以外のアプリ、pagefile/OS、外部upload/VM/課金、holdout評価、注文は変更しない。
+
+### D090 — モデル行列作成後の元配列解放とfit直前RAM条件（2026-10-03）
+
+旧進捗15単位の真正なimport/reloadは09:59 JSTに成功した。新規学習完了とは区別する。元namespaceとcampaignは不変。続くsource変更は別の真正commit/namespaceで元94aab78成果から受け入れ、chained importや旧pinの偽装はしない。
+
+予測に渡す前処理行列は変えず、作成後に不要な所有foldの元特徴量配列を解放する。--memory-scratch-rootと--minimum-fit-headroom-gib 3.5を明示する単独workerでは、native fit直前の実際の空きRAMが条件未満なら停止する。合成40k/80k/160k測定から既知fixture配列を引いた大きい増分を最大実foldへ換算し、固定0.1 GiBを足して2倍にしたnative保守推計約2.1 GiBに対し約1.4 GiBの余裕を残す。推計とhard上限保証は混同しない。
+
+確認はfit境界の一回だけで、継続PID/CPU監視やOS/process hard capではない。設定不足の時はnative fitを始めず記録して停止し、無理なOOM試行や自動retryはしない。学習条件・CPU1・300反復・seed・評価・元成果を保持し、実起動/guard/最初のcheckpointを別に確認する。元task4本の一括再有効化、追加アプリ終了、新規認証/課金/外部送信/注文は行わない。

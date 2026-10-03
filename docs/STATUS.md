@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-10-03 — 保存進捗移行とfit直前RAM条件
+
+- 09:59 JSTに旧11 outer fold + 4 tuning unitを新namespaceへimport/reloadし完全一致。Optuna4 terminal trialとduration/budgetを保持。元checkpoint/campaign hashは不変。新しいfitは0件。復旧peak working set1.444 GiB、private commit2.171 GiB。
+- モデル行列構築後に不要な元特徴量配列を解放し、各fit直前に空き物理RAMを一度確認するopt-inを追加。不足ならnative fit前に止まる。連続PID/CPU監視やOS設定変更はしない。3.5 GiB条件の根拠は合成測定の保守的推計で、native上限の数学的保証ではない。
+- 10:01 JST空きRAM6.085 GiB。guard付きで単独workerのみ再開する手順を検証中。実起動・新規完了は別の実測で報告する。D090、LOCAL_MEMORY_RECOVERY.md、capacity-budget.json参照。
+
 ## 2026-10-03 — 同値のファイル配列と全列認証によるメモリ削減
 
 - 必要列のみの入力でも元の全列 byte/content hash を照合し、全 Build/V0/V1/V2/Dataset ID が09:25 JSTに一致した。認証 peak working set は1.134 GiB。元checkpointは未変更。

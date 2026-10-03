@@ -64,3 +64,38 @@ account changes were made.
 
 Logs: `docs/evidence/memory-recovery-20261003/`. Earlier source/checkpoint identities
 and thin split/OOF evidence remain documented in D088 and the local workspace.
+
+## Fit-boundary guard and completed local import
+
+At 09:59:25 JST the original 11 outer folds and four tuning units were imported and
+reloaded exactly in namespace 9439a04d... under real source commit 2f955778.... All
+four terminal Optuna trials and durations were retained. Original namespace/campaign
+hashes stayed unchanged; no model was fitted. Fresh full input authentication was
+repeated. The recovery process peaked at 1.444 GiB working set / 2.171 GiB private
+commit in 145.4 s. The following guard source change uses another genuine source
+commit and a separately authenticated destination; it must reuse the original source
+again rather than silently change this imported namespace or chain its lineage.
+
+The model receives exactly the same prepared float32 matrices. Once they are built,
+original numeric feature columns in each owned train/validation copy are released;
+only output/evidence keys and target/date contracts remain. The retained development
+arrays and model input matrices remain available. Default caller data is unchanged.
+
+`--minimum-fit-headroom-gib 3.5` with scratch storage checks free physical RAM once
+immediately before each native fit, after collecting/reaping unused owned mappings.
+If insufficient, it records the actual value and raises before native fitting. It does
+not poll PID/CPU or impose an OS/process memory limit. The check is opt-in, currently
+Windows-only, and records its timestamp in a local `.fit-headroom.json` receipt.
+
+The 3.5 GiB threshold uses the 40k/80k/160k same-parameter CPU allocation samples:
+remove known synthetic fixture buffer growth, use the larger remaining per-row working
+set slope, scale to 3,200,734 rows, add 0.1 GiB fixed allowance and double the result.
+The resulting native estimate is about 2.1 GiB, leaving about 1.4 GiB at the actual
+fit boundary. This is a conservative inference, not a proven native hard bound.
+The 20k/300-iteration probe additionally checks the production iteration setting at
+small scale. Native growth at full scale remains an unresolved practical limit.
+
+At 10:01 JST available physical RAM was 6.085 GiB. Start only one owned worker,
+using the unchanged original configuration, genuine source pin and explicit source
+import plan; no four-task reenable. Report actual guard results and first checkpoint
+state separately from newly completed learning. On guard failure, stop without retries.

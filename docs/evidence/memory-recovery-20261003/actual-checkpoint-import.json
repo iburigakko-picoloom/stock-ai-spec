@@ -1,0 +1,130 @@
+{
+  "checked_at_utc": "2026-10-03T00:59:25.389207+00:00",
+  "destination_path": "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\9439a04d3854a29fc9cf1e4699948a02912baf63defb512997c6b12461b2d4a7",
+  "destination_code_commit": "2f955778a174bf910e48a056f484539256014af5",
+  "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+  "full_input_authentication_repeated": true,
+  "imported_reloaded_units": [
+    {
+      "scope": "outer-model-evaluation",
+      "task": "ranking",
+      "fold": 1,
+      "rows": 202496,
+      "source_unit_id": "14c817839da37e063283141b225b587028af254f4dae20d2703f5ada4c2f3549"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "regression",
+      "fold": 1,
+      "rows": 202496,
+      "source_unit_id": "246a8895f4c13fb47bd9f0c519c572bc49f8e5da3cf79f6d93eede901fbf78b4"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "regression",
+      "fold": 2,
+      "rows": 225268,
+      "source_unit_id": "437ac896e02ac12d727ea502e3dd6fec1ae13fdff3380318e48ef282ce06b429"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "ranking",
+      "fold": 2,
+      "rows": 225268,
+      "source_unit_id": "59cbfeaa389dc9cefbc8f3c8bfc48cbd34c74de43a434ea953742a498cf43b64"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "regression",
+      "fold": 3,
+      "rows": 225731,
+      "source_unit_id": "324ac84946755209c94d7999a5306a21631372fbbd127a8a071ec12fc8898443"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "ranking",
+      "fold": 3,
+      "rows": 225731,
+      "source_unit_id": "a11256748f2baf02eb69c596dd29b6415fa0ec9fa58cfa562cd6dfec49220517"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "regression",
+      "fold": 4,
+      "rows": 224522,
+      "source_unit_id": "0fcb31cc38b05602af5c45628aed19aeb75c9555e396accd52015ba6e9f9b8ef"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "ranking",
+      "fold": 4,
+      "rows": 224522,
+      "source_unit_id": "24866eb4bac3a4e92a32db97d9d35e76bec3ea351673299c33c7062993e37bbf"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "regression",
+      "fold": 5,
+      "rows": 225055,
+      "source_unit_id": "658e846e8ef8084b6c95bf55676cf960f2da50afd3c01ff6453277329f19ddb5"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "ranking",
+      "fold": 5,
+      "rows": 225055,
+      "source_unit_id": "94136c9104efa6133e2dcebee6fe60f2ff6b1b492d683bcc2a488f8533b93d42"
+    },
+    {
+      "scope": "outer-model-evaluation",
+      "task": "regression",
+      "fold": 6,
+      "rows": 224458,
+      "source_unit_id": "c023074b68bc11d55943826f1e087afcef39ea8f97d8e4176062e4f634277ddb"
+    },
+    {
+      "scope": "optuna-tuning",
+      "task": "regression",
+      "fold": 0,
+      "rows": 225842,
+      "source_unit_id": "0ebf39b1e0566a8a831948b851624e610a7d130f81664ae5116ca96cdeb4555b"
+    },
+    {
+      "scope": "optuna-tuning",
+      "task": "regression",
+      "fold": 0,
+      "rows": 225842,
+      "source_unit_id": "1f9ae952ba4077834a28ac91997437f597763eaa725a8b3116f0d0b521fa9445"
+    },
+    {
+      "scope": "optuna-tuning",
+      "task": "regression",
+      "fold": 0,
+      "rows": 225842,
+      "source_unit_id": "322eb4eec9cf200c25683cbb6033e51666dcabf509d5ae669cd0753c67f383bd"
+    },
+    {
+      "scope": "optuna-tuning",
+      "task": "regression",
+      "fold": 0,
+      "rows": 225842,
+      "source_unit_id": "c323f5f30c1b1025fa06921e7fbfc7901ab2ebe03ffcaf3b72f378ca5892e716"
+    }
+  ],
+  "imported_outer_folds": 11,
+  "imported_tuning_units": 4,
+  "optuna_terminal_trials": 4,
+  "original_checkpoint_sha256": {
+    "manifest.json": "2905451647ce74b09807faa442aae37230de72a1b3005efdb6b756ebc791638c",
+    "progress.json": "77a062fba0e7c7af9f62e0bb24f2664d9b93ddbf96f233063fbaf8718d7ec623"
+  },
+  "original_checkpoint_unchanged": true,
+  "original_h5_campaign_sha256": "eb67f1d0c96e57612815115c9c8ff42e92ebd5dfe5984f98919027ce733223a7",
+  "original_h5_campaign_unchanged": true,
+  "process_peak_working_set_gib": 1.44415283203125,
+  "process_peak_private_commit_gib": 2.1714935302734375,
+  "elapsed_seconds": 145.436,
+  "new_model_fits": 0,
+  "training_started": false,
+  "locked_holdout_evaluated": false
+}

@@ -1,0 +1,28 @@
+{
+  "created_at_utc": "2026-10-03T01:10:08.638720+00:00",
+  "largest_training_rows": 3200734,
+  "sample_rows": [
+    40000,
+    80000,
+    160000
+  ],
+  "sample_iterations": 5,
+  "production_iterations": 300,
+  "sample_ws_growth_less_fixture_bytes_per_row": [
+    299.2192,
+    314.6304
+  ],
+  "inferred_native_row_memory_gib": 0.9378867398142815,
+  "conservative_inference_native_gib": 2.075773479628563,
+  "required_available_ram_immediately_before_fit_gib": 3.5,
+  "inferred_remaining_physical_margin_gib": 1.424226520371437,
+  "model_native_hard_upper_bound_proven": false,
+  "guard_is_before_fit_only_not_a_runtime_memory_cap": true,
+  "inference_notes": [
+    "Subtract synthetic full float64 feature/target/date and mapped float32 input growth.",
+    "Use larger observed slope, add 0.1 GiB fixed native allowance, then double estimate.",
+    "Prepared model matrices and retained development/OOF/index RAM already consume memory before guard reads actual free physical RAM.",
+    "Mapped original fold features are released after preprocessing; clean retained mappings are reclaimable.",
+    "Scaling from synthetic fixtures remains an inference, not a strict memory guarantee."
+  ]
+}
