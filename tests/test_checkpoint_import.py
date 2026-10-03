@@ -400,7 +400,10 @@ def test_explicit_import_plan_reuses_folds_automatically_with_current_evidence(
 
     monkeypatch.setattr(advanced, "_fit_predict", no_fit)
     with ResearchCheckpointStore(root, provenance=provenance, import_plan=plan_path) as imported:
-        observed = advanced.generate_oof_predictions(frame, checkpoint_store=imported, **kwargs)
+        from stock_ai.ml.memory import array_workspace
+
+        with array_workspace(tmp_path / "mapped-import"):
+            observed = advanced.generate_oof_predictions(frame, checkpoint_store=imported, **kwargs)
         pdt.assert_frame_equal(observed, expected, check_exact=True)
         assert json.loads((imported.path / "import-plan.json").read_text(encoding="utf-8")) == plan
 
@@ -461,3 +464,40 @@ def test_import_cli_option_is_explicit_and_invalid_path_is_rejected(tmp_path):
     )
     assert result.exit_code == 2
     assert "does not exist" in result.output
+
+
+def test_proof_binds_supporting_code_and_checks_runtime(setup, tmp_path):
+    import stock_ai.ml.memory as memory_module
+    from stock_ai.ml.checkpoint_import import authenticate_checkpoint_import_plan
+
+    _, _, source, destination, _, _, _ = setup
+    report = tmp_path / "passing.xml"
+    report.write_text('<testsuites><testsuite tests="1" failures="0" errors="0"/></testsuites>')
+    proof = create_memory_equivalence_proof(
+        source_checkpoint=source,
+        destination_provenance=destination.provenance,
+        source_model_code=ROOT / "src/stock_ai/ml/advanced.py",
+        destination_model_code=ROOT / "src/stock_ai/ml/advanced.py",
+        source_lock=ROOT / "uv.lock",
+        destination_lock=ROOT / "uv.lock",
+        passing_fixture_reports=[report],
+        supporting_code_paths={"stock_ai/ml/memory.py": Path(memory_module.__file__)},
+    )
+    plan = {
+        "schema_version": "advanced-checkpoint-import-plan-v1",
+        "source_checkpoint_path": str(source.resolve()),
+        "equivalence_proof": proof,
+    }
+    plan["metadata_hash"] = _metadata_hash(plan)
+    authenticate_checkpoint_import_plan(plan, destination.provenance)
+    for change in ("file", "runtime"):
+        changed = copy.deepcopy(plan)
+        evidence = changed["equivalence_proof"]
+        if change == "file":
+            evidence["supporting_code_sha256"]["stock_ai/ml/memory.py"] = "0" * 64
+        else:
+            evidence["runtime_versions"]["catboost"] = "fixture-wrong-version"
+        evidence["metadata_hash"] = _metadata_hash(evidence)
+        changed["metadata_hash"] = _metadata_hash(changed)
+        with pytest.raises(RuntimeError, match=r"supporting code changed|runtime changed"):
+            authenticate_checkpoint_import_plan(changed, destination.provenance)

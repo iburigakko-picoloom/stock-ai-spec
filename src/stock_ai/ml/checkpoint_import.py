@@ -44,6 +44,7 @@ _ALLOWED_CHANGED = frozenset(
         "oos_permutation_diagnostics",
         "bounded_optuna_search",
         "run_advanced_research",
+        "_finite_numeric",
     }
 )
 _ALLOWED_ADDED = frozenset(
@@ -51,6 +52,7 @@ _ALLOWED_ADDED = frozenset(
         "_select_rows_columnwise",
         "_take_rows_columnwise",
         "_prepare_fold_rows",
+        "research_input_columns",
     }
 )
 _RUNTIME_PACKAGES = (
@@ -108,6 +110,7 @@ def create_memory_equivalence_proof(
     source_lock: Path,
     destination_lock: Path,
     passing_fixture_reports: Sequence[Path],
+    supporting_code_paths: Mapping[str, Path] | None = None,
 ) -> dict[str, object]:
     """Record reviewed code scope, unchanged lock/runtime and successful fixture evidence."""
 
@@ -127,20 +130,24 @@ def create_memory_equivalence_proof(
     changed = {name for name in old.keys() & new.keys() if old[name] != new[name]}
     if old.keys() - new.keys() or not added <= _ALLOWED_ADDED or not changed <= _ALLOWED_CHANGED:
         raise RuntimeError("model code contains changes outside reviewed memory helpers")
-    permitted_import = ast.dump(
-        ast.ImportFrom(
-            module="copy",
-            names=[ast.alias(name="deepcopy")],
-            level=0,
-        ),
-        include_attributes=False,
-    )
+    permitted_imports = {
+        ast.dump(
+            ast.ImportFrom(module=module, names=[ast.alias(name=name) for name in names], level=0),
+            include_attributes=False,
+        )
+        for module, names in (
+            ("copy", ("deepcopy",)),
+            ("stock_ai.ml.memory", ("allocate_array", "array_workspace", "take_column")),
+        )
+    }
     if (
         old_other != new_other
-        or [item for item in new_imports if item != permitted_import]
-        != [item for item in old_imports if item != permitted_import]
-        or new_imports.count(permitted_import) < old_imports.count(permitted_import)
-        or new_imports.count(permitted_import) > 1
+        or [item for item in new_imports if item not in permitted_imports]
+        != [item for item in old_imports if item not in permitted_imports]
+        or any(
+            new_imports.count(item) < old_imports.count(item) or new_imports.count(item) > 1
+            for item in permitted_imports
+        )
     ):
         raise RuntimeError("model constants or imports changed outside the memory patch")
     if source_lock.read_bytes() != destination_lock.read_bytes():
@@ -179,6 +186,10 @@ def create_memory_equivalence_proof(
         "runtime_versions": runtime,
         "passing_fixture_reports": reports,
     }
+    if supporting_code_paths is not None:
+        proof["supporting_code_sha256"] = {
+            name: _file_sha256(path) for name, path in sorted(supporting_code_paths.items())
+        }
     proof["metadata_hash"] = _metadata_hash(proof)
     return proof
 
@@ -204,6 +215,22 @@ def _authenticate_proof(
         "passing_fixture_reports"
     ):
         raise RuntimeError("memory equivalence proof lacks runtime/fixture evidence")
+    if proof["runtime_versions"] != {name: version(name) for name in _RUNTIME_PACKAGES}:
+        raise RuntimeError("memory equivalence proof runtime changed")
+    supporting = proof.get("supporting_code_sha256")
+    if supporting is not None:
+        if not isinstance(supporting, dict) or not supporting:
+            raise RuntimeError("memory equivalence supporting code evidence is invalid")
+        source_root = Path(__file__).resolve().parents[2]
+        package_root = source_root / "stock_ai"
+        for name, digest in supporting.items():
+            if not isinstance(name, str) or not isinstance(digest, str):
+                raise RuntimeError("memory equivalence supporting code identity is invalid")
+            path = (source_root / name).resolve()
+            if not path.is_relative_to(package_root) or path.suffix != ".py":
+                raise RuntimeError("memory equivalence supporting code path is invalid")
+            if _file_sha256(path) != digest:
+                raise RuntimeError("memory equivalence supporting code changed")
     return namespace
 
 

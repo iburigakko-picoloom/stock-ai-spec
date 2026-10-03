@@ -952,3 +952,13 @@ Optunaの元DBはread-only backupを介し、trial内容/number/date/durationを
 旧h5 campaignの完成済み7 batchを新commitの結果へ黙って統合せず、採用は別途来歴付きで検証する。
 外部転送、VM、課金、注文、プロセス終了、OS/pagefile変更、他アプリ変更は行わない。
 
+
+### D089 — 全列認証後の入力投影と同値のファイル配列（2026-10-03）
+
+承認済みの株式だけのローカル復旧として、全Parquetの物理hash・元logical IDとfeature/dataset整合を認証した後で必要列だけを露出する。元の90 float64列を常時保持しないが、除外列の内容も認証から除外しない。dtype・行・特徴量順・前処理・モデル条件・split・holdoutは保持する。
+
+--memory-scratch-rootを明示した単独horizonのCLIに限り、所有する入力を独立development配列へ写した後に解放する。数値作業配列は同dtype/C-layoutのファイル配列へ置き、row-copyの書き込みをflushする。常駐しているmapped pageはRAMを消費する。拡張dtype/object/空配列は従来処理を保持し、生存viewを強制closeしない。失敗時の残存scratchはreceiptで識別する。
+
+元94aab78系と新commitの同値比較、変更範囲のAST guard、同一lock/runtime、補助source hashをlineageへ結び、元namespace・FAILED記録・Optuna duration/budgetを保持する。実際の新namespace import/reloadと学習進捗は別の実測で報告する。保存済み7 batchのcommit/hashを書き換えたり、新しい結果へ混ぜて採用したりしない。
+
+詳細・66/76/2件のpassing evidence・実全データ認証・合成native測定と制約はLOCAL_MEMORY_RECOVERY.mdに記録した。最大実foldのnative memory上限はまだ実証されていない。必要RAMの安全余裕を示せるまで大規模なOOM試行はせず、4 taskの一括再有効化はしない。Classic以外のアプリ、pagefile/OS、外部upload/VM/課金、holdout評価、注文は変更しない。

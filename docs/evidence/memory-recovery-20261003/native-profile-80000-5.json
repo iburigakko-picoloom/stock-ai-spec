@@ -1,0 +1,29 @@
+{
+  "measured_at_utc": "2026-10-03T00:34:52.125620+00:00",
+  "synthetic_only": true,
+  "rows": 80000,
+  "features": 41,
+  "group_size": 5000,
+  "cpu_threads": 1,
+  "iterations": 5,
+  "production_iterations_unchanged": 300,
+  "parameters": {
+    "depth": 3,
+    "l2": 0.001963475797335144,
+    "learning_rate": 0.11399161322684961
+  },
+  "before": {
+    "PeakWorkingSetSize": 0.20344924926757812,
+    "PeakPagefileUsage": 0.8476181030273438,
+    "PrivateUsage": 0.8446578979492188
+  },
+  "after": {
+    "PeakWorkingSetSize": 0.36116790771484375,
+    "PeakPagefileUsage": 1.0372085571289062,
+    "PrivateUsage": 0.9174232482910156
+  },
+  "elapsed_seconds": 25.697767100064084,
+  "prediction_finite": true,
+  "production_training_started": false,
+  "native_memory_upper_bound_proven": false
+}

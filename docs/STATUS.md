@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-10-03 — 同値のファイル配列と全列認証によるメモリ削減
+
+- 必要列のみの入力でも元の全列 byte/content hash を照合し、全 Build/V0/V1/V2/Dataset ID が09:25 JSTに一致した。認証 peak working set は1.134 GiB。元checkpointは未変更。
+- 同じdtypeの作業配列をローカルファイルに保持し、不要なsource/tuning/fold/diagnostic配列を早く解放するopt-inを追加。元コードとの独立比較66 pass、変更後統合76 pass、本番PIT/build2 pass、Ruff/strict mypy50 source pass。数値・特徴量・split・seed・300 iterations・CPU1・評価・holdoutは不変。
+- Classicのみ通常終了済み。09:36 JSTの空き物理RAMは5.572 GiB、ディスク約212 GiB。小規模合成測定は実データ最大foldのメモリ上限や残り時間の保証ではない。実学習はまだ起動しておらず、4 taskはDisabled。D089とLOCAL_MEMORY_RECOVERY.md参照。
+
 ## 2026-10-03 — メモリ局所修正と明示的checkpoint importを実装、RAM不足で起動保留
 
 - 前処理3箇所とOOF/diagnosticsのfold選択を列単位のdtype-preserving copyへ変更。対象行、並び順、値、特徴量、モデルparameter、300 iterations、CPU 1 thread、holdout境界を変更していない。usableはdevelopment構築後に解放。

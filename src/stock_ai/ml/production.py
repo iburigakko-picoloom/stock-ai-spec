@@ -8,14 +8,17 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from stock_ai.data.contracts import (
@@ -24,11 +27,19 @@ from stock_ai.data.contracts import (
     SubscriptionPlan,
 )
 from stock_ai.data.production import ProductionDataBundle
-from stock_ai.features import V0_MANIFEST, V1_CORE_MANIFEST, V2_EXTENDED_MANIFEST, FeatureEngine
+from stock_ai.features import (
+    V0_MANIFEST,
+    V1_CORE_MANIFEST,
+    V2_EXTENDED_MANIFEST,
+    FeatureEngine,
+)
 from stock_ai.features.registry import FeatureSetManifest
 from stock_ai.ml.dataset import HORIZONS
 from stock_ai.ml.models import MomentumRegressor, Regressor, RidgeRegressor
-from stock_ai.ml.validation import PurgedExpandingWindowSplitter, reserve_locked_final_holdout
+from stock_ai.ml.validation import (
+    PurgedExpandingWindowSplitter,
+    reserve_locked_final_holdout,
+)
 
 
 @dataclass(frozen=True)
@@ -519,6 +530,8 @@ def write_production_feature_snapshot(
 
 def load_production_feature_snapshot(
     parquet_path: Path,
+    *,
+    columns: Sequence[str] | None = None,
 ) -> tuple[ProductionFeatureSnapshot, pd.DataFrame]:
     """Load and authenticate a Production Feature Snapshot bundle."""
 
@@ -546,7 +559,8 @@ def load_production_feature_snapshot(
         metadata_path=metadata_path,
         expected_metadata=expected,
     )
-    frame = pd.read_parquet(parquet_path)
+    frame = pd.read_parquet(parquet_path, columns=None if columns is None else list(columns))
+    streamed = _parquet_content_digest(parquet_path) if columns is not None else None
     manifests = {
         V0_MANIFEST.feature_set_id: V0_MANIFEST,
         V1_CORE_MANIFEST.feature_set_id: V1_CORE_MANIFEST,
@@ -571,7 +585,7 @@ def load_production_feature_snapshot(
     revision_policy = str(observed["historical_revision_policy"])
     revision_status = CapabilityStatus(str(observed["historical_revision_status"]))
     canonical = frame.sort_values(["trading_date", "symbol"]).reset_index(drop=True)
-    schema = _logical_frame_schema(canonical)
+    schema = _logical_frame_schema(canonical) if streamed is None else streamed[0]
     identity = json.dumps(
         {
             "manifest_hash": manifest_hash,
@@ -585,7 +599,7 @@ def load_production_feature_snapshot(
         },
         sort_keys=True,
     ).encode()
-    content_digest = _stable_frame_content_digest(canonical)
+    content_digest = _stable_frame_content_digest(canonical) if streamed is None else streamed[1]
     if hashlib.sha256(identity + content_digest).hexdigest() != snapshot_id:
         raise RuntimeError("production feature content identity mismatch")
     snapshot = ProductionFeatureSnapshot(
@@ -605,6 +619,8 @@ def load_production_feature_snapshot(
     )
     if snapshot.rows != len(frame) or frame.empty:
         raise RuntimeError("production feature row-count metadata mismatch")
+    if _file_sha256(parquet_path) != observed["parquet_sha256"]:
+        raise RuntimeError("snapshot Parquet changed during authenticated read")
     return snapshot, frame
 
 
@@ -764,6 +780,8 @@ def write_production_dataset_snapshot(
 
 def load_production_dataset_snapshot(
     parquet_path: Path,
+    *,
+    columns: Sequence[str] | None = None,
 ) -> tuple[ProductionDatasetSnapshot, pd.DataFrame]:
     """Load and authenticate a Production Dataset bundle before research use."""
 
@@ -793,7 +811,8 @@ def load_production_dataset_snapshot(
         metadata_path=metadata_path,
         expected_metadata=expected,
     )
-    frame = pd.read_parquet(parquet_path)
+    frame = pd.read_parquet(parquet_path, columns=None if columns is None else list(columns))
+    streamed = _parquet_content_digest(parquet_path) if columns is not None else None
     feature_manifests = tuple(
         (str(item[0]), str(item[1])) for item in observed["feature_manifests"]
     )
@@ -815,6 +834,7 @@ def load_production_dataset_snapshot(
         label_1230_status=label_status,
         historical_revision_policy=revision_policy,
         historical_revision_status=revision_status,
+        content_override=streamed,
     )
     if recomputed != snapshot_id:
         raise RuntimeError("production dataset content identity mismatch")
@@ -843,6 +863,8 @@ def load_production_dataset_snapshot(
     observed_end = str(pd.to_datetime(frame["trading_date"]).max().date())
     if observed_start != snapshot.data_start or observed_end != snapshot.data_end:
         raise RuntimeError("production dataset date-range metadata mismatch")
+    if _file_sha256(parquet_path) != observed["parquet_sha256"]:
+        raise RuntimeError("snapshot Parquet changed during authenticated read")
     return snapshot, frame
 
 
@@ -1069,7 +1091,7 @@ def _validate_build_observation_contract(
     v2: ProductionFeatureSnapshot,
     dataset: ProductionDatasetSnapshot,
     *,
-    error_type: type[ValueError] | type[RuntimeError],
+    error_type: type[ValueError | RuntimeError],
 ) -> None:
     artifacts = (v0, v1, v2, dataset)
     if any(item.as_of != dataset.as_of for item in artifacts[:-1]):
@@ -1101,9 +1123,7 @@ def _feature_snapshot_from_metadata(parquet_path: Path) -> ProductionFeatureSnap
         feature_set_version=str(observed["feature_set_version"]),
         manifest_hash=str(observed["manifest_hash"]),
         historical_revision_policy=str(observed["historical_revision_policy"]),
-        historical_revision_status=CapabilityStatus(
-            str(observed["historical_revision_status"])
-        ),
+        historical_revision_status=CapabilityStatus(str(observed["historical_revision_status"])),
         rows=int(observed["rows"]),
         parquet_path=parquet_path,
         metadata_path=parquet_path.with_suffix(".json"),
@@ -1133,9 +1153,7 @@ def _dataset_snapshot_from_metadata(parquet_path: Path) -> ProductionDatasetSnap
         target_definition=str(observed["target_definition"]),
         label_1230_status=CapabilityStatus(str(observed["label_1230_status"])),
         historical_revision_policy=str(observed["historical_revision_policy"]),
-        historical_revision_status=CapabilityStatus(
-            str(observed["historical_revision_status"])
-        ),
+        historical_revision_status=CapabilityStatus(str(observed["historical_revision_status"])),
         rows=int(observed["rows"]),
         data_start=str(observed["data_start"]),
         data_end=str(observed["data_end"]),
@@ -1150,18 +1168,22 @@ def _authenticate_build_snapshot_paths(
     v2: ProductionFeatureSnapshot,
     dataset: ProductionDatasetSnapshot,
     *,
-    error_type: type[ValueError] | type[RuntimeError],
+    error_type: type[ValueError | RuntimeError],
 ) -> None:
     for expected in (v0, v1, v2):
         try:
-            loaded, frame = load_production_feature_snapshot(expected.parquet_path)
+            loaded, frame = load_production_feature_snapshot(
+                expected.parquet_path, columns=("symbol", "trading_date")
+            )
         except (OSError, ValueError, RuntimeError) as exc:
             raise error_type(str(exc)) from None
         if loaded.snapshot_id != expected.snapshot_id:
             raise error_type("production build feature path identity mismatch")
         del frame
     try:
-        loaded_dataset, dataset_frame = load_production_dataset_snapshot(dataset.parquet_path)
+        loaded_dataset, dataset_frame = load_production_dataset_snapshot(
+            dataset.parquet_path, columns=("symbol", "trading_date", "as_of")
+        )
     except (OSError, ValueError, RuntimeError) as exc:
         raise error_type(str(exc)) from None
     if loaded_dataset.snapshot_id != dataset.snapshot_id:
@@ -1176,7 +1198,7 @@ def _validate_build_feature_parquet_content(
     v2: ProductionFeatureSnapshot,
     dataset: ProductionDatasetSnapshot,
     *,
-    error_type: type[ValueError] | type[RuntimeError],
+    error_type: type[ValueError | RuntimeError],
     chunk_size: int = 8,
 ) -> None:
     keys = ["symbol", "trading_date"]
@@ -1219,7 +1241,7 @@ def _validate_build_feature_content(
     v2: pd.DataFrame,
     dataset: pd.DataFrame,
     *,
-    error_type: type[ValueError] | type[RuntimeError],
+    error_type: type[ValueError | RuntimeError],
 ) -> None:
     for frame, manifest in (
         (v0, V0_MANIFEST),
@@ -1742,10 +1764,13 @@ def _production_frame_hash(
     label_1230_status: CapabilityStatus,
     historical_revision_policy: str,
     historical_revision_status: CapabilityStatus,
+    content_override: tuple[tuple[tuple[str, str], ...], bytes] | None = None,
 ) -> str:
     canonical = frame.sort_values(["trading_date", "symbol"]).reset_index(drop=True)
-    content_digest = _stable_frame_content_digest(canonical)
-    schema = _logical_frame_schema(canonical)
+    content_digest = (
+        _stable_frame_content_digest(canonical) if content_override is None else content_override[1]
+    )
+    schema = _logical_frame_schema(canonical) if content_override is None else content_override[0]
     metadata = json.dumps(
         {
             "feature_manifests": feature_manifests,
@@ -1792,56 +1817,57 @@ def _stable_frame_content_digest(frame: pd.DataFrame) -> bytes:
     digest.update(json.dumps(schema, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
     digest.update(len(frame).to_bytes(8, "little", signed=False))
     for column, kind in schema:
-        series = frame[column]
-        digest.update(column.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(kind.encode("ascii"))
-        digest.update(b"\0")
-        if kind == "datetime64[ns, UTC]":
-            utc_values = (
-                pd.to_datetime(series, utc=True, errors="coerce")
-                .astype("int64")
-                .to_numpy(dtype="<i8", copy=True)
-            )
-            digest.update(utc_values.tobytes())
-        elif kind == "datetime64[ns]":
-            datetime_values = (
-                pd.to_datetime(series, errors="coerce")
-                .astype("datetime64[ns]")
-                .astype("int64")
-                .to_numpy(dtype="<i8", copy=True)
-            )
-            digest.update(datetime_values.tobytes())
-        elif kind == "timedelta64[ns]":
-            timedelta_values = (
-                pd.to_timedelta(series, errors="coerce")
-                .astype("timedelta64[ns]")
-                .astype("int64")
-                .to_numpy(dtype="<i8", copy=True)
-            )
-            digest.update(timedelta_values.tobytes())
-        elif kind == "float64":
-            float_values = series.to_numpy(dtype="float64", na_value=np.nan, copy=True)
-            float_values[np.isnan(float_values)] = np.nan
-            float_values[float_values == 0.0] = 0.0
-            digest.update(np.ascontiguousarray(float_values, dtype="<f8").tobytes())
-        elif kind == "integer64":
-            missing = series.isna().to_numpy(dtype="uint8", copy=True)
-            integer_values = series.fillna(0).to_numpy(dtype="int64", copy=True)
-            digest.update(missing.tobytes())
-            digest.update(np.ascontiguousarray(integer_values, dtype="<i8").tobytes())
-        elif kind == "boolean":
-            boolean_values = series.astype("boolean").to_numpy(
-                dtype="uint8", na_value=2, copy=True
-            )
-            digest.update(boolean_values.tobytes())
-        else:
-            string_values = series.astype("string[python]")
-            hashes = pd.util.hash_pandas_object(string_values, index=False).to_numpy(
-                dtype="<u8", copy=True
-            )
-            digest.update(hashes.tobytes())
+        _update_column_digest(digest, frame[column], column, kind)
     return digest.digest()
+
+
+def _update_column_digest(digest: Any, series: pd.Series, column: str, kind: str) -> None:
+    digest.update(column.encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(kind.encode("ascii"))
+    digest.update(b"\0")
+    if kind == "datetime64[ns, UTC]":
+        utc_values = (
+            pd.to_datetime(series, utc=True, errors="coerce")
+            .astype("int64")
+            .to_numpy(dtype="<i8", copy=True)
+        )
+        digest.update(utc_values.tobytes())
+    elif kind == "datetime64[ns]":
+        datetime_values = (
+            pd.to_datetime(series, errors="coerce")
+            .astype("datetime64[ns]")
+            .astype("int64")
+            .to_numpy(dtype="<i8", copy=True)
+        )
+        digest.update(datetime_values.tobytes())
+    elif kind == "timedelta64[ns]":
+        timedelta_values = (
+            pd.to_timedelta(series, errors="coerce")
+            .astype("timedelta64[ns]")
+            .astype("int64")
+            .to_numpy(dtype="<i8", copy=True)
+        )
+        digest.update(timedelta_values.tobytes())
+    elif kind == "float64":
+        float_values = series.to_numpy(dtype="float64", na_value=np.nan, copy=True)
+        float_values[np.isnan(float_values)] = np.nan
+        float_values[float_values == 0.0] = 0.0
+        digest.update(np.ascontiguousarray(float_values, dtype="<f8").tobytes())
+    elif kind == "integer64":
+        missing = series.isna().to_numpy(dtype="uint8", copy=True)
+        integer_values = series.fillna(0).to_numpy(dtype="int64", copy=True)
+        digest.update(missing.tobytes())
+        digest.update(np.ascontiguousarray(integer_values, dtype="<i8").tobytes())
+    elif kind == "boolean":
+        boolean_values = series.astype("boolean").to_numpy(dtype="uint8", na_value=2, copy=True)
+        digest.update(boolean_values.tobytes())
+    else:
+        string_values = series.astype("string[python]")
+        hashes = pd.util.hash_pandas_object(string_values, index=False).to_numpy(
+            dtype="<u8", copy=True
+        )
+        digest.update(hashes.tobytes())
 
 
 def _publish_snapshot_bundle(
@@ -1993,3 +2019,33 @@ def _target_contract(target_column: str) -> tuple[int, str]:
         else f"label_status_{family}_{horizon}d"
     )
     return horizon, status
+
+
+def _parquet_content_digest(parquet_path: Path) -> tuple[tuple[tuple[str, str], ...], bytes]:
+    """Authenticate the complete original column-major digest with one value column live."""
+    parquet = pq.ParquetFile(parquet_path)
+    empty = pa.Table.from_batches([], schema=parquet.schema_arrow).to_pandas()
+    # Pandas can infer a different logical kind for nonempty nullable columns.
+    # Determine each kind from its complete value column, never from a zero-row header.
+    kinds = []
+    for column in empty.columns:
+        values = pd.read_parquet(parquet_path, columns=[column])[column]
+        kinds.append((str(column), _logical_series_kind(values)))
+        del values
+    schema = tuple(kinds)
+    keys = pd.read_parquet(parquet_path, columns=["trading_date", "symbol"]).reset_index(drop=True)
+    order = keys.sort_values(["trading_date", "symbol"]).index.to_numpy(dtype=np.intp)
+    digest = hashlib.sha256()
+    digest.update(json.dumps(schema, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    digest.update(len(keys).to_bytes(8, "little", signed=False))
+    del keys, empty
+    for column, kind in schema:
+        values = pd.read_parquet(parquet_path, columns=[column])[column].iloc[order]
+        if _logical_series_kind(values) != kind:
+            raise RuntimeError(
+                f"streamed Parquet logical schema mismatch: {column}, "
+                f"header={kind}, observed={_logical_series_kind(values)}"
+            )
+        _update_column_digest(digest, values, column, kind)
+        del values
+    return schema, digest.digest()

@@ -130,6 +130,7 @@ from stock_ai.ml import (
     write_production_dataset_snapshot,
     write_production_feature_snapshot,
 )
+from stock_ai.ml.advanced import research_input_columns
 from stock_ai.ml.campaign import (
     CampaignBatchStatus,
     create_campaign_manifest,
@@ -1026,9 +1027,7 @@ def research_advanced(
     ] = Path("artifacts/experiments/advanced.jsonl"),
     checkpoint_root: Annotated[
         Path | None,
-        typer.Option(
-            help="Optional authenticated fold and Optuna root; campaigns always set it."
-        ),
+        typer.Option(help="Optional authenticated fold and Optuna root; campaigns always set it."),
     ] = None,
     checkpoint_import_plan: Annotated[
         Path | None,
@@ -1036,6 +1035,13 @@ def research_advanced(
             exists=True,
             dir_okay=False,
             help="Explicit authenticated cross-code CPU recovery import plan.",
+        ),
+    ] = None,
+    memory_scratch_root: Annotated[
+        Path | None,
+        typer.Option(
+            file_okay=False,
+            help="Local scratch for identical arrays and authenticated input projection.",
         ),
     ] = None,
 ) -> None:
@@ -1117,7 +1123,12 @@ def research_advanced(
         # research dataset for no additional integrity guarantee.
         v2_snapshot = load_production_feature_snapshot_metadata(build.v2_parquet_path)
         authenticated_feature_snapshot_id = v2_snapshot.snapshot_id
-        snapshot, dataset = load_production_dataset_snapshot(build.dataset_parquet_path)
+        snapshot, dataset = load_production_dataset_snapshot(
+            build.dataset_parquet_path,
+            columns=research_input_columns(config, selected_feature_names)
+            if memory_scratch_root is not None
+            else None,
+        )
         run = run_advanced_research(
             dataset,
             data_snapshot_id=snapshot.snapshot_id,
@@ -1129,6 +1140,8 @@ def research_advanced(
             feature_names=selected_feature_names,
             checkpoint_root=checkpoint_root,
             checkpoint_import_plan=checkpoint_import_plan,
+            memory_scratch_root=memory_scratch_root,
+            release_source_frame=memory_scratch_root is not None and len(config.horizons) == 1,
         )
         metadata_path, oof_path = write_advanced_research_run(run, report_root)
         # Read through the authenticated boundary before declaring publication complete.
@@ -1392,9 +1405,7 @@ def research_campaign(
             common_config=manifest.common_config,
             seed=batch.seed,
             checkpoint_root=(
-                None
-                if manifest.checkpoint_root is None
-                else Path(manifest.checkpoint_root)
+                None if manifest.checkpoint_root is None else Path(manifest.checkpoint_root)
             ),
         )
         typer.echo(f"batch={batch.batch_id} status=RUNNING attempt={batch.attempts} log={log_path}")
@@ -1836,10 +1847,7 @@ def _echo_development_selection(
     *,
     path: Path,
 ) -> None:
-    typer.echo(
-        f"selection={selection.selection_id} holdout_accessed=false "
-        "choices_complete=true"
-    )
+    typer.echo(f"selection={selection.selection_id} holdout_accessed=false choices_complete=true")
     for horizon in selection.horizons:
         typer.echo(
             f"horizon={horizon.horizon}d features={len(horizon.feature_names)} "
@@ -1903,9 +1911,7 @@ def research_holdout_evaluate(
     )
     for ensemble in result.report.ensemble_results:
         rank_ic = (
-            "NA"
-            if ensemble.mean_daily_rank_ic is None
-            else f"{ensemble.mean_daily_rank_ic:.8f}"
+            "NA" if ensemble.mean_daily_rank_ic is None else f"{ensemble.mean_daily_rank_ic:.8f}"
         )
         typer.echo(
             f"horizon={ensemble.horizon}d ensemble_adopted_on_development="
@@ -1942,9 +1948,7 @@ def _feature_selection_experiment_record(
     *,
     path: Path,
 ) -> ExperimentRecord:
-    selected_features = {
-        name for horizon in selection.horizons for name in horizon.feature_names
-    }
+    selected_features = {name for horizon in selection.horizons for name in horizon.feature_names}
     return ExperimentRecord(
         experiment_id=f"feature-selection-{selection.feature_selection_id}",
         created_at=selection.created_at,
@@ -2000,9 +2004,7 @@ def _selection_experiment_record(
     *,
     path: Path,
 ) -> ExperimentRecord:
-    selected_features = {
-        name for horizon in selection.horizons for name in horizon.feature_names
-    }
+    selected_features = {name for horizon in selection.horizons for name in horizon.feature_names}
     return ExperimentRecord(
         experiment_id=f"selection-{selection.selection_id}",
         created_at=selection.created_at,
@@ -2100,8 +2102,7 @@ def _holdout_experiment_record(
         },
         seed=None,
         fold_results=tuple(
-            _holdout_component_audit_row(result)
-            for result in report.component_results
+            _holdout_component_audit_row(result) for result in report.component_results
         ),
         aggregate_results={
             "ensemble_results_json": json.dumps(
@@ -2187,8 +2188,7 @@ def _advanced_campaign_child_command(
             str(seed)
             if seed is not None
             else ",".join(
-                str(seed_value)
-                for seed_value in cast(tuple[int, ...], common_config["seeds"])
+                str(seed_value) for seed_value in cast(tuple[int, ...], common_config["seeds"])
             )
         ),
         "--feature-names",
