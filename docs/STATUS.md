@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-04 21:08 JST - seed43 real native fit confirmed
+
+- First fit-preparation boundary passed at21:03:50.407 JST with3.867611 GiB available, guard3.5 GiB. Exact estimator.fit entry time was not instrumented. The first genuinely new CatBoost regression tuning unit completed at21:05:45.928 JST, proving actual native fit. Reauthenticated225,842 OOF rows, native provenance/no import, config b5f608c4..., split/seed43/ordered41features, Parquet and logical hashes.
+- At21:08:27 JST checkpoint2e231ef0... had two SUCCEEDED tuning units, zero FAILED; both recorded fit guards passed (3.867611/4.332184 GiB), no Arrow cleanup requested. At21:08:23 JST nativePID19968 alive, availableRAM4.695229 GiB, working set2.807789 GiB, observed cumulative peak4.804001 GiB. This is not the exact full-run/native-only peak or a whole-campaign time estimate.
+- Seed29 research registration is complete; combined authenticated original-plan results8/9. Historical original7/9/failure ledger remains preserved. Single seed43 attempt and existing observer continue with no restart. Current blockers: none observed for the active fit; final publication/all outer folds/diagnostics and remaining time unconfirmed. Research/live-adoption blockers remain unchanged.
+- Evidence: docs/evidence/campaign-continuation-20261004/{first-native-fit-confirmed.json,first-native-current-snapshot.json}. The Windows observer serializes fit checks through an array wrapper, so its summary PassedFitGuards count is not a total; use the raw scratch *.fit-headroom.json for actual guard count/details, as done by this authenticated milestone. Process/RAM reads remain every15min plus boundaries; no second observer or learning worker.
+
+
 ## 2026-10-04 21:00 JST - seed29 research registration and single fresh seed43 attempt
 
 - Seed29 recovery completed at 19:29:47 JST. At 20:57 JST, reauthenticated all seven legacy reports and the recovery report (5,310,120 OOF rows each), exact original per-batch config/41 ordered features/build lineage, full bundle identities and hashes. Recomputed the native94-to-8d equivalence proof against genuine frozen source; it is identical. Original16 artifact bytes remain unchanged.

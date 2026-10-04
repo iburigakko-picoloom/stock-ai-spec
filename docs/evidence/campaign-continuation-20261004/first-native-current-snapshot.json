@@ -1,0 +1,9 @@
+{
+  "CheckedAtUtc": "2026-10-04T12:08:23.1449028+00:00",
+  "WorkerPid": 19968,
+  "WorkerAlive": true,
+  "AvailablePhysicalGiB": 4.695228576660156,
+  "WorkingSetGiB": 2.807788848876953,
+  "PeakWorkingSetGiB": 4.8040008544921875,
+  "CpuTotalSeconds": 535.34375
+}
