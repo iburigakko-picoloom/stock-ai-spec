@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-04 21:57 JST - seed43 regression complete; long ranking wait remains
+
+- The same single seed43 attempt completed all six regression outer folds at21:43:03 JST. Tuning7 plus regression6 =13 successful checkpoint units, zero failed. Ranking fold1 started21:43:07; its guard passed with4.863506 GiB. CPU1,300iterations,original frozen input/config,3.5GiB guard and no restarts remain unchanged.
+- Ranking is still computational work, not additional implementation. Prior genuine seed29 ranking6 on this PC took about5h25 from fit-preparation guard2026-10-03 10:33:55 JST to artifact publication15:59:08 JST. That reference used depth3/seed29/3,200,734 train rows; current ranking1 uses depth4/seed43/2,074,895 train rows. Do not apply the old time as current ETA or infer the whole remainder from regression speed. Current ranking completion, later six quantile/six large-loss folds and diagnostics remain unconfirmed.
+- Existing observer continues metadata checks and15min process/RAM reads. Completion/stop verification is prepared; no new job, learner, paid computation, source/dtype/parameter/guard change or other app/OS/order action. Source evidence: docs/evidence/campaign-continuation-20261004/regression-complete-active-ranking.json plus the original first-fit-headroom and native checkpoint logs. Actual guard counts come from raw scratch records, not the observer's wrapped-array count.
+
+
 ## 2026-10-04 21:08 JST - seed43 real native fit confirmed
 
 - First fit-preparation boundary passed at21:03:50.407 JST with3.867611 GiB available, guard3.5 GiB. Exact estimator.fit entry time was not instrumented. The first genuinely new CatBoost regression tuning unit completed at21:05:45.928 JST, proving actual native fit. Reauthenticated225,842 OOF rows, native provenance/no import, config b5f608c4..., split/seed43/ordered41features, Parquet and logical hashes.
