@@ -2705,7 +2705,13 @@ def _finite_numeric(frame: pd.DataFrame) -> pd.DataFrame:
         values[:, position] = column
     if isinstance(values.base, np.memmap):
         values.base.flush()
-    return pd.DataFrame(values, index=frame.index, columns=columns, copy=False)
+    # Keep the same owned C-layout storage, with one pandas block per feature.
+    # Quantile/median/clip then avoid a full-width temporary numeric block.
+    return pd.DataFrame(
+        {name: values[:, position] for position, name in enumerate(columns)},
+        index=frame.index,
+        copy=False,
+    )
 
 
 def _chronological_meta_masks(

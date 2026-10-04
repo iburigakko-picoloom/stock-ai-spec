@@ -970,3 +970,8 @@ Optunaの元DBはread-only backupを介し、trial内容/number/date/durationを
 予測に渡す前処理行列は変えず、作成後に不要な所有foldの元特徴量配列を解放する。--memory-scratch-rootと--minimum-fit-headroom-gib 3.5を明示する単独workerでは、native fit直前の実際の空きRAMが条件未満なら停止する。合成40k/80k/160k測定から既知fixture配列を引いた大きい増分を最大実foldへ換算し、固定0.1 GiBを足して2倍にしたnative保守推計約2.1 GiBに対し約1.4 GiBの余裕を残す。推計とhard上限保証は混同しない。
 
 確認はfit境界の一回だけで、継続PID/CPU監視やOS/process hard capではない。設定不足の時はnative fitを始めず記録して停止し、無理なOOM試行や自動retryはしない。学習条件・CPU1・300反復・seed・評価・元成果を保持し、実起動/guard/最初のcheckpointを別に確認する。元task4本の一括再有効化、追加アプリ終了、新規認証/課金/外部送信/注文は行わない。
+
+
+### D091 — one pandas feature block per owned numeric array view (2026-10-04)
+
+For the explicitly authorized stock continuation, expose `_finite_numeric`'s unchanged float32 C-layout storage through separate column views. Preserve the FoldPreprocessor class and all model/split/evaluation definitions; independently verify statistics, feature retention, matrix values, OOF and report identity against archived a68 code. Require real code provenance and direct native-source imports for the original 15 units and newly completed ranking6. Do not chain previously imported folds, lower the 3.5 GiB fit guard, alter scientific parameters or infer fit safety from exit-time RAM. Production continuation remains conditional on the actual fit guard; never create an automatic restart loop or modify other apps/OS/provider/order state.
