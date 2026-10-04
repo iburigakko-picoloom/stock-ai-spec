@@ -1,0 +1,217 @@
+{
+  "verified_at_utc": "2026-10-04T07:35:07.393813+00:00",
+  "last_process_observation": {
+    "CheckedAtUtc": "2026-10-04T07:33:25.3309684+00:00",
+    "CheckedAtJst": "2026-10-04T16:33:25.3330170+09:00",
+    "ActualStockWorkerProcesses": 0,
+    "AvailablePhysicalGiB": 6.160285949707031,
+    "LegacyTasks": [
+      {
+        "TaskName": "StockAI-Goal3-Ablation",
+        "State": "Disabled"
+      },
+      {
+        "TaskName": "StockAI-Goal3-Candidates",
+        "State": "Disabled"
+      },
+      {
+        "TaskName": "StockAI-Goal3-Phased",
+        "State": "Disabled"
+      },
+      {
+        "TaskName": "StockAI-Goal3-Research",
+        "State": "Disabled"
+      }
+    ],
+    "NoWorkerActionsTaken": true
+  },
+  "terminal_observation": {
+    "ObservedAtUtc": "2026-10-04T07:32:20.7298355+00:00",
+    "ObservedAtJst": "2026-10-04T16:32:20.7298355+09:00",
+    "WorkerPid": 16624,
+    "WorkerPhase": "BLOCKED_BEFORE_FIT",
+    "WorkerError": "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.434 GiB below required headroom 3.500 GiB",
+    "SucceededUnits": 16,
+    "FailedUnits": 1,
+    "Running": [],
+    "PassedFitGuards": 0,
+    "FitGuardChecks": [
+      {
+        "checked_at_utc": "2026-10-04T16:32:06.047331+09:00",
+        "available_gib": 3.433807373046875,
+        "available_gib_before_unused_cleanup": 3.3733673095703125,
+        "arrow_unused_cleanup_attempted": true,
+        "arrow_backend": "mimalloc",
+        "arrow_live_bytes_before": 191165696,
+        "arrow_live_bytes_after": 191165696,
+        "minimum_gib": 3.5,
+        "passed": false
+      }
+    ],
+    "ScientificConfigHash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+    "CodeCommit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+    "NoWorkerActionsTaken": true,
+    "WorkerAlive": false,
+    "CpuTotalSeconds": null,
+    "WorkingSetGiB": null,
+    "PeakWorkingSetGiB": null,
+    "PrivateCommitGiB": null,
+    "AvailablePhysicalGiB": 6.1404571533203125,
+    "WorkerExitObserved": true,
+    "StdoutBytes": 360,
+    "StdoutLastWriteAt": "2026-10-04T16:32:12.4770659+09:00",
+    "StderrBytes": 0,
+    "StdoutTail": [
+      "2026-10-04T07:27:59.341636+00:00 AUTHENTICATING_INPUT",
+      "2026-10-04T07:30:32.178450+00:00 INPUT_AUTHENTICATED",
+      "2026-10-04T07:30:32.182448+00:00 RESEARCH_PREPARATION",
+      "2026-10-04T07:32:12.471176+00:00 BLOCKED_BEFORE_FIT",
+      "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.434 GiB below required headroom 3.500 GiB"
+    ],
+    "StderrTail": []
+  },
+  "status": "BLOCKED_BEFORE_FIT",
+  "model_code_commit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "model_source_and_conditions_unchanged": true,
+  "old16_artifact_byte_hashes_unchanged": true,
+  "source_namespaces_unchanged": true,
+  "new16_authenticated_reloaded": [
+    {
+      "task": "ranking",
+      "fold": 2,
+      "scope": "outer-model-evaluation",
+      "rows": 225268,
+      "frame_sha256": "71628801dd1c0ded64ed4f4409a95e19c4f009dd8639baa91e397f8ed9523c06"
+    },
+    {
+      "task": "ranking",
+      "fold": 6,
+      "scope": "outer-model-evaluation",
+      "rows": 224458,
+      "frame_sha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301"
+    },
+    {
+      "task": "ranking",
+      "fold": 5,
+      "scope": "outer-model-evaluation",
+      "rows": 225055,
+      "frame_sha256": "2aec74035bf119fdd9a7a823922aca8f07ada89b7e26504a689a3da0bdb27584"
+    },
+    {
+      "task": "regression",
+      "fold": 5,
+      "scope": "outer-model-evaluation",
+      "rows": 225055,
+      "frame_sha256": "bb06acb6423c20d94d51ce8835b7e78adc99ff211fbb87a325ab3f0960666059"
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "rows": 225842,
+      "frame_sha256": "4f5892299958c6311960720e213bbe3e7aba580690c7cff1374e4b0210ababa0"
+    },
+    {
+      "task": "ranking",
+      "fold": 3,
+      "scope": "outer-model-evaluation",
+      "rows": 225731,
+      "frame_sha256": "ec15abb280e8f9b8a7e104d81a9187f3d297ffce4cc488b6495c84e03e60d1d9"
+    },
+    {
+      "task": "ranking",
+      "fold": 1,
+      "scope": "outer-model-evaluation",
+      "rows": 202496,
+      "frame_sha256": "beeb758c8e03413ac339d9a9e425ee2de0beab48b9a11fec5b9815982950e0c3"
+    },
+    {
+      "task": "regression",
+      "fold": 1,
+      "scope": "outer-model-evaluation",
+      "rows": 202496,
+      "frame_sha256": "2a76fbdac68811a7c93333b675f5f44d01b12071a34ce36106b9d4ff35837ed9"
+    },
+    {
+      "task": "regression",
+      "fold": 3,
+      "scope": "outer-model-evaluation",
+      "rows": 225731,
+      "frame_sha256": "6bd084a30bb5763a2a48d32e9d2618fe9aad28f847c52a28a4cd5cc84d08af9a"
+    },
+    {
+      "task": "regression",
+      "fold": 4,
+      "scope": "outer-model-evaluation",
+      "rows": 224522,
+      "frame_sha256": "6e8ee9af2ea8b1f465ee4ef087ec956799e704fa0444a81a42a67ac5ca0c2de3"
+    },
+    {
+      "task": "ranking",
+      "fold": 4,
+      "scope": "outer-model-evaluation",
+      "rows": 224522,
+      "frame_sha256": "7b870203b3babed4508c13aea1b5a59906f002e991fe2a23ab177af1009ed782"
+    },
+    {
+      "task": "regression",
+      "fold": 6,
+      "scope": "outer-model-evaluation",
+      "rows": 224458,
+      "frame_sha256": "d54468884d548e53ec5573e3e29e844dfad631f6d4258a8e280b7a2462cd9430"
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "rows": 225842,
+      "frame_sha256": "16b083971fa91aab453bbeb972f51a266edb4a59f59ee4b62ac50379f98b2476"
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "rows": 225842,
+      "frame_sha256": "5b538fca9339f19e737de302515ed6171349c61b2737e8b2c06a9bb384f47c84"
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "rows": 225842,
+      "frame_sha256": "ca7fe8cd00ac14a0fd39b1cab71da6b48966963f2fafdb5bf804280d9456cce8"
+    },
+    {
+      "task": "regression",
+      "fold": 2,
+      "scope": "outer-model-evaluation",
+      "rows": 225268,
+      "frame_sha256": "aa14a42c753f654a0a3ab83909b85cf7926fa7fa28c8b27378ad912dc9824499"
+    }
+  ],
+  "rank6": {
+    "unit_id": "09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+    "task": "ranking",
+    "scope": "outer-model-evaluation",
+    "fold": 6,
+    "rows": 224458,
+    "frame_sha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301",
+    "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+    "file_sha256": {
+      "manifest.json": "9320bf39575d33ba1bb49a6d51ca0886094b36dab0185af83485a1dfadc6f315",
+      "oof.parquet": "7bb013fb429ea79d3deefdc86691bcf6f72efae120804a05cc93e3e178e3b020"
+    }
+  },
+  "all16_preserved": true,
+  "new_native_fits_started": 0,
+  "guard_gib": 3.5,
+  "fit_available_gib": 3.433807373046875,
+  "fit_shortfall_mib": 67.78125,
+  "unused_pool_release_gain_mib": 61.890625,
+  "prior_failure_registry_preserved": true,
+  "registry_entries": 5,
+  "further_restart_performed": false,
+  "further_restart_scheduled": false,
+  "overall_eta_unconfirmed": true,
+  "passing_tests": 97
+}

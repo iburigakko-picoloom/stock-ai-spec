@@ -1,0 +1,62 @@
+{
+  "pid": 16624,
+  "started_at_utc": "2026-10-04T07:27:59.340636+00:00",
+  "code_commit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "config_hash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "config": {
+    "horizons": [
+      5
+    ],
+    "target_family": "return",
+    "model_families": [
+      "catboost"
+    ],
+    "seeds": [
+      29
+    ],
+    "initial_train_periods": 500,
+    "validation_periods": 60,
+    "step_periods": 60,
+    "holdout_periods": 120,
+    "estimator_count": 300,
+    "tuning_trials": 20,
+    "tuning_timeout_seconds": 900,
+    "correlation_threshold": 0.98,
+    "clip_lower_quantile": 0.005,
+    "clip_upper_quantile": 0.995,
+    "quantile_alpha": 0.1,
+    "large_loss_threshold": -0.08,
+    "ablation_families": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7",
+      "F8",
+      "F9",
+      "F10",
+      "F11",
+      "F12"
+    ],
+    "run_ablations": false,
+    "run_diagnostics": true,
+    "diagnostic_feature_limit": 100,
+    "max_materialized_oof_rows": 20000000,
+    "max_model_fits": 5000,
+    "hypothesis": "Leakage-safe GBDT/ranking/downside models add development evidence beyond Goal 2 baselines without opening the locked holdout"
+  },
+  "minimum_fit_headroom_gib": 3.5,
+  "scratch_root": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-low-memory\\oof-buffer-20261004\\runtime\\scratch",
+  "source_checkpoint": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-candidates\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\67616cc829bbb148c59aead9d3ea1cea79a8b759e11d02b962abe69de699deda",
+  "worker_sha256": "fa9764873ebc6c3f1808e519ab29f3e172424f4405ee75087d9abb2c660e590f",
+  "training_started": false,
+  "new_model_fit_completion_verified": false,
+  "phase": "BLOCKED_BEFORE_FIT",
+  "updated_at_utc": "2026-10-04T07:32:12.471176+00:00",
+  "dataset_rows": 4058130,
+  "input_columns": 49,
+  "checkpoint_root": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d",
+  "error": "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.434 GiB below required headroom 3.500 GiB"
+}
