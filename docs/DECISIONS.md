@@ -980,3 +980,8 @@ For the explicitly authorized stock continuation, expose `_finite_numeric`'s unc
 ### D092 — one pressure-triggered unused Arrow pool diagnostic (2026-10-04)
 
 For an explicitly guarded owned recovery run only, request one best-effort release_unused after gc/reap when fit headroom is insufficient. Record backend/live bytes and actual physical availability before/after; preserve live buffer bits/dtype and the 3.5 GiB guard. Cleanup error or insufficient after-RAM remains a pre-fit stop. No repeated trimming, automatic restart, other-app/OS action or guarantee from exit-time RAM. This is bounded resource debugging; verify unchanged native OOF and real live buffer preservation before use.
+
+
+### D093 ? avoid ignored full OOF return with explicit part ownership (2026-10-04)
+
+The recovery research caller may request parts-only collection when it already owns all emitted parts and does not consume the full return. Preserve prediction/identity validation, default return behavior, final research concat and every scientific definition. Verify against the independent archived native baseline; bind genuine source commit and native-source import proofs. Retain the 3.5 GiB guard. This is the final bounded attempt for the present continuation; insufficient actual guard headroom ends the attempt without automatic retries or further unrelated actions.

@@ -1,0 +1,16 @@
+{
+  "checked_at_utc": "2026-10-04T07:26:45.140450+00:00",
+  "passing_tests": 97,
+  "changed_advanced_definitions_from_a68": [
+    "_finite_numeric",
+    "_run_advanced_research",
+    "generate_oof_predictions"
+  ],
+  "all_model_classes_and_constants_unchanged": true,
+  "unused_full_oof_concat_and_sort_skipped_only_for_explicit_part_owner": true,
+  "duplicate_and_nonfinite_checks_preserved": true,
+  "default_full_oof_return_preserved": true,
+  "threshold_gib": 3.5,
+  "actual_fit_headroom_unverified": true,
+  "further_automatic_retry_authorized": false
+}

@@ -577,6 +577,7 @@ def generate_oof_predictions(
     progress_sink: list[pd.DataFrame] | None = None,
     checkpoint_store: ResearchCheckpointStore | None = None,
     checkpoint_scope: str = "oof",
+    _collect_parts_only: bool = False,
 ) -> pd.DataFrame:
     """Generate one model's OOF predictions using only each fold's training rows."""
 
@@ -716,8 +717,20 @@ def generate_oof_predictions(
         del train, validation
     if not outputs:
         raise ValueError(f"BLOCKED_BY_VALIDATION: no OOF rows for {family}/{task}/{horizon}d")
-    combined = pd.concat(outputs, ignore_index=True)
     key = ["symbol", "trading_date", "horizon", "model_family", "task", "seed"]
+    if _collect_parts_only:
+        if progress_sink is None:
+            raise ValueError("parts-only OOF collection requires an explicit progress sink")
+        # The research caller owns these parts and ignores this return value.
+        # Preserve duplicate/nonfinite checks without concatenating and sorting
+        # a second complete prediction table before the next model's fit.
+        identities = pd.concat([part.loc[:, key] for part in outputs], ignore_index=True)
+        if identities.duplicated(key).any():
+            raise RuntimeError("OOF predictions contain duplicate model-row identities")
+        if any(not np.isfinite(part["prediction"].to_numpy(dtype=float)).all() for part in outputs):
+            raise RuntimeError("model emitted non-finite OOF predictions")
+        return pd.DataFrame()
+    combined = pd.concat(outputs, ignore_index=True)
     if combined.duplicated(key).any():
         raise RuntimeError("OOF predictions contain duplicate model-row identities")
     if not np.isfinite(combined["prediction"].to_numpy(dtype=float)).all():
@@ -2121,6 +2134,7 @@ def _run_advanced_research(
                         progress_sink=oof_parts,
                         checkpoint_store=checkpoint_store,
                         checkpoint_scope="outer-model-evaluation",
+                        _collect_parts_only=True,
                     )
         if config.run_ablations:
             ablation_results.extend(
