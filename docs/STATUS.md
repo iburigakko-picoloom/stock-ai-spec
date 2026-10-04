@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-05 08:54 JST - seed43 first three native ranking folds completed
+
+- Existing seed43 checkpoint records tuning7 + regression6 + ranking3 = 16 successful units, zero failed. Ranking fold4 is active. Native ranking scope-to-publication measurements: fold 1: 3.321h, fold 2: 3.923h, fold 3: 3.857h. These include preparation and publication; they are not pure estimator-fit benchmarks or a whole-run ETA. Full OOF authentication remains scheduled for terminal verification.
+- All 17 recorded pre-fit guards passed at3.5GiB; latest measured headroom 4.484951GiB. Same original CPU1/300iterations/41features/input/config and single attempt; no restarts, new learning range or external compute. Scientific pin 8d82fa67a7f64186f42208f0632b799e13381c0d remains unchanged.
+- Original planned research results remain8/9 until seed43 report/checkpoint/registry authentication completes. Historical manifest remains7/9; original failures and pins are preserved. Evidence: docs/evidence/campaign-continuation-20261004/ranking-1-3-complete-active-ranking-4.json, actual checkpoint and existing observer log.
+
+
 ## 2026-10-04 21:57 JST - seed43 regression complete; long ranking wait remains
 
 - The same single seed43 attempt completed all six regression outer folds at21:43:03 JST. Tuning7 plus regression6 =13 successful checkpoint units, zero failed. Ranking fold1 started21:43:07; its guard passed with4.863506 GiB. CPU1,300iterations,original frozen input/config,3.5GiB guard and no restarts remain unchanged.

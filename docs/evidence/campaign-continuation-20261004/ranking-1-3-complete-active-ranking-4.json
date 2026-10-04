@@ -1,0 +1,65 @@
+{
+  "recorded_at_utc": "2026-10-04T23:54:50.399914+00:00",
+  "checkpoint_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927",
+  "source_pin": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "config_hash": "b5f608c4b6401a80c451ce7ca479ea62434c6684c38761bfc734ddea237082fc",
+  "checkpoint_succeeded_units": 16,
+  "checkpoint_failed_units": 0,
+  "successful_ranking_outer_folds": 3,
+  "first_three_native_ranking_timings": [
+    {
+      "unit_id": "3601a105635144a83266add6920d82087524a17abfb868107fbaa48b42979cac",
+      "fold": 1,
+      "scope_started_at_utc": "2026-10-04T12:43:07.156398+00:00",
+      "published_at_utc": "2026-10-04T16:02:22.011407+00:00",
+      "scope_to_publication_seconds": 11954.855009,
+      "train_rows": 2074895,
+      "validation_rows": 202496,
+      "metadata_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927\\folds\\3601a105635144a83266add6920d82087524a17abfb868107fbaa48b42979cac\\manifest.json",
+      "metadata_sha256": "0906a08619e825d06768397568bdafc9c8dc6035e6e5189f60fceea9b664e905",
+      "full_oof_authentication_pending_terminal_verification": true
+    },
+    {
+      "unit_id": "94c90f414422bc166e6bb60608696274f5afd327ad4731282f4619ea50061687",
+      "fold": 2,
+      "scope_started_at_utc": "2026-10-04T16:02:26.215617+00:00",
+      "published_at_utc": "2026-10-04T19:57:47.730319+00:00",
+      "scope_to_publication_seconds": 14121.514702,
+      "train_rows": 2300221,
+      "validation_rows": 225268,
+      "metadata_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927\\folds\\94c90f414422bc166e6bb60608696274f5afd327ad4731282f4619ea50061687\\manifest.json",
+      "metadata_sha256": "c8006b50e2f4487fb824a3724fe6bd990297f954fd0f952173cdb75c865dd26a",
+      "full_oof_authentication_pending_terminal_verification": true
+    },
+    {
+      "unit_id": "46bdc5b8aae55dc3957a0edf22ab610f35e1a7a87a804b7b9e5aab3372d57a91",
+      "fold": 3,
+      "scope_started_at_utc": "2026-10-04T19:57:51.061320+00:00",
+      "published_at_utc": "2026-10-04T23:49:17.055242+00:00",
+      "scope_to_publication_seconds": 13885.993922,
+      "train_rows": 2525324,
+      "validation_rows": 225731,
+      "metadata_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927\\folds\\46bdc5b8aae55dc3957a0edf22ab610f35e1a7a87a804b7b9e5aab3372d57a91\\manifest.json",
+      "metadata_sha256": "8aa501d2b5eb2dc4353f4da29c793f1847cce086903e0e373f8571a4dc55a73f",
+      "full_oof_authentication_pending_terminal_verification": true
+    }
+  ],
+  "active_units": [
+    {
+      "task": "ranking",
+      "fold": 4,
+      "updated_at_utc": "2026-10-04T23:49:25.519697+00:00"
+    }
+  ],
+  "fit_guard_count": 17,
+  "failed_fit_guard_count": 0,
+  "last_fit_guard_available_gib": 4.484951019287109,
+  "minimum_required_gib": 3.5,
+  "cpu_threads": 1,
+  "iterations": 300,
+  "native_worker_pid": 19968,
+  "same_single_attempt_continues": true,
+  "whole_run_completion_time_unconfirmed": true,
+  "original_plan_verified_results": "8/9",
+  "research_only": true
+}
