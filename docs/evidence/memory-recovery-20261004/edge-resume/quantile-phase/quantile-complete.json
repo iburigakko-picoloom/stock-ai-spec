@@ -1,0 +1,103 @@
+{
+  "ObservedAtJst": "2026-10-04T18:47:13.5533427+09:00",
+  "QuantileAll6Complete": true,
+  "LatestQuantileCompletedAt": "2026-10-04T18:44:39.847454+09:00",
+  "QuantileOofRows": 1327530.0,
+  "QuantileNativeArtifacts": [
+    {
+      "Fold": 1,
+      "Rows": 202496,
+      "TrainRows": 2074895,
+      "CompletedAt": "2026-10-04T18:26:23.275821+09:00",
+      "Attempts": 2,
+      "ArtifactPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad\\folds\\b88d5f8726faa96591d6e2b73204208ca9072327bdc6d6ab5377deffb23962e9",
+      "FrameSha256": "6bc00d61927a736f80654fca108e34751ea2c002663c1750829a6eb43b0fca72",
+      "ParquetSha256": "ad9bcca5104742560e170c34a2ded062259ecaddff56c9a9e309b776366dbee8",
+      "ManifestByteHashMatches": true,
+      "NativeNoImportLineage": true
+    },
+    {
+      "Fold": 2,
+      "Rows": 225268,
+      "TrainRows": 2300221,
+      "CompletedAt": "2026-10-04T18:29:28.877103+09:00",
+      "Attempts": 1,
+      "ArtifactPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad\\folds\\e6daa8e9c9ed10fc75ebf3ce6ca6221d1503239fcf3f1d4e256fc2c4c4e70f11",
+      "FrameSha256": "2d68912ac97ee065e6b735ec1ee7fd88dfc9cf233f7a350285d62fff48634ba2",
+      "ParquetSha256": "20d0835fe59e6669cbe154c88211dda0f8964fc20d3f6033d96ef08c18a553cc",
+      "ManifestByteHashMatches": true,
+      "NativeNoImportLineage": true
+    },
+    {
+      "Fold": 3,
+      "Rows": 225731,
+      "TrainRows": 2525324,
+      "CompletedAt": "2026-10-04T18:32:40.207145+09:00",
+      "Attempts": 1,
+      "ArtifactPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad\\folds\\99c6d5aebb587f7241c063111c5f1cf6500d65f451ba8f1a61925272a072a340",
+      "FrameSha256": "c770c6a1af91e4c0bcf75f538137ff8bc69c3c7eaf7dbd744f59aff9ac93d6fd",
+      "ParquetSha256": "0d16b186329a943c9f2532cf290470d79c1a4a7c8424fa11e38441a04779d6c6",
+      "ManifestByteHashMatches": true,
+      "NativeNoImportLineage": true
+    },
+    {
+      "Fold": 4,
+      "Rows": 224522,
+      "TrainRows": 2751151,
+      "CompletedAt": "2026-10-04T18:36:11.375991+09:00",
+      "Attempts": 1,
+      "ArtifactPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad\\folds\\bd079220971c19cfcecf2962c5bc39be8f9a8afcf10517bf35869e07e282c58b",
+      "FrameSha256": "18ef7867e332f339357e3e70abe75e3818de1ce142328ce3f350f89d77cc63db",
+      "ParquetSha256": "639563130351eb83cf9938edb9a8e85e437136775201efc18147ee360afe07a2",
+      "ManifestByteHashMatches": true,
+      "NativeNoImportLineage": true
+    },
+    {
+      "Fold": 5,
+      "Rows": 225055,
+      "TrainRows": 2975633,
+      "CompletedAt": "2026-10-04T18:40:14.301275+09:00",
+      "Attempts": 1,
+      "ArtifactPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad\\folds\\b11365aadbdaa97162bae8924675cfc566ed0bbc418ac08b210e178455418f99",
+      "FrameSha256": "db70fa9b241f96b6d4197c42511f2f9c2924bf3852fa9a0f069057d589250c90",
+      "ParquetSha256": "2d049b612ceeca3b6e5416b08e3aeab6903b8bd97774a5a708ec1477cd82ef21",
+      "ManifestByteHashMatches": true,
+      "NativeNoImportLineage": true
+    },
+    {
+      "Fold": 6,
+      "Rows": 224458,
+      "TrainRows": 3200734,
+      "CompletedAt": "2026-10-04T18:44:39.847454+09:00",
+      "Attempts": 1,
+      "ArtifactPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad\\folds\\7ae3279889cd2b425ecf649db2b8ab11dd82b4e48dc3de82a35e7800770340ee",
+      "FrameSha256": "200acf96d187697d11b86705b4f57001aa5e4ec735023a5b89a5c82d250c4cf5",
+      "ParquetSha256": "07a085f6b47c2dbbabc371c5732f238b4c61423f8fd4b768490a89273f0afe08",
+      "ManifestByteHashMatches": true,
+      "NativeNoImportLineage": true
+    }
+  ],
+  "SucceededUnits": 22,
+  "FailedUnits": 0,
+  "Running": [
+    {
+      "Task": "large_loss",
+      "Fold": 1
+    }
+  ],
+  "WorkerPid": 38000,
+  "LastGuard": {
+    "checked_at_utc": "2026-10-04T18:45:37.210351+09:00",
+    "available_gib": 4.662025451660156,
+    "available_gib_before_unused_cleanup": 4.662025451660156,
+    "arrow_unused_cleanup_attempted": false,
+    "minimum_gib": 3.5,
+    "passed": true
+  },
+  "ModelCodeCommit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "ConfigHash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "FixedConditionsUnchanged": true,
+  "AdditionalWorkerOrObserverCreated": false,
+  "WholeSeedExecutionComplete": false,
+  "NoWorkerActionTaken": true
+}
