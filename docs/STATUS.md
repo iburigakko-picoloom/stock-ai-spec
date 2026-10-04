@@ -1,5 +1,15 @@
 # Project Status
 
+## 2026-10-04 21:00 JST - seed29 research registration and single fresh seed43 attempt
+
+- Seed29 recovery completed at 19:29:47 JST. At 20:57 JST, reauthenticated all seven legacy reports and the recovery report (5,310,120 OOF rows each), exact original per-batch config/41 ordered features/build lineage, full bundle identities and hashes. Recomputed the native94-to-8d equivalence proof against genuine frozen source; it is identical. Original16 artifact bytes remain unchanged.
+- Register the recovery as research_only in the append-only canonical experiment registry. Preserve original h5.json bytes, twenty failed attempts, legacy seven report pins and recovery pin 8d82fa6. Create strict v2 h5-legacy-successes.json (seven genuine94 reports) and h5-continuation.json (seed29/43 genuine8d) under artifacts/campaigns/goal3-continuation/13c8676f...; continuation-link.json binds them to the original nine-batch plan. Authenticated research results: 8/9. The historical original manifest remains 7/9; do not report that old manifest itself as completed.
+- Existing development-selection loading accepts multiple strict v2 campaign manifests with different genuine report pins. After seed43 succeeds, use both listed 5d manifests; retain the existing20d requirements separately. Do not open locked holdout, select/deploy a live model, or claim operational adoption.
+- Seed43 launched once at 21:00:28 JST; preparation available RAM7.529 GiB, scratch disk208.354 GiB, zero stock workers before launch, all four old tasks Disabled. Native workerPID19968, launcherPID13936 represent one logical learner. Source/dependency lock still matches genuine8d. Original CPU1/300 iterations/seed43/41features/500-60-60 split/120holdout/20trials-900s/diagnostics retained. Fresh namespace2e231ef0...; no seed29 fold/prediction reuse.
+- First real fit is not yet verified at this milestone. Guard stays3.5 GiB, no automatic restart. Observer reads progress metadata every30s and process/RAM at15min or first guard/terminal boundaries; it performs no worker actions. Completion time remains unestimated until native measurements exist.
+- D094 records the strict pin-separated adoption route and checkpoint-helper mismatch. Evidence: docs/evidence/campaign-continuation-20261004; active records: workspace stock-campaign-continuation/runtime. Scientific src, training methods and dtype unchanged. Solver remains stopped; no20d expansion, other-app termination, new authorization/billing, OS change or order.
+
+
 ## 2026-10-03 10:40 JST — 株式の単独worker再開を実確認
 
 - 10:29 JSTに起動。起動前空きRAM6.015 GiB。旧4 taskはDisabledのまま。genuine source pinはa68e8327914e265e6594e22e02f24bdbbfee39a5、新namespaceはc7f55e21...。元15単位を元94aab78から直接引き継ぎ、設定・データ・41特徴量・精度・seed29・CPU1・300反復を保持。

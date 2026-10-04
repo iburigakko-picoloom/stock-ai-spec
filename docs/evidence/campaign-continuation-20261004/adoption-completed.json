@@ -1,0 +1,14 @@
+{
+  "verified_at_utc": "2026-10-04T11:57:46.974478+00:00",
+  "adoption_completed": true,
+  "verified_research_batches": "8/9",
+  "original_legacy_manifest_unchanged_successes": "7/9",
+  "genuine_pins_preserved": true,
+  "continuation_manifest": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h5-continuation.json",
+  "receipt": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\continuation-link.json",
+  "receipt_hash": "0e04f02f3eb4d65dc0340142ba37b1556fdeef92083331a6c30adf72d0e11979",
+  "seed43_checkpoint": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927",
+  "seed43_config_hash": "b5f608c4b6401a80c451ce7ca479ea62434c6684c38761bfc734ddea237082fc",
+  "research_only": true,
+  "seed43_started": false
+}
