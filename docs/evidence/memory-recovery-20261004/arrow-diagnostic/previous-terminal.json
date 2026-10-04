@@ -1,0 +1,39 @@
+{
+  "ObservedAtUtc": "2026-10-04T06:55:05.9622907+00:00",
+  "ObservedAtJst": "2026-10-04T15:55:05.9622907+09:00",
+  "WorkerPid": 28268,
+  "WorkerPhase": "BLOCKED_BEFORE_FIT",
+  "WorkerError": "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.216 GiB below required headroom 3.500 GiB",
+  "SucceededUnits": 16,
+  "FailedUnits": 1,
+  "Running": [],
+  "PassedFitGuards": 0,
+  "FitGuardChecks": [
+    {
+      "checked_at_utc": "2026-10-04T15:54:58.675099+09:00",
+      "available_gib": 3.2159957885742188,
+      "minimum_gib": 3.5,
+      "passed": false
+    }
+  ],
+  "ScientificConfigHash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "CodeCommit": "ae1a531a1af2a18a0684c2871b0d435db1d33db7",
+  "NoWorkerActionsTaken": true,
+  "WorkerAlive": true,
+  "CpuTotalSeconds": 332.265625,
+  "WorkingSetGiB": 1.5257568359375,
+  "PeakWorkingSetGiB": 4.100681304931641,
+  "PrivateCommitGiB": 1.8732566833496094,
+  "AvailablePhysicalGiB": 4.361442565917969,
+  "StdoutBytes": 360,
+  "StdoutLastWriteAt": "2026-10-04T15:55:05.7541858+09:00",
+  "StderrBytes": 0,
+  "StdoutTail": [
+    "2026-10-04T06:50:36.939268+00:00 AUTHENTICATING_INPUT",
+    "2026-10-04T06:53:15.332279+00:00 INPUT_AUTHENTICATED",
+    "2026-10-04T06:53:15.337697+00:00 RESEARCH_PREPARATION",
+    "2026-10-04T06:55:05.749167+00:00 BLOCKED_BEFORE_FIT",
+    "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.216 GiB below required headroom 3.500 GiB"
+  ],
+  "StderrTail": []
+}

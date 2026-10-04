@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pyarrow as pa
 
 _ACTIVE: ContextVar[ArrayWorkspace | None] = ContextVar("stock_array_workspace", default=None)
 
@@ -27,6 +28,7 @@ class ArrayWorkspace:
             raise ValueError("fit memory headroom must be finite and non-negative")
         self.minimum_fit_headroom_gib = minimum_fit_headroom_gib
         self.fit_checks: list[dict[str, object]] = []
+        self.unused_pool_cleanup_attempted = False
         root.mkdir(parents=True, exist_ok=True)
         self.path = Path(tempfile.mkdtemp(prefix=".stock-ai-arrays-", dir=root)).resolve()
         self.files: list[tuple[Path, weakref.ReferenceType[Any]]] = []
@@ -135,12 +137,35 @@ def check_fit_headroom() -> None:
         return
     gc.collect()
     active.reap()
-    available_gib = _available_physical_bytes() / 1024**3
+    available_before = _available_physical_bytes() / 1024**3
+    available_gib = available_before
+    cleanup: dict[str, object] = {"arrow_unused_cleanup_attempted": False}
+    if (
+        available_before < active.minimum_fit_headroom_gib
+        and not active.unused_pool_cleanup_attempted
+    ):
+        # One pressure-triggered diagnostic per owned run, never a restart loop.
+        # Arrow releases unused allocator storage only; live buffers stay owned.
+        active.unused_pool_cleanup_attempted = True
+        pool = pa.default_memory_pool()
+        cleanup.update(
+            arrow_unused_cleanup_attempted=True,
+            arrow_backend=pool.backend_name,
+            arrow_live_bytes_before=pool.bytes_allocated(),
+        )
+        try:
+            pool.release_unused()
+        except Exception as exc:
+            cleanup["arrow_unused_cleanup_error"] = f"{type(exc).__name__}: {exc}"
+        cleanup["arrow_live_bytes_after"] = pool.bytes_allocated()
+        available_gib = _available_physical_bytes() / 1024**3
     passed = available_gib >= active.minimum_fit_headroom_gib
     active.fit_checks.append(
         {
             "checked_at_utc": datetime.now(UTC).isoformat(),
             "available_gib": available_gib,
+            "available_gib_before_unused_cleanup": available_before,
+            **cleanup,
             "minimum_gib": active.minimum_fit_headroom_gib,
             "passed": passed,
         }

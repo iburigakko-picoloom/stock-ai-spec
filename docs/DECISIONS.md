@@ -975,3 +975,8 @@ Optunaの元DBはread-only backupを介し、trial内容/number/date/durationを
 ### D091 — one pandas feature block per owned numeric array view (2026-10-04)
 
 For the explicitly authorized stock continuation, expose `_finite_numeric`'s unchanged float32 C-layout storage through separate column views. Preserve the FoldPreprocessor class and all model/split/evaluation definitions; independently verify statistics, feature retention, matrix values, OOF and report identity against archived a68 code. Require real code provenance and direct native-source imports for the original 15 units and newly completed ranking6. Do not chain previously imported folds, lower the 3.5 GiB fit guard, alter scientific parameters or infer fit safety from exit-time RAM. Production continuation remains conditional on the actual fit guard; never create an automatic restart loop or modify other apps/OS/provider/order state.
+
+
+### D092 — one pressure-triggered unused Arrow pool diagnostic (2026-10-04)
+
+For an explicitly guarded owned recovery run only, request one best-effort release_unused after gc/reap when fit headroom is insufficient. Record backend/live bytes and actual physical availability before/after; preserve live buffer bits/dtype and the 3.5 GiB guard. Cleanup error or insufficient after-RAM remains a pre-fit stop. No repeated trimming, automatic restart, other-app/OS action or guarantee from exit-time RAM. This is bounded resource debugging; verify unchanged native OOF and real live buffer preservation before use.
