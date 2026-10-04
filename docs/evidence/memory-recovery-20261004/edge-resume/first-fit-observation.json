@@ -1,0 +1,37 @@
+{
+  "CheckedAtUtc": "2026-10-04T18:26:38.3681357+09:00",
+  "CheckedAtJst": "2026-10-04T18:26:38.371068+09:00",
+  "WorkerPid": 38000,
+  "WorkerStartTime": "2026-10-04T18:20:40.3442986+09:00",
+  "WorkerAlive": true,
+  "ObservedTask": [],
+  "PassedFitGuards": 1,
+  "FitGuardChecks": [
+    {
+      "checked_at_utc": "2026-10-04T18:24:35.497614+09:00",
+      "available_gib": 5.005828857421875,
+      "available_gib_before_unused_cleanup": 3.4988365173339844,
+      "arrow_unused_cleanup_attempted": true,
+      "arrow_backend": "mimalloc",
+      "arrow_live_bytes_before": 191165696,
+      "arrow_live_bytes_after": 191165696,
+      "minimum_gib": 3.5,
+      "passed": true
+    }
+  ],
+  "CpuDeltaSeconds": 2.25,
+  "SampleWallSeconds": 2.0069656,
+  "SingleCoreCpuFraction": 1.1210954487710203,
+  "CatboostNativeModuleLoaded": true,
+  "WorkingSetGiB": 3.5864486694335938,
+  "PeakWorkingSetGiB": 5.2732086181640625,
+  "PrivateCommitGiB": 2.1939430236816406,
+  "AvailablePhysicalGiB": 4.125541687011719,
+  "ModelCodeCommit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "ConfigHash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "NewFoldCompletionVerified": true,
+  "NoWorkerOrOtherAppActionTaken": true,
+  "NoContinuousCpuMonitoring": true,
+  "NativeFitCompletionProvenByNewPersistedQuantile1": true,
+  "CpuSampleWasAfterFirstFoldCompletion": true
+}

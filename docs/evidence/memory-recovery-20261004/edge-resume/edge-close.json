@@ -1,0 +1,120 @@
+{
+  "CheckedAtUtc": "2026-10-04T09:16:54.7382818+00:00",
+  "CheckedAtJst": "2026-10-04T18:16:54.7419885+09:00",
+  "ApprovedAction": "Normal Edge window close only",
+  "EdgePid": 45924,
+  "WindowCountBefore": 1,
+  "AvailablePhysicalGiBBefore": 5.848602294921875,
+  "PageInputs": [
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": false
+    },
+    {
+      "IsPassword": true,
+      "IsReadOnly": false,
+      "ValueIsEmpty": true
+    },
+    {
+      "IsPassword": false,
+      "IsReadOnly": true,
+      "ValueIsEmpty": true
+    }
+  ],
+  "NoNonemptyEditablePageInput": true,
+  "NoExistingDialog": true,
+  "ForceKillUsed": false,
+  "OtherAppClosed": false,
+  "NormalCloseRequestAccepted": true
+}
