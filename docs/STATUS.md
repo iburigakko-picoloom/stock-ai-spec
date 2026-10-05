@@ -1,5 +1,13 @@
 # Project Status
 
+
+## 2026-10-05 19:23 JST - authorized seed43 resume, ranking fold4
+
+- User explicitly authorized resuming the stopped seed43. Authenticated and preserved all16 native units (tuning7/regression6/ranking3); the interrupted ranking4 had no published artifact or resumable estimator state. Same checkpoint/provenance and unchanged scientific pin 8d82fa67a7f64186f42208f0632b799e13381c0d, config/41features/CPU1/300iterations/evaluation; native ResearchCheckpointStore resume reuses successful folds and restarts ranking4 at attempt2. Original single-attempt lock and original logs remain intact; pre-resume state backed up.
+- Active workerPID16756, single logical worker, ranking4 RUNNING/attempt2 with unchanged evidence. First resumed pre-fit3.5GiB guard passed (4.690781GiB). Input authentication and checkpoint updated; actual estimator fit completion remains unconfirmed. No additional observer, scheduler or automatic restart; human checks remain morning/evening. Current runtime pointer: workspace stock-campaign-continuation/active-runtime.json.
+- Research results remain8/9 and historical original7/9 until complete report/OOF/registry authentication. No holdout/live adoption, new horizon, feature or paid compute changes. Evidence: docs/evidence/campaign-continuation-20261004/seed43-authorized-resume-20261005.json.
+
+
 ## 2026-10-05 08:54 JST - seed43 first three native ranking folds completed
 
 - Existing seed43 checkpoint records tuning7 + regression6 + ranking3 = 16 successful units, zero failed. Ranking fold4 is active. Native ranking scope-to-publication measurements: fold 1: 3.321h, fold 2: 3.923h, fold 3: 3.857h. These include preparation and publication; they are not pure estimator-fit benchmarks or a whole-run ETA. Full OOF authentication remains scheduled for terminal verification.
