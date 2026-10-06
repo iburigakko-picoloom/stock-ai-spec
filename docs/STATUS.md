@@ -1,6 +1,15 @@
 # Project Status
 
 
+## 2026-10-06 20:18 JST - D084 h20 51-feature final candidates started
+
+- The user explicitly authorized the full h20 candidate scope on manatobook. D084 and authenticated feature-selection artifact13c8676f... fix51 features (V0 plusF6/F7/F10/F12), distinct from the previous77-feature Full Ablation. Same frozen Build/Dataset/V2 feature snapshot and holdout2026-03-04; existing h20 references have tuning end2024-08-13 and OOF start2024-09-12. All12 old h20 research reports use77 features; none is a same51-feature completed candidate, so none was relabeled/recomputed as an already-matching result.
+- Created a strict native v2 campaign with exactly LightGBM/XGBoost/CatBoost x seeds17/29/43 (9),300iterations,tuning20trials/900s,500/60/60 walk-forward,120holdout,diagnostics on,ablations off, like h5 final candidates. Scientific source/lock stays genuine 8d82fa67a7f64186f42208f0632b799e13381c0d; all52 pinned source hashes verified. Separate native checkpoints bind actual frozen feature manifest83859e...; old77-feature and h5 history remain unchanged.
+- Single sequential workerPID15736 started2026-10-06T11:15:37.715576+00:00; first h20-lightgbm-s17 RUNNING. Physical RAM before candidate6.639172GiB passed3.5GiB. Same3.5GiB guard is also enforced before every native fit. Source fixes each model to1 thread. No additional monitor/scheduler, automatic retry, external compute or OS/app/account changes. Failure/low-memory stop persists registry/campaign/worker state and leaves later candidates pending. Current launch evidence confirms process/input preparation; estimator-fit completion and whole9-candidate ETA are not yet measured.
+- Research_only; locked final holdout remains unopened, realistic-cost/historical-vintage/live-adoption blockers unchanged. Future human checks remain morning/evening. Workspace stock-active-runtime.json points to current h20 runtime; each candidate checkpoint path is read from worker.json. Evidence: docs/evidence/h20-final-candidates-20261006/.
+
+
+
 ## 2026-10-05 19:23 JST - authorized seed43 resume, ranking fold4
 
 - User explicitly authorized resuming the stopped seed43. Authenticated and preserved all16 native units (tuning7/regression6/ranking3); the interrupted ranking4 had no published artifact or resumable estimator state. Same checkpoint/provenance and unchanged scientific pin 8d82fa67a7f64186f42208f0632b799e13381c0d, config/41features/CPU1/300iterations/evaluation; native ResearchCheckpointStore resume reuses successful folds and restarts ranking4 at attempt2. Original single-attempt lock and original logs remain intact; pre-resume state backed up.

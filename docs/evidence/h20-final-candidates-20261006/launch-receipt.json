@@ -1,0 +1,12 @@
+{
+  "LaunchedAtUtc": "2026-10-06T11:15:34.9388407+00:00",
+  "AvailablePhysicalGiB": 6.762767791748047,
+  "StockWorkersBeforeLaunch": 0,
+  "RequiredBeforeCandidateGiB": 3.5,
+  "RequiredBeforeFitGiB": 3.5,
+  "worker_sha256": "f5e0287398fb9bebf46c2be8fe9b76d6bfd160f10d20e1ec83fe9827940b88d4",
+  "plan_receipt_sha256": "b71846d3d97b42526241840839b8043215b3e3778cb52060ccfbe7e602c7b2cb",
+  "NoAdditionalObserver": true,
+  "NoAutoRetry": true,
+  "LauncherPid": 27424
+}
