@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import ctypes
 import gc
+import hashlib
 import json
+import pickle
 import shutil
 import sys
 import tempfile
@@ -17,9 +19,115 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import pyarrow as pa
 
 _ACTIVE: ContextVar[ArrayWorkspace | None] = ContextVar("stock_array_workspace", default=None)
+
+
+def _spill_column_digest(values: Any) -> str:
+    dtype = pd.Series(values, copy=False).dtype
+    digest = hashlib.sha256(str(dtype).encode())
+    if isinstance(dtype, np.dtype) and dtype.kind in "fiu":
+        digest.update(np.asarray(values).tobytes(order="C"))
+    else:
+        digest.update(
+            pd.util.hash_pandas_object(pd.Series(values, copy=False), index=False)
+            .to_numpy()
+            .tobytes()
+        )
+    return digest.hexdigest()
+
+
+def _spill_file_digest(path: Path) -> str:
+    with path.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+class FrameSpill:
+    """Lossless, owned column files; no references to the original frame survive."""
+
+    def __init__(self, root: Path, frame: pd.DataFrame):
+        self.path = Path(tempfile.mkdtemp(prefix=".frame-", dir=root)).resolve()
+        self.files: list[tuple[Path, str, str]] = []
+        self.header = self.path / "header.pickle"
+        self.report: dict[str, object] = {
+            "rows": len(frame),
+            "columns": len(frame.columns),
+            "restored": False,
+        }
+        try:
+            with self.header.open("wb") as handle:
+                pickle.dump(
+                    (
+                        frame.index,
+                        frame.columns,
+                        frame.attrs,
+                        frame.flags["allows_duplicate_labels"],
+                    ),
+                    handle,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
+            self.header_digest = _spill_file_digest(self.header)
+            for position in range(len(frame.columns)):
+                values = frame.iloc[:, position].array
+                digest = _spill_column_digest(values)
+                path = self.path / f"{position:06d}.pickle"
+                with path.open("wb") as handle:
+                    pickle.dump(values, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                self.files.append((path, _spill_file_digest(path), digest))
+            self.report["bytes"] = sum(p.stat().st_size for p, _, _ in self.files)
+        except Exception:
+            self.close()
+            raise
+
+    def restore(self) -> pd.DataFrame:
+        if _spill_file_digest(self.header) != self.header_digest:
+            raise RuntimeError("development spill header integrity mismatch")
+        with self.header.open("rb") as handle:
+            index, columns, attrs, duplicate_labels = pickle.load(handle)
+        restored: dict[int, Any] = {}
+        for position, (path, file_digest, content_digest) in enumerate(self.files):
+            if _spill_file_digest(path) != file_digest:
+                raise RuntimeError("development spill file integrity mismatch")
+            with path.open("rb") as handle:
+                values = pickle.load(handle)
+            if _spill_column_digest(values) != content_digest:
+                raise RuntimeError("development spill values/dtype mismatch")
+            dtype = pd.Series(values, copy=False).dtype
+            if isinstance(dtype, np.dtype) and dtype.kind in "fiu":
+                mapped = allocate_array((len(values),), dtype)
+                mapped[:] = np.asarray(values)
+                if isinstance(mapped.base, np.memmap):
+                    mapped.base.flush()
+                values = mapped
+            restored[position] = values
+        frame = pd.DataFrame(restored, index=index, copy=False)
+        frame.columns = columns
+        frame.attrs = attrs
+        frame.flags["allows_duplicate_labels"] = duplicate_labels
+        for position, (_, _, digest) in enumerate(self.files):
+            if _spill_column_digest(frame.iloc[:, position].array) != digest:
+                raise RuntimeError("restored development values/dtype mismatch")
+        self.report["restored"] = True
+        return frame
+
+    def close(self) -> None:
+        # Only files generated in this newly owned directory are removed.
+        for path in self.path.iterdir():
+            path.unlink()
+        self.path.rmdir()
+
+
+def spill_frame(frame: pd.DataFrame) -> FrameSpill:
+    active = _ACTIVE.get()
+    if active is None:
+        raise ValueError("development spill requires an owned array workspace")
+    if shutil.disk_usage(active.path).free < int(frame.memory_usage(deep=True).sum()) + 2 * 1024**3:
+        raise RuntimeError("insufficient disk headroom for development spill")
+    spill = FrameSpill(active.path, frame)
+    active.frame_spills.append(spill)
+    return spill
 
 
 class ArrayWorkspace:
@@ -33,6 +141,7 @@ class ArrayWorkspace:
         self.path = Path(tempfile.mkdtemp(prefix=".stock-ai-arrays-", dir=root)).resolve()
         self.files: list[tuple[Path, weakref.ReferenceType[Any]]] = []
         self.allocations: list[dict[str, object]] = []
+        self.frame_spills: list[FrameSpill] = []
 
     def reap(self) -> None:
         remaining = []
@@ -65,6 +174,9 @@ class ArrayWorkspace:
         # Never close a mapping while a surviving DataFrame/view can reference it.
         gc.collect()
         self.reap()
+        for spill in self.frame_spills:
+            if spill.path.exists():
+                spill.close()
         receipt = self.path.with_suffix(".receipt.json")
         receipt.write_text(
             json.dumps(
@@ -73,6 +185,7 @@ class ArrayWorkspace:
                     "remaining_files": [path.name for path, _ in self.files],
                     "left_live_mappings_open": bool(self.files),
                     "fit_headroom_checks": self.fit_checks,
+                    "development_spills": [spill.report for spill in self.frame_spills],
                 },
                 indent=2,
             ),

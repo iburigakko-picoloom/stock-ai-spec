@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import hashlib
 import json
 import math
@@ -40,7 +41,13 @@ from stock_ai.domain import Prediction, PredictionUncertainty
 from stock_ai.features import FEATURE_REGISTRY, V0_MANIFEST, V2_EXTENDED_MANIFEST
 from stock_ai.ml.checkpoint import ResearchCheckpointStore, stable_hash
 from stock_ai.ml.dataset import HORIZONS
-from stock_ai.ml.memory import allocate_array, array_workspace, check_fit_headroom, take_column
+from stock_ai.ml.memory import (
+    allocate_array,
+    array_workspace,
+    check_fit_headroom,
+    spill_frame,
+    take_column,
+)
 from stock_ai.ml.research_metrics import (
     RankingMetrics,
     cross_sectional_relevance,
@@ -1904,6 +1911,7 @@ def run_advanced_research(
     memory_scratch_root: Path | None = None,
     release_source_frame: bool = False,
     minimum_fit_headroom_gib: float = 0.0,
+    spill_development_during_tuning: bool = False,
 ) -> AdvancedResearchRun:
     """Run Goal 3 research and preserve partial progress if a later stage fails."""
 
@@ -1911,6 +1919,13 @@ def run_advanced_research(
         raise ValueError("checkpoint import plan requires a destination checkpoint root")
     if release_source_frame and len(config.horizons) != 1:
         raise ValueError("source release requires one horizon and explicit ownership")
+    if spill_development_during_tuning and (
+        not release_source_frame or memory_scratch_root is None
+        or len(config.model_families) != 1 or config.run_ablations
+    ):
+        raise ValueError(
+            "development spill requires owned scratch, source release, one family, no ablations"
+        )
     progress = _AdvancedResearchProgress()
     checkpoint_store = (
         ResearchCheckpointStore(
@@ -1945,6 +1960,7 @@ def run_advanced_research(
                     progress=progress,
                     checkpoint_store=checkpoint_store,
                     release_source_frame=release_source_frame,
+                    spill_development_during_tuning=spill_development_during_tuning,
                 )
         except Exception as exc:
             if isinstance(exc, AdvancedResearchExecutionError):
@@ -1991,6 +2007,7 @@ def _run_advanced_research(
     progress: _AdvancedResearchProgress,
     checkpoint_store: ResearchCheckpointStore | None,
     release_source_frame: bool = False,
+    spill_development_during_tuning: bool = False,
 ) -> AdvancedResearchRun:
     """Internal implementation with progress containers owned by the public boundary."""
 
@@ -2078,6 +2095,11 @@ def _run_advanced_research(
                 "run a smaller horizon/model-family batch or raise the explicit bound after "
                 "a measured scale test"
             )
+        development_spill = None
+        if spill_development_during_tuning:
+            development_spill = spill_frame(development)
+            del development
+            gc.collect()
         best_by_family: dict[ModelFamily, Mapping[str, int | float]] = {}
         for family in config.model_families:
             try:
@@ -2112,6 +2134,10 @@ def _run_advanced_research(
                     model_evaluation_start=stages.model_evaluation_start,
                     boundary=stages.boundary,
                 )
+            if development_spill is not None:
+                development = development_spill.restore()
+                development_spill.close()
+                development_spill = None
             for task in _TASKS:
                 for seed in config.seeds:
                     task_target = (
