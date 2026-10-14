@@ -83,9 +83,9 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
     assert adjusted["research_close"].tolist() == pytest.approx([400.0, 384.0, 400.0, 410.0])
     assert adjusted["research_volume"].tolist() == pytest.approx([200.0, 200.0, 300.0, 400.0])
     assert set(adjusted["adjustment_source"]) == {"official_file_adjfactor_formula_v1"}
-    assert (
-        adjusted["adjustment_version"].str.startswith("jquants-file-cumulative-adjfactor-v1:").all()
-    )
+    assert adjusted["adjustment_version"].str.startswith(
+        "jquants-file-cumulative-adjfactor-v1:"
+    ).all()
     changed_input = frame.copy()
     changed_input.loc[0, "raw_high"] += 1
     changed = production_module._reconstruct_bulk_adjusted_prices(changed_input)
@@ -94,7 +94,9 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
 
 def test_production_coverage_starts_at_first_eligible_market_snapshot() -> None:
     dates = pd.bdate_range("2022-03-31", periods=4)
-    calendar = pd.DataFrame({"trading_date": dates, "is_equity_business_day": True})
+    calendar = pd.DataFrame(
+        {"trading_date": dates, "is_equity_business_day": True}
+    )
     master = pd.DataFrame(
         {
             "effective_date": dates,
@@ -359,7 +361,9 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
         write_production_build_manifest(
             v0_snapshot,
             feature_snapshot,
-            v2_snapshot.model_copy(update={"historical_revision_policy": "STRICT_AS_KNOWN"}),
+            v2_snapshot.model_copy(
+                update={"historical_revision_policy": "STRICT_AS_KNOWN"}
+            ),
             snapshot,
             tmp_path / "revision-mismatch-builds",
             created_at=datetime(2026, 8, 25, 0, 2, tzinfo=UTC),
@@ -479,7 +483,8 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert failed_result.exit_code == 2
     records = [
-        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line)
+        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["decision"] == "rejected"
     assert "advanced research code_commit must be explicit" in records[-1]["rejection_reason"]
@@ -501,7 +506,8 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert invalid_config_result.exit_code == 2
     records = [
-        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line)
+        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["decision"] == "rejected"
     assert records[-1]["code_commit"] == "UNSET"
@@ -544,7 +550,8 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert all_failed_result.exit_code == 2
     records = [
-        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line)
+        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["trial_results"][0]["state"] == "FAIL"
     assert "forced CLI trial failure" in records[-1]["trial_results"][0]["failure_reason"]
@@ -584,13 +591,21 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert artifact_failure_result.exit_code == 2
     records = [
-        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line)
+        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     artifact_failure_record = records[-1]
-    assert len(artifact_failure_record["trial_results"]) == len(success_record["trial_results"])
-    assert len(artifact_failure_record["fold_results"]) == len(success_record["fold_results"])
+    assert len(artifact_failure_record["trial_results"]) == len(
+        success_record["trial_results"]
+    )
+    assert len(artifact_failure_record["fold_results"]) == len(
+        success_record["fold_results"]
+    )
     assert artifact_failure_record["parameters"]["build_id"] == build_manifest.build_id
-    assert artifact_failure_record["parameters"]["feature_snapshot_id"] == v2_snapshot.snapshot_id
+    assert (
+        artifact_failure_record["parameters"]["feature_snapshot_id"]
+        == v2_snapshot.snapshot_id
+    )
     assert artifact_failure_record["parameters"]["report_id"] == completed_report.report_id
 
     monkeypatch.undo()
@@ -604,7 +619,9 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
             raise RuntimeError("forced CLI post-tuning failure")
         return original_generate(*args, **kwargs)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(advanced_module, "generate_oof_predictions", forced_post_tuning_failure)
+    monkeypatch.setattr(
+        advanced_module, "generate_oof_predictions", forced_post_tuning_failure
+    )
     partial_failure_result = CliRunner().invoke(
         app,
         [
@@ -638,7 +655,8 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert partial_failure_result.exit_code == 2
     records = [
-        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line)
+        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["trial_results"][0]["state"] == "COMPLETE"
     assert {item["task"] for item in records[-1]["fold_results"]} == {"regression"}
@@ -749,6 +767,7 @@ def test_jpx_holiday_labels_keep_session_endpoints_when_a_price_is_missing(
                 - 1
             )
             assert row[f"target_return_{horizon}d"] == pytest.approx(expected)
+
 
 
 def test_production_momentum_and_ridge_walk_forward_keep_holdout_locked(
@@ -1166,7 +1185,7 @@ def _source_frames(periods: int = 280) -> tuple[dict[DatasetName, pd.DataFrame],
         DatasetName.TOPIX: pd.DataFrame(topix_rows),
         DatasetName.FINANCIAL_SUMMARY: pd.DataFrame(financial_rows),
     }
-    frames[DatasetName.FINANCIAL_SUMMARY]["announced_at"] = frames[DatasetName.FINANCIAL_SUMMARY][
-        "announced_at"
-    ].astype("datetime64[us, UTC]")
+    frames[DatasetName.FINANCIAL_SUMMARY]["announced_at"] = frames[
+        DatasetName.FINANCIAL_SUMMARY
+    ]["announced_at"].astype("datetime64[us, UTC]")
     return frames, dates
