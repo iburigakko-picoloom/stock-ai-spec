@@ -320,7 +320,12 @@ def _rule_metrics(frame: pd.DataFrame) -> dict[str, Any]:
         audit = evaluate_ranking_panel(frame.rename(columns={name: "prediction"}))
         if audit.excluded_rows:
             raise ValueError("rule comparison cannot exclude observations")
-        metrics[name] = {"score_unit": "dimensionless_rank", "ranking": asdict(audit)}
+        ranking = asdict(audit)
+        # The shared audit also computes return MSE. Rule scores have no return
+        # units, so omit that field from the nested serialized metrics as well.
+        if ranking["metrics"] is not None:
+            del ranking["metrics"]["mean_squared_error"]
+        metrics[name] = {"score_unit": "dimensionless_rank", "ranking": ranking}
     return metrics
 
 

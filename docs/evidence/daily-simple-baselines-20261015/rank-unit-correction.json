@@ -1,0 +1,18 @@
+{
+  "issue": "Shared ranking audit nested mean_squared_error had return units incompatible with rule scores.",
+  "correction": "Remove only nested MSE from dimensionless rule receipts, retaining all rank metrics and original candidate metrics.",
+  "reproduced_failing_test": 1,
+  "corrected_tests_passed": 25,
+  "ruff": "PASS",
+  "mypy_modules": 62,
+  "actual_attempt_1": "INTERRUPTED_FOR_CORRECTION",
+  "full_attempt_1": "INTERRUPTED_FOR_CORRECTION",
+  "new_real_data_rule_scores_seen_before_fix": false,
+  "prediction_parameters_changed": false,
+  "evidence_sha256": {
+    ".demo-artifacts\\tests-simple-nested-mse-red.log": "57c0c03b095e6851a80e8ec4f1e3729acba011ca3afba21d5899fbbb0ccf5557",
+    ".demo-artifacts\\tests-simple-nested-mse-fixed.log": "e35aa398556609172f57874a8513fbd9b2430ce54e62861bbbd7eefa052f93b3",
+    ".demo-artifacts\\daily-simple-baselines-actual-1-interruption.json": "0e106bab05a6e1fa01eaaf2da3247ae63b40dd54e24122f7914fed04ba0f8a98",
+    ".demo-artifacts\\tests-daily-simple-full-1-interruption.json": "5496ee81ebe74166b40d31f2b4ed4a7d9d20c2440c18a8558a4d0bfbdef74eea"
+  }
+}

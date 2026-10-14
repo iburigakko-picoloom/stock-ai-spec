@@ -956,3 +956,6 @@ research crossfit-daily-ensembleを追加。元18候補と固定datasetを認証
 compare-daily-baselines v3へ固定Elastic Netとmomentum+revision/4特徴等重みの順位スコアを追加。全候補の認証と同一fold/評価keyを維持する。ルールの同日母集団は未来label結合前のsource特徴全行で決め、正解未受領peerも含める。順位スコアをreturn/確率とせず順位指標だけを保存。Elastic Netはtrain統計と全行Gramでfitし、KKT残差1e-9以下・有限目的値を要求、未収束は失敗を残す。
 
 関連61試験PASS（追加25）、新module coverage97.10%、Ruff全体/mypy62 modules PASS。独立sklearnとの予測/目的値一致、batch変更、欠損/定数/同順位、未来target不変、未受領peerの参加、時点不整合拒否を確認。試作段階も数値20/接続3試験PASS。実18候補比較と全体回帰はsource checkpoint後に実施。条件は実スコア計算前に固定したが、以前の候補成績を見た後の探索診断であり採否用の事前登録とはみなさない。費用/税/実市場NAV、最終selection/holdout、最新推論と個人比較は未完。Goal active、実注文なし。
+
+
+実行中の点検で共有順位audit内にリターン単位MSEが残る出力不整合を発見。入れ子mean_squared_errorの不在を検証する試験で1 FAILを再現し、ルール出力からだけ除去して25 PASS、Ruff/mypy PASS。元候補・回帰baselineの指標は変更しない。実比較attempt1と全回帰attempt1は新規スコア計算前に停止し、logと中断理由を保存。条件や予測値を調整したものではない。修正checkpointから再実行する。

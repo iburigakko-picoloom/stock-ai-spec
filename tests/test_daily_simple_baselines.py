@@ -184,8 +184,15 @@ def test_new_baselines_cover_same_rows_and_replay(authentic):
         assert fold["elastic_net"]["rows"] == fold["training_rows"]
         assert fold["elastic_net"]["kkt_residual"] <= 1e-9
         assert not fold["rule_universe"]["universe_uses_labels"]
-        assert all("mse" not in value for value in fold["rule_scores"].values())
-    assert set(_rule_metrics(result)) == set(RULES)
+        for value in fold["rule_scores"].values():
+            assert "mse" not in value
+            assert "mean_squared_error" not in value["ranking"]["metrics"]
+    aggregate = _rule_metrics(result)
+    assert set(aggregate) == set(RULES)
+    for value in aggregate.values():
+        assert "mse" not in value
+        assert "mean_squared_error" not in value["ranking"]["metrics"]
+        assert "mean_daily_rank_ic" in value["ranking"]["metrics"]
 
 
 def test_unscored_peers_are_ranked_before_joining_labels(authentic):
