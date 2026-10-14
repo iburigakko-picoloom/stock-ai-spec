@@ -85,9 +85,17 @@ class DecisionEngineConfig(BaseModel):
     def horizon_weights_sum_to_one(
         cls, value: tuple[Decimal, Decimal, Decimal]
     ) -> tuple[Decimal, Decimal, Decimal]:
-        if sum(value) != Decimal("1"):
-            raise ValueError("horizon weights must sum to one")
+        if any(not item.is_finite() or item < 0 for item in value) or sum(value) != Decimal("1"):
+            raise ValueError("horizon weights must be finite, nonnegative and sum to one")
         return value
+
+    @classmethod
+    def daily(cls) -> DecisionEngineConfig:
+        """Daily-only policy: 5d is supplementary; decisions and risk use 20d."""
+        return cls(
+            version="daily-decision-engine-v2",
+            horizon_weights=(Decimal("0"), Decimal("0"), Decimal("1")),
+        )
 
 
 @dataclass(frozen=True)
@@ -158,6 +166,11 @@ class DailyPortfolioDecisionEngine:
         if unknown := {candidate.account_bucket_id for candidate in candidates} - set(bucket_map):
             raise ValueError(f"candidates reference unknown account buckets: {sorted(unknown)}")
         for candidate in candidates:
+            prediction = candidate.prediction
+            if prediction.schema_version == 2 and self.config.horizon_weights != (
+                Decimal("0"), Decimal("0"), Decimal("1")
+            ):
+                raise ValueError("daily predictions require the frozen 20d decision policy")
             bucket = bucket_map[candidate.account_bucket_id]
             if bucket.fee_policy_id != self.cost_engine.policy.policy_id:
                 raise ValueError(
@@ -322,11 +335,18 @@ class DailyPortfolioDecisionEngine:
     def _signal_utility(self, candidate: DecisionCandidate, shares: int) -> Decimal:
         prediction = candidate.prediction
         weights = self.config.horizon_weights
-        expected_return = (
-            weights[0] * Decimal(str(prediction.expected_return_1d))
-            + weights[1] * Decimal(str(prediction.expected_return_5d))
-            + weights[2] * Decimal(str(prediction.expected_return_20d))
+        values = (
+            prediction.expected_return_1d,
+            prediction.expected_return_5d,
+            prediction.expected_return_20d,
         )
+        expected_return = Decimal("0")
+        for weight, value in zip(weights, values, strict=True):
+            if weight == 0:
+                continue
+            if value is None:
+                raise ValueError("positive decision weight on an unavailable prediction horizon")
+            expected_return += weight * Decimal(str(value))
         downside = Decimal(str(max(0.0, -prediction.downside_quantile)))
         uncertainty = Decimal(str(prediction.uncertainty.combined))
         large_loss_probability = Decimal(str(prediction.large_loss_probability))

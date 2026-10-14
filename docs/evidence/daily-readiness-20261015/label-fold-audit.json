@@ -1,0 +1,132 @@
+[
+  {
+    "horizon": 5,
+    "fold": 0,
+    "training_rows": 1849104,
+    "validation_rows": 225842,
+    "cutoff": "2024-04-25T02:30:00+00:00",
+    "latest_training_label_available": "2024-04-24T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 0
+  },
+  {
+    "horizon": 5,
+    "fold": 1,
+    "training_rows": 2074895,
+    "validation_rows": 225104,
+    "cutoff": "2024-07-24T02:30:00+00:00",
+    "latest_training_label_available": "2024-07-23T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 202496
+  },
+  {
+    "horizon": 5,
+    "fold": 2,
+    "training_rows": 2300221,
+    "validation_rows": 225268,
+    "cutoff": "2024-10-22T02:30:00+00:00",
+    "latest_training_label_available": "2024-10-21T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 225268
+  },
+  {
+    "horizon": 5,
+    "fold": 3,
+    "training_rows": 2525324,
+    "validation_rows": 225731,
+    "cutoff": "2025-01-22T02:30:00+00:00",
+    "latest_training_label_available": "2025-01-21T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 225731
+  },
+  {
+    "horizon": 5,
+    "fold": 4,
+    "training_rows": 2751151,
+    "validation_rows": 224522,
+    "cutoff": "2025-04-21T02:30:00+00:00",
+    "latest_training_label_available": "2025-04-18T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 224522
+  },
+  {
+    "horizon": 5,
+    "fold": 5,
+    "training_rows": 2975633,
+    "validation_rows": 225055,
+    "cutoff": "2025-07-17T02:30:00+00:00",
+    "latest_training_label_available": "2025-07-16T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 225055
+  },
+  {
+    "horizon": 5,
+    "fold": 6,
+    "training_rows": 3200734,
+    "validation_rows": 224458,
+    "cutoff": "2025-10-16T02:30:00+00:00",
+    "latest_training_label_available": "2025-10-15T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 224458
+  },
+  {
+    "horizon": 20,
+    "fold": 0,
+    "training_rows": 1847171,
+    "validation_rows": 225779,
+    "cutoff": "2024-05-21T02:30:00+00:00",
+    "latest_training_label_available": "2024-05-20T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 0
+  },
+  {
+    "horizon": 20,
+    "fold": 1,
+    "training_rows": 2072727,
+    "validation_rows": 223889,
+    "cutoff": "2024-08-15T02:30:00+00:00",
+    "latest_training_label_available": "2024-08-14T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 145356
+  },
+  {
+    "horizon": 20,
+    "fold": 2,
+    "training_rows": 2297434,
+    "validation_rows": 225308,
+    "cutoff": "2024-11-13T02:30:00+00:00",
+    "latest_training_label_available": "2024-11-12T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 225308
+  },
+  {
+    "horizon": 20,
+    "fold": 3,
+    "training_rows": 2522278,
+    "validation_rows": 225150,
+    "cutoff": "2025-02-13T02:30:00+00:00",
+    "latest_training_label_available": "2025-02-12T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 225150
+  },
+  {
+    "horizon": 20,
+    "fold": 4,
+    "training_rows": 2747692,
+    "validation_rows": 224266,
+    "cutoff": "2025-05-15T02:30:00+00:00",
+    "latest_training_label_available": "2025-05-14T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 224266
+  },
+  {
+    "horizon": 20,
+    "fold": 5,
+    "training_rows": 2971792,
+    "validation_rows": 224237,
+    "cutoff": "2025-08-08T02:30:00+00:00",
+    "latest_training_label_available": "2025-08-07T02:30:00+00:00",
+    "status": "PASS",
+    "outer_evaluation_rows": 224237
+  }
+]

@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -228,9 +228,12 @@ class MorningPredictionRevision(DomainModel):
 
 
 class Prediction(DomainModel):
+    schema_version: Literal[1, 2] = 1
+    active_horizons: tuple[int, ...] = (1, 5, 20)
+    risk_horizon: Literal[5, 20] | None = None
     symbol: str = Field(min_length=1)
     as_of: datetime
-    expected_return_1d: float
+    expected_return_1d: float | None
     expected_return_5d: float
     expected_return_20d: float
     downside_quantile: float
@@ -251,13 +254,23 @@ class Prediction(DomainModel):
         "large_loss_probability",
     )
     @classmethod
-    def finite_prediction_values(cls, value: float) -> float:
-        if not math.isfinite(value):
+    def finite_prediction_values(cls, value: float | None) -> float | None:
+        if value is not None and not math.isfinite(value):
             raise ValueError("prediction values must be finite")
         return value
 
     @model_validator(mode="after")
     def coherent_morning_revision(self) -> Self:
+        if self.schema_version == 1:
+            if self.active_horizons != (1, 5, 20) or self.expected_return_1d is None:
+                raise ValueError("legacy predictions require all three horizons")
+        elif (
+            self.active_horizons != (5, 20)
+            or self.expected_return_1d is not None
+            or self.risk_horizon != 20
+            or self.morning_revision is not None
+        ):
+            raise ValueError("daily v2 requires 5d/20d, no 1d or morning revision, and 20d risk")
         revision = self.morning_revision
         if revision is None:
             return self

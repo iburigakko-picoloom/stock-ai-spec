@@ -104,7 +104,7 @@ def test_projected_load_authenticates_excluded_columns(tmp_path):
     altered = pd.read_parquet(snapshot.parquet_path)
     altered["unused"] += 1
     altered.to_parquet(snapshot.parquet_path, index=False)
-    metadata = json.loads(snapshot.metadata_path.read_text())
+    metadata = json.loads(snapshot.metadata_path.read_text(encoding="utf-8"))
     metadata["parquet_sha256"] = prod._file_sha256(snapshot.parquet_path)
     metadata["metadata_hash"] = prod._metadata_hash(metadata)
     snapshot.metadata_path.write_text(json.dumps(metadata), encoding="utf-8")

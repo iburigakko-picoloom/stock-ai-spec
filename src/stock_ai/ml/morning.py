@@ -1460,6 +1460,8 @@ def build_morning_decision_predictions(
 def apply_morning_revision(prior: Prediction, revision: MorningPredictionRevision) -> Prediction:
     """Apply an audited revision; this transforms forecasts and never chooses an Action."""
 
+    if prior.expected_return_1d is None:
+        raise ValueError("morning revision requires a separately trained one-day prior")
     if (
         prior.model_version != revision.prior_model_version
         or prior.feature_version != revision.prior_feature_version

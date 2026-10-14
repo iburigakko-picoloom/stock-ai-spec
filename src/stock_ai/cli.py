@@ -140,6 +140,7 @@ from stock_ai.ml.campaign import (
     reconcile_campaign,
     write_campaign_manifest,
 )
+from stock_ai.ml.evaluation_audit import audit_candidate_campaigns, write_audit_receipt
 from stock_ai.ml.experiments import ExperimentRecord, ExperimentRegistry
 from stock_ai.operations import (
     AutomationStage,
@@ -151,6 +152,8 @@ from stock_ai.operations import (
     create_app,
     windows_task_scheduler_script,
 )
+from stock_ai.operations.cloud import cloud_projection, sync_private_results
+from stock_ai.operations.daily import export_prediction_snapshot
 from stock_ai.research import run_research_decision_e2e
 
 app = typer.Typer(
@@ -285,6 +288,46 @@ def ops_run_daily(
         )
     if records and records[-1].status.value != "SUCCEEDED":
         raise typer.Exit(code=2)
+
+
+@ops_app.command("export-daily")
+def ops_export_daily(
+    snapshot_id: Annotated[str, typer.Option()],
+    output: Annotated[Path, typer.Option(dir_okay=False)],
+    format: Annotated[str, typer.Option()] = "json",
+    database: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Export the immutable original prediction snapshot without rewriting it."""
+    snapshot = OperationalStore(database).prediction_snapshot(snapshot_id)
+    payload = export_prediction_snapshot(snapshot, format=format)
+    with output.open("x", encoding="utf-8", newline="") as stream:
+        stream.write(payload)
+    typer.echo(str(output))
+
+
+@ops_app.command("sync-private")
+def ops_sync_private(
+    snapshot_id: Annotated[str, typer.Option()],
+    training_completed: Annotated[int, typer.Option(min=0, max=18)],
+    database: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Sync minimal results to the separate owner-private Site and verify readback."""
+    token = os.environ.get("STOCK_AI_PRIVATE_SITE_TOKEN", "")
+    if not token:
+        raise typer.BadParameter("STOCK_AI_PRIVATE_SITE_TOKEN is not configured")
+    store = OperationalStore(database)
+    snapshot = store.prediction_snapshot(snapshot_id)
+    payload = cloud_projection(
+        snapshot,
+        store.company_research(snapshot_id),
+        training_completed=training_completed,
+    )
+    receipt = sync_private_results(payload, bearer_token=token)
+    typer.echo(json.dumps(receipt))
 
 
 @ops_app.command("verify")
@@ -1703,6 +1746,23 @@ def research_checkpoint_status(
         typer.echo(f"research checkpoint status blocked: {exc}", err=True)
         raise typer.Exit(code=2) from None
     typer.echo(json.dumps(status, ensure_ascii=False, sort_keys=True))
+
+
+@research_app.command("audit-candidates")
+def audit_candidates_command(
+    feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
+    audit_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/audits"),
+) -> None:
+    """Authenticate candidate OOF evidence without opening the locked holdout."""
+    receipt = audit_candidate_campaigns(
+        feature_selection_path=feature_selection,
+        candidate_campaign_paths=candidate_campaign,
+    )
+    path = write_audit_receipt(receipt, audit_root)
+    typer.echo(json.dumps({"status": receipt["status"], "audit_path": str(path)}))
+    if receipt["status"] != "PASS":
+        raise typer.Exit(1)
 
 
 @research_app.command("freeze-features")

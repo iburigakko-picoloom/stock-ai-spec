@@ -1,0 +1,53 @@
+# 日次版の監査証拠（2026-10-15）
+
+## 実測した結果
+
+- 5日9/9、20日9/9、計18候補のreport・OOFのbyte/logical hash、宣言task、key/target整列、正式特徴量・seed・source pinを認証。`candidate-audit.json`。
+- 503個の成功checkpoint unitを認証。再開importは保存されていた8d82fa6のraw source byteを使用し、履歴・proofを変更していない。`checkpoint-source-audit.json`。
+- 保存datasetから5日・20日の計13個の分割境界を再構成。label_available_at < 学習締切、閉区間の非重複を確認。全18候補のsplit設定・stage境界が一致し、実reportの外部OOFのfold/開始日/終了日とも一致。`label-fold-audit.json`。
+- 時点検査は保存されたsingle-vintage由来のavailability宣言に対する検査。訂正前vintageの実在・過去の全アクセス履歴を証明するものではない。
+- Drive v04の21単体試験と全calibrationを別実行。null/power/selection/fixture_checksが配布結果と完全一致し、4種類のfixture判定も一致。`v04-calibration.json`, `v04-summary.csv`。Python3.12.3 / NumPy2.5.2 / SciPy1.18.1。
+- 本作業で実holdoutの成果を計算・評価していない。development最終selectionも作っていない。
+
+各ファイルのSHA-256は`sha256.json`。配布ZIPは`.demo-artifacts/evaluator-v04/source.zip`、元コードは同ディレクトリの`extracted/stock_evaluation_v04`。未公開市場raw dataや学習済みmodelはこの証拠フォルダに含めない。
+
+Drive: [評価計画v01](https://drive.google.com/file/d/1QsR-djCVznWj-AeeyVEo8xii2-lzWBFp/view)、[評価器v04](https://drive.google.com/file/d/1H2soeEQO3OmvqCINOSVAKtZWuCxE2eVp/view)。
+
+固定horizon20・自己相関の強いfixtureではSB20の偽陽性率20.8%、coverage58.8%、SB60でも18.0% / 65.7%。再現成功はその区間推定の妥当性確認ではなく、誤較正の再現である。CIは診断用途に限定する。
+
+## v01試験票との対応
+
+「部分」は既存fixtureまたは今回の一部試験がある状態。「未完」は必要な統合試験を満たしていない状態。これらを26/26合格と数えない。
+
+| ID | 対象 | 確認と残作業 |
+| --- | --- | --- |
+| V01 | ラベル境界交差 | 新規closed interval監査と1件違反試験、実13分割の照合済み |
+| V02 | 営業日calendar | 部分。production固定calendar試験あり。JPX休日境界の専用対照を追加する |
+| V03 | 等号・引け・受信遅延 | 新規strict availability・timezone故障注入、実13分割の照合済み |
+| V04 | 日付group | 新規group違反検出、既存dategroup分割試験あり |
+| V05 | 未来列・未来開示 | 部分。PIT/未来availability拒否あり。全feature由来の統合故障注入が残る |
+| V06 | 未来変更・訂正版 | 部分。future-price mutation試験あり。strict vintageは実データ能力不足 |
+| V07 | 訓練外fit | 部分。fold preprocessor train-only試験あり。全選択工程の監査まで要確認 |
+| V08 | holdout混入 | 新規OOF境界拒否、既存selection/holdout purity試験あり |
+| V09 | IC±1 | 独立計算の手値照合済み |
+| V10 | ties/定数/NA | 新規average ties・NA試験。旧研究metricの小cross-section条件との差は未統合 |
+| V11 | NDCG/Precision | 部分。既存dategroup exact試験あり。全負return/K境界の独立手値を追加する |
+| V12 | key/horizon整列 | 新規重複・欠損・horizon・task整列検査、実18候補の一致を確認 |
+| V13 | null反復校正 | v04を全再現。実株評価器への移植・適用判定は未完 |
+| V14 | signal/共通shock/重複 | v04を全再現。SB20/SB60の誤較正を記録 |
+| V15 | paired日付block | v04 fixtureを再現。実比較系列への接続は未完 |
+| V16 | noiseから最良選択 | v04 selection反例を再現。実選択履歴との統合は未完 |
+| V17 | 確率/分位点 | 部分。既存task metric保持、確率範囲拒否。手計算・交差quantile試験を拡張する |
+| V18 | 固定注文の費用 | 部分。既存費用内訳試験あり。10/20/30/50bps固定株数の単調性を追加する |
+| V19 | 重複保有の日次NAV | 未完。forward20リターン集計で代用しない |
+| V20 | 単元/資金/部分約定 | 既存domain/decision/simulatorのfixtureあり。状態付き日次研究への統合は未完 |
+| V21 | 停止/特別気配/欠損exit | 部分。欠損ラベル・no-fill保持あり。日次研究の売却不能の持越しが未完 |
+| V22 | 分割/配当/現金交付 | 未完。価格調整fixtureはあるがportfolio NAV会計とは別 |
+| V23 | HOLDとの同条件比較 | 部分。既存Decision Engineの無変更対照あり。日次NAV系列での比較は未完 |
+| V24 | byte/logical/metadata改変 | 既存tamper試験＋新規原予測改変拒否、実503unit/18report認証 |
+| V25 | 同ledger再開・別root/commit | 既存locked-holdoutのfixture試験あり。実holdoutは未実行 |
+| V26 | 固定選択違反/自動採用禁止 | 既存selection不整合拒否＋日次採用受付ブロック。証拠付き本人採用経路は未接続 |
+
+## 次の判定
+
+日次NAV・実用費用・vintage能力・個人設定が欠けるため、実用採用は保留。学習結果を再計算せず、まず上の未完項目を実装・検証し、開発OOF比較から固定selectionへ進む。詳細は[日次runbook](../../DAILY_RUNBOOK.md)。
