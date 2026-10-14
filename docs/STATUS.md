@@ -877,3 +877,12 @@ research audit-candidates --score-developmentから新しい診断を実行で�
 実18候補のreport/OOF/source・feature・key/target・holdout境界を認証し、daily-development-metrics-v1を全4taskへ適用。全18 PASS、非有限値の除外0、5日各task1,327,530行・20日1,044,317行。元report metricsも同じreceiptに保持し、指標source hashとlibrary版、日別IC・確率binを保存した。receipt ID06aa2b94c2dcd90ef0faa850c1924c93ea7080f4a0a37f998750927e273cf65c、検証証拠docs/evidence/daily-metrics-20261015。再学習・最終selection・holdout評価・採用は行っていない。
 
 全Python回帰はsource checkpoint ac0fa41で497 PASS、coverage85.68%、Ruff全体とmypy55modules PASS。元の5監査receiptはbyte hash不変。既存baseline report47afb247…はholdout境界2026-02-24で今回の2026-03-04と異なるため、そのsummaryを直接比較しない。次は同一開発期間のbaseline・日次5/20日adapter・実価格/企業行動/費用を通したNAV比較。現在の保有入力画面は公開済みで、個別推奨への接続は未完。実注文なし。
+
+
+## 2026-10-15 — 日次5/20日OOFと保有比較の接続検証
+
+日次専用adapterを追加。原campaign/report/OOF/固定特徴量とdataset全体のlogical identityを認証後、開発期間に一致するlabel時点列だけを取得する。受信時刻の厳密な過去条件とlabel終了日の翌日条件で20日残差RMSEを計算し、5/20日Prediction v2・1日null・risk20日へ接続。horizon不足/履歴不足は理由付きblock、保有予測の欠落は比較全体を停止。単日のDecision Engineへ新候補＋全保有を渡し、元portfolioは変更しない。
+
+明示LightGBM seed17ペアを2025-11-06 11:30 JSTで検証。3,717銘柄の予測、horizon不足30銘柄、較正962,235行/257日。最良モデル選択ではない。source checkpoint2cd7167、実データreceipt99bb487396e9ddecb4ff14ee907f8cfae94235d954aa290876bb0bc558d081d6。証拠はdocs/evidence/daily-oof-20261015。全sourceのhash認証とholdout成果の評価を区別し、後者は行っていない。
+
+新規34試験、関連合計97 PASS、新module coverage94%。全体531 PASS、coverage85.86%。Ruff全体/mypy56modules PASS。元dataset・学習成果の変更なし。個別module指定のcoverage起動2回はNumPy初期化失敗、標準のsource-directory指定で回復し失敗log保持。状態を引き継ぐ戦略→日次NAV、実市場/企業行動adapter、全baseline比較、selection/holdout/最新推論、個人設定との接続は未完。Goalはactive。実注文なし。

@@ -1,0 +1,40 @@
+{
+  "schema_version": "daily-oof-evidence-summary-v1",
+  "source_commit": "2cd71677be20e656795e029875e23014682d7bee",
+  "receipt": "99bb487396e9ddecb4ff14ee907f8cfae94235d954aa290876bb0bc558d081d6.json",
+  "receipt_file_sha256": "6c7a1b6c113df8bec8bbc6628c62ad02322a3f4aac2a343e744f79c44280668c",
+  "receipt_id_sha256_excludes_terminal_lf": "99bb487396e9ddecb4ff14ee907f8cfae94235d954aa290876bb0bc558d081d6",
+  "adapter_source_sha256": "a9c734d18bada10e014242a931bd0db67bf654fb0abff907125fe90886084428",
+  "dataset_bytes_sha256_authenticated_by_loader": "f344680f9d191885f856153175cb61cc2581c619770ed1c94fe442ef7366d8f8",
+  "explicit_wiring_pair": {
+    "family": "lightgbm",
+    "seed": 17
+  },
+  "model_selected": false,
+  "holdout_performance_evaluated": false,
+  "source_authentication_scope": "all logical columns/rows for identity hashing only",
+  "analytical_projection_scope": "matching development OOF keys and label timestamps only",
+  "prediction_count": 3717,
+  "blocked_count": 30,
+  "blocked_reasons": {
+    "BLOCKED_BY_HORIZON_ALIGNMENT: requires 5d/20d": 30
+  },
+  "day_schema_version": "daily-oof-day-v1",
+  "adoption_eligible": false,
+  "as_of": "2025-11-06T11:30:00+09:00",
+  "calibration_dates": 257,
+  "calibration_rows": 962235,
+  "data_snapshot_id": "3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d",
+  "feature_version": "daily-features:06770188c43be6e8ef38f7d692de5919da544dc3f1688ce11e2f0f23b46525ce",
+  "large_loss_threshold": -0.08,
+  "latest_calibration_available_at": "2025-11-05T02:30:00Z",
+  "minimum_calibration_dates": 20,
+  "model_version": "daily-oof-adapter-v1:f2ae5383e909af489c32073a4ce24718dd95a2da3c9b17779a032056b1952691",
+  "quantile_alpha": 0.1,
+  "research_only": true,
+  "residual_rmse": 0.12623926075475586,
+  "source_report_ids": [
+    "7822ddc92ab6ea5bc2de1c98badb144fcb7f6eca55cafc8a4f57b44fb3fe0b59",
+    "f58d2e1f6c8a659b75d59f4b3b20810ef1bdfd8930b7d84a6922dfc5cd4ab93e"
+  ]
+}
