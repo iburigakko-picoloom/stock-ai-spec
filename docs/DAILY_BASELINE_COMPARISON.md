@@ -1,6 +1,6 @@
 # 同一開発foldでの単純モデル比較
 
-`research compare-daily-baselines`は、固定済み5日・20日の各9候補と、ゼロ予測・20日モメンタム・V0 Ridgeを同じ開発OOF上で比較する。既存のbaseline reportは境界が異なるため保持したまま、新しい比較を別artifactへ保存する。予測値の診断であり、cash/HOLDの資産推移や採用判定ではない。
+`research compare-daily-baselines`は、固定済み5日・20日の各9候補と単純モデルを同じ開発OOF上で比較する。v2では回帰に加えて大幅下落確率・下側分位点も比較する。既存のbaseline reportとv1 receiptを保持したまま、新しい比較を別artifactへ保存する。予測値の診断であり、cash/HOLDの資産推移や採用判定ではない。
 
 ## 比較前の照合
 
@@ -16,8 +16,16 @@
 - `momentum_20d`: 因果的な過去20日returnをそのまま使う。5日用への倍率調整やtuningは行わない。欠損は、そのfoldの学習内で同featureが観測された行のtarget平均へ置換する。
 - `ridge_v0`: V0の24列、train内の正確な中央値補完、欠損indicator、平均/標準偏差で標準化、切片ありRidge、alpha=5。既存baselineの設定を固定し、新たな探索はしない。
 - `equal_weight_candidate_mean`: 同horizonの全9候補の回帰予測を等重み平均する固定比較。学習したstackingや最終採用ensembleとは区別する。
+- `training_loss_rate`: 当該foldのtrain内で`target <= large_loss_threshold`だった行の割合。閾値は候補reportと一致必須。
+- `logistic_v0`: Ridgeと同じV0列・train内補完/標準化、L2正則化C=1、切片の罰則なし、クラス重みなし。全行の平均logistic loss＋`||w||²/(2*C*n)`をL-BFGS-Bで最小化する。trainが単一クラスの場合のみ、その発生率を返し、constant fallbackとして記録する。未収束は停止する。
+- `training_quantile`: 当該foldのtrain targetの経験分位点。候補と同じalpha、線形補間（DuckDB quantile_cont / NumPy linear相当）。条件付き分位点ではなく、銘柄共通の比較値。
+- `equal_weight_large_loss` / `equal_weight_quantile`: 全9候補の同じリスク出力を等重み平均。較正済みensembleとはみなさない。
 
 Ridgeは1列ずつ正確な中央値を求め、行block単位の中心化共分散・targetとの共分散を合成して同じ線形方程式を解く。確率的勾配法やデータ間引きは使わない。batch既定32,768行、DuckDB memory_limit512MB、threads1。元候補OOFのfull logical認証は引き続き1候補ずつmaterializeするため、処理全体が一定メモリという意味ではない。
+
+Logisticの標準化済みtrainを一時バイナリファイルへ保存し、目的関数・勾配の各計算ではblockずつ読み込む。学習内で常に0になる欠損indicatorだけ計算から除き、予測時の係数は0へ戻す。全行を使う通常のLogisticRegressionと同じ目的関数であり、SGDや間引きではない。maxiter500、gtol1e-8、ftol1e-14、maxls50を固定し、成功statusに加え最大絶対勾配1e-6以下を要求する。係数・切片・反復数・目的値・勾配・クラス件数を保存する。失敗時も一時ファイルを閉じる。
+
+大幅下落はBrier、log loss、10bin ECEと各bin件数、分位点はpinball lossとstrict/inclusive coverageで比較する。全指標の定義はdaily-development-metrics-v1と一致し、各foldと全OOFの値を保存する。候補間の閾値・alpha、task間のas_ofを含む全keyを照合する。単一の下側分位点だけでは上下の予測区間のcoverageや分位点交差は検証できない。
 
 ## 保存と検証
 
@@ -29,4 +37,4 @@ Ridgeは1列ずつ正確な中央値を求め、行block単位の中心化共分
 
 検証は通常のmedian-imputer/StandardScaler/Ridgeとの数値一致、batchサイズ不変性、欠損・定数列・大きい値、未来のvalidation変更による過去予測不変性、全候補の欠損/重複/改変拒否、protected rowの採点排除を含む。
 
-probability/quantileの単純baseline、cross-fitted learned ensemble、cash/HOLD/等重みの状態付きNAV、企業行動・実用費用・個人税、最終selection/holdoutと最新推論は残る。ここでの正解は重なる将来returnであり、日次リターンとして足し上げない。SB20/SB60を有意性や採用の根拠にしない。実注文なし。
+残りのrule/Elastic Net比較、cross-fitted learned ensemble、cash/HOLD/等重みの状態付きNAV、企業行動・実用費用・個人税、最終selection/holdoutと最新推論は残る。ここでの正解は重なる将来returnであり、日次リターンとして足し上げない。SB20/SB60を有意性や採用の根拠にしない。実注文なし。

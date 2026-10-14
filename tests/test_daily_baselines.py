@@ -20,6 +20,7 @@ from stock_ai.ml.daily_baselines import (
     _canonical,
     _write_parquet,
     evaluate_baseline_folds,
+    fit_streamed_logistic,
     fit_streamed_ridge,
     run_daily_baselines,
 )
@@ -253,7 +254,7 @@ def _evaluate(frame, report, reference):
 
 
 def test_same_fold_baselines_authenticate_all_candidates_and_save_replay(authentic, tmp_path):
-    request, _, _, _ = authentic
+    request, _, report, _ = authentic
     path = run_daily_baselines(**request, output_root=tmp_path / "output", batch_rows=41)
     receipt = json.loads(path.read_text(encoding="utf-8"))
     assert [r["horizon"] for r in receipt["results"]] == [5, 20]
@@ -265,11 +266,23 @@ def test_same_fold_baselines_authenticate_all_candidates_and_save_replay(authent
         assert oof.zero_return.eq(0).all()
         assert oof.equal_weight_candidate_mean.notna().all()
         assert set(result["baseline_scores"]) == {*BASELINES, "equal_weight_candidate_mean"}
+        assert set(result["baseline_risk_scores"]) == {
+            "training_loss_rate", "logistic_v0", "training_quantile"
+        }
+        assert (
+            result["risk_definition"]["large_loss_threshold"] == report.config.large_loss_threshold
+        )
+        assert result["risk_definition"]["quantile_alpha"] == report.config.quantile_alpha
+        assert result["equal_weight_risk_scores"]["large_loss"]["rows"] == len(oof)
+        assert not result["equal_weight_risk_scores"]["quantile"]["crossing_check_available"]
+        assert all(c["risk_scores"]["large_loss"]["rows"] == len(oof)
+                   for c in result["candidates"])
         for fold in result["folds"]:
             assert pd.Timestamp(fold["latest_training_label_available_at"]) < pd.Timestamp(
                 fold["fit_cutoff"]
             )
             assert fold["ridge"]["rows"] == fold["training_rows"]
+            assert fold["logistic"]["rows"] == fold["training_rows"]
     assert receipt["holdout_scored"] is False and receipt["adoption_eligible"] is False
 
 
@@ -281,6 +294,7 @@ def test_future_validation_values_do_not_change_past_fits(authentic):
     modified.loc[modified.trading_date == last_date, list(V0_MANIFEST.feature_names)] *= 20
     after, fits_after = _evaluate(modified, report, reference)
     assert fits_before[-1]["ridge"] == fits_after[-1]["ridge"]
+    assert fits_before[-1]["logistic"] == fits_after[-1]["logistic"]
     pd.testing.assert_frame_equal(
         before.loc[before.trading_date < last_date], after.loc[after.trading_date < last_date]
     )
@@ -384,3 +398,124 @@ def test_cli_retains_failed_run(authentic, tmp_path):
         for p in (tmp_path / "cli" / "runs").glob("*.json")
     }
     assert statuses == {"STARTED", "FAILED"}
+
+
+@pytest.mark.parametrize("batch_rows,c", [(17, 1.0), (1000, 1.0), (127, 0.3)])
+def test_disk_logistic_matches_independent_sklearn_pipeline(batch_rows, c):
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    rng = np.random.default_rng(18)
+    x = rng.normal(size=(901, 7))
+    event = rng.random(len(x)) < 1 / (1 + np.exp(-(1.2 * x[:, 0] - x[:, 1] - 0.5)))
+    x[:, 2] = 5
+    x[:, 3] = np.nan
+    x[::4, 4] = np.nan
+    x[:, 5] = x[:, 5] * 0.01 + 1_000_000
+    target = np.where(event, -0.05, 0.1)  # Event threshold is inclusive.
+    medians = np.array([
+        np.nanmedian(x[:, j]) if np.isfinite(x[:, j]).any() else 0 for j in range(x.shape[1])
+    ])
+    transform = fit_streamed_ridge([(x, target)], medians)
+    batches = ((x[i:i + batch_rows], target[i:i + batch_rows])
+               for i in range(0, len(x), batch_rows))
+    model = fit_streamed_logistic(batches, transform, threshold=-0.05, batch_rows=batch_rows, c=c)
+    reference = make_pipeline(
+        SimpleImputer(strategy="median", add_indicator=True, keep_empty_features=True),
+        StandardScaler(), LogisticRegression(C=c, max_iter=5000, tol=1e-10),
+    ).fit(x, event)
+    validation = x[:70].copy()
+    validation[0, 0] = np.nan
+    np.testing.assert_allclose(
+        model.predict(validation, transform), reference.predict_proba(validation)[:, 1],
+        atol=2e-6, rtol=2e-6,
+    )
+    assert model.events == int(event.sum())
+    assert model.rows == len(x) and model.constant_probability is None
+    assert model.gradient_max <= 1e-6
+    assert 0 < model.iterations < 500
+
+
+@pytest.mark.parametrize("event", [0, 1])
+def test_single_class_logistic_is_explicit_constant(event):
+    x = np.arange(12, dtype=float).reshape(6, 2)
+    y = np.full(6, -0.05 if event else 0.1)
+    transform = fit_streamed_ridge([(x, y)], np.median(x, axis=0))
+    model = fit_streamed_logistic([(x, y)], transform, threshold=-0.05)
+    np.testing.assert_equal(model.predict(x, transform), np.full(6, event))
+    assert model.constant_probability == event and model.iterations == 0
+    assert model.objective is None
+
+
+@pytest.mark.parametrize("case", ["rows", "target", "c", "threshold", "batch", "convergence"])
+def test_logistic_refuses_bad_inputs_or_unconverged_fits(case):
+    rng = np.random.default_rng(17)
+    x = rng.normal(size=(200, 3))
+    y = np.where(x[:, 0] + 0.3 * x[:, 1] > 0, -0.1, 0.1)
+    transform = fit_streamed_ridge([(x, y)], np.median(x, axis=0))
+    kwargs = dict(threshold=-0.05)
+    if case == "rows":
+        x, y = x[:-1], y[:-1]
+    elif case == "target":
+        y[0] = np.nan
+    elif case == "c":
+        kwargs["c"] = 0
+    elif case == "threshold":
+        kwargs["threshold"] = np.inf
+    elif case == "batch":
+        kwargs["batch_rows"] = 0
+    elif case == "convergence":
+        kwargs["max_iterations"] = 1
+    with pytest.raises(ValueError):
+        fit_streamed_logistic([(x, y)], transform, **kwargs)
+
+
+def test_distribution_baselines_use_only_original_training_rows(authentic):
+    _, frame, report, reference = authentic
+    before, fits = _evaluate(frame, report, reference)
+    for fit in fits:
+        training = frame.loc[
+            (frame.trading_date <= pd.Timestamp(fit["train_end"]))
+            & (frame.label_end_date_20d < pd.Timestamp(fit["original_validation_start"]))
+        ]
+        expected = training.target_return_20d.quantile(report.config.quantile_alpha)
+        assert fit["training_quantile"] == pytest.approx(expected)
+        assert fit["training_loss_rate"] == pytest.approx(
+            (training.target_return_20d <= report.config.large_loss_threshold).mean()
+        )
+        np.testing.assert_allclose(
+            before.loc[before.fold == fit["fold"], "training_quantile"], expected,
+            rtol=1e-14, atol=1e-14,
+        )
+    # Alter only the last validation outcomes, keeping exact reference labels aligned.
+    modified, ref = frame.copy(), reference.copy()
+    last_date = before.trading_date.max()
+    modified.loc[modified.trading_date == last_date, "target_return_20d"] = -0.9
+    ref.loc[ref.trading_date == last_date, "target"] = -0.9
+    after, later_fits = _evaluate(modified, report, ref)
+    for first, second in zip(fits, later_fits, strict=True):
+        for key in ("ridge", "logistic", "training_quantile", "training_loss_rate"):
+            assert first[key] == second[key]
+    for column in (*BASELINES, "training_loss_rate", "training_quantile", "logistic_v0"):
+        np.testing.assert_equal(before[column].to_numpy(), after[column].to_numpy())
+
+
+def test_risk_as_of_must_match_regression_even_after_bundle_authentication(
+    authentic, tmp_path, monkeypatch
+):
+    import stock_ai.ml.daily_baselines as module
+
+    request, _, _, _ = authentic
+    original = module.load_advanced_research_run
+
+    def changed(path):
+        report, oof = original(path)
+        mask = oof.task == "large_loss"
+        oof.loc[mask, "as_of"] += pd.Timedelta(hours=1)
+        return report, oof
+
+    monkeypatch.setattr(module, "load_advanced_research_run", changed)
+    with pytest.raises(ValueError, match="risk task keys"):
+        run_daily_baselines(**request, output_root=tmp_path / "changed-as-of")

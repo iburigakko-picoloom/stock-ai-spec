@@ -1800,7 +1800,7 @@ def compare_daily_baselines_command(
     output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-baselines"),
     batch_rows: Annotated[int, typer.Option(min=1)] = 32_768,
 ) -> None:
-    """Compare daily candidate regression and simple baselines on identical development folds."""
+    """Compare daily candidate regression/risk and simple baselines on exact development folds."""
     from stock_ai.ml.daily_baselines import run_daily_baselines
     from stock_ai.ml.evaluation_audit import write_audit_receipt
 

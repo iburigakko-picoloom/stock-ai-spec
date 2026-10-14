@@ -18,6 +18,8 @@ import duckdb
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+from scipy.optimize import minimize
+from scipy.special import expit
 
 from stock_ai.features import V0_MANIFEST
 from stock_ai.ml.advanced import (
@@ -28,13 +30,18 @@ from stock_ai.ml.advanced import (
 )
 from stock_ai.ml.campaign import CampaignBatchStatus, load_campaign_manifest
 from stock_ai.ml.evaluation_audit import validate_development_oof, write_audit_receipt
-from stock_ai.ml.evaluation_metrics import evaluate_ranking_panel
+from stock_ai.ml.evaluation_metrics import (
+    evaluate_probabilities,
+    evaluate_quantiles,
+    evaluate_ranking_panel,
+)
 from stock_ai.ml.production import _file_sha256, load_production_dataset_snapshot
 from stock_ai.ml.selection import _authenticate_batch_report, load_development_feature_selection
 
-VERSION = "daily-regression-baselines-v1"
+VERSION = "daily-regression-risk-baselines-v2"
 KEYS = ["trading_date", "symbol", "as_of", "label_end", "target", "fold"]
 BASELINES = ("zero_return", "momentum_20d", "ridge_v0")
+RISK_BASELINES = ("training_loss_rate", "logistic_v0", "training_quantile")
 FloatArray = NDArray[np.float64]
 
 
@@ -128,6 +135,153 @@ def _canonical(frame: pd.DataFrame) -> pd.DataFrame:
     if result.isna().any().any() or result.duplicated(["trading_date", "symbol"]).any():
         raise ValueError("missing or duplicate baseline comparison keys")
     return result.sort_values(["trading_date", "symbol"]).reset_index(drop=True)
+
+
+@dataclass(frozen=True)
+class StreamedLogistic:
+    coefficient: FloatArray
+    intercept: float
+    rows: int
+    events: int
+    iterations: int
+    objective: float | None
+    gradient_max: float | None
+    constant_probability: float | None = None
+    c: float = 1.0
+
+    def predict(self, values: FloatArray, transform: StreamedRidge) -> FloatArray:
+        x = (_impute(values, transform.medians) - transform.mean) / transform.scale
+        if self.constant_probability is not None:
+            return np.full(len(x), self.constant_probability, dtype=float)
+        return np.asarray(expit(x @ self.coefficient + self.intercept), dtype=float)
+
+    def receipt(self) -> dict[str, Any]:
+        return {
+            key: value.tolist() if isinstance(value, np.ndarray) else value
+            for key, value in asdict(self).items()
+        }
+
+
+def fit_streamed_logistic(
+    batches: Iterable[tuple[FloatArray, FloatArray]],
+    transform: StreamedRidge,
+    *,
+    threshold: float,
+    batch_rows: int = 32_768,
+    c: float = 1.0,
+    max_iterations: int = 500,
+) -> StreamedLogistic:
+    """Full-batch L2 logistic, C=1, unpenalized intercept; disk-backed feature blocks.
+
+    Minimize mean logistic loss + ||w||²/(2*C*n), matching sklearn's C convention.
+    The fitted Ridge contributes only training medians/means/scales, not its targets
+    or coefficients. A single-class training set is an explicit constant fallback.
+    """
+    if (
+        not math.isfinite(threshold) or not math.isfinite(c) or c <= 0
+        or batch_rows < 1 or max_iterations < 1
+    ):
+        raise ValueError("invalid logistic baseline configuration")
+    width = len(transform.mean)
+    # Never-active/always-active missing indicators standardize to zero. Dropping
+    # these known zero columns reduces disk IO without changing the objective.
+    active = np.ones(width, dtype=bool)
+    indicator_mean = transform.mean[len(transform.medians):]
+    active[len(transform.medians):] = (indicator_mean > 0) & (indicator_mean < 1)
+    dimension = int(active.sum())
+    n, events = 0, 0
+    with tempfile.TemporaryFile() as cached:
+        for values, target in batches:
+            x = (_impute(values, transform.medians) - transform.mean) / transform.scale
+            if target.ndim != 1 or len(target) != len(x) or not np.isfinite(target).all():
+                raise ValueError("invalid logistic baseline target")
+            y = (target <= threshold).astype(float)
+            block = np.column_stack((x[:, active], y)).astype(np.float64)
+            if not np.isfinite(block).all():
+                raise ValueError("nonfinite logistic baseline design")
+            block.tofile(cached)
+            n += len(y)
+            events += int(y.sum())
+        if n != transform.rows or n == 0:
+            raise ValueError("logistic training rows differ from preprocessing fit")
+        if events in (0, n):
+            return StreamedLogistic(
+                np.zeros(width), 0.0, n, events, 0, None, None, events / n, c
+            )
+        cached.flush()
+
+        def loss_gradient(parameters: FloatArray) -> tuple[float, FloatArray]:
+            cached.seek(0)
+            w, intercept = parameters[:-1], parameters[-1]
+            loss = 0.0
+            gradient = np.zeros(dimension + 1)
+            while True:
+                flat = np.fromfile(cached, dtype=np.float64, count=batch_rows * (dimension + 1))
+                if not flat.size:
+                    break
+                block = flat.reshape(-1, dimension + 1)
+                x, y = block[:, :-1], block[:, -1]
+                score = x @ w + intercept
+                loss += float(np.sum(np.logaddexp(0, score) - y * score))
+                residual = expit(score) - y
+                gradient[:-1] += x.T @ residual
+                gradient[-1] += residual.sum()
+            gradient[:-1] += w / c
+            return (loss + float(w @ w) / (2 * c)) / n, gradient / n
+
+        initial = np.zeros(dimension + 1)
+        initial[-1] = math.log(events / (n - events))
+        fitted = minimize(
+            loss_gradient, initial, method="L-BFGS-B", jac=True,
+            options={"maxiter": max_iterations, "gtol": 1e-8, "ftol": 1e-14, "maxls": 50},
+        )
+        objective, gradient = loss_gradient(fitted.x)
+        gradient_max = float(np.max(np.abs(gradient)))
+        if (
+            not fitted.success or not np.isfinite(fitted.x).all()
+            or not math.isfinite(objective) or not math.isfinite(gradient_max)
+            or gradient_max > 1e-6
+        ):
+            raise ValueError(
+                f"logistic baseline did not converge: {fitted.message}; {gradient_max=}"
+            )
+        coefficient = np.zeros(width)
+        coefficient[active] = fitted.x[:-1]
+        return StreamedLogistic(
+            coefficient, float(fitted.x[-1]), n, events, int(fitted.nit),
+            objective, gradient_max, c=c,
+        )
+
+
+def _risk_scores(
+    frame: pd.DataFrame, report: AdvancedResearchReport, *, probability: str, quantile: str
+) -> dict[str, Any]:
+    return {
+        "large_loss": asdict(evaluate_probabilities(
+            (frame.target <= report.config.large_loss_threshold).astype(int).tolist(),
+            frame[probability].tolist(),
+        )),
+        "quantile": asdict(evaluate_quantiles(
+            frame.target.tolist(), [report.config.quantile_alpha],
+            frame[quantile].to_numpy(float).reshape(-1, 1).tolist(),
+        )),
+    }
+
+
+def _baseline_risk_scores(
+    frame: pd.DataFrame, report: AdvancedResearchReport
+) -> dict[str, Any]:
+    distribution = _risk_scores(
+        frame, report, probability="training_loss_rate", quantile="training_quantile"
+    )
+    return {
+        "training_loss_rate": distribution["large_loss"],
+        "training_quantile": distribution["quantile"],
+        "logistic_v0": asdict(evaluate_probabilities(
+            (frame.target <= report.config.large_loss_threshold).astype(int).tolist(),
+            frame.logistic_v0.tolist(),
+        )),
+    }
 
 
 def _identifier(name: str) -> str:
@@ -297,6 +451,16 @@ def evaluate_baseline_folds(
         model = fit_streamed_ridge(batches(), np.asarray(medians))
         if model.rows != train_audit[0]:
             raise ValueError("Ridge training count changed during fit")
+        probability, quantile = _one(connection.execute(
+            f"SELECT avg(CAST({target} <= ? AS DOUBLE)), quantile_cont({target}, ?) FROM training",
+            [config.large_loss_threshold, config.quantile_alpha],
+        ))
+        progress(f"{horizon}d fold {number}: fit full-batch logistic ({train_audit[0]} rows)")
+        logistic = fit_streamed_logistic(
+            batches(), model, threshold=config.large_loss_threshold, batch_rows=batch_rows
+        )
+        if not math.isclose(logistic.events / logistic.rows, probability, abs_tol=1e-15):
+            raise ValueError("logistic event count differs from training distribution")
         momentum_column = _identifier("price.return_20d")
         fallback = _one(
             connection.execute(f"""
@@ -315,10 +479,17 @@ def evaluate_baseline_folds(
             output["zero_return"] = 0.0
             output["momentum_20d"] = frame["price.return_20d"].fillna(fallback)
             output["ridge_v0"] = model.predict(frame[list(feature_names)].to_numpy(dtype=float))
+            output["training_loss_rate"] = probability
+            output["training_quantile"] = quantile
+            output["logistic_v0"] = logistic.predict(
+                frame[list(feature_names)].to_numpy(dtype=float), model
+            )
             predictions.append(output)
         predicted = pd.concat(predictions, ignore_index=True)
         result = observed.merge(predicted, on=["trading_date", "symbol"], validate="one_to_one")
-        if len(result) != len(observed) or not np.isfinite(result[list(BASELINES)]).all().all():
+        if len(result) != len(observed) or not np.isfinite(
+            result[list((*BASELINES, *RISK_BASELINES))]
+        ).all().all():
             raise ValueError("incomplete or nonfinite baseline output")
         outputs.append(result)
         fold_receipts.append(
@@ -335,6 +506,10 @@ def evaluate_baseline_folds(
                 "validation_rows": len(result),
                 "momentum_missing_fallback": fallback,
                 "ridge": model.receipt(),
+                "logistic": logistic.receipt(),
+                "training_loss_rate": probability,
+                "training_quantile": quantile,
+                "risk_scores": _baseline_risk_scores(result, report),
                 "scores": {
                     name: _scores(result.rename(columns={name: "prediction"})) for name in BASELINES
                 },
@@ -374,7 +549,7 @@ def run_daily_baselines(
     batch_rows: int = 32_768,
     progress: Callable[[str], None] = lambda _message: None,
 ) -> Path:
-    """Authenticate all 18 candidates and compare regression on exactly their OOF rows."""
+    """Authenticate all 18 candidates and compare regression/risk on exact OOF rows."""
     features = load_development_feature_selection(feature_selection_path)
     source_hash = _file_sha256(dataset_path)
     progress("authenticate full dataset logical identity (no holdout scoring)")
@@ -428,6 +603,7 @@ def run_daily_baselines(
         reference_report: AdvancedResearchReport | None = None
         candidate_scores: list[dict[str, Any]] = []
         sum_prediction: FloatArray | None = None
+        sum_risk: FloatArray | None = None
         for key, (declared, path) in sorted(runs.items()):
             if key[0] != horizon:
                 continue
@@ -441,7 +617,6 @@ def run_daily_baselines(
                 .sort_values(["trading_date", "symbol"])
                 .reset_index(drop=True)
             )
-            del full
             canonical = _canonical(part)
             if reference is None:
                 reference, reference_report = canonical, report
@@ -450,11 +625,24 @@ def run_daily_baselines(
                 or reference_report is None
                 or any(
                     getattr(reference_report.config, name) != getattr(report.config, name)
-                    for name in ("initial_train_periods", "validation_periods", "step_periods")
+                    for name in (
+                        "initial_train_periods", "validation_periods", "step_periods",
+                        "large_loss_threshold", "quantile_alpha",
+                    )
                 )
                 or report.stage_boundaries != reference_report.stage_boundaries
             ):
                 raise ValueError("candidate comparison dates, folds, targets or split rules differ")
+            for task in ("large_loss", "quantile"):
+                task_part = full.loc[full.task == task].sort_values(
+                    ["trading_date", "symbol"]
+                ).reset_index(drop=True)
+                if not _canonical(task_part).equals(canonical):
+                    raise ValueError("candidate risk task keys differ from regression reference")
+                part[task] = task_part.prediction.to_numpy(float)
+            del full, task_part
+            risk = part[["large_loss", "quantile"]].to_numpy(float)
+            sum_risk = risk.copy() if sum_risk is None else sum_risk + risk
             prediction = part.prediction.to_numpy(float)
             sum_prediction = (
                 prediction.copy() if sum_prediction is None else sum_prediction + prediction
@@ -465,17 +653,23 @@ def run_daily_baselines(
                     "seed": key[2],
                     "report_id": report.report_id,
                     "scores": _scores(part),
+                    "risk_scores": _risk_scores(
+                        part, report, probability="large_loss", quantile="quantile"
+                    ),
                 }
             )
             del part, canonical
             gc.collect()
         assert reference is not None and reference_report is not None and sum_prediction is not None
+        assert sum_risk is not None
         with duckdb.connect(config={"threads": 1, "memory_limit": "512MB"}) as connection:
             connection.read_parquet(str(dataset_path)).create_view("source")
             oof, folds = evaluate_baseline_folds(
                 connection, reference_report, reference, batch_rows=batch_rows, progress=progress
             )
         oof["equal_weight_candidate_mean"] = sum_prediction / len(candidate_scores)
+        oof["equal_weight_large_loss"] = sum_risk[:, 0] / len(candidate_scores)
+        oof["equal_weight_quantile"] = sum_risk[:, 1] / len(candidate_scores)
         output = _write_parquet(oof, output_root / "oof")
         results.append(
             {
@@ -488,11 +682,22 @@ def run_daily_baselines(
                     name: _scores(oof.rename(columns={name: "prediction"}))
                     for name in (*BASELINES, "equal_weight_candidate_mean")
                 },
+                "risk_definition": {
+                    "event": "target <= large_loss_threshold",
+                    "large_loss_threshold": reference_report.config.large_loss_threshold,
+                    "quantile_alpha": reference_report.config.quantile_alpha,
+                    "weighting": "equal_observation_rows",
+                },
+                "baseline_risk_scores": _baseline_risk_scores(oof, reference_report),
+                "equal_weight_risk_scores": _risk_scores(
+                    oof, reference_report, probability="equal_weight_large_loss",
+                    quantile="equal_weight_quantile",
+                ),
                 "oof_path": str(output.resolve()),
                 "oof_byte_sha256": output.stem,
             }
         )
-        del reference, oof, sum_prediction
+        del reference, oof, sum_prediction, sum_risk, risk
         gc.collect()
     if _file_sha256(dataset_path) != source_hash:
         raise ValueError("baseline dataset changed during evaluation")
@@ -518,20 +723,24 @@ def run_daily_baselines(
             "holdout_scored": False,
             "feature_names": V0_MANIFEST.feature_names,
             "ridge_alpha": 5.0,
+            "logistic_c": 1.0,
+            "quantile_method": "training_empirical_linear_interpolation",
             "batch_rows": batch_rows,
             "results": results,
             "source_sha256": {
                 name: _file_sha256(Path(__file__).with_name(name)) for name in sources
             },
             "dependencies": {
-                name: version(name) for name in ("numpy", "pandas", "duckdb", "pyarrow")
+                name: version(name) for name in ("numpy", "pandas", "duckdb", "pyarrow", "scipy")
             },
             "limitations": [
-                "Regression/ranking diagnostics only; zero forecast is not a cash NAV strategy.",
+                "Prediction diagnostics only; zero forecast is not a cash NAV strategy.",
                 "Momentum uses unscaled trailing 20d return and training-only missing fallback.",
                 "Equal-weight candidate mean is fixed, not a fitted or selected ensemble.",
                 "No bootstrap significance, economic adoption, holdout scoring or live forecast.",
-                "Cost/tax/NAV and probability/quantile baseline comparisons remain separate.",
+                "One quantile level cannot verify interval coverage or quantile crossing.",
+                "Single-class logistic fits use an explicitly recorded empirical constant.",
+                "Cost/tax/NAV, remaining rule baselines and learned ensemble remain separate.",
             ],
         },
         output_root / "receipts",

@@ -915,3 +915,12 @@ research compare-daily-baselinesを追加。固定datasetと全18候補のidenti
 Ridgeは正確なtrain内中央値とblock単位の中心化共分散を使い、通常実装と一致する線形方程式を解く。新規23試験PASS、module coverage89%、Ruff全体/mypy59modules PASS。初期のfixture Path型、dataset認証に必要なsymbol列、DuckDB/Pandas時刻単位の差を修正し、失敗logも保持。実18候補とbaselineを5日1,327,530行/6fold、20日1,044,317行/5foldで比較し完了。元の18候補の順位auditと全一致。source checkpoint304d3e8で全体613 PASS、coverage86.35%。証拠docs/evidence/daily-baselines-20261015。
 
 予測指標の比較でありcash/HOLDのNAV成績ではない。全baselineの確率/分位点、cross-fitted learned ensemble、企業行動/約定能力/費用/個人税、最終selection/holdout/最新推論は未完。Goal active、実注文なし。
+
+
+## 2026-10-15 — 同一foldの確率・下側分位点baseline
+
+compare-daily-baselines v2で、全18候補の大幅下落確率・分位点と、train内発生率・経験分位点・V0 Logistic(C1)を同じ行で比較する。候補の閾値/alphaとtask間as_ofも照合。全学習行を維持し、補完/標準化後の一時ファイルをblock読みで最適化する。単一classは明示constant、未収束は拒否。元学習成果とv1 receiptは保持。
+
+関連36試験PASS（追加13）、module coverage91.08%、Ruff全体/mypy59 modules PASS。独立sklearn pipelineとの数値一致、閾値の等号、単一class、未収束拒否、未来の正解変更に対する過去fit/予測不変を確認。初回はテスト側の固定閾値と分位点の完全浮動小数一致で2失敗、修正してログ保持。実18候補比較と全体回帰はsource checkpoint後に実施する。
+
+残りのrule/Elastic Net、cross-fitted ensemble、企業行動/約定能力/費用/個人税を通した状態付きNAV、最終selection/holdout、最新予測、本人入力の比較接続は継続。Goal active、実注文なし。
