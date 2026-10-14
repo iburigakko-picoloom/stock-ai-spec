@@ -341,3 +341,21 @@ def test_transport_refuses_redirects_invalid_or_oversize_without_leaking(
     assert store.latest_manual_portfolio() is None
     with pytest.raises(ValueError):
         pull_private_portfolio(store, bearer_token="test-secret", origin=PRIVATE_SITE_ORIGIN + "/")
+
+
+def test_cli_failure_redacts_credentials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    from stock_ai import cli
+
+    def fail(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("test-secret")
+
+    monkeypatch.setenv("STOCK_AI_PRIVATE_SITE_TOKEN", "test-secret")
+    monkeypatch.setattr(cli, "pull_private_portfolio", fail)
+    result = CliRunner().invoke(
+        cli.app, ["ops", "pull-private-portfolio", "--database", str(tmp_path / "ledger.sqlite3")]
+    )
+    assert result.exit_code == 1
+    assert "test-secret" not in result.output
+    assert "local records were retained" in result.output

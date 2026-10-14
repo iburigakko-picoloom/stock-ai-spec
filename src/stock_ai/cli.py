@@ -340,7 +340,12 @@ def ops_pull_private_portfolio(
     token = os.environ.get("STOCK_AI_PRIVATE_SITE_TOKEN", "")
     if not token:
         raise typer.BadParameter("STOCK_AI_PRIVATE_SITE_TOKEN is not configured")
-    item = pull_private_portfolio(OperationalStore(database), bearer_token=token)
+    try:
+        item = pull_private_portfolio(OperationalStore(database), bearer_token=token)
+    except Exception:
+        # Typer's diagnostic locals must never expose the in-memory credential.
+        typer.echo("Private portfolio import failed; local records were retained.", err=True)
+        raise typer.Exit(code=1) from None
     typer.echo(
         json.dumps(
             {
