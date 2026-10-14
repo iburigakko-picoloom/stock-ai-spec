@@ -56,6 +56,10 @@ export default function PortfolioForm({ initial }: { initial: SavedPortfolio | n
   }
   return <div>
     <div className="saved-line"><span>{saved ? `最終保存: ${new Date(saved.saved_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} JST` : "まだ保存されていません"}</span><button className="text-button" type="button" onClick={reload} disabled={busy}>保存内容を読み直す</button></div>
+    {saved && <p className="saved-line" role="status">{saved.pc_imported_at
+      ? `PC取込済み: ${new Date(saved.pc_imported_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} JST`
+      : "PC取込待ち — 次回の取込時に、この保存内容を読み込みます。"}</p>}
+    <p className="muted">PCへの取込後も、個人向け比較に必要な設定と検証がそろうまでは研究用の表示が続きます。</p>
     <fieldset disabled={busy} className="form-fields">
       <section className="panel"><div className="section-heading"><div className="section-number">01</div><div><h2>現在の保有</h2><p>株をまだ持っていなくても、その状態を記録できます。</p></div></div>
         <label className="field">保有状況<select value={draft.holdings_status} onChange={event => change({ ...draft, holdings_status: event.target.value as ManualPortfolio["holdings_status"] })}><option value="none">現在は保有なし</option><option value="recorded">保有あり</option><option value="unrecorded">まだ入力していない</option></select></label>

@@ -152,7 +152,7 @@ from stock_ai.operations import (
     create_app,
     windows_task_scheduler_script,
 )
-from stock_ai.operations.cloud import cloud_projection, sync_private_results
+from stock_ai.operations.cloud import cloud_projection, pull_private_portfolio, sync_private_results
 from stock_ai.operations.daily import export_prediction_snapshot
 from stock_ai.research import run_research_decision_e2e
 
@@ -328,6 +328,32 @@ def ops_sync_private(
     )
     receipt = sync_private_results(payload, bearer_token=token)
     typer.echo(json.dumps(receipt))
+
+
+@ops_app.command("pull-private-portfolio")
+def ops_pull_private_portfolio(
+    database: Annotated[Path, typer.Option(dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Import the owner's app inputs; acknowledge only after durable local storage."""
+    token = os.environ.get("STOCK_AI_PRIVATE_SITE_TOKEN", "")
+    if not token:
+        raise typer.BadParameter("STOCK_AI_PRIVATE_SITE_TOKEN is not configured")
+    item = pull_private_portfolio(OperationalStore(database), bearer_token=token)
+    typer.echo(
+        json.dumps(
+            {
+                "revision_id": item.export.revision_id,
+                "export_sha256": item.export_sha256,
+                "received_at": item.received_at.isoformat(),
+                "acknowledged": True,
+                "holding_count": len(item.portfolio.holdings),
+                "missing_fields": item.portfolio.missing_fields,
+                "applied_to_execution_ledger": False,
+            }
+        )
+    )
 
 
 @ops_app.command("verify")

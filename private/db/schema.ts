@@ -17,3 +17,12 @@ export const portfolioVersions = sqliteTable("portfolio_versions", {
   savedAt: text("saved_at").notNull(),
   payloadJson: text("payload_json").notNull(),
 }, table => [uniqueIndex("portfolio_owner_parent").on(table.ownerId, table.parentRevision)]);
+
+// Import receipts never modify a saved portfolio or an original forecast.
+export const portfolioImports = sqliteTable("portfolio_imports", {
+  revisionId: text("revision_id").primaryKey().references(() => portfolioVersions.revisionId),
+  ownerId: text("owner_id").notNull(),
+  exportSha256: text("export_sha256").notNull(),
+  importedAt: text("imported_at").notNull(),
+  acknowledgedAt: text("acknowledged_at").notNull(),
+});

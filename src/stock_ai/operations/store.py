@@ -38,6 +38,7 @@ from stock_ai.operations.daily import (
     PredictionSnapshot,
     validate_research_link,
 )
+from stock_ai.operations.manual_portfolio import ImportedManualPortfolio
 from stock_ai.operations.models import (
     AutomationJobRecord,
     AutomationStage,
@@ -121,6 +122,7 @@ _HASHED_TABLES = (
     "prediction_snapshots",
     "company_research",
     "adoption_reviews",
+    "manual_portfolio_imports",
 )
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -134,7 +136,15 @@ def _verify_hashed_row(table: str, row: sqlite3.Row) -> None:
     payload = _checked_payload(row, table)
     item: Any
     try:
-        if table == "adoption_reviews":
+        if table == "manual_portfolio_imports":
+            item = _parse_model(ImportedManualPortfolio, payload)
+            expected = {
+                "export_sha256": item.export_sha256,
+                "revision_id": item.export.revision_id,
+                "revision_sequence": item.export.revision_sequence,
+                "owner_scope_hash": item.owner_scope_hash,
+            }
+        elif table == "adoption_reviews":
             item = _parse_model(OwnerAdoptionReview, payload)
             expected = {"review_id": item.review_id, "selection_id": item.selection_id}
         elif table == "prediction_snapshots":
@@ -277,6 +287,9 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
         row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
     for table in _HASHED_TABLES:
+        if table == "manual_portfolio_imports" and schema_version < 3 and table not in tables:
+            counts[table] = 0
+            continue
         if (
             schema_version < 2
             and table not in tables
@@ -506,7 +519,15 @@ class OperationalStore:
                     content_hash TEXT NOT NULL,
                     FOREIGN KEY(prediction_snapshot_id) REFERENCES prediction_snapshots(snapshot_id)
                 );
-                PRAGMA user_version=2;
+                CREATE TABLE IF NOT EXISTS manual_portfolio_imports (
+                    export_sha256 TEXT PRIMARY KEY,
+                    revision_id TEXT NOT NULL UNIQUE,
+                    revision_sequence INTEGER NOT NULL UNIQUE,
+                    owner_scope_hash TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    content_hash TEXT NOT NULL
+                );
+                PRAGMA user_version=3;
 
                 CREATE TABLE IF NOT EXISTS proposals (
                     proposal_id TEXT PRIMARY KEY,
@@ -664,6 +685,58 @@ class OperationalStore:
             values,
         )
         return True
+
+    def import_manual_portfolio(self, item: ImportedManualPortfolio) -> ImportedManualPortfolio:
+        """Append a verified input without modifying balances or recorded executions."""
+        item = ImportedManualPortfolio.model_validate_json(item.model_dump_json())
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                "SELECT * FROM manual_portfolio_imports ORDER BY revision_sequence DESC"
+            ).fetchall()
+            for row in rows:
+                _verify_hashed_row("manual_portfolio_imports", row)
+                previous = _parse_model(ImportedManualPortfolio, row["payload"])
+                if previous.owner_scope_hash != item.owner_scope_hash:
+                    raise OperationalConflictError(
+                        "manual portfolio owner differs from pinned owner"
+                    )
+            if rows:
+                latest = _parse_model(ImportedManualPortfolio, rows[0]["payload"])
+                if item.export.revision_sequence < latest.export.revision_sequence:
+                    raise OperationalConflictError("manual portfolio revision rollback refused")
+                if item.export_sha256 == latest.export_sha256:
+                    return latest  # Preserve the first receipt time, including ACK retries.
+                if item.export.revision_sequence == latest.export.revision_sequence:
+                    raise OperationalConflictError("manual portfolio revision identity conflict")
+                if item.export.saved_at < latest.export.saved_at:
+                    raise OperationalConflictError("manual portfolio saved time rollback refused")
+                if item.export.revision_id in {row["revision_id"] for row in rows}:
+                    raise OperationalConflictError("manual portfolio revision replay conflict")
+            self._insert_immutable(
+                connection,
+                table="manual_portfolio_imports",
+                identity_column="export_sha256",
+                identity=item.export_sha256,
+                columns={
+                    "revision_id": item.export.revision_id,
+                    "revision_sequence": item.export.revision_sequence,
+                    "owner_scope_hash": item.owner_scope_hash,
+                },
+                payload=_canonical_payload(item),
+            )
+            connection.commit()
+            return item
+
+    def latest_manual_portfolio(self) -> ImportedManualPortfolio | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM manual_portfolio_imports ORDER BY revision_sequence DESC LIMIT 1"
+            ).fetchone()
+            if row is None:
+                return None
+            _verify_hashed_row("manual_portfolio_imports", row)
+            return _parse_model(ImportedManualPortfolio, row["payload"])
 
     def append_prediction_snapshot(self, snapshot: PredictionSnapshot) -> bool:
         snapshot = PredictionSnapshot.model_validate_json(snapshot.model_dump_json())

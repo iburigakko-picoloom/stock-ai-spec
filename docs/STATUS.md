@@ -942,3 +942,10 @@ research crossfit-daily-ensembleを追加。元18候補と固定datasetを認証
 順位ICは単純平均0.0682/0.0992から学習重み0.0855/0.1064へ改善（5日/20日）。ただし回帰MSE改善は小さく、5日の生リターン平均/学習重みはゼロ予測より悪い。確率較正はECEを下げても両horizonでBrier/log lossを悪化させ、分位点補正もpinballを悪化させた。期間別の悪化も記録し、較正成功や採用の判定はしない。
 
 個別候補/単純平均/学習ensembleを同じ後半期間で比較し、順位スコアとリターン単位を区別する。成績改善や較正成功は前提にしない。残りのbaseline・実市場状態付きNAV・個人設定/費用/税・最終selection/holdout・最新推論は継続。Goal active、実注文なし。詳細docs/DAILY_ENSEMBLE.md。
+
+
+## 2026-10-15 — アプリ入力の本人専用PC取込
+
+口座/保有/資金/最大下落率の手入力を、本人専用SiteからPCへ取り込む経路を追加。保存版とexportのSHA256、厳密schema、owner固定、版/時刻rollback拒否を行い、SQLiteへ確定してから同じ版の受領記録を返す。アプリはPC取込待ち/取込済みを保存版ごとに表示する。再取得は冪等で受領時刻を保持し、旧版ACKで新しい入力を取込済みにしない。移行は追加tableのみで、元予測/入力を保持する。
+
+関連Python56試験、Node12試験、Ruff全体/mypy61modules、private lint/TypeScript/build PASS。公開反映・実際の本人入力取込・全体回帰試験はこのsource checkpointの後に確認する。入力取込と約定台帳/税/費用/最新予測を使った個人比較は別段階であり、後者は未完了。証拠と手順はdocs/MANUAL_PORTFOLIO_IMPORT.md。Goal active、実注文なし。

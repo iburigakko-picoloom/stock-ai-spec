@@ -49,6 +49,7 @@ export const portfolioSave = z.object({
 }).strict();
 export type ManualPortfolio = z.infer<typeof portfolioInput>;
 export const savedPortfolio = z.object({
+  pc_imported_at: z.string().datetime({ offset: true }).nullable().optional(),
   revision_id: z.string().regex(/^[0-9a-f]{64}$/), saved_at: z.string().datetime(), portfolio: portfolioInput,
 });
 export const portfolioResponse = z.object({ saved: savedPortfolio.nullable() });

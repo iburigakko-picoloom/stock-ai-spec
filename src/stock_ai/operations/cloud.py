@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -16,8 +18,72 @@ from stock_ai.operations.daily import (
     canonical_json,
     validate_research_link,
 )
+from stock_ai.operations.manual_portfolio import ImportedManualPortfolio, strict_json
+from stock_ai.operations.store import OperationalStore
 
 PRIVATE_SITE_ORIGIN = "https://stock-ai-private-daily.manato0618.chatgpt.site"
+
+
+def portfolio_access_token(bearer_token: str) -> str:
+    return hmac.new(
+        bearer_token.encode(), b"stock-ai-private-portfolio-v1", hashlib.sha256
+    ).hexdigest()
+
+
+def pull_private_portfolio(
+    store: OperationalStore,
+    *,
+    bearer_token: str,
+    origin: str = PRIVATE_SITE_ORIGIN,
+    transport: httpx.BaseTransport | None = None,
+) -> ImportedManualPortfolio:
+    """Verify, commit locally, then acknowledge the exact cloud revision.
+
+    An ACK failure never rolls back the local import. Repeating this operation
+    acknowledges the original receipt. No financial state is inferred or applied.
+    """
+    if origin != PRIVATE_SITE_ORIGIN or not bearer_token:
+        raise ValueError("verified private Site origin and service token are required")
+    headers = {
+        "OAI-Sites-Authorization": "Bearer " + bearer_token,
+        "X-Stock-AI-Portfolio-Access": portfolio_access_token(bearer_token),
+    }
+    try:
+        with httpx.Client(
+            headers=headers, follow_redirects=False, timeout=30, transport=transport
+        ) as client:
+            with client.stream("GET", origin + "/api/portfolio/export") as response:
+                response.raise_for_status()
+                chunks = bytearray()
+                for chunk in response.iter_bytes():
+                    chunks.extend(chunk)
+                    if len(chunks) > 500_000:
+                        raise ValueError("portfolio export exceeds limit")
+                item = ImportedManualPortfolio.from_response(
+                    strict_json(chunks.decode("utf-8")), received_at=datetime.now(UTC)
+                )
+            item = store.import_manual_portfolio(item)
+            ack = client.post(
+                origin + "/api/portfolio/export",
+                json={
+                    "revision_id": item.export.revision_id,
+                    "export_sha256": item.export_sha256,
+                    "imported_at": item.received_at.isoformat(),
+                },
+            )
+            ack.raise_for_status()
+            observed = ack.json()
+            if (
+                observed.get("revision_id") != item.export.revision_id
+                or observed.get("export_sha256") != item.export_sha256
+                or observed.get("acknowledged") is not True
+            ):
+                raise ValueError("portfolio import acknowledgment mismatch")
+            return item
+    except (httpx.HTTPError, ValueError, KeyError, UnicodeError):
+        raise RuntimeError(
+            "private portfolio import or acknowledgment failed; local records were retained"
+        ) from None
 
 
 def cloud_projection(
