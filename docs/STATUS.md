@@ -886,3 +886,14 @@ research audit-candidates --score-developmentから新しい診断を実行で�
 明示LightGBM seed17ペアを2025-11-06 11:30 JSTで検証。3,717銘柄の予測、horizon不足30銘柄、較正962,235行/257日。最良モデル選択ではない。source checkpoint2cd7167、実データreceipt99bb487396e9ddecb4ff14ee907f8cfae94235d954aa290876bb0bc558d081d6。証拠はdocs/evidence/daily-oof-20261015。全sourceのhash認証とholdout成果の評価を区別し、後者は行っていない。
 
 新規34試験、関連合計97 PASS、新module coverage94%。全体531 PASS、coverage85.86%。Ruff全体/mypy56modules PASS。元dataset・学習成果の変更なし。個別module指定のcoverage起動2回はNumPy初期化失敗、標準のsource-directory指定で回復し失敗log保持。状態を引き継ぐ戦略→日次NAV、実市場/企業行動adapter、全baseline比較、selection/holdout/最新推論、個人設定との接続は未完。Goalはactive。実注文なし。
+
+
+## 2026-10-15 — Decision Engineから日次会計への連続接続
+
+判断時点の保有・現金・未収金を受けるstateful NAV callbackと、固定5/20日予測から毎日Decision Engineを実行するresearch evaluate-daily-strategyを追加。実際の仮想約定/未約定、企業行動、支払だけを翌日の状態へ反映する。全保有を候補へ追加し、必要情報の欠落/古い単位の価格/探索上限は停止理由と保有持越しを記録する。停止を含む比較はdecisions_complete=false。未収金はNAVには含め、支払までは買付余力に使わない。
+
+税前の研究用口座metadataを明示し、本人の口座区分・NISA・税シナリオとは分離。日次提案のis_research_onlyが汎用engineの既定falseになっていた点を、独立したDailyDecisionAuditと必須trueで是正。原予測・市場・現在portfolio・candidate根拠のhashを提案へ束ねた。固定注文の既存APIと同じ会計経路を使い、生成注文の再実行で全結果が一致する。
+
+追加29試験、関連112 PASS、新module coverage99%。source checkpoint9d39864で全体560 PASS、coverage86.10%、Ruff全体/mypy57modules PASS。手計算のpartial-fill、資金・取得単価・費用、決済待ち、停止株、配当・分割、未来価格変更、欠損時の保有維持を確認。証拠docs/evidence/daily-strategy-20261015。市場成績はまだ計算しておらず、保存した戦略receiptは合成テスト専用。
+
+実sourceの最新raw/normalized各5種、計10objectのschema/byte hashをread-only検査。raw株価のUL/LLはnormalized schemaに未接続、raw財務配当列だけでは権利/支払イベントにならない。公式V2仕様でULは終値ではなく高値到達、特別気配・実際の利用可能時刻・訂正前データは非提供と確認。元学習dataset/履歴は変更なし。次はrawの認証と執行用projection、企業行動/約定能力、全baseline比較。個人税、selection/holdout/最新予測も未完。Goalはactive、実注文なし。

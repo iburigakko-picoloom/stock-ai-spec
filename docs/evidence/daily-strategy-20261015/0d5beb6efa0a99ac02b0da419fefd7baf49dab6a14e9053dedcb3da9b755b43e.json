@@ -1,0 +1,1291 @@
+{
+  "decimal_precision": 28,
+  "input": {
+    "accounting": {
+      "actions": [],
+      "calendar_dates": [
+        "2026-02-10",
+        "2026-02-11",
+        "2026-02-12"
+      ],
+      "calendar_id": "TEST_ONLY",
+      "cash": [
+        {
+          "amount": "300000",
+          "bucket": "cash",
+          "reserved": "0"
+        }
+      ],
+      "cost_policy": {
+        "commission_bps": "0",
+        "commission_fixed": "0",
+        "full_spread_bps": "0",
+        "impact_bps_at_full_adv": "0",
+        "minimum_commission": "0",
+        "policy_id": "research-all-in-0-bps",
+        "slippage_bps": "0",
+        "version": "research-one-way-v1",
+        "zero_commission_confirmed": true
+      },
+      "data_mode": "fixture",
+      "execution_semantics": "observed_execution_window",
+      "fill_fraction": "1",
+      "initial_as_of": "2026-02-09T16:00:00+09:00",
+      "lot_size": 100,
+      "orders": [],
+      "positions": [],
+      "price_basis": "unadjusted",
+      "schema_version": "daily-nav-input-v1",
+      "sessions": [
+        {
+          "close_at": "2026-02-10T16:00:00+09:00",
+          "execution_at": "2026-02-10T12:30:00+09:00",
+          "prices": [
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "A",
+              "tick_size": "1"
+            },
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "B",
+              "tick_size": "1"
+            }
+          ],
+          "sale_cash_available_at": "2026-02-10T12:30:00+09:00",
+          "trading_date": "2026-02-10"
+        },
+        {
+          "close_at": "2026-02-11T16:00:00+09:00",
+          "execution_at": "2026-02-11T12:30:00+09:00",
+          "prices": [
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "A",
+              "tick_size": "1"
+            },
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "B",
+              "tick_size": "1"
+            }
+          ],
+          "sale_cash_available_at": "2026-02-11T12:30:00+09:00",
+          "trading_date": "2026-02-11"
+        },
+        {
+          "close_at": "2026-02-12T16:00:00+09:00",
+          "execution_at": "2026-02-12T12:30:00+09:00",
+          "prices": [
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1100",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "A",
+              "tick_size": "1"
+            },
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "B",
+              "tick_size": "1"
+            }
+          ],
+          "sale_cash_available_at": "2026-02-12T12:30:00+09:00",
+          "trading_date": "2026-02-12"
+        }
+      ],
+      "source_snapshot_id": "TEST_ONLY",
+      "tax_mode": "pre_tax"
+    },
+    "decision_policy": {
+      "concentration_penalty_weight": "0",
+      "downside_penalty_weight": "0",
+      "horizon_weights": [
+        "0",
+        "0",
+        "1"
+      ],
+      "implementation_buffer_yen": "0",
+      "large_loss_probability_penalty_weight": "0",
+      "lot_size": 100,
+      "max_search_combinations": 2000000,
+      "maximum_positions": 10,
+      "maximum_sector_weight": "1",
+      "maximum_symbol_weight": "1",
+      "maximum_trade_adv_ratio": "0.05",
+      "maximum_turnover_ratio": "10",
+      "minimum_cash_ratio": "0",
+      "minimum_improvement_yen": "0",
+      "turnover_penalty_bps": "0",
+      "uncertainty_buffer_yen": "0",
+      "uncertainty_penalty_weight": "0",
+      "version": "decision-engine-v1"
+    },
+    "observations": [
+      {
+        "candidate_symbols": [
+          "A"
+        ],
+        "forecasts": {
+          "adoption_eligible": false,
+          "as_of": "2026-02-10T11:30:00+09:00",
+          "blocked": [],
+          "calibration_dates": 5,
+          "calibration_rows": 10,
+          "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+          "large_loss_threshold": -0.08,
+          "latest_calibration_available_at": "2026-02-09T07:00:00Z",
+          "minimum_calibration_dates": 3,
+          "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+          "predictions": [
+            {
+              "active_horizons": [
+                5,
+                20
+              ],
+              "as_of": "2026-02-10T11:30:00+09:00",
+              "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "downside_quantile": -0.02,
+              "expected_return_1d": null,
+              "expected_return_20d": 0.1,
+              "expected_return_5d": -99.0,
+              "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+              "large_loss_probability": 0.1,
+              "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+              "morning_revision": null,
+              "risk_horizon": 20,
+              "schema_version": 2,
+              "symbol": "A",
+              "uncertainty": {
+                "coverage_warning": "Received past-only 20d residual RMSE; not a confidence interval; single candidate per horizon",
+                "model_disagreement": 0.0,
+                "standard_error": 0.022360679774997894
+              }
+            },
+            {
+              "active_horizons": [
+                5,
+                20
+              ],
+              "as_of": "2026-02-10T11:30:00+09:00",
+              "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "downside_quantile": -0.02,
+              "expected_return_1d": null,
+              "expected_return_20d": -0.1,
+              "expected_return_5d": 99.0,
+              "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+              "large_loss_probability": 0.1,
+              "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+              "morning_revision": null,
+              "risk_horizon": 20,
+              "schema_version": 2,
+              "symbol": "B",
+              "uncertainty": {
+                "coverage_warning": "Received past-only 20d residual RMSE; not a confidence interval; single candidate per horizon",
+                "model_disagreement": 0.0,
+                "standard_error": 0.022360679774997894
+              }
+            }
+          ],
+          "quantile_alpha": 0.1,
+          "research_only": true,
+          "residual_rmse": 0.022360679774997894,
+          "schema_version": "daily-oof-day-v1",
+          "source_report_ids": [
+            "755ec66d0eb62e9a8f207d7d8cf17dfb5e04062dfa2caa373245181e26c18c90",
+            "5afd3383510d2673c14d482846468e7b536328f1ddae7beff2f77ea8f3b2f8a5"
+          ]
+        },
+        "market": {
+          "as_of": "2026-02-10T11:30:00+09:00",
+          "available_at": "2026-02-09T16:00:00+09:00",
+          "prices": {
+            "A": "1000",
+            "B": "1000"
+          },
+          "snapshot_id": "TEST-0",
+          "source": "TEST_ONLY"
+        },
+        "price_basis": "unadjusted",
+        "reference_price_at": "2026-02-09T16:00:00+09:00",
+        "securities": [
+          {
+            "average_daily_trading_value": "100000000",
+            "security": {
+              "company_name": "A",
+              "lot_size": 100,
+              "market_segment": "TSE Prime",
+              "sector": "TEST",
+              "symbol": "A"
+            }
+          },
+          {
+            "average_daily_trading_value": "100000000",
+            "security": {
+              "company_name": "B",
+              "lot_size": 100,
+              "market_segment": "TSE Prime",
+              "sector": "TEST",
+              "symbol": "B"
+            }
+          }
+        ],
+        "security_evidence_available_at": "2026-02-09T16:00:00+09:00"
+      },
+      {
+        "candidate_symbols": [],
+        "forecasts": {
+          "adoption_eligible": false,
+          "as_of": "2026-02-11T11:30:00+09:00",
+          "blocked": [],
+          "calibration_dates": 6,
+          "calibration_rows": 12,
+          "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+          "large_loss_threshold": -0.08,
+          "latest_calibration_available_at": "2026-02-10T07:00:00Z",
+          "minimum_calibration_dates": 3,
+          "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+          "predictions": [
+            {
+              "active_horizons": [
+                5,
+                20
+              ],
+              "as_of": "2026-02-11T11:30:00+09:00",
+              "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "downside_quantile": -0.02,
+              "expected_return_1d": null,
+              "expected_return_20d": 0.1,
+              "expected_return_5d": -99.0,
+              "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+              "large_loss_probability": 0.1,
+              "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+              "morning_revision": null,
+              "risk_horizon": 20,
+              "schema_version": 2,
+              "symbol": "A",
+              "uncertainty": {
+                "coverage_warning": "Received past-only 20d residual RMSE; not a confidence interval; single candidate per horizon",
+                "model_disagreement": 0.0,
+                "standard_error": 0.022360679774997894
+              }
+            },
+            {
+              "active_horizons": [
+                5,
+                20
+              ],
+              "as_of": "2026-02-11T11:30:00+09:00",
+              "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "downside_quantile": -0.02,
+              "expected_return_1d": null,
+              "expected_return_20d": -0.1,
+              "expected_return_5d": 99.0,
+              "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+              "large_loss_probability": 0.1,
+              "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+              "morning_revision": null,
+              "risk_horizon": 20,
+              "schema_version": 2,
+              "symbol": "B",
+              "uncertainty": {
+                "coverage_warning": "Received past-only 20d residual RMSE; not a confidence interval; single candidate per horizon",
+                "model_disagreement": 0.0,
+                "standard_error": 0.022360679774997894
+              }
+            }
+          ],
+          "quantile_alpha": 0.1,
+          "research_only": true,
+          "residual_rmse": 0.022360679774997894,
+          "schema_version": "daily-oof-day-v1",
+          "source_report_ids": [
+            "755ec66d0eb62e9a8f207d7d8cf17dfb5e04062dfa2caa373245181e26c18c90",
+            "5afd3383510d2673c14d482846468e7b536328f1ddae7beff2f77ea8f3b2f8a5"
+          ]
+        },
+        "market": {
+          "as_of": "2026-02-11T11:30:00+09:00",
+          "available_at": "2026-02-10T16:00:00+09:00",
+          "prices": {
+            "A": "1000",
+            "B": "1000"
+          },
+          "snapshot_id": "TEST-1",
+          "source": "TEST_ONLY"
+        },
+        "price_basis": "unadjusted",
+        "reference_price_at": "2026-02-10T16:00:00+09:00",
+        "securities": [
+          {
+            "average_daily_trading_value": "100000000",
+            "security": {
+              "company_name": "A",
+              "lot_size": 100,
+              "market_segment": "TSE Prime",
+              "sector": "TEST",
+              "symbol": "A"
+            }
+          },
+          {
+            "average_daily_trading_value": "100000000",
+            "security": {
+              "company_name": "B",
+              "lot_size": 100,
+              "market_segment": "TSE Prime",
+              "sector": "TEST",
+              "symbol": "B"
+            }
+          }
+        ],
+        "security_evidence_available_at": "2026-02-10T16:00:00+09:00"
+      },
+      {
+        "candidate_symbols": [],
+        "forecasts": {
+          "adoption_eligible": false,
+          "as_of": "2026-02-12T11:30:00+09:00",
+          "blocked": [],
+          "calibration_dates": 7,
+          "calibration_rows": 14,
+          "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+          "large_loss_threshold": -0.08,
+          "latest_calibration_available_at": "2026-02-11T07:00:00Z",
+          "minimum_calibration_dates": 3,
+          "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+          "predictions": [
+            {
+              "active_horizons": [
+                5,
+                20
+              ],
+              "as_of": "2026-02-12T11:30:00+09:00",
+              "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "downside_quantile": -0.02,
+              "expected_return_1d": null,
+              "expected_return_20d": 0.1,
+              "expected_return_5d": -99.0,
+              "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+              "large_loss_probability": 0.1,
+              "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+              "morning_revision": null,
+              "risk_horizon": 20,
+              "schema_version": 2,
+              "symbol": "A",
+              "uncertainty": {
+                "coverage_warning": "Received past-only 20d residual RMSE; not a confidence interval; single candidate per horizon",
+                "model_disagreement": 0.0,
+                "standard_error": 0.022360679774997894
+              }
+            },
+            {
+              "active_horizons": [
+                5,
+                20
+              ],
+              "as_of": "2026-02-12T11:30:00+09:00",
+              "data_snapshot_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "downside_quantile": -0.02,
+              "expected_return_1d": null,
+              "expected_return_20d": -0.1,
+              "expected_return_5d": 99.0,
+              "feature_version": "daily-features:25d87636c68dfabc8687bbf1ed8f9bc821fd6ee939737e2b651c7581227e8f54",
+              "large_loss_probability": 0.1,
+              "model_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+              "morning_revision": null,
+              "risk_horizon": 20,
+              "schema_version": 2,
+              "symbol": "B",
+              "uncertainty": {
+                "coverage_warning": "Received past-only 20d residual RMSE; not a confidence interval; single candidate per horizon",
+                "model_disagreement": 0.0,
+                "standard_error": 0.022360679774997894
+              }
+            }
+          ],
+          "quantile_alpha": 0.1,
+          "research_only": true,
+          "residual_rmse": 0.022360679774997894,
+          "schema_version": "daily-oof-day-v1",
+          "source_report_ids": [
+            "755ec66d0eb62e9a8f207d7d8cf17dfb5e04062dfa2caa373245181e26c18c90",
+            "5afd3383510d2673c14d482846468e7b536328f1ddae7beff2f77ea8f3b2f8a5"
+          ]
+        },
+        "market": {
+          "as_of": "2026-02-12T11:30:00+09:00",
+          "available_at": "2026-02-11T16:00:00+09:00",
+          "prices": {
+            "A": "1000",
+            "B": "1000"
+          },
+          "snapshot_id": "TEST-2",
+          "source": "TEST_ONLY"
+        },
+        "price_basis": "unadjusted",
+        "reference_price_at": "2026-02-11T16:00:00+09:00",
+        "securities": [
+          {
+            "average_daily_trading_value": "100000000",
+            "security": {
+              "company_name": "A",
+              "lot_size": 100,
+              "market_segment": "TSE Prime",
+              "sector": "TEST",
+              "symbol": "A"
+            }
+          },
+          {
+            "average_daily_trading_value": "100000000",
+            "security": {
+              "company_name": "B",
+              "lot_size": 100,
+              "market_segment": "TSE Prime",
+              "sector": "TEST",
+              "symbol": "B"
+            }
+          }
+        ],
+        "security_evidence_available_at": "2026-02-11T16:00:00+09:00"
+      }
+    ],
+    "schema_version": "daily-strategy-input-v1",
+    "strategy_id": "TEST_ONLY",
+    "tax_mode": "pre_tax"
+  },
+  "limitations": [
+    "pre-tax research only; not personal account settings",
+    "market/security/candidate evidence requires independent source authentication",
+    "receivables are in NAV, excluded from deployable decision wealth until payment",
+    "blocked decisions retain holdings; incomplete decisions cannot support adoption",
+    "no final model selection, holdout evaluation or actual order"
+  ],
+  "pydantic_version": "2.13.4",
+  "result": {
+    "adoption_eligible": false,
+    "daily_nav_difference": [
+      "0E-22",
+      "0E-22",
+      "30000.0000000000000000000000"
+    ],
+    "decisions": [
+      {
+        "blocked_reasons": [],
+        "evaluated_symbols": [
+          "A"
+        ],
+        "orders": [
+          {
+            "bucket": "cash",
+            "decided_at": "2026-02-10T11:30:00+09:00",
+            "order_id": "2026-02-10T11:30:00+09:00:cash:A",
+            "shares": 300,
+            "side": "BUY",
+            "symbol": "A",
+            "trading_date": "2026-02-10"
+          }
+        ],
+        "proposal": {
+          "as_of": "2026-02-10T11:30:00+09:00",
+          "cost_policy_id": "research-all-in-0-bps",
+          "cost_policy_version": "research-one-way-v1",
+          "current_portfolio_id": "research-state:8aae648926b34ced1367a422a58c5d9061ed4f51d2743308a44199a634fdc572",
+          "daily_audit": {
+            "as_of": "2026-02-10T11:30:00+09:00",
+            "candidate_evidence_sha256": "95d6668ea852d3b724a76bade9295778873de0be11c44df32ecdf7d0ffd036ff",
+            "forecast_content_sha256": "805be16c33c4c8a2da511fba4760fd08eef8848afb3b901ffaa42680e00a1d78",
+            "is_research_only": true,
+            "market_content_sha256": "2da66a2b54fe694d0a3f5b7511f9e065fdcc3ca516861156d2b5f4db59f6ddde",
+            "portfolio_content_sha256": "733d1d405f0d9285a35089a749ca645390dfb5bc38f42df8760e55364981ad08",
+            "source_report_ids": [
+              "755ec66d0eb62e9a8f207d7d8cf17dfb5e04062dfa2caa373245181e26c18c90",
+              "5afd3383510d2673c14d482846468e7b536328f1ddae7beff2f77ea8f3b2f8a5"
+            ]
+          },
+          "decision_engine_version": "decision-engine-v1",
+          "estimated_cash_after": {
+            "cash": "0E-22"
+          },
+          "generated_at": "2026-02-10T11:30:00+09:00",
+          "hold_utility": "0E-18",
+          "is_order_instruction": false,
+          "is_research_only": true,
+          "lines": [
+            {
+              "account_bucket_id": "cash",
+              "action": "BUY",
+              "company_name": "A",
+              "current_market_value": "0",
+              "current_shares": 0,
+              "downside_risk": -0.02,
+              "estimated_cash_required_or_released": "300000.0000000000000000000000",
+              "estimated_nisa_opportunity_cost": "0",
+              "estimated_realized_pnl": "0",
+              "estimated_tax_cash_withholding": "0",
+              "estimated_tax_effect": "0",
+              "hold_expected_value": "0E-18",
+              "human_readable_reasons": [
+                "現在ポートフォリオを維持する場合との全体比較を実施",
+                "税・取引コスト控除後の目標株数へ変更"
+              ],
+              "line_id": "A:cash",
+              "net_expected_improvement": "30000.00000000000000000000000",
+              "proposed_expected_value": "30000.000000000000000000",
+              "reason_codes": [
+                "ACTION_BUY",
+                "WHOLE_PORTFOLIO_HOLD_COMPARISON"
+              ],
+              "recommended_market_value": "300000",
+              "recommended_shares": 300,
+              "reference_price": "1000",
+              "share_difference": 300,
+              "symbol": "A",
+              "tax_assumptions": [
+                "no sale"
+              ],
+              "tax_is_estimate": true,
+              "tax_policy_version": "research-pre-tax-v1",
+              "transaction_cost": {
+                "assumptions": [],
+                "commission": "0",
+                "market_impact": "0E-29",
+                "policy_version": "research-one-way-v1",
+                "slippage": "0",
+                "spread": "0"
+              },
+              "uncertainty": 0.022360679774997894
+            }
+          ],
+          "model_bundle_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+          "morning_audit": null,
+          "net_improvement": "30000.00000000000000000000000",
+          "no_trade_reason": null,
+          "proposal_id": "proposal-2026-02-10-8df342ffd3ce2644-daily-7a20dcc9f1714010",
+          "proposed_utility": "30000.00000000000000000000000",
+          "targets": [
+            {
+              "account_bucket_id": "cash",
+              "symbol": "A",
+              "target_shares": 300
+            }
+          ],
+          "tax_policy_id": "research-pre-tax",
+          "tax_policy_version": "research-pre-tax-v1"
+        },
+        "state": {
+          "applied_event_ids": [],
+          "as_of": "2026-02-10T11:30:00+09:00",
+          "cash": [
+            {
+              "amount": "300000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "positions": [],
+          "receivables": []
+        }
+      },
+      {
+        "blocked_reasons": [],
+        "evaluated_symbols": [
+          "A"
+        ],
+        "orders": [
+          {
+            "bucket": "cash",
+            "decided_at": "2026-02-11T11:30:00+09:00",
+            "order_id": "2026-02-11T11:30:00+09:00:cash:A",
+            "shares": 200,
+            "side": "BUY",
+            "symbol": "A",
+            "trading_date": "2026-02-11"
+          }
+        ],
+        "proposal": {
+          "as_of": "2026-02-11T11:30:00+09:00",
+          "cost_policy_id": "research-all-in-0-bps",
+          "cost_policy_version": "research-one-way-v1",
+          "current_portfolio_id": "research-state:544424fdefb766379450926db854f30d74b0d446e12c9556167f2d879c016884",
+          "daily_audit": {
+            "as_of": "2026-02-11T11:30:00+09:00",
+            "candidate_evidence_sha256": "4c15e2d35ac8c41a3fc7869b3d4a5061ee5ee2643e8ec2b2779f3d73dd47739d",
+            "forecast_content_sha256": "29d9e5b4a212735d2233fddca0c4a0d798bfd1346c126074fc6af19e803d3a4a",
+            "is_research_only": true,
+            "market_content_sha256": "cd2d24cfd0c03b13ccbb5dfdadb43e9f398c5c97931e13ebacf4959ba47a59d5",
+            "portfolio_content_sha256": "fc5a563a90d294e7acb8e9284722bb7f1e41d750b5f6846adc9e2f00272677b3",
+            "source_report_ids": [
+              "755ec66d0eb62e9a8f207d7d8cf17dfb5e04062dfa2caa373245181e26c18c90",
+              "5afd3383510d2673c14d482846468e7b536328f1ddae7beff2f77ea8f3b2f8a5"
+            ]
+          },
+          "decision_engine_version": "decision-engine-v1",
+          "estimated_cash_after": {
+            "cash": "0E-22"
+          },
+          "generated_at": "2026-02-11T11:30:00+09:00",
+          "hold_utility": "10000.00000000000000000000000",
+          "is_order_instruction": false,
+          "is_research_only": true,
+          "lines": [
+            {
+              "account_bucket_id": "cash",
+              "action": "BUY",
+              "company_name": "A",
+              "current_market_value": "100000",
+              "current_shares": 100,
+              "downside_risk": -0.02,
+              "estimated_cash_required_or_released": "200000.0000000000000000000000",
+              "estimated_nisa_opportunity_cost": "0",
+              "estimated_realized_pnl": "0",
+              "estimated_tax_cash_withholding": "0",
+              "estimated_tax_effect": "0",
+              "hold_expected_value": "10000.000000000000000000",
+              "human_readable_reasons": [
+                "現在ポートフォリオを維持する場合との全体比較を実施",
+                "税・取引コスト控除後の目標株数へ変更"
+              ],
+              "line_id": "A:cash",
+              "net_expected_improvement": "20000.00000000000000000000000",
+              "proposed_expected_value": "30000.000000000000000000",
+              "reason_codes": [
+                "ACTION_BUY",
+                "WHOLE_PORTFOLIO_HOLD_COMPARISON"
+              ],
+              "recommended_market_value": "300000",
+              "recommended_shares": 300,
+              "reference_price": "1000",
+              "share_difference": 200,
+              "symbol": "A",
+              "tax_assumptions": [
+                "no sale"
+              ],
+              "tax_is_estimate": true,
+              "tax_policy_version": "research-pre-tax-v1",
+              "transaction_cost": {
+                "assumptions": [],
+                "commission": "0",
+                "market_impact": "0E-29",
+                "policy_version": "research-one-way-v1",
+                "slippage": "0",
+                "spread": "0"
+              },
+              "uncertainty": 0.022360679774997894
+            }
+          ],
+          "model_bundle_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+          "morning_audit": null,
+          "net_improvement": "20000.00000000000000000000000",
+          "no_trade_reason": null,
+          "proposal_id": "proposal-2026-02-11-29e9735f4427cff4-daily-ce429db6f2e40f83",
+          "proposed_utility": "30000.00000000000000000000000",
+          "targets": [
+            {
+              "account_bucket_id": "cash",
+              "symbol": "A",
+              "target_shares": 300
+            }
+          ],
+          "tax_policy_id": "research-pre-tax",
+          "tax_policy_version": "research-pre-tax-v1"
+        },
+        "state": {
+          "applied_event_ids": [],
+          "as_of": "2026-02-11T11:30:00+09:00",
+          "cash": [
+            {
+              "amount": "200000.0000000000000000000000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "positions": [
+            {
+              "bucket": "cash",
+              "last_price": "1000",
+              "last_price_at": "2026-02-10T16:00:00+09:00",
+              "shares": 100,
+              "symbol": "A",
+              "unit_cost": "1000.0000000000000000000000"
+            }
+          ],
+          "receivables": []
+        }
+      },
+      {
+        "blocked_reasons": [],
+        "evaluated_symbols": [
+          "A"
+        ],
+        "orders": [
+          {
+            "bucket": "cash",
+            "decided_at": "2026-02-12T11:30:00+09:00",
+            "order_id": "2026-02-12T11:30:00+09:00:cash:A",
+            "shares": 100,
+            "side": "BUY",
+            "symbol": "A",
+            "trading_date": "2026-02-12"
+          }
+        ],
+        "proposal": {
+          "as_of": "2026-02-12T11:30:00+09:00",
+          "cost_policy_id": "research-all-in-0-bps",
+          "cost_policy_version": "research-one-way-v1",
+          "current_portfolio_id": "research-state:08fcb135ca74c3b04bb2a4c0b2cbbcebcb0f7916b0b94deeac410351678d6ffb",
+          "daily_audit": {
+            "as_of": "2026-02-12T11:30:00+09:00",
+            "candidate_evidence_sha256": "c10ffab322171c9c237fbd05b01bad97eb6265d4ba6ab63dd6fbfcb3397afbac",
+            "forecast_content_sha256": "cc318b150e0477eefae69131b752310944f5e4ebec96b20336c86331af0d0dc1",
+            "is_research_only": true,
+            "market_content_sha256": "ce2eaddc9311023a3e0a43646d4114ecc51633bd943e3b9812479181ad98c6c8",
+            "portfolio_content_sha256": "1e65e2827f2b1505835b9f99c4ed494c61a4f7e1f18192dfda7abfd33c383035",
+            "source_report_ids": [
+              "755ec66d0eb62e9a8f207d7d8cf17dfb5e04062dfa2caa373245181e26c18c90",
+              "5afd3383510d2673c14d482846468e7b536328f1ddae7beff2f77ea8f3b2f8a5"
+            ]
+          },
+          "decision_engine_version": "decision-engine-v1",
+          "estimated_cash_after": {
+            "cash": "0E-22"
+          },
+          "generated_at": "2026-02-12T11:30:00+09:00",
+          "hold_utility": "20000.0000000000000000000000",
+          "is_order_instruction": false,
+          "is_research_only": true,
+          "lines": [
+            {
+              "account_bucket_id": "cash",
+              "action": "BUY",
+              "company_name": "A",
+              "current_market_value": "200000",
+              "current_shares": 200,
+              "downside_risk": -0.02,
+              "estimated_cash_required_or_released": "100000.0000000000000000000000",
+              "estimated_nisa_opportunity_cost": "0",
+              "estimated_realized_pnl": "0",
+              "estimated_tax_cash_withholding": "0",
+              "estimated_tax_effect": "0",
+              "hold_expected_value": "20000.000000000000000000",
+              "human_readable_reasons": [
+                "現在ポートフォリオを維持する場合との全体比較を実施",
+                "税・取引コスト控除後の目標株数へ変更"
+              ],
+              "line_id": "A:cash",
+              "net_expected_improvement": "10000.00000000000000000000000",
+              "proposed_expected_value": "30000.000000000000000000",
+              "reason_codes": [
+                "ACTION_BUY",
+                "WHOLE_PORTFOLIO_HOLD_COMPARISON"
+              ],
+              "recommended_market_value": "300000",
+              "recommended_shares": 300,
+              "reference_price": "1000",
+              "share_difference": 100,
+              "symbol": "A",
+              "tax_assumptions": [
+                "no sale"
+              ],
+              "tax_is_estimate": true,
+              "tax_policy_version": "research-pre-tax-v1",
+              "transaction_cost": {
+                "assumptions": [],
+                "commission": "0",
+                "market_impact": "0E-29",
+                "policy_version": "research-one-way-v1",
+                "slippage": "0",
+                "spread": "0"
+              },
+              "uncertainty": 0.022360679774997894
+            }
+          ],
+          "model_bundle_version": "daily-oof-adapter-v1:650531136824330c27793a842dace10c2043ec6616fe85a8ce22de86e4e27882",
+          "morning_audit": null,
+          "net_improvement": "10000.00000000000000000000000",
+          "no_trade_reason": null,
+          "proposal_id": "proposal-2026-02-12-b547f78169663798-daily-a9b2852ec5a85eb3",
+          "proposed_utility": "30000.00000000000000000000000",
+          "targets": [
+            {
+              "account_bucket_id": "cash",
+              "symbol": "A",
+              "target_shares": 300
+            }
+          ],
+          "tax_policy_id": "research-pre-tax",
+          "tax_policy_version": "research-pre-tax-v1"
+        },
+        "state": {
+          "applied_event_ids": [],
+          "as_of": "2026-02-12T11:30:00+09:00",
+          "cash": [
+            {
+              "amount": "100000.0000000000000000000000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "positions": [
+            {
+              "bucket": "cash",
+              "last_price": "1000",
+              "last_price_at": "2026-02-11T16:00:00+09:00",
+              "shares": 200,
+              "symbol": "A",
+              "unit_cost": "1000.0000000000000000000000"
+            }
+          ],
+          "receivables": []
+        }
+      }
+    ],
+    "decisions_complete": true,
+    "execution_input": {
+      "actions": [],
+      "calendar_dates": [
+        "2026-02-10",
+        "2026-02-11",
+        "2026-02-12"
+      ],
+      "calendar_id": "TEST_ONLY",
+      "cash": [
+        {
+          "amount": "300000",
+          "bucket": "cash",
+          "reserved": "0"
+        }
+      ],
+      "cost_policy": {
+        "commission_bps": "0",
+        "commission_fixed": "0",
+        "full_spread_bps": "0",
+        "impact_bps_at_full_adv": "0",
+        "minimum_commission": "0",
+        "policy_id": "research-all-in-0-bps",
+        "slippage_bps": "0",
+        "version": "research-one-way-v1",
+        "zero_commission_confirmed": true
+      },
+      "data_mode": "fixture",
+      "execution_semantics": "observed_execution_window",
+      "fill_fraction": "1",
+      "initial_as_of": "2026-02-09T16:00:00+09:00",
+      "lot_size": 100,
+      "orders": [
+        {
+          "bucket": "cash",
+          "decided_at": "2026-02-10T11:30:00+09:00",
+          "order_id": "2026-02-10T11:30:00+09:00:cash:A",
+          "shares": 300,
+          "side": "BUY",
+          "symbol": "A",
+          "trading_date": "2026-02-10"
+        },
+        {
+          "bucket": "cash",
+          "decided_at": "2026-02-11T11:30:00+09:00",
+          "order_id": "2026-02-11T11:30:00+09:00:cash:A",
+          "shares": 200,
+          "side": "BUY",
+          "symbol": "A",
+          "trading_date": "2026-02-11"
+        },
+        {
+          "bucket": "cash",
+          "decided_at": "2026-02-12T11:30:00+09:00",
+          "order_id": "2026-02-12T11:30:00+09:00:cash:A",
+          "shares": 100,
+          "side": "BUY",
+          "symbol": "A",
+          "trading_date": "2026-02-12"
+        }
+      ],
+      "positions": [],
+      "price_basis": "unadjusted",
+      "schema_version": "daily-nav-input-v1",
+      "sessions": [
+        {
+          "close_at": "2026-02-10T16:00:00+09:00",
+          "execution_at": "2026-02-10T12:30:00+09:00",
+          "prices": [
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "A",
+              "tick_size": "1"
+            },
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "B",
+              "tick_size": "1"
+            }
+          ],
+          "sale_cash_available_at": "2026-02-10T12:30:00+09:00",
+          "trading_date": "2026-02-10"
+        },
+        {
+          "close_at": "2026-02-11T16:00:00+09:00",
+          "execution_at": "2026-02-11T12:30:00+09:00",
+          "prices": [
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "A",
+              "tick_size": "1"
+            },
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "B",
+              "tick_size": "1"
+            }
+          ],
+          "sale_cash_available_at": "2026-02-11T12:30:00+09:00",
+          "trading_date": "2026-02-11"
+        },
+        {
+          "close_at": "2026-02-12T16:00:00+09:00",
+          "execution_at": "2026-02-12T12:30:00+09:00",
+          "prices": [
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1100",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "A",
+              "tick_size": "1"
+            },
+            {
+              "average_daily_trading_value": "100000000",
+              "buy_status": "tradable",
+              "capacity_shares": 100,
+              "close_price": "1000",
+              "execution_price": "1000",
+              "sell_status": "tradable",
+              "source_id": "TEST_ONLY",
+              "symbol": "B",
+              "tick_size": "1"
+            }
+          ],
+          "sale_cash_available_at": "2026-02-12T12:30:00+09:00",
+          "trading_date": "2026-02-12"
+        }
+      ],
+      "source_snapshot_id": "TEST_ONLY",
+      "tax_mode": "pre_tax"
+    },
+    "hold": {
+      "adoption_eligible": false,
+      "days": [
+        {
+          "applied_event_ids": [],
+          "as_of": "2026-02-10T16:00:00+09:00",
+          "cash": [
+            {
+              "amount": "300000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "daily_return": "0",
+          "fills": [],
+          "missing_mark_haircut_0_nav": "300000",
+          "missing_mark_haircut_100_nav": "300000",
+          "missing_mark_haircut_50_nav": "300000",
+          "missing_marks": [],
+          "nav": "300000",
+          "positions": [],
+          "receivables": [],
+          "traded_notional": "0",
+          "trading_cost": "0",
+          "trading_date": "2026-02-10"
+        },
+        {
+          "applied_event_ids": [],
+          "as_of": "2026-02-11T16:00:00+09:00",
+          "cash": [
+            {
+              "amount": "300000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "daily_return": "0",
+          "fills": [],
+          "missing_mark_haircut_0_nav": "300000",
+          "missing_mark_haircut_100_nav": "300000",
+          "missing_mark_haircut_50_nav": "300000",
+          "missing_marks": [],
+          "nav": "300000",
+          "positions": [],
+          "receivables": [],
+          "traded_notional": "0",
+          "trading_cost": "0",
+          "trading_date": "2026-02-11"
+        },
+        {
+          "applied_event_ids": [],
+          "as_of": "2026-02-12T16:00:00+09:00",
+          "cash": [
+            {
+              "amount": "300000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "daily_return": "0",
+          "fills": [],
+          "missing_mark_haircut_0_nav": "300000",
+          "missing_mark_haircut_100_nav": "300000",
+          "missing_mark_haircut_50_nav": "300000",
+          "missing_marks": [],
+          "nav": "300000",
+          "positions": [],
+          "receivables": [],
+          "traded_notional": "0",
+          "trading_cost": "0",
+          "trading_date": "2026-02-12"
+        }
+      ],
+      "execution_semantics": "observed_execution_window",
+      "initial_nav": "300000",
+      "input_sha256": "9566959dcb988879e54426b83b00c10b51f08b715f7fd17aef541bdbb19c657e",
+      "maximum_drawdown": "0",
+      "research_only": true,
+      "schema_version": "daily-nav-result-v1",
+      "tax_mode": "pre_tax",
+      "total_return": "0",
+      "total_trading_cost": "0",
+      "valuation_complete": true
+    },
+    "input_sha256": "a4a1c84e20ad5f36b98c027977126b9cde67b1dd1a0fd9425b70847f21e9f6bf",
+    "research_only": true,
+    "schema_version": "daily-strategy-result-v1",
+    "strategy": {
+      "adoption_eligible": false,
+      "days": [
+        {
+          "applied_event_ids": [],
+          "as_of": "2026-02-10T16:00:00+09:00",
+          "cash": [
+            {
+              "amount": "200000.0000000000000000000000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "daily_return": "0E-22",
+          "fills": [
+            {
+              "cost": {
+                "assumptions": [],
+                "commission": "0",
+                "market_impact": "0E-29",
+                "policy_version": "research-one-way-v1",
+                "slippage": "0",
+                "spread": "0"
+              },
+              "filled_shares": 100,
+              "notional": "100000",
+              "order_id": "2026-02-10T11:30:00+09:00:cash:A",
+              "reason": "PARTIAL_FILL"
+            }
+          ],
+          "missing_mark_haircut_0_nav": "300000.0000000000000000000000",
+          "missing_mark_haircut_100_nav": "300000.0000000000000000000000",
+          "missing_mark_haircut_50_nav": "300000.0000000000000000000000",
+          "missing_marks": [],
+          "nav": "300000.0000000000000000000000",
+          "positions": [
+            {
+              "bucket": "cash",
+              "last_price": "1000",
+              "last_price_at": "2026-02-10T16:00:00+09:00",
+              "shares": 100,
+              "symbol": "A",
+              "unit_cost": "1000.0000000000000000000000"
+            }
+          ],
+          "receivables": [],
+          "traded_notional": "100000",
+          "trading_cost": "0E-29",
+          "trading_date": "2026-02-10"
+        },
+        {
+          "applied_event_ids": [],
+          "as_of": "2026-02-11T16:00:00+09:00",
+          "cash": [
+            {
+              "amount": "100000.0000000000000000000000",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "daily_return": "0",
+          "fills": [
+            {
+              "cost": {
+                "assumptions": [],
+                "commission": "0",
+                "market_impact": "0E-29",
+                "policy_version": "research-one-way-v1",
+                "slippage": "0",
+                "spread": "0"
+              },
+              "filled_shares": 100,
+              "notional": "100000",
+              "order_id": "2026-02-11T11:30:00+09:00:cash:A",
+              "reason": "PARTIAL_FILL"
+            }
+          ],
+          "missing_mark_haircut_0_nav": "300000.0000000000000000000000",
+          "missing_mark_haircut_100_nav": "300000.0000000000000000000000",
+          "missing_mark_haircut_50_nav": "300000.0000000000000000000000",
+          "missing_marks": [],
+          "nav": "300000.0000000000000000000000",
+          "positions": [
+            {
+              "bucket": "cash",
+              "last_price": "1000",
+              "last_price_at": "2026-02-11T16:00:00+09:00",
+              "shares": 200,
+              "symbol": "A",
+              "unit_cost": "1000.0000000000000000000000"
+            }
+          ],
+          "receivables": [],
+          "traded_notional": "100000",
+          "trading_cost": "0E-29",
+          "trading_date": "2026-02-11"
+        },
+        {
+          "applied_event_ids": [],
+          "as_of": "2026-02-12T16:00:00+09:00",
+          "cash": [
+            {
+              "amount": "0E-29",
+              "bucket": "cash",
+              "reserved": "0"
+            }
+          ],
+          "daily_return": "0.1",
+          "fills": [
+            {
+              "cost": {
+                "assumptions": [],
+                "commission": "0",
+                "market_impact": "0E-29",
+                "policy_version": "research-one-way-v1",
+                "slippage": "0",
+                "spread": "0"
+              },
+              "filled_shares": 100,
+              "notional": "100000",
+              "order_id": "2026-02-12T11:30:00+09:00:cash:A",
+              "reason": "FILLED"
+            }
+          ],
+          "missing_mark_haircut_0_nav": "330000.0000000000000000000000",
+          "missing_mark_haircut_100_nav": "330000.0000000000000000000000",
+          "missing_mark_haircut_50_nav": "330000.0000000000000000000000",
+          "missing_marks": [],
+          "nav": "330000.0000000000000000000000",
+          "positions": [
+            {
+              "bucket": "cash",
+              "last_price": "1100",
+              "last_price_at": "2026-02-12T16:00:00+09:00",
+              "shares": 300,
+              "symbol": "A",
+              "unit_cost": "1000.0000000000000000000000"
+            }
+          ],
+          "receivables": [],
+          "traded_notional": "100000",
+          "trading_cost": "0E-29",
+          "trading_date": "2026-02-12"
+        }
+      ],
+      "execution_semantics": "observed_execution_window",
+      "initial_nav": "300000",
+      "input_sha256": "3da3b0092f564cff5542b99f3c9fa3c4f4581708225bd5bf298d1362b5a2cec9",
+      "maximum_drawdown": "0",
+      "research_only": true,
+      "schema_version": "daily-nav-result-v1",
+      "tax_mode": "pre_tax",
+      "total_return": "0.1000000000000000000000",
+      "total_trading_cost": "0E-29",
+      "valuation_complete": true
+    }
+  },
+  "source_sha256": {
+    "decision/costs.py": "3240c5ba462e5f3fdca303b5b5e2e19cc949da3f742e2b37ab31e7b3e6486dfe",
+    "decision/engine.py": "97311e3f18af940f2c2421a9f689c2bf6097fa6cd695293d4629bd648c6fb11f",
+    "decision/tax.py": "32d91527ab8b3756e408ce60ed27bc754eb221c04f28a85710f3465debbf5345",
+    "domain/models.py": "499371e5a5be0ba4d6d3f93752f8bbb6c97e0df24cde4031e701b0755c83f831",
+    "ml/daily_oof.py": "676cbdebacd33d894a25b896e78c9f96dbe48757b4b432f30acd3d19a4c88b52",
+    "ml/daily_strategy.py": "b5695b25814bd7697bc85082e3dfb26f77dfb722f5a70de47bb7aa8ba9d12b73",
+    "ml/nav.py": "98a29fbced82a70c239d8d8a990fb42fb27322f112dfbc16493935b45c86fab4"
+  }
+}
