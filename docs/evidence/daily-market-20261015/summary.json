@@ -124,5 +124,18 @@
       "available_at": "2026-08-29T14:12:46.122579Z"
     }
   ],
-  "scope": "actual four-day source projection, not a strategy evaluation"
+  "scope": "actual four-day source projection, not a strategy evaluation",
+  "source_commit": "da999e11e48bb29d0497bf13e1ed3d1eaf2e217f",
+  "validation": {
+    "full_tests_passed": 590,
+    "warnings": 109,
+    "elapsed_seconds": 475.5,
+    "coverage_percent": 86.27549876709259,
+    "targeted_tests_passed": 115,
+    "new_tests": 30,
+    "ruff": "PASS",
+    "mypy_modules": 58,
+    "full_log_sha256": "11017511fed6431af31d8e071833df0c2a0753cab7516bce72fb96aa53895517",
+    "coverage_json_sha256": "971dfa2950f20e81c2de6e3c1d43881fd07ae1d721e8b5bed61a4fa7e76055a6"
+  }
 }

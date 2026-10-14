@@ -903,6 +903,6 @@ research audit-candidates --score-developmentから新しい診断を実行で�
 
 research project-daily-marketを追加。固定feature selectionとholdout境界を確認後、指定開発期間のraw/normalizedとcatalog/manifest/byte hash/行metadata/値をread-onlyで照合する。無約定行、UL/LL欠損、空partitionを保持。末尾0以外のprovider codeは普通株へ短縮結合せず、元codeとsymbol nullで残す。元dataset/保存sourceは変更しない。
 
-実4日間2025-11-04〜11-07、8object・17,669行の認証に成功。取引あり16,899、無約定770、特殊code20、調整要確認1行。初回は特殊codeを拒否し、保存方法を修正して再検証した。追加30試験、関連115 PASS、新module coverage94%、Ruff全体/mypy58modules PASS。全体回帰はsource checkpoint後に実行し、証拠docs/evidence/daily-market-20261015へ記録する。
+実4日間2025-11-04〜11-07、8object・17,669行の認証に成功。取引あり16,899、無約定770、特殊code20、調整要確認1行。初回は特殊codeを拒否し、保存方法を修正して再検証した。追加30試験、関連115 PASS、新module coverage94%、Ruff全体/mypy58modules PASS。全体回帰はsource checkpoint da999e1で590 PASS、coverage86.28%。証拠docs/evidence/daily-market-20261015へ記録した。
 
 投資対象ユニバース/営業日完全性、元dataset source-frame一致、企業行動/約定能力/実用費用は未確認。実市場NAV、全baseline比較、個人税、selection/holdout/最新推論も未完。Goal active、実注文なし。
