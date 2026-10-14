@@ -931,3 +931,12 @@ compare-daily-baselines v2で、全18候補の大幅下落確率・分位点と�
 reports/selections/campaigns/experimentsの73 JSON/JSONL、161レコードをread-onlyで調査。アクセス宣言148件はboolean false147件と文字列false1件、trueなし。artifacts全体でholdout/ledger名JSONなし。旧baseline47afb247のreport identityを再計算し、宣言commit86c958d0fd60c91c2941420a58a0dcfe7bcea764のproduction/validation関数が2026-02-24以降とlabel跨ぎを評価から除外することを確認した。現最終評価境界2026-03-04より前である。
 
 ファイル一覧/byte SHA、宣言の位置・型、固定関数本文/位置/SHAをdocs/evidence/holdout-access-inventory-20261015へ保存。元の記録・データ・学習成果は変更なし。未記録/外部アクセスを除外できる証跡ではなく、旧reportも署名実行証跡や行別key receiptを持たないため、履歴完全性はNOT_PROVEN。この調査をholdout開封/採用gateのpassに置き換えない。新しい成績の採点や実注文なし。Goal active。
+
+
+## 2026-10-15 — 複数時点のアンサンブル・確率調整の開発評価
+
+research crossfit-daily-ensembleを追加。元18候補と固定datasetを認証し、3つの後続評価期間ごとに重み学習・調整・評価を分離する。両境界にhorizon以上の観測日embargoとlabel終点/受取時刻のpurgeを適用。未受領の同日他銘柄targetも順位正解に混ぜない。回帰/順位/確率の非負・合計1重み、順位からリターンへの較正、isotonic確率較正、固定平均分位点の残差補正を保存する。
+
+追加24試験PASS、module coverage93.23%、Ruff全体/mypy60modules PASS。独立数値解との一致、過去モデル/予測の未来変更不変、入力/時刻/キー拒否、全18候補の認証とCLI成功/失敗記録を確認。初回は合成fixtureの20日調整期間不足で19PASS/1FAIL。必要日数を弱めずfixtureを延長し、誤ったcoverage指定も修正して再試験した。失敗ログも保持。実候補の比較と全体回帰はsource checkpoint後に実施する。
+
+個別候補/単純平均/学習ensembleを同じ後半期間で比較し、順位スコアとリターン単位を区別する。成績改善や較正成功は前提にしない。残りのbaseline・実市場状態付きNAV・個人設定/費用/税・最終selection/holdout・最新推論は継続。Goal active、実注文なし。詳細docs/DAILY_ENSEMBLE.md。
