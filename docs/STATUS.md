@@ -871,3 +871,9 @@ research audit-candidates --score-developmentから新しい診断を実行で�
 ## 2026-10-15 — JPX休日境界と全特徴量の因果性検証
 
 公式JPX休業日一覧に基づく2026-01-12の休日fixtureを追加。01-09 featureから01-13入口、1日01-14・5日01-20・20日02-10の出口を独立した日付と照合した。入口価格欠損時は日付をずらさずSUSPENDED_NO_ENTRY_PRICEとtarget欠損を保持する。productionの未来価格変更試験はV0/V1/V2全列へ拡張し、過去値がexact一致。関連3試験PASS。新評価指標の統合は53 PASS、新moduleのbranch込みcoverage100%、Ruff/mypy55modules PASS。実18候補の診断を継続中。証拠: docs/evidence/daily-metrics-20261015。
+
+## 2026-10-15 — 実18候補の新版診断と全体回帰の完了
+
+実18候補のreport/OOF/source・feature・key/target・holdout境界を認証し、daily-development-metrics-v1を全4taskへ適用。全18 PASS、非有限値の除外0、5日各task1,327,530行・20日1,044,317行。元report metricsも同じreceiptに保持し、指標source hashとlibrary版、日別IC・確率binを保存した。receipt ID06aa2b94c2dcd90ef0faa850c1924c93ea7080f4a0a37f998750927e273cf65c、検証証拠docs/evidence/daily-metrics-20261015。再学習・最終selection・holdout評価・採用は行っていない。
+
+全Python回帰はsource checkpoint ac0fa41で497 PASS、coverage85.68%、Ruff全体とmypy55modules PASS。元の5監査receiptはbyte hash不変。既存baseline report47afb247…はholdout境界2026-02-24で今回の2026-03-04と異なるため、そのsummaryを直接比較しない。次は同一開発期間のbaseline・日次5/20日adapter・実価格/企業行動/費用を通したNAV比較。現在の保有入力画面は公開済みで、個別推奨への接続は未完。実注文なし。
