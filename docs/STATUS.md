@@ -937,6 +937,8 @@ reports/selections/campaigns/experimentsの73 JSON/JSONL、161レコードをrea
 
 research crossfit-daily-ensembleを追加。元18候補と固定datasetを認証し、3つの後続評価期間ごとに重み学習・調整・評価を分離する。両境界にhorizon以上の観測日embargoとlabel終点/受取時刻のpurgeを適用。未受領の同日他銘柄targetも順位正解に混ぜない。回帰/順位/確率の非負・合計1重み、順位からリターンへの較正、isotonic確率較正、固定平均分位点の残差補正を保存する。
 
-追加24試験PASS、module coverage93.23%、Ruff全体/mypy60modules PASS。独立数値解との一致、過去モデル/予測の未来変更不変、入力/時刻/キー拒否、全18候補の認証とCLI成功/失敗記録を確認。初回は合成fixtureの20日調整期間不足で19PASS/1FAIL。必要日数を弱めずfixtureを延長し、誤ったcoverage指定も修正して再試験した。失敗ログも保持。実候補の比較と全体回帰はsource checkpoint後に実施する。
+追加24試験PASS、module coverage93.23%、Ruff全体/mypy60modules PASS。独立数値解との一致、過去モデル/予測の未来変更不変、入力/時刻/キー拒否、全18候補の認証とCLI成功/失敗記録を確認。初回は合成fixtureの20日調整期間不足で19PASS/1FAIL。必要日数を弱めずfixtureを延長し、誤ったcoverage指定も修正して再試験した。失敗ログも保持。source afa9a5fで全体650試験PASS、coverage86.58%。実18候補の比較も完了し、5日662,791行/177日・20日523,258行/140日を各3時点で評価した。18回の重み最適化は全収束。元baselineの同じ評価行と完全一致し、単純平均との差は最大2.23e-16。保存した全重み/較正から予測を再現し、原成果は保持。証拠docs/evidence/daily-ensemble-20261015。
+
+順位ICは単純平均0.0682/0.0992から学習重み0.0855/0.1064へ改善（5日/20日）。ただし回帰MSE改善は小さく、5日の生リターン平均/学習重みはゼロ予測より悪い。確率較正はECEを下げても両horizonでBrier/log lossを悪化させ、分位点補正もpinballを悪化させた。期間別の悪化も記録し、較正成功や採用の判定はしない。
 
 個別候補/単純平均/学習ensembleを同じ後半期間で比較し、順位スコアとリターン単位を区別する。成績改善や較正成功は前提にしない。残りのbaseline・実市場状態付きNAV・個人設定/費用/税・最終selection/holdout・最新推論は継続。Goal active、実注文なし。詳細docs/DAILY_ENSEMBLE.md。

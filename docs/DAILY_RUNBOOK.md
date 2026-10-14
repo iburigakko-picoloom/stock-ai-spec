@@ -82,6 +82,8 @@ v04のSB20/SB60区間は反例が再現された。統計的有意性や自動�
 
 `research crossfit-daily-ensemble`は[3区間の時系列アンサンブル評価](DAILY_ENSEMBLE.md)を行う。重み学習・確率/分位点調整・後続評価を分け、各境界で未成熟labelを除外する。個別候補と単純平均を同じ後半期間で比較する。最終selectionやholdout入口とは別の研究診断である。
 
+[実18候補の比較結果](evidence/daily-ensemble-20261015/README.md)では、順位の集計指標は改善したが、確率/分位点補正は誤差を悪化させた。個別期間の悪化も保持しており、較正成功・統計的有意差・採用可能とは判定しない。コードは全650試験PASS、coverage86.58%。
+
 Python: `ruff check .`, `mypy src`, `pytest`, `pytest --cov`。Windowsのrunnerテストはcleanなsource commitを要求するため、checkpoint後に実行する。Git safe.directoryは必要なプロセス内にだけ設定する。テストJSONはUTF-8を明示。
 
 `private/`: Nodeのschema/fault tests、TypeScript、eslint、Sites build、390px表示確認。`web/`は既存PWAのlint/typecheck/test/buildを維持。履歴sourceのコピーは科学的証拠としてlint書換え対象から除き、coverage分母は実際の`src/stock_ai`に限定する。
