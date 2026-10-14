@@ -39,8 +39,8 @@ Drive: [評価計画v01](https://drive.google.com/file/d/1QsR-djCVznWj-AeeyVEo8x
 | V16 | noiseから最良選択 | v04 selection反例を再現。実選択履歴との統合は未完 |
 | V17 | 確率/分位点 | 0/1・base rate・過信のBrier/log loss/ECE、pinball/coverageを手値照合。epsilon=1e-8 float64、交差を検出して修復しない。単一alphaは交差確認不可。[実18候補の3時点較正](../daily-ensemble-20261015/README.md)を後続期間で評価済み。確率較正はECE改善とBrier/log loss悪化が併存、分位点補正はpinball悪化。較正成功とは判定せず、regime別検証は未完 |
 | V18 | 固定注文の費用 | 固定株数0/10/20/30/50bpsの片道/往復手値、費用内訳の二重控除なしを日次NAV試験で確認。realistic costの実証は別途必要 |
-| V19 | 重複保有の日次NAV | 21個の20日cohortを41sessionで追跡し、独立cohort手値と各日NAVが一致。forward20を加算しない。実戦略接続は残る |
-| V20 | 単元/資金/部分約定 | 日次NAVで単元・呼値・口座別現金・予約現金・決済待ち・共有capacity・partial/no-fillを確認。Decision Engineの連続実行は未接続 |
+| V19 | 重複保有の日次NAV | 21個の20日cohortを41sessionで追跡し、独立cohort手値と各日NAVが一致。forward20を加算しない。[Decision Engineの連続実行](../daily-strategy-20261015/README.md)から翌日の状態までfixtureで接続・再現済み。実市場価格・企業行動・約定能力を認証した実候補の成績比較は未完 |
+| V20 | 単元/資金/部分約定 | 日次NAVで単元・呼値・口座別現金・予約現金・決済待ち・共有capacity・partial/no-fillを確認。Decision Engineの連続実行と生成注文の再実行一致もfixtureで確認済み。実市場のcapacity・呼値・決済時刻の根拠は未接続 |
 | V21 | 停止/特別気配/欠損exit | 日次NAVで停止/特別気配/値幅/不明状態のno-fillと保有持越しを確認。欠損NAVはnull、仮定の評価減と分離。実データ状態の認証は未完 |
 | V22 | 分割/配当/現金交付 | 分割・端数・配当権利/未収/売却後受取・確認済み現金交付の手値を確認。複雑な権利処理、実企業行動adapterは未完 |
 | V23 | HOLDとの同条件比較 | 同じ初期保有・現金・日付でNAVの入替差を手計算照合。実候補/全baselineの比較は未完 |

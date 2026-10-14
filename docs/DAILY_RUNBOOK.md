@@ -21,7 +21,7 @@
 
 今回ユーザーがアプリ内入力を明示したため、本人が入力した設定は本人専用クラウドDBへ保存する。PCが停止中でも保存・読込できる。認証された本人ID別のappend-only revisionを作り、同じ親revisionからの二重更新はDBのunique制約で防ぐ。古い画面からの保存は409で止まり、入力を残したまま保存済み内容を読み直せる。認証、same-origin、manual intent、厳密schemaを通った保存だけを受け付ける。原予測のテーブルは変更しない。
 
-クラウド入力のPython側への取込・個別売買判断への接続は未実装。資金等が揃っても、評価・費用・税・価格データの確認を省略して推奨株数を出さない。本番へテスト口座・架空保有を登録しない。
+クラウド入力のPython側への取込は実装・実入力で検証済み。保存版を照合し、PCでの保存確定後にアプリへ取込済みを返す。個別売買判断への接続は未完。資金等が揃っても、評価・費用・税・価格データの確認を省略して推奨株数を出さない。本番へテスト口座・架空保有を登録しない。
 
 ## 原予測と手動調査
 
@@ -90,6 +90,8 @@ v04のSB20/SB60区間は反例が再現された。統計的有意性や自動�
 [実18候補の比較結果](evidence/daily-ensemble-20261015/README.md)では、順位の集計指標は改善したが、確率/分位点補正は誤差を悪化させた。個別期間の悪化も保持しており、較正成功・統計的有意差・採用可能とは判定しない。コードは全650試験PASS、coverage86.58%。
 
 Python: `ruff check .`, `mypy src`, `pytest`, `pytest --cov`。Windowsのrunnerテストはcleanなsource commitを要求するため、checkpoint後に実行する。Git safe.directoryは必要なプロセス内にだけ設定する。テストJSONはUTF-8を明示。
+
+追加baselineの順位指標修正後、source `7fccbe1`で全713試験PASS、coverage86.81%を確認した。[全体回帰の記録](evidence/daily-simple-baselines-20261015/full-regression.json)を参照。実18候補との追加比較は別の実行であり、試験成功だけで実スコア計算や採用を完了扱いにしない。
 
 `private/`: Nodeのschema/fault tests、TypeScript、eslint、Sites build、390px表示確認。`web/`は既存PWAのlint/typecheck/test/buildを維持。履歴sourceのコピーは科学的証拠としてlint書換え対象から除き、coverage分母は実際の`src/stock_ai`に限定する。
 

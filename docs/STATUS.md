@@ -959,3 +959,6 @@ compare-daily-baselines v3へ固定Elastic Netとmomentum+revision/4特徴等重
 
 
 実行中の点検で共有順位audit内にリターン単位MSEが残る出力不整合を発見。入れ子mean_squared_errorの不在を検証する試験で1 FAILを再現し、ルール出力からだけ除去して25 PASS、Ruff/mypy PASS。元候補・回帰baselineの指標は変更しない。実比較attempt1と全回帰attempt1は新規スコア計算前に停止し、logと中断理由を保存。条件や予測値を調整したものではない。修正checkpointから再実行する。
+
+
+修正checkpoint7fccbe1で全713試験PASS、coverage86.81%（基準85%）を確認。1482.05秒、2031 warnings。full-regression.jsonへsource・実行日時・log/coverage SHAを保存した。追加モデルの実データ比較は別途継続中であり、この全回帰成功を実評価・採用の完了とみなさない。runbookのPC取込未実装という古い記述と、試験票のDecision Engine未接続という古い記述を、既に検証済みの実装範囲に合わせた。
