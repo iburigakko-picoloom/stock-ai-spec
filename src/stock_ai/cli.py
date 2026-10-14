@@ -1792,6 +1792,41 @@ def evaluate_daily_strategy_command(
     )
 
 
+@research_app.command("compare-daily-baselines")
+def compare_daily_baselines_command(
+    feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
+    dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-baselines"),
+    batch_rows: Annotated[int, typer.Option(min=1)] = 32_768,
+) -> None:
+    """Compare daily candidate regression and simple baselines on identical development folds."""
+    from stock_ai.ml.daily_baselines import run_daily_baselines
+    from stock_ai.ml.evaluation_audit import write_audit_receipt
+
+    request = {"feature_selection": str(feature_selection), "dataset": str(dataset),
+               "campaigns": [str(path) for path in candidate_campaign], "batch_rows": batch_rows}
+    started = write_audit_receipt(
+        {"status": "STARTED", "request": request, "created_at": datetime.now(UTC).isoformat()},
+        output_root / "runs",
+    )
+    try:
+        path = run_daily_baselines(
+            feature_selection_path=feature_selection, campaign_paths=candidate_campaign,
+            dataset_path=dataset, output_root=output_root, batch_rows=batch_rows,
+            progress=lambda message: typer.echo(message, err=True),
+        )
+    except Exception as exc:
+        write_audit_receipt({"status": "FAILED", "started": str(started),
+                             "error_type": type(exc).__name__, "error": str(exc)},
+                            output_root / "runs")
+        typer.echo(f"daily baseline comparison blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    write_audit_receipt({"status": "SUCCEEDED", "started": str(started), "receipt": str(path)},
+                        output_root / "runs")
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
 @research_app.command("project-daily-market")
 def project_daily_market_command(
     input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],

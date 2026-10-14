@@ -906,3 +906,12 @@ research project-daily-marketを追加。固定feature selectionとholdout境界
 実4日間2025-11-04〜11-07、8object・17,669行の認証に成功。取引あり16,899、無約定770、特殊code20、調整要確認1行。初回は特殊codeを拒否し、保存方法を修正して再検証した。追加30試験、関連115 PASS、新module coverage94%、Ruff全体/mypy58modules PASS。全体回帰はsource checkpoint da999e1で590 PASS、coverage86.28%。証拠docs/evidence/daily-market-20261015へ記録した。
 
 投資対象ユニバース/営業日完全性、元dataset source-frame一致、企業行動/約定能力/実用費用は未確認。実市場NAV、全baseline比較、個人税、selection/holdout/最新推論も未完。Goal active、実注文なし。
+
+
+## 2026-10-15 — 同一開発foldの回帰baseline比較実装
+
+research compare-daily-baselinesを追加。固定datasetと全18候補のidentityを認証し、元のpurge/embargo/初回評価開始と同じfoldを再現する。評価key・target・as_of・foldは完全一致必須。ゼロ予測、20日momentum、V0 Ridge(alpha5)、固定候補平均の指標とOOFを保存。CLIは開始・成功・失敗を別receiptに残す。
+
+Ridgeは正確なtrain内中央値とblock単位の中心化共分散を使い、通常実装と一致する線形方程式を解く。新規23試験PASS、module coverage89%、Ruff全体/mypy59modules PASS。初期のfixture Path型、dataset認証に必要なsymbol列、DuckDB/Pandas時刻単位の差を修正し、失敗logも保持。実18候補比較と全体回帰はsource checkpoint後に実施する。
+
+予測指標の比較でありcash/HOLDのNAV成績ではない。全baselineの確率/分位点、cross-fitted learned ensemble、企業行動/約定能力/費用/個人税、最終selection/holdout/最新推論は未完。Goal active、実注文なし。
