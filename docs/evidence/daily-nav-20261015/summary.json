@@ -1,0 +1,46 @@
+{
+  "data_mode": "TEST_FIXTURES_ONLY_NOT_MARKET_PERFORMANCE",
+  "cases": [
+    {
+      "case": "V18_round_trip_0bps",
+      "expected_final_nav": "1000000",
+      "actual_final_nav": "1000000",
+      "receipt": "4e1f812bed0f3c286570a25afbcc0d1b9aae488f724bd322c922bb8b2ebbd227.json"
+    },
+    {
+      "case": "V18_round_trip_10bps",
+      "expected_final_nav": "999980",
+      "actual_final_nav": "999980",
+      "receipt": "5875360a0ee9a8252f8f54864c89490562c799654222e09a5c0c3c2983f72924.json"
+    },
+    {
+      "case": "V18_round_trip_20bps",
+      "expected_final_nav": "999960",
+      "actual_final_nav": "999960",
+      "receipt": "85c6796c6c7897665e12abd1bbe56ecaf2d32e67f1fcb334069a87310ebd7784.json"
+    },
+    {
+      "case": "V18_round_trip_30bps",
+      "expected_final_nav": "999940",
+      "actual_final_nav": "999940",
+      "receipt": "4833eff34abb92a98c8a721371f1b072e223eaa5d84e0f6d38d59438b115de48.json"
+    },
+    {
+      "case": "V18_round_trip_50bps",
+      "expected_final_nav": "999900",
+      "actual_final_nav": "999900",
+      "receipt": "58f12bf3c73774954320e07dac2142da8208e1a6067de392a8992449e38d71c9.json"
+    },
+    {
+      "case": "V19_21_overlapping_20_session_cohorts",
+      "expected_final_nav": "1042000",
+      "actual_final_nav": "1042000",
+      "receipt": "89fb99063e01477df364908e059620b793ee13d5fd9d152c36c995eb959ab09c.json"
+    }
+  ],
+  "focused_tests_passed": 105,
+  "new_nav_tests_passed": 45,
+  "nav_coverage_percent": 92,
+  "full_regression": "PENDING_AFTER_SOURCE_CHECKPOINT",
+  "test_source_sha256": "402562f394984cd0450d28973c7677abffc4232ad8bf8fdd22d8baeda9ebdf78"
+}

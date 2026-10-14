@@ -1,0 +1,277 @@
+{
+  "cost_source_sha256": "3240c5ba462e5f3fdca303b5b5e2e19cc949da3f742e2b37ab31e7b3e6486dfe",
+  "daily_nav_difference": [
+    "-50",
+    "-100"
+  ],
+  "decimal_precision": 28,
+  "domain_source_sha256": "9346d3c1fd9f9fe4ccd9da9f159c82b96154903fba992d051e115b727393506a",
+  "evaluator_source_sha256": "91f7435153bfa2ffcbb542814361be27159f38434ad0131370040664dfc6ebfd",
+  "hold": {
+    "adoption_eligible": false,
+    "days": [
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-05T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-06T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-06"
+      }
+    ],
+    "execution_semantics": "observed_execution_window",
+    "initial_nav": "1000000",
+    "input_sha256": "e455336601ab934b9ee30c5b739a007b78940dfca847fd31a0e01c783ced373c",
+    "maximum_drawdown": "0",
+    "research_only": true,
+    "schema_version": "daily-nav-result-v1",
+    "tax_mode": "pre_tax",
+    "total_return": "0",
+    "total_trading_cost": "0",
+    "valuation_complete": true
+  },
+  "input": {
+    "actions": [],
+    "calendar_dates": [
+      "2026-01-05",
+      "2026-01-06"
+    ],
+    "calendar_id": "synthetic-weekday-calendar-not-JPX",
+    "cash": [
+      {
+        "amount": "1000000",
+        "bucket": "cash",
+        "reserved": "0"
+      }
+    ],
+    "cost_policy": {
+      "commission_bps": "0",
+      "commission_fixed": "0",
+      "full_spread_bps": "0",
+      "impact_bps_at_full_adv": "0",
+      "minimum_commission": "0",
+      "policy_id": "research-all-in-50-bps",
+      "slippage_bps": "50",
+      "version": "research-one-way-v1",
+      "zero_commission_confirmed": true
+    },
+    "data_mode": "fixture",
+    "execution_semantics": "observed_execution_window",
+    "fill_fraction": "1",
+    "initial_as_of": "2026-01-02T16:00:00+09:00",
+    "lot_size": 100,
+    "orders": [
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-05T11:00:00+09:00",
+        "order_id": "BUY-0-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-06T11:00:00+09:00",
+        "order_id": "SELL-1-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-01-06"
+      }
+    ],
+    "positions": [],
+    "price_basis": "unadjusted",
+    "schema_version": "daily-nav-input-v1",
+    "sessions": [
+      {
+        "close_at": "2026-01-05T16:00:00+09:00",
+        "execution_at": "2026-01-05T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "100",
+            "execution_price": "100",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-05T12:00:00+09:00",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "close_at": "2026-01-06T16:00:00+09:00",
+        "execution_at": "2026-01-06T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "100",
+            "execution_price": "100",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-06T12:00:00+09:00",
+        "trading_date": "2026-01-06"
+      }
+    ],
+    "source_snapshot_id": "synthetic-accounting-only",
+    "tax_mode": "pre_tax"
+  },
+  "limitations": [
+    "pre-tax research, no model adoption",
+    "source IDs are supplied declarations",
+    "requires authenticated market/corporate-action adapter before real-data use"
+  ],
+  "pydantic_version": "2.13.4",
+  "strategy": {
+    "adoption_eligible": false,
+    "days": [
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-05T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "989950",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "-0.00005",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "50",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10000",
+            "order_id": "BUY-0-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "999950",
+        "missing_mark_haircut_100_nav": "999950",
+        "missing_mark_haircut_50_nav": "999950",
+        "missing_marks": [],
+        "nav": "999950",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "100",
+            "last_price_at": "2026-01-05T16:00:00+09:00",
+            "shares": 100,
+            "symbol": "A",
+            "unit_cost": "100.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10000",
+        "trading_cost": "50",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-06T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "999900",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "-0.0000500025001250062503125156",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "50",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10000",
+            "order_id": "SELL-1-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "999900",
+        "missing_mark_haircut_100_nav": "999900",
+        "missing_mark_haircut_50_nav": "999900",
+        "missing_marks": [],
+        "nav": "999900",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "10000",
+        "trading_cost": "50",
+        "trading_date": "2026-01-06"
+      }
+    ],
+    "execution_semantics": "observed_execution_window",
+    "initial_nav": "1000000",
+    "input_sha256": "6bfaaea037fb593a489c8c303a8c50fdb15d19628b4762bdbca89619c47a98df",
+    "maximum_drawdown": "0.0001",
+    "research_only": true,
+    "schema_version": "daily-nav-result-v1",
+    "tax_mode": "pre_tax",
+    "total_return": "-0.0001",
+    "total_trading_cost": "100",
+    "valuation_complete": true
+  }
+}

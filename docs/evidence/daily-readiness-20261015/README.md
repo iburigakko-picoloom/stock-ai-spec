@@ -38,12 +38,12 @@ Drive: [評価計画v01](https://drive.google.com/file/d/1QsR-djCVznWj-AeeyVEo8x
 | V15 | paired日付block | v04 fixtureを再現。実比較系列への接続は未完 |
 | V16 | noiseから最良選択 | v04 selection反例を再現。実選択履歴との統合は未完 |
 | V17 | 確率/分位点 | 部分。既存task metric保持、確率範囲拒否。手計算・交差quantile試験を拡張する |
-| V18 | 固定注文の費用 | 部分。既存費用内訳試験あり。10/20/30/50bps固定株数の単調性を追加する |
-| V19 | 重複保有の日次NAV | 未完。forward20リターン集計で代用しない |
-| V20 | 単元/資金/部分約定 | 既存domain/decision/simulatorのfixtureあり。状態付き日次研究への統合は未完 |
-| V21 | 停止/特別気配/欠損exit | 部分。欠損ラベル・no-fill保持あり。日次研究の売却不能の持越しが未完 |
-| V22 | 分割/配当/現金交付 | 未完。価格調整fixtureはあるがportfolio NAV会計とは別 |
-| V23 | HOLDとの同条件比較 | 部分。既存Decision Engineの無変更対照あり。日次NAV系列での比較は未完 |
+| V18 | 固定注文の費用 | 固定株数0/10/20/30/50bpsの片道/往復手値、費用内訳の二重控除なしを日次NAV試験で確認。realistic costの実証は別途必要 |
+| V19 | 重複保有の日次NAV | 21個の20日cohortを41sessionで追跡し、独立cohort手値と各日NAVが一致。forward20を加算しない。実戦略接続は残る |
+| V20 | 単元/資金/部分約定 | 日次NAVで単元・呼値・口座別現金・予約現金・決済待ち・共有capacity・partial/no-fillを確認。Decision Engineの連続実行は未接続 |
+| V21 | 停止/特別気配/欠損exit | 日次NAVで停止/特別気配/値幅/不明状態のno-fillと保有持越しを確認。欠損NAVはnull、仮定の評価減と分離。実データ状態の認証は未完 |
+| V22 | 分割/配当/現金交付 | 分割・端数・配当権利/未収/売却後受取・確認済み現金交付の手値を確認。複雑な権利処理、実企業行動adapterは未完 |
+| V23 | HOLDとの同条件比較 | 同じ初期保有・現金・日付でNAVの入替差を手計算照合。実候補/全baselineの比較は未完 |
 | V24 | byte/logical/metadata改変 | 既存tamper試験＋新規原予測改変拒否、実503unit/18report認証 |
 | V25 | 同ledger再開・別root/commit | 既存locked-holdoutのfixture試験あり。実holdoutは未実行 |
 | V26 | 固定選択違反/自動採用禁止 | 既存selection不整合拒否＋日次採用受付ブロック。証拠付き本人採用経路は未接続 |

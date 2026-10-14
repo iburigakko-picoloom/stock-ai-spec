@@ -855,3 +855,9 @@ Prediction v2（5日/20日・1日はnull）、日次0/0/1 decision policy、原�
 Python最終全体試験408 PASS、coverage85.26%（基準85%維持）。private/はschema/DB migrationテスト12 PASS、TypeScript/eslint/build PASS。学習18/18の完了と、未完の最終評価・holdout・日次推論は区別する。
 
 本番反映も完了。source847864637a69cfb9e970550a45cca71dc8495bc5、deployment appgdep_6acfbd154be08191a17329c2767a639b、本人のみのprivateを再確認。通常サインイン後、本人申告の「保有なし」を02:36:51 JSTに保存。口座0件・資金/リスクは未入力。ローカルpreview停止後も本番再表示を確認。匿名の口座API/同期APIはいずれも401。検証用銘柄や金額は本番へ送っていない。
+
+## 2026-10-15 — 日次NAVの会計評価器
+
+前回Goal turnは口座入力の本番反映・読戻しでprogress。今回はDrive v01 V18〜V23に対応する研究用日次NAVを実装。口座別現金/予約・保有・未収金を引き継ぎ、時刻・単元・呼値・共有capacity・資金・決済待ちを満たす分だけ仮想約定する。費用の二重控除、終値を見た同時刻約定、価格欠損による保有消去を拒否。分割/端数、配当権利と受取、確認済み現金交付を処理し、同じ初期状態のHOLDとの差を出す。CLI research evaluate-navで明示入力からimmutable receiptを保存できる。
+
+新規45 tests、既存cost/tax/simulator/domain/CLI/daily系を含む105 PASS。新規module coverage92%、ruff全体PASS、mypy54 modules PASS。証拠はdocs/evidence/daily-nav-20261015。最初の制限環境のPermissionErrorは記録し、workspace内basetempと許可された実行で再検証した。実市場adapter、Decision Engineの連続実行、個人税シナリオ、全候補比較、holdoutはまだ未完。Goalはactiveのまま。実注文なし。

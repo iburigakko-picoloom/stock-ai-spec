@@ -55,6 +55,8 @@
 
 ## 残りの順序と終了条件
 
+日次会計の固定注文評価器を追加した。[入力・会計契約・検証範囲](DAILY_NAV_EVALUATOR.md)を参照。生価格、未収金、企業行動、約定不能、HOLDとの差を扱う。実市場adapter・Decision Engineの連続実行・税シナリオは引き続き未接続。
+
 1. [26項目の評価試験票](evidence/daily-readiness-20261015/README.md)の不足を実装する。特に日次NAV、企業行動、約定不能を含む状態付き評価を実装し、固定注文の費用10/20/30/50bpsを手計算と照合する。元runの0/10/25/50bps設定は変更しない。
 2. 5日・20日それぞれで開発OOFを比較する。全seed、cash/HOLD/等重み/momentum/Ridge/単一GBDT/ensembleを同一条件で比較し、欠損・停止銘柄を隠さない。単純な20日forward returnの加算をNAVにしない。
 3. 特徴量・モデル・parameter・ensemble・uncertainty・判断規則・実用上必要な改善幅をholdout前に固定する。現時点で確定しているのは5日41列・20日51列の特徴量選択まで。

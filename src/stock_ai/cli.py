@@ -1748,6 +1748,27 @@ def research_checkpoint_status(
     typer.echo(json.dumps(status, ensure_ascii=False, sort_keys=True))
 
 
+@research_app.command("evaluate-nav")
+def evaluate_nav_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/nav-evaluations"),
+) -> None:
+    """Evaluate explicit research orders and HOLD; no market fetch or holdout access."""
+    from stock_ai.ml.nav import NavInput, write_nav_evaluation
+
+    try:
+        request = NavInput.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_nav_evaluation(request, output_root)
+    except (ValueError, OSError) as exc:
+        typer.echo(f"NAV evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(
+        json.dumps(
+            {"research_only": True, "adoption_eligible": False, "evaluation_path": str(path)}
+        )
+    )
+
+
 @research_app.command("audit-candidates")
 def audit_candidates_command(
     feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
