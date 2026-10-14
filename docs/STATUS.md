@@ -837,3 +837,21 @@ This is an active-run milestone, not full completion. Subsequent fold guards and
 ## 2026-10-04 18:44 JST: all six native quantile folds saved
 
 The same authorized single worker38000 completed quantile folds1-6; the last saved update is 2026-10-04T18:44:39.847454+09:00. Native quantile OOF totals 1,327,530.0 rows. Each of the six Parquet byte hashes matches its native manifest; no import lineage is present, and seed29/config/41-feature identities match. Total succeeded units22,failed0. The existing plan automatically proceeded into large_loss fold1; no new model configuration, extra worker or observer was created. All six quantile fit guards passed the unchanged3.5 GiB threshold; the sixth guard had4.505730 GiB available. The same genuine8d82fa6 model/worker/lock source remains unchanged. This is quantile phase completion, not full seed/campaign completion. Large-loss and fixed diagnostics/report verification remain. Continue the existing low-frequency observer until current execution completion/safe stop, with no automatic retry or additional task enablement. Evidence: docs/evidence/memory-recovery-20261004/edge-resume/quantile-phase/.
+
+## 2026-10-15 — 日次版の監査・記録・本人専用閲覧の実装
+
+5日9/9・20日9/9、計18候補の研究学習が完了。全report/OOFを再認証し、成功checkpoint503unit、保存ラベルの13分割境界を照合した。再開proofは当時のraw sourceを使用し、科学source pin・成功成果物・失敗履歴を変更していない。Drive v04は21単体試験と全calibrationを再実行し、配布結果と一致。SB20/SB60の誤較正も再現したため採用条件には使わない。
+
+Prediction v2（5日/20日・1日はnull）、日次0/0/1 decision policy、原予測/7項目手動調査/本人レビューの分離保存、preview-confirm import、JSON/CSV/Markdown export、backup/integrity対応、daily-only workflow順序、本人専用Sitesへの最小結果同期を実装。画面は学習完了と採用準備を区別する。未検証のadoptは明示的にブロックする。
+
+日次live inference・定期sync・状態付きNAV・企業行動会計の統合は未完。26項目全部の合格、最終モデル確定、holdout評価、現在の推奨株数、実用採用は未達。single-vintage/実用費用/個人設定の不足も残る。元学習データの時点は8月であり現在予測とは表示しない。工程と終了条件は docs/DAILY_RUNBOOK.md、実測証拠と26試験票の対応は docs/evidence/daily-readiness-20261015。
+
+実注文は送信していない。最終検証結果は同証拠ディレクトリの verification.md に記録する。
+
+## 2026-10-15 — アプリ内の口座・保有入力
+
+ユーザーの「現在は何もない」「口座区分とか現在の所有株はアプリ内で入力」へ対応。private/portfolioで保有なし、口座区分、銘柄・株数・取得単価、任意の資金・最大下落率を入力・確認・保存・再読込できる。本人専用D1へ履歴保存、古い画面の更新は409拒否。空欄金額はnull。ローカル検証で保有なし→再表示、NISA/1株/小数取得単価、2画面競合と再読込を確認。本番に検証用口座・保有を登録していない。個別推奨への接続は未完。
+
+Python最終全体試験408 PASS、coverage85.26%（基準85%維持）。private/はschema/DB migrationテスト12 PASS、TypeScript/eslint/build PASS。学習18/18の完了と、未完の最終評価・holdout・日次推論は区別する。
+
+本番反映も完了。source847864637a69cfb9e970550a45cca71dc8495bc5、deployment appgdep_6acfbd154be08191a17329c2767a639b、本人のみのprivateを再確認。通常サインイン後、本人申告の「保有なし」を02:36:51 JSTに保存。口座0件・資金/リスクは未入力。ローカルpreview停止後も本番再表示を確認。匿名の口座API/同期APIはいずれも401。検証用銘柄や金額は本番へ送っていない。

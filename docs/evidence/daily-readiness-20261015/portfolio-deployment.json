@@ -1,0 +1,14 @@
+{
+  "project_id": "appgprj_6acfaa58a14c81919863e7e62f8a939c",
+  "commit_sha": "847864637a69cfb9e970550a45cca71dc8495bc5",
+  "deployment_id": "appgdep_6acfbd154be08191a17329c2767a639b",
+  "version_id": "appgprj_6acfaa58a14c81919863e7e62f8a939c~appgver_631a4de0b0608191a69a43a20fb617b0",
+  "status": "succeeded",
+  "url": "https://stock-ai-private-daily.manato0618.chatgpt.site",
+  "updated_at": "2026-10-14T17:34:30.038907+00:00",
+  "access_mode": "custom",
+  "allowed_roles": [
+    "owner"
+  ],
+  "allowed_groups": 0
+}

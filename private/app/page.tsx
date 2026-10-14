@@ -24,7 +24,7 @@ export default async function Home() {
   const forecasts = payload?.forecasts ?? [];
   return <main className="shell">
     <header className="topbar"><Link href="/" className="brand"><span className="brand-mark">株</span><span>株AI<small>DAILY RESEARCH</small></span></Link><span className="private-badge">● 本人専用</span></header>
-    <nav aria-label="ページ内メニュー"><a href="#overview">概要</a><a href="#forecasts">原予測</a><a href="#research">企業調査</a><a href="#status">運用状況</a></nav>
+    <nav aria-label="ページ内メニュー"><a href="#overview">概要</a><a href="#forecasts">原予測</a><a href="#research">企業調査</a><a href="#status">運用状況</a><Link href="/portfolio">口座・保有</Link></nav>
     <section id="overview" className="hero">
       <div className="eyebrow">DAILY BRIEF / 日次版</div>
       <h1>判断の前に、<br/>予測と根拠を確認。</h1>
@@ -32,6 +32,7 @@ export default async function Home() {
       <div className="status-line"><span className={`status-pill ${forecasts.length ? "blue" : "amber"}`}>{storageError ? "保存先の確認が必要" : forecasts.length ? (stale ? "過去の原予測" : "原予測を保存済み") : "評価・接続の準備中"}</span><span>{payload?.mode === "owner_approved" ? "本人の採用確認済み" : payload?.mode === "paper" ? "ペーパー記録" : "研究モード"}</span></div>
     </section>
     <section className="metrics" aria-label="更新状況"><div><span>データ時点</span><strong>{fmtTime(payload?.data_as_of ?? null)}</strong></div><div><span>結果の生成</span><strong>{fmtTime(payload?.generated_at ?? null)}</strong></div><div><span>クラウド保存</span><strong>{fmtTime(receivedAt)}</strong></div></section>
+    <section className="portfolio-link"><div><strong>口座・保有をアプリで入力</strong><p>「保有なし」から始められます。あとから追加・修正できます。</p></div><Link className="secondary-button" href="/portfolio">入力画面へ →</Link></section>
     {stale && payload?.kind === "predictions" && <aside className="notice" role="status">当日更新を確認できていません。保存済みの過去の原予測です。現在の売買判断として扱わないでください。</aside>}
     <section id="forecasts" className="panel"><div className="section-heading"><div className="section-number">01</div><div><h2>モデルの原予測</h2><p>候補上位20銘柄とすべての保有銘柄。1日予測は未提供です。</p></div></div>
       {!forecasts.length ? <div className="empty"><span className="empty-symbol">—</span><h3>まだ原予測はありません</h3><p>評価とモデルの確定後、PCで計算した日次結果がここに保存されます。保存後はPCが停止中でも確認できます。</p></div> : <div className="forecast-grid">{forecasts.map(item => <article className="forecast" key={item.symbol}><header><h3>{item.symbol}</h3><span>{item.holding ? "保有" : "候補"}</span></header><div className="primary-value"><span>20日予測</span><strong className={item.expected_return_20d >= 0 ? "positive" : "negative"}>{percent(item.expected_return_20d)}</strong></div><dl><div><dt>5日予測</dt><dd>{percent(item.expected_return_5d)}</dd></div><div><dt>1日予測</dt><dd>未提供</dd></div><div><dt>20日下振れ（{((payload?.downside_quantile_alpha ?? 0) * 100).toFixed(0)}%分位）</dt><dd>{percent(item.downside_quantile)}</dd></div><div><dt>20日で{percent(payload?.large_loss_threshold ?? 0)}以下の確率</dt><dd>{(item.large_loss_probability * 100).toFixed(1)}%</dd></div></dl></article>)}</div>}
