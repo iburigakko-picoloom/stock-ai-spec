@@ -68,7 +68,7 @@
 
 実18候補の新指標診断は[保存証拠](evidence/daily-metrics-20261015/README.md)まで完了した。既存baseline report `47afb247…`は同じdataset IDだが、5日target・holdout境界2026-02-24で、今回の2026-03-04と異なる。旧summaryを直接比較表へ混ぜず、対象日・key・label・purge境界を合わせた開発比較を作る。これは既存holdoutへのアクセス履歴の安全性を断定するものではない。
 
-既存`build_decision_compatible_oof_predictions`は1/5/20日の完全bundleを要求する。日次版では別途5/20日・1日nullのadapterを接続し、horizon不足・較正履歴不足を理由付きで残す必要がある。欠損した保有を比較対象から落とさず、実価格・企業行動・費用契約を満たす日次NAVと結び付ける。
+既存`build_decision_compatible_oof_predictions`は1/5/20日の完全bundleを要求する。別途[日次OOF adapter](DAILY_OOF_ADAPTER.md)を実装し、`research daily-oof`から5/20日・1日nullの研究用receiptを生成できる。horizon不足・較正履歴不足は理由付きで保存し、保有予測が欠ける比較は停止する。単一候補による接続確認であり最終モデル選択ではない。実価格・企業行動・費用契約を満たす連続した日次NAVとの接続は残る。
 
 v04のSB20/SB60区間は反例が再現された。統計的有意性や自動採用の条件には使わず、現段階では診断用とする。学習データは8月時点であり「今日の予測」と表示しない。実注文送信機能はない。
 

@@ -1769,6 +1769,47 @@ def evaluate_nav_command(
     )
 
 
+@research_app.command("daily-oof")
+def daily_oof_command(
+    feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
+    dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    family: Annotated[str, typer.Option()],
+    seed: Annotated[int, typer.Option()],
+    as_of: Annotated[str, typer.Option(help="Exact aware historical decision timestamp.")],
+    minimum_calibration_dates: Annotated[int, typer.Option(min=1)] = 20,
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-oof"),
+) -> None:
+    """Adapt one explicit 5d/20d candidate pair; no model selection or live forecast."""
+    from stock_ai.ml.daily_oof import load_daily_oof_adapter, write_daily_oof_day
+
+    try:
+        timestamp = datetime.fromisoformat(as_of)
+        adapter = load_daily_oof_adapter(
+            feature_selection_path=feature_selection,
+            campaign_paths=candidate_campaign,
+            dataset_path=dataset,
+            family=family,
+            seed=seed,
+            minimum_calibration_dates=minimum_calibration_dates,
+        )
+        day = adapter.at(timestamp)
+        path = write_daily_oof_day(day, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"daily OOF blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(
+        json.dumps(
+            {
+                "research_only": True,
+                "prediction_count": len(day.predictions),
+                "blocked_count": len(day.blocked),
+                "receipt": str(path),
+            }
+        )
+    )
+
+
 @research_app.command("audit-candidates")
 def audit_candidates_command(
     feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
