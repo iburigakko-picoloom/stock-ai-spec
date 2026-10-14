@@ -921,7 +921,7 @@ Ridgeは正確なtrain内中央値とblock単位の中心化共分散を使い�
 
 compare-daily-baselines v2で、全18候補の大幅下落確率・分位点と、train内発生率・経験分位点・V0 Logistic(C1)を同じ行で比較する。候補の閾値/alphaとtask間as_ofも照合。全学習行を維持し、補完/標準化後の一時ファイルをblock読みで最適化する。単一classは明示constant、未収束は拒否。元学習成果とv1 receiptは保持。
 
-関連36試験PASS（追加13）、module coverage91.08%、Ruff全体/mypy59 modules PASS。独立sklearn pipelineとの数値一致、閾値の等号、単一class、未収束拒否、未来の正解変更に対する過去fit/予測不変を確認。初回はテスト側の固定閾値と分位点の完全浮動小数一致で2失敗、修正してログ保持。source a0be507で全体626 PASS、coverage86.42%。実18候補のリスク比較は実行中。検証記録docs/evidence/daily-risk-baselines-20261015/test-verification.md。
+関連36試験PASS（追加13）、module coverage91.08%、Ruff全体/mypy59 modules PASS。独立sklearn pipelineとの数値一致、閾値の等号、単一class、未収束拒否、未来の正解変更に対する過去fit/予測不変を確認。初回はテスト側の固定閾値と分位点の完全浮動小数一致で2失敗、修正してログ保持。実18候補とbaselineを5日1,327,530行/6fold・20日1,044,317行/5foldで比較し完了。元候補のリスク指標18件と全一致。source a0be507で全体626 PASS、coverage86.42%。証拠docs/evidence/daily-risk-baselines-20261015。
 
 残りのrule/Elastic Net、cross-fitted ensemble、企業行動/約定能力/費用/個人税を通した状態付きNAV、最終selection/holdout、最新予測、本人入力の比較接続は継続。Goal active、実注文なし。
 
