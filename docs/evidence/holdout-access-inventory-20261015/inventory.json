@@ -1,0 +1,1219 @@
+{
+  "schema_version": "local-holdout-metadata-inventory-v1",
+  "created_at": "2026-10-14T20:48:02.890976+00:00",
+  "scope": [
+    "artifacts/reports",
+    "artifacts/selections",
+    "artifacts/campaigns",
+    "artifacts/experiments"
+  ],
+  "files": [
+    {
+      "path": "artifacts/campaigns/goal3-ablation-20d-v1.json",
+      "sha256": "ad23bcb5ec3cb5596b41aeed9f5c89fb463cf2f862f3d2a534af74f8af50c5c5",
+      "bytes": 9068,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-ablation-20d-v2.json",
+      "sha256": "85156c4da79a7c0522eb1c83954bde9d58c952294b0902a58a6f16524daf625b",
+      "bytes": 12873,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-ablation-5d-v1.json",
+      "sha256": "6c858d6024949db8f339b9432c2c37d5a84908021900aacf7a06120a0e248169",
+      "bytes": 12868,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-ablation-v2.json",
+      "sha256": "548e3ae95b7ee9b96da44abe2a60ac0a9c1731dd6fecce32f36c098cd563150f",
+      "bytes": 19187,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-ablation-v2.json.pause-after.json",
+      "sha256": "81563feb93e4ae76eafed6d364f363b9befd6323786690c640399f43696fdf74",
+      "bytes": 266,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/campaigns/goal3-base-v1.json",
+      "sha256": "73f81fc806977980aae8c36e684e262d6e9046d640fbb90cf508a141ec9c47e1",
+      "bytes": 8683,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-base-v2.json",
+      "sha256": "5232a7dc60a808c4e8cbb9c3761679c5a103fc2a31f5075da9d007940387d6a8",
+      "bytes": 9963,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-base-v3.json",
+      "sha256": "897ceec99931aa94d65e74166bed29424020f8cfd89db2792cede394a136b8c3",
+      "bytes": 9586,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h5.json",
+      "sha256": "eb67f1d0c96e57612815115c9c8ff42e92ebd5dfe5984f98919027ce733223a7",
+      "bytes": 12264,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/continuation-link.json",
+      "sha256": "25653c1b725d992dd9f3a0436d481abcfd60e3252810c2ffc2fe227b2950901e",
+      "bytes": 12358,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/adopted_research_report/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/0/seed43_provenance/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h20-spill-retry-20261008.json",
+      "sha256": "cebc24681348a1cc7b80447c05cfd3a1947fb0bd6c5dc7f882a7bbd791dcb023",
+      "bytes": 12371,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h20.json",
+      "sha256": "a8e20d70be4c6fed6637b8000d19b4ad44deb620bb7d7d0224d9f37765d227a7",
+      "bytes": 8352,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h5-continuation.json",
+      "sha256": "48c3a951c8a0d3028fe132150da0dacd7cedda6f9c1fc6ac747c6a54bfd09c32",
+      "bytes": 4915,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h5-legacy-successes.json",
+      "sha256": "06b9431b5d9034b46cabe205a73d9492c87cd1a65484a61c8ddb72f4ce82e601",
+      "bytes": 10881,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h5-original-history.json",
+      "sha256": "eb67f1d0c96e57612815115c9c8ff42e92ebd5dfe5984f98919027ce733223a7",
+      "bytes": 12264,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/campaigns/goal3-screen-1d-v1.json",
+      "sha256": "eeabd1d94123c2bff9161763e67b4bb4f9a134fbbe247a0830c5b3f55d46de2b",
+      "bytes": 9837,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/experiments/advanced-memory-recovery.jsonl",
+      "sha256": "a158770c810557c090f04da601aed573bb3920eeba2644434ed787c965663d5e",
+      "bytes": 79617,
+      "records": 6,
+      "declarations": [
+        {
+          "pointer": "/record/0/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/1/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/2/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/3/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/4/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/5/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/experiments/advanced.jsonl",
+      "sha256": "0eb1434d83cc9016021f98ebbe5029c39ea5de6e4be5735c52eb1fe75d0df543",
+      "bytes": 1136193,
+      "records": 84,
+      "declarations": [
+        {
+          "pointer": "/record/0/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/1/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/2/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/3/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/4/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/5/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/6/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/7/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/8/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/9/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/10/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/11/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/12/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/13/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/14/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/15/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/16/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/17/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/18/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/19/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/20/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/21/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/22/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/23/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/24/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/25/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/26/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/27/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/28/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/29/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/30/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/31/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/32/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/33/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/34/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/35/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/36/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/37/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/38/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/39/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/40/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/41/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/42/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/43/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/44/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/45/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/46/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/47/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/48/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/49/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/50/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/51/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/52/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/53/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/54/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/55/aggregate_results/locked_holdout_accessed",
+          "value": "false"
+        },
+        {
+          "pointer": "/record/55/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/56/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/57/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/58/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/59/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/60/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/61/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/62/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/63/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/64/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/65/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/66/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/67/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/68/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/69/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/70/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/71/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/72/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/73/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/74/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/75/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/76/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/77/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/78/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/79/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/80/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/81/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/82/locked_holdout_accessed",
+          "value": false
+        },
+        {
+          "pointer": "/record/83/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/experiments/goal3-screen-decisions.jsonl",
+      "sha256": "c3822ce640d534bd4c19cb5c9a86fffe4201ad20564f6b77db11e2bdb5c53de7",
+      "bytes": 431,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/00a4f90aafbfbd3cb9b2567677866011430ad43428e3c5465057702c319f93dc/00a4f90aafbfbd3cb9b2567677866011430ad43428e3c5465057702c319f93dc.json",
+      "sha256": "8ee9f4e7a8697d59b3bd915748654a2a1281f331d13fbfe8836a25647ba6ba81",
+      "bytes": 64023,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/034301f6615e40e2afab32955b6156b4a59072a2e9d6c3b793a2ef1317737f44/034301f6615e40e2afab32955b6156b4a59072a2e9d6c3b793a2ef1317737f44.json",
+      "sha256": "5f43903b444125c7c7eaf07ce1f48d7048dd49b005e07ada85da70ba99a05fe9",
+      "bytes": 62652,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/03ebf6f6afee7e4779dcb65628d8ea45892e7324107cb99a2ea5861bddd925ef/03ebf6f6afee7e4779dcb65628d8ea45892e7324107cb99a2ea5861bddd925ef.json",
+      "sha256": "a37725d20e0979118e78c333e0e3bb36c352f544bd98440d08b03936618fefe9",
+      "bytes": 62987,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/058a39aa65e7051c6d0f08d96d0b17c861c50acfdd112b8355a11cc4d489ed09/058a39aa65e7051c6d0f08d96d0b17c861c50acfdd112b8355a11cc4d489ed09.json",
+      "sha256": "51277606a37adc4b3543f7a913f166713a1d6be1799dc9cc4ad5037670b82da4",
+      "bytes": 25545,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/07481ffeb4ad9c9255daef9b9e3c4d229c97fb230c6bbe3e094352482ec5b0ce/07481ffeb4ad9c9255daef9b9e3c4d229c97fb230c6bbe3e094352482ec5b0ce.json",
+      "sha256": "124dd9b44fbcce4f919e23eabc35dd9aed362c198c3fbdca312c794e57bae733",
+      "bytes": 63071,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/10f16a75e6926b90cd76b958fa4d0d1e6aae13ca134ef424c8152b5d37f66a1c/10f16a75e6926b90cd76b958fa4d0d1e6aae13ca134ef424c8152b5d37f66a1c.json",
+      "sha256": "0fd6f451d5c1496952af981ad6d399f85b1f60cf11a2da3e63b7a66011355e47",
+      "bytes": 25170,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/1bd79c2ee0e394733785d4fcc5b3b16237140d9f5b883abac66882707a0f76bb/1bd79c2ee0e394733785d4fcc5b3b16237140d9f5b883abac66882707a0f76bb.json",
+      "sha256": "0520ea80d57ecdc5f4181c04dfab502f505250b28ee256bac4bc73b749c869eb",
+      "bytes": 63518,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/2228983ea9c5a94a50da35980c4e431d69a9e14e0c91fc9b219a7c456244d944/2228983ea9c5a94a50da35980c4e431d69a9e14e0c91fc9b219a7c456244d944.json",
+      "sha256": "4d5e1d062311a0f7d8ca33c91f40fb9dbd1146c435962dc71c47a0dd5b318e74",
+      "bytes": 63649,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/287d6dcf9ec09fc31a99fd38abd8242293b771b5c17cc3d616a4b4f1dda09b8f/287d6dcf9ec09fc31a99fd38abd8242293b771b5c17cc3d616a4b4f1dda09b8f.json",
+      "sha256": "649f78a011b47a5ea5acb18dc9663d9213a31ed80e0c5398aca33ee4dc48cf24",
+      "bytes": 25164,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/394e3fd60aa4284ebe5d26bb59e7d4115d68f74edf24f21790ef5ea42b2dab73/394e3fd60aa4284ebe5d26bb59e7d4115d68f74edf24f21790ef5ea42b2dab73.json",
+      "sha256": "965954cc669699c5eaeebda1816097f557e250449c874d7b82327952a7308dd0",
+      "bytes": 29815,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/3e26915b9cd463eb4b749615fae2855c5dd951a99b6df6ccf7dc766ce1743f94/3e26915b9cd463eb4b749615fae2855c5dd951a99b6df6ccf7dc766ce1743f94.json",
+      "sha256": "1518c3396d6fd9501c52bfd0fa62047e2c95dcfdf75fb5a494a01d1b7dd4f1fd",
+      "bytes": 62948,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/4372d9257fcc5dae63257a0aeeb9c07d454bdc3e260facd684600137555e2997/4372d9257fcc5dae63257a0aeeb9c07d454bdc3e260facd684600137555e2997.json",
+      "sha256": "6a89d4930601b2753d739e90b0e791d059fdf291732e7f284607d73d871cbedd",
+      "bytes": 25537,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/4616590d6a4f7b388c4195ceaedeb2fbb681dcb679b7c4d1a4aad3afe1d84820/4616590d6a4f7b388c4195ceaedeb2fbb681dcb679b7c4d1a4aad3afe1d84820.json",
+      "sha256": "6fe0246d67a0486ecf796ca6085bdd4f2a13ff6d4465eed29946a08211cc9705",
+      "bytes": 25563,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/483e57dfb2779ddcb56aec228a81562936b905bbcd1baea4b9cfcf224ad299aa/483e57dfb2779ddcb56aec228a81562936b905bbcd1baea4b9cfcf224ad299aa.json",
+      "sha256": "34d632256ddd68bcf6fb919e9d21a67eb1fc685df16201ada05fb46002981d3c",
+      "bytes": 29811,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/4b702101475125557d991a25e91f7b532c6643f284483208d9a03671e8235501/4b702101475125557d991a25e91f7b532c6643f284483208d9a03671e8235501.json",
+      "sha256": "8816ca71936293988745000d723dab5bc9c6b8ac1a40b2607162ae5c57991749",
+      "bytes": 29452,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/6103344f61932d640d9a519585230e216b21299ed0f6f918d0bc4b9c48f8608a/6103344f61932d640d9a519585230e216b21299ed0f6f918d0bc4b9c48f8608a.json",
+      "sha256": "2e2851a3c23b64227a6f35ca4341c72d74005b6d974b50f0b2c31f4eef52f3f5",
+      "bytes": 29438,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/6211dce1cf09044525e4362e809ee6fbe95926a8d173f4a7853b4c4525049353/6211dce1cf09044525e4362e809ee6fbe95926a8d173f4a7853b4c4525049353.json",
+      "sha256": "ccb162afc383380220b12e5bd4a684fe7cc1158b8487fa4b779679889b4af0d5",
+      "bytes": 62965,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/7ca93ac4fc8e0405e4278d8357eedbaf5ab0f72c39fc88dfbca601ff7a7e4b47/7ca93ac4fc8e0405e4278d8357eedbaf5ab0f72c39fc88dfbca601ff7a7e4b47.json",
+      "sha256": "18ac1cff00fb6ed07450e8e5f61e012ceb4e6f5078b3284a4903c467186b4027",
+      "bytes": 61852,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/850e69efc47000a67565949bfb6436ef83975773cb9ba30eb570b6f0def141bc/850e69efc47000a67565949bfb6436ef83975773cb9ba30eb570b6f0def141bc.json",
+      "sha256": "2c0dee8fb0e2763a18f5800566cecf1e7a3421fd2568c2f885a12ee5e6f6aeb9",
+      "bytes": 25568,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/8a4b1ba0c9c8e5bc5ea7fbe4c53e36b5119696b45ba2ef38bf392249b718035e/8a4b1ba0c9c8e5bc5ea7fbe4c53e36b5119696b45ba2ef38bf392249b718035e.json",
+      "sha256": "1b7a394d7bab18deb0bf3d51cf7022d9b643a2d8ba1cc04728080cdc5cf268f6",
+      "bytes": 62047,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/a6a47ea88a1ad1261345e3df90b5724bc673319cf8f069771a5f7894d84f3385/a6a47ea88a1ad1261345e3df90b5724bc673319cf8f069771a5f7894d84f3385.json",
+      "sha256": "c261e28b09395d3f1dbbc0902beeca04636932f303fa2796d97b1261ab09aadd",
+      "bytes": 63511,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/af4b6c024f0d09ebe5c7190c8ee7ed7bfeda4771f642243c09fa4828e288fcbd/af4b6c024f0d09ebe5c7190c8ee7ed7bfeda4771f642243c09fa4828e288fcbd.json",
+      "sha256": "437a3bd207f889c4d610a952e4c1d717bfdeb9dff6a89f9093accb538d81f890",
+      "bytes": 25576,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/b29ad125bd6d4cd05ea0f16adcf1d2a7d4dfd2a834147369f2eae135249359cb/b29ad125bd6d4cd05ea0f16adcf1d2a7d4dfd2a834147369f2eae135249359cb.json",
+      "sha256": "2d07d9a91761cb7e86862f4cd9d6c31642c31ff43fd4159c4ea37fd71fe5396f",
+      "bytes": 29443,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/c24a6222c8c07158d40115a32549c58f2ad0bb92dc18c9be297afe7561f149a7/c24a6222c8c07158d40115a32549c58f2ad0bb92dc18c9be297afe7561f149a7.json",
+      "sha256": "b3e6b5f2dfa2fbb4e0d24aaa9e749ce72d91ff295176092aca1cc8934404a51e",
+      "bytes": 64578,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/c9d2aa96c3a0b61d147c4d812cce62ffeada79681c80711775b2a6786215d0b7/c9d2aa96c3a0b61d147c4d812cce62ffeada79681c80711775b2a6786215d0b7.json",
+      "sha256": "bdae323109ac303d13116fb9aec863cae0eacf582329dd0290b380433599a929",
+      "bytes": 63860,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/d3793c85db47175558375b1d170fff54e6db392f0c27f3450a2e250f62d34863/d3793c85db47175558375b1d170fff54e6db392f0c27f3450a2e250f62d34863.json",
+      "sha256": "651f2950780571f232daf9d38bfb847177d36adc84283ab879efce2d0d6a571e",
+      "bytes": 29337,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/d4cefef63931ba6cce9a4a7597c696ebc36cc6b4c2a42dae3ae65376c5e9f4ed/d4cefef63931ba6cce9a4a7597c696ebc36cc6b4c2a42dae3ae65376c5e9f4ed.json",
+      "sha256": "87dc95e9d8ce76f148a0d52f94d55298597a6b0dd098e6a92e327a88a52b2aaf",
+      "bytes": 64560,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/da2690271a26e9588fb2e67d002441c5757f96d926aae0d83d72ecec3e38429b/da2690271a26e9588fb2e67d002441c5757f96d926aae0d83d72ecec3e38429b.json",
+      "sha256": "01212c06878a56853a70a58991aeb521e3cbc3bda4ab15dbd10a4d202f9f865d",
+      "bytes": 61824,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/e0112ce4fc568683c64f1ad64dfa5d233e7ac6bd33c4eca59f9d0851b005dc2d/e0112ce4fc568683c64f1ad64dfa5d233e7ac6bd33c4eca59f9d0851b005dc2d.json",
+      "sha256": "819353447ffb52a07de43f579b4aa40f5c84489e96c57a2ef30fc504c9e043c7",
+      "bytes": 64040,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/e16ab2973c3c3f134a401e9e1b6d97b04916c04ef777298dd6da44675edeb344/e16ab2973c3c3f134a401e9e1b6d97b04916c04ef777298dd6da44675edeb344.json",
+      "sha256": "31b9684821c8e85876f6b609552b6a529a9133ef79f941270982a041798f5407",
+      "bytes": 25139,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/e6d00840f47237210e2aa91c8d541b2430892aab190ef955fa5124e166d1ef51/e6d00840f47237210e2aa91c8d541b2430892aab190ef955fa5124e166d1ef51.json",
+      "sha256": "08073cf68fb9b471d657b7a8cbbe49ecf1da32dd8790358967c03236c4b11006",
+      "bytes": 25537,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/f9178ff8b49725c7498f40aef596d3fbb2fd2308b717fe59b9c0810f83f84d83/f9178ff8b49725c7498f40aef596d3fbb2fd2308b717fe59b9c0810f83f84d83.json",
+      "sha256": "14e21e730709d78bd18741d0b0214c55a21ee5efddfea3af4cf2e6c3596250f2",
+      "bytes": 64514,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced/fc6e7f82aef557e1085a8880d43d35cedb7be8148e78d2596980aab6dbf6f03d/fc6e7f82aef557e1085a8880d43d35cedb7be8148e78d2596980aab6dbf6f03d.json",
+      "sha256": "214daad7f61271262caf3c8a19d38a2459040ff02986554c2469947e21ec9535",
+      "bytes": 62794,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-ablation-v2/c12280c16ecd3dc321c1ba27199afdb40ab4a72d8bfeb9383a59238a5d9416e1/c12280c16ecd3dc321c1ba27199afdb40ab4a72d8bfeb9383a59238a5d9416e1.json",
+      "sha256": "9daec53ba99cc552d195d6f211bb7cda667ef3de63f0b28fce6db9cd487b7e8a",
+      "bytes": 64078,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/020eb721e55a9eea74630d6f3993af4b3d0968967adfb781f63ff592ec09dd9e/020eb721e55a9eea74630d6f3993af4b3d0968967adfb781f63ff592ec09dd9e.json",
+      "sha256": "abfee7a7068f895942679d29284fa0fd8a6f9f04022a18752d18ae79d755daa5",
+      "bytes": 40149,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/131a96d667c88838598d5bbde35e20c7a59b9ba18145522e7a73fb989a8d9362/131a96d667c88838598d5bbde35e20c7a59b9ba18145522e7a73fb989a8d9362.json",
+      "sha256": "efc3b272398cbf25b64c0666ad218f876631682d998bb07831319bb4b68663af",
+      "bytes": 40156,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/5a597bbb2b59b36f9bb106280e194a427f497f10329697b3aa920fcfa742c9cb/5a597bbb2b59b36f9bb106280e194a427f497f10329697b3aa920fcfa742c9cb.json",
+      "sha256": "db544cd5a41d06fe4937ec34cd33a6c69d5bcf90bce367efbfcbff9aa19c3dcf",
+      "bytes": 40166,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/7822ddc92ab6ea5bc2de1c98badb144fcb7f6eca55cafc8a4f57b44fb3fe0b59/7822ddc92ab6ea5bc2de1c98badb144fcb7f6eca55cafc8a4f57b44fb3fe0b59.json",
+      "sha256": "932706844a6ed0de1263306a7fa0e041ba057a63114233def6cb4d284e93e952",
+      "bytes": 41636,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/8d1bd12b01f0744a42bc4aa76f9c5566f2766dbfebd0034f9b4ec08d2870f3cc/8d1bd12b01f0744a42bc4aa76f9c5566f2766dbfebd0034f9b4ec08d2870f3cc.json",
+      "sha256": "e4ee297cdb70f5662e19bd809939791e5912a762e7e24d72f71fa1316f9c88f0",
+      "bytes": 40693,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/94b01875310f36a5ac622b18c8e13c2ee0e0d51cd77ee0bf1a9fef6148e4045b/94b01875310f36a5ac622b18c8e13c2ee0e0d51cd77ee0bf1a9fef6148e4045b.json",
+      "sha256": "cac1d8f3b73ae9b17f61ce70fcf71df76f2342710a7c9b86ca1a853c6f7147df",
+      "bytes": 40719,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-candidates/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/9f160b9fa19b0e3c37a013d845c52e0d719115a1f7afb9ad1e4b0a7d214325a6/9f160b9fa19b0e3c37a013d845c52e0d719115a1f7afb9ad1e4b0a7d214325a6.json",
+      "sha256": "d107662a1c77c343276f921f6fa8ce6c59fd6dbe2a245b341e6f26e77f80fc99",
+      "bytes": 39209,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/0c21339e5c12642596adb33872c4389d0ee762e9419c3c6092b1aea44ba62e44/0c21339e5c12642596adb33872c4389d0ee762e9419c3c6092b1aea44ba62e44.json",
+      "sha256": "b30f4e1b44ac2152b0127139e7da2176804395459ed5dc6da067cc4dda69dd81",
+      "bytes": 43002,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/0e97c310d0d96644ea5c5a6f6ad7819c05bf1d23f126f89b58de8ba889497858/0e97c310d0d96644ea5c5a6f6ad7819c05bf1d23f126f89b58de8ba889497858.json",
+      "sha256": "958aeb9ca5b2a15439d453639040735b10a28a423f19530a5917e2479195409a",
+      "bytes": 44395,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/3e4b044a166a4e961c3907df80960449d5874386519929fa95be75ca15419462/3e4b044a166a4e961c3907df80960449d5874386519929fa95be75ca15419462.json",
+      "sha256": "34934df51bf67d7f16eb25e8e43164c947ee96793bd2957f0519a915d1913039",
+      "bytes": 42699,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/63ede7089f40a33a6fe1887508a5ea564ca0eb788e69b68a51bfb9bb68c1abe2/63ede7089f40a33a6fe1887508a5ea564ca0eb788e69b68a51bfb9bb68c1abe2.json",
+      "sha256": "2c9be268183dbc237282e346f4f3f7e767a6350f66a80aaf7bffe10dd1ceab89",
+      "bytes": 40229,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/6e7f1a5f00521e33db9cb1d6aad1a55785cf5790d054b52ad41625db4ccdd138/6e7f1a5f00521e33db9cb1d6aad1a55785cf5790d054b52ad41625db4ccdd138.json",
+      "sha256": "49b81f573d98da0f32612bec259900a4a7e1f3d585f53a190e23d45dc4bcbede",
+      "bytes": 44272,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/8c37c9c25ccb692776a3a727be0448cc4435dc059209a602fa66aad5f944d511/8c37c9c25ccb692776a3a727be0448cc4435dc059209a602fa66aad5f944d511.json",
+      "sha256": "dbbb464e7a6b3891bfa88cd77a9f8f33c808986e7d0edc60001a1d86d973dce5",
+      "bytes": 42608,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/98bc9372c7bbc8927ebae004f6384603fa2ba84ed96108454609a3afbf4be70a/98bc9372c7bbc8927ebae004f6384603fa2ba84ed96108454609a3afbf4be70a.json",
+      "sha256": "aaa62ea4abf2a1fdf23661dd1ef3e581c56654122af03980483c1a498432aec9",
+      "bytes": 44432,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/9e011098c289442445cc2cf9113ffc5f6f3eed191715e79beb8494998e44b406/9e011098c289442445cc2cf9113ffc5f6f3eed191715e79beb8494998e44b406.json",
+      "sha256": "adeadcd27cde6f9c70f2ec33a03df1a23f4e7647f799333d7b2c8ce56cbd7b02",
+      "bytes": 39105,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/cc43b1ed300211e7bd1a0b360e2d1e3452a7e690094a8fecc1fbd79cf8a34703/cc43b1ed300211e7bd1a0b360e2d1e3452a7e690094a8fecc1fbd79cf8a34703.json",
+      "sha256": "6456894bb536b65ee25618025ae6d4d034e18d016dfa23887a7a9f872dfa7e54",
+      "bytes": 43850,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/de0cb81413dfa3f85503b29584823c5e82ef08028860029c1d5d853739a067a8/de0cb81413dfa3f85503b29584823c5e82ef08028860029c1d5d853739a067a8.json",
+      "sha256": "7d53345aa216e4960d85ba2734195d7ac9a8fa7a628cd6d5e7582cd65c47c8ae",
+      "bytes": 44325,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/advanced-memory-recovery/f58d2e1f6c8a659b75d59f4b3b20810ef1bdfd8930b7d84a6922dfc5cd4ab93e/f58d2e1f6c8a659b75d59f4b3b20810ef1bdfd8930b7d84a6922dfc5cd4ab93e.json",
+      "sha256": "a5f72f081116e6c63d9c4f82a77e284b9211c506d1455df2a1f6f3c8309f1ce9",
+      "bytes": 44224,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/report/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "path": "artifacts/reports/baselines/47afb2471974c4f3e375380d2f4f325d4d9372f3687d431c61310ee2338f0d6d.json",
+      "sha256": "9bfb3140a27b8714b3e2ff123f8c2b917df7a4dc4ef5035e0512da8062f11c80",
+      "bytes": 2820,
+      "records": 1,
+      "declarations": []
+    },
+    {
+      "path": "artifacts/selections/goal3-features/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d.json",
+      "sha256": "505e7553a8661f6e32b1a1d5723902324d98c2b5532798ebdcb74a9d626eb023",
+      "bytes": 20390,
+      "records": 1,
+      "declarations": [
+        {
+          "pointer": "/record/0/feature_selection/locked_holdout_accessed",
+          "value": false
+        }
+      ]
+    }
+  ],
+  "true_access_declarations": [],
+  "non_boolean_declarations": [
+    {
+      "path": "artifacts/experiments/advanced.jsonl",
+      "pointer": "/record/55/aggregate_results/locked_holdout_accessed",
+      "value": "false"
+    }
+  ],
+  "named_holdout_or_ledger_json_under_artifacts": [],
+  "baseline": {
+    "report_id": "47afb2471974c4f3e375380d2f4f325d4d9372f3687d431c61310ee2338f0d6d",
+    "code_commit": "86c958d",
+    "data_snapshot_id": "3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d",
+    "target_column": "target_return_5d",
+    "locked_holdout_start": "2026-02-24"
+  },
+  "baseline_report_identity_verified": true,
+  "baseline_declared_commit_resolved": "86c958d0fd60c91c2941420a58a0dcfe7bcea764",
+  "baseline_pinned_production_source_sha256": "458847ffd11adeab344fff7d00ad8d6ba395c6ec88da98ce634fbd2ee4501d96",
+  "baseline_pinned_validation_source_sha256": "645df0140baa6a34de1e222b829ccca400971d01a2d1287a0e4b2c994b30570c",
+  "reserve_function": {
+    "line": 44,
+    "end_line": 62,
+    "sha256": "7c0332ce8ec032ddc50d76f9ff2f581c47e00dfc15805d22a88a1307a743ce5d"
+  },
+  "pinned_functions": {
+    "run_production_walk_forward_baselines": {
+      "line": 1238,
+      "end_line": 1361,
+      "sha256": "8fe02fdfccb164042826fa629ef7368b4eb5b6553bd459ad27fed65b3c33bd4d"
+    },
+    "_evaluate_baseline": {
+      "line": 1398,
+      "end_line": 1462,
+      "sha256": "a98b74fd241bf040cb77c4ab757ea4b4094451b7444011ab39deef8334ace38f"
+    }
+  },
+  "source_labels_or_new_performance_scored": false,
+  "history_completeness": "NOT_PROVEN",
+  "limitations": [
+    "This is a bounded local metadata inventory, not an OS or access-service audit.",
+    "False declarations and missing ledgers cannot rule out unrecorded or external reads.",
+    "The legacy baseline binds a declared commit and summary identity, not a signed execution trace.",
+    "Baseline summary contains no per-row validation key receipt; exclusion follows declared pinned source.",
+    "Current production data is single-vintage as revised; this inventory does not resolve vintage limitations."
+  ]
+}

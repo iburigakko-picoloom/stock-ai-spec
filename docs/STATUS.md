@@ -924,3 +924,10 @@ compare-daily-baselines v2で、全18候補の大幅下落確率・分位点と�
 関連36試験PASS（追加13）、module coverage91.08%、Ruff全体/mypy59 modules PASS。独立sklearn pipelineとの数値一致、閾値の等号、単一class、未収束拒否、未来の正解変更に対する過去fit/予測不変を確認。初回はテスト側の固定閾値と分位点の完全浮動小数一致で2失敗、修正してログ保持。source a0be507で全体626 PASS、coverage86.42%。実18候補のリスク比較は実行中。検証記録docs/evidence/daily-risk-baselines-20261015/test-verification.md。
 
 残りのrule/Elastic Net、cross-fitted ensemble、企業行動/約定能力/費用/個人税を通した状態付きNAV、最終selection/holdout、最新予測、本人入力の比較接続は継続。Goal active、実注文なし。
+
+
+## 2026-10-15 — 最終評価アクセスのローカルmetadata調査
+
+reports/selections/campaigns/experimentsの73 JSON/JSONL、161レコードをread-onlyで調査。アクセス宣言148件はboolean false147件と文字列false1件、trueなし。artifacts全体でholdout/ledger名JSONなし。旧baseline47afb247のreport identityを再計算し、宣言commit86c958d0fd60c91c2941420a58a0dcfe7bcea764のproduction/validation関数が2026-02-24以降とlabel跨ぎを評価から除外することを確認した。現最終評価境界2026-03-04より前である。
+
+ファイル一覧/byte SHA、宣言の位置・型、固定関数本文/位置/SHAをdocs/evidence/holdout-access-inventory-20261015へ保存。元の記録・データ・学習成果は変更なし。未記録/外部アクセスを除外できる証跡ではなく、旧reportも署名実行証跡や行別key receiptを持たないため、履歴完全性はNOT_PROVEN。この調査をholdout開封/採用gateのpassに置き換えない。新しい成績の採点や実注文なし。Goal active。
