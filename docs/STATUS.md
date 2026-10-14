@@ -867,3 +867,7 @@ Python最終全体試験408 PASS、coverage85.26%（基準85%維持）。private
 日次NAV source checkpoint55e2878の全体回帰は453 PASS、coverage85.48%。追加の順位・確率・分位点の手計算試験40 PASS、初期moduleはbranch込み100%。同点の行順不変、負return・K超過、等日付/銘柄数加重の差、確率端点・base rate・過信、pinball/coverage・交差を確認した。旧学習reportは保持し、新版を別の診断として固定。CLIおよび27候補fixtureの認証→全task採点→receipt保存を含む53 PASS。
 
 research audit-candidates --score-developmentから新しい診断を実行できる。元report/OOF/source・feature・key/target・holdout境界の認証が先。単一alphaは交差確認不可、元の確率/予測を修復しない。計算規則はdocs/DAILY_EVALUATION_METRICS.md。実18候補の新版診断、全baseline/NAV比較、最終selection/holdout、日次推論・個人保有接続は引き続き未完。実注文なし。
+
+## 2026-10-15 — JPX休日境界と全特徴量の因果性検証
+
+公式JPX休業日一覧に基づく2026-01-12の休日fixtureを追加。01-09 featureから01-13入口、1日01-14・5日01-20・20日02-10の出口を独立した日付と照合した。入口価格欠損時は日付をずらさずSUSPENDED_NO_ENTRY_PRICEとtarget欠損を保持する。productionの未来価格変更試験はV0/V1/V2全列へ拡張し、過去値がexact一致。関連3試験PASS。新評価指標の統合は53 PASS、新moduleのbranch込みcoverage100%、Ruff/mypy55modules PASS。実18候補の診断を継続中。証拠: docs/evidence/daily-metrics-20261015。

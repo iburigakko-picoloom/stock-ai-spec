@@ -22,11 +22,11 @@ Drive: [評価計画v01](https://drive.google.com/file/d/1QsR-djCVznWj-AeeyVEo8x
 | ID | 対象 | 確認と残作業 |
 | --- | --- | --- |
 | V01 | ラベル境界交差 | 新規closed interval監査と1件違反試験、実13分割の照合済み |
-| V02 | 営業日calendar | 部分。production固定calendar試験あり。JPX休日境界の専用対照を追加する |
+| V02 | 営業日calendar | JPXの2026-01-12休業を含む専用fixtureで1/5/20日を手日付と照合。入口価格欠損でも営業日をずらさず欠損を保持。将来のカレンダー変更対応はデータ取得工程で継続 |
 | V03 | 等号・引け・受信遅延 | 新規strict availability・timezone故障注入、実13分割の照合済み |
 | V04 | 日付group | 新規group違反検出、既存dategroup分割試験あり |
 | V05 | 未来列・未来開示 | 部分。PIT/未来availability拒否あり。全feature由来の統合故障注入が残る |
-| V06 | 未来変更・訂正版 | 部分。future-price mutation試験あり。strict vintageは実データ能力不足 |
+| V06 | 未来変更・訂正版 | productionのV0/V1/V2全列で未来価格変更に対する過去値の完全一致を確認。訂正fixtureも既存試験あり。strict vintageは実データ能力不足 |
 | V07 | 訓練外fit | 部分。fold preprocessor train-only試験あり。全選択工程の監査まで要確認 |
 | V08 | holdout混入 | 新規OOF境界拒否、既存selection/holdout purity試験あり |
 | V09 | IC±1 | 独立計算の手値照合済み |
