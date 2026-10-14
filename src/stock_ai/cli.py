@@ -1774,11 +1774,15 @@ def audit_candidates_command(
     feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
     candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
     audit_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/audits"),
+    score_development: Annotated[
+        bool, typer.Option(help="Add versioned development diagnostics; no selection or holdout.")
+    ] = False,
 ) -> None:
     """Authenticate candidate OOF evidence without opening the locked holdout."""
     receipt = audit_candidate_campaigns(
         feature_selection_path=feature_selection,
         candidate_campaign_paths=candidate_campaign,
+        score_development=score_development,
     )
     path = write_audit_receipt(receipt, audit_root)
     typer.echo(json.dumps({"status": receipt["status"], "audit_path": str(path)}))

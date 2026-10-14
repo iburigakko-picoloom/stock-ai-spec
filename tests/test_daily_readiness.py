@@ -241,15 +241,28 @@ def test_label_audit_closed_boundary_receipt_and_date_groups() -> None:
         audit_training_labels(pd.DataFrame([row]), validation, cutoff=AS_OF.replace(tzinfo=None))
 
 
-def test_candidate_audit_authenticates_complete_matrix_and_retains_failures(tmp_path: Path) -> None:
+@pytest.mark.parametrize("score_development", [False, True])
+def test_candidate_audit_authenticates_complete_matrix_and_retains_failures(
+    tmp_path: Path, score_development: bool
+) -> None:
     ablation, candidate_path = _campaign_fixtures(tmp_path)
     features = freeze_development_features(ablation_campaign_paths=(ablation,))
     feature_path = write_development_feature_selection(features, tmp_path / "features")
     result = audit_candidate_campaigns(
-        feature_selection_path=feature_path, candidate_campaign_paths=(candidate_path,)
+        feature_selection_path=feature_path,
+        candidate_campaign_paths=(candidate_path,),
+        score_development=score_development,
     )
     assert result["status"] == "PASS" and len(result["runs"]) == 27
     assert not result["locked_holdout_opened_by_audit"]
+    if score_development:
+        assert result["schema_version"] == "daily-evaluation-audit-v2"
+        for run in result["runs"]:
+            metrics = run["development_metrics"]
+            assert metrics["report_id"] == run["report_id"]
+            assert set(metrics["scores"]) == {"regression", "ranking", "quantile", "large_loss"}
+            assert not metrics["scores"]["quantile"]["crossing_check_available"]
+            assert not metrics["adoption_eligible"]
     path = write_audit_receipt(result, tmp_path / "audit")
     assert json.loads(path.read_text())["status"] == "PASS"
     duplicate = audit_candidate_campaigns(

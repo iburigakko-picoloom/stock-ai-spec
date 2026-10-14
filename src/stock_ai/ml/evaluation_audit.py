@@ -122,7 +122,10 @@ def validate_development_oof(frame: pd.DataFrame, report: AdvancedResearchReport
 
 
 def audit_candidate_campaigns(
-    *, feature_selection_path: Path, candidate_campaign_paths: Sequence[Path]
+    *,
+    feature_selection_path: Path,
+    candidate_campaign_paths: Sequence[Path],
+    score_development: bool = False,
 ) -> dict[str, Any]:
     """Authenticate one report at a time, retaining every failure in an audit receipt.
 
@@ -178,7 +181,12 @@ def audit_candidate_campaigns(
                         or report.config.holdout_periods != features.holdout_periods
                     ):
                         raise ValueError("candidate differs from frozen feature/data contract")
-                    validate_development_oof(oof, report)
+                    if score_development:
+                        from stock_ai.ml.evaluation_metrics import evaluate_development_tasks
+
+                        receipt["development_metrics"] = evaluate_development_tasks(oof, report)
+                    else:
+                        validate_development_oof(oof, report)
                     aligned = (
                         oof.loc[oof.task == "regression"]
                         .sort_values(["trading_date", "symbol"])[
@@ -210,7 +218,7 @@ def audit_candidate_campaigns(
     if seen != expected:
         problems.append("candidate matrix differs from frozen horizons/families/seeds")
     return {
-        "schema_version": EVALUATOR_VERSION,
+        "schema_version": "daily-evaluation-audit-v2" if score_development else EVALUATOR_VERSION,
         "created_at": datetime.now(UTC).isoformat(),
         "feature_selection_id": features.feature_selection_id,
         "status": "FAIL" if problems else "PASS",

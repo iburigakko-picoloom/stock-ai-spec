@@ -861,3 +861,9 @@ Python最終全体試験408 PASS、coverage85.26%（基準85%維持）。private
 前回Goal turnは口座入力の本番反映・読戻しでprogress。今回はDrive v01 V18〜V23に対応する研究用日次NAVを実装。口座別現金/予約・保有・未収金を引き継ぎ、時刻・単元・呼値・共有capacity・資金・決済待ちを満たす分だけ仮想約定する。費用の二重控除、終値を見た同時刻約定、価格欠損による保有消去を拒否。分割/端数、配当権利と受取、確認済み現金交付を処理し、同じ初期状態のHOLDとの差を出す。CLI research evaluate-navで明示入力からimmutable receiptを保存できる。
 
 新規45 tests、既存cost/tax/simulator/domain/CLI/daily系を含む105 PASS。新規module coverage92%、ruff全体PASS、mypy54 modules PASS。証拠はdocs/evidence/daily-nav-20261015。最初の制限環境のPermissionErrorは記録し、workspace内basetempと許可された実行で再検証した。実市場adapter、Decision Engineの連続実行、個人税シナリオ、全候補比較、holdoutはまだ未完。Goalはactiveのまま。実注文なし。
+
+## 2026-10-15 — 開発評価指標の手計算検証と認証OOFへの接続
+
+日次NAV source checkpoint55e2878の全体回帰は453 PASS、coverage85.48%。追加の順位・確率・分位点の手計算試験40 PASS、初期moduleはbranch込み100%。同点の行順不変、負return・K超過、等日付/銘柄数加重の差、確率端点・base rate・過信、pinball/coverage・交差を確認した。旧学習reportは保持し、新版を別の診断として固定。CLIおよび27候補fixtureの認証→全task採点→receipt保存を含む53 PASS。
+
+research audit-candidates --score-developmentから新しい診断を実行できる。元report/OOF/source・feature・key/target・holdout境界の認証が先。単一alphaは交差確認不可、元の確率/予測を修復しない。計算規則はdocs/DAILY_EVALUATION_METRICS.md。実18候補の新版診断、全baseline/NAV比較、最終selection/holdout、日次推論・個人保有接続は引き続き未完。実注文なし。

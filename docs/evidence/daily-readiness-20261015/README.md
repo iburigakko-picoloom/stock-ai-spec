@@ -30,14 +30,14 @@ Drive: [評価計画v01](https://drive.google.com/file/d/1QsR-djCVznWj-AeeyVEo8x
 | V07 | 訓練外fit | 部分。fold preprocessor train-only試験あり。全選択工程の監査まで要確認 |
 | V08 | holdout混入 | 新規OOF境界拒否、既存selection/holdout purity試験あり |
 | V09 | IC±1 | 独立計算の手値照合済み |
-| V10 | ties/定数/NA | 新規average ties・NA試験。旧研究metricの小cross-section条件との差は未統合 |
-| V11 | NDCG/Precision | 部分。既存dategroup exact試験あり。全負return/K境界の独立手値を追加する |
+| V10 | ties/定数/NA | 新しい診断で3銘柄未満・定数・全欠損をnull、同点は銘柄昇順、有効行数と除外数を記録。行順不変と手値を確認。既存2銘柄許可reportは保持 |
+| V11 | NDCG/Precision | 非負grade、全負return・逆順・K超過の独立手値を確認。Precisionはtop-K集合重複率、勝率とは別。認証OOFへの採点経路を追加 |
 | V12 | key/horizon整列 | 新規重複・欠損・horizon・task整列検査、実18候補の一致を確認 |
 | V13 | null反復校正 | v04を全再現。実株評価器への移植・適用判定は未完 |
 | V14 | signal/共通shock/重複 | v04を全再現。SB20/SB60の誤較正を記録 |
 | V15 | paired日付block | v04 fixtureを再現。実比較系列への接続は未完 |
 | V16 | noiseから最良選択 | v04 selection反例を再現。実選択履歴との統合は未完 |
-| V17 | 確率/分位点 | 部分。既存task metric保持、確率範囲拒否。手計算・交差quantile試験を拡張する |
+| V17 | 確率/分位点 | 0/1・base rate・過信のBrier/log loss/ECE、pinball/coverageを手値照合。epsilon=1e-8 float64、交差を検出して修復しない。単一alphaは交差確認不可。後続期間・regime別較正は未完 |
 | V18 | 固定注文の費用 | 固定株数0/10/20/30/50bpsの片道/往復手値、費用内訳の二重控除なしを日次NAV試験で確認。realistic costの実証は別途必要 |
 | V19 | 重複保有の日次NAV | 21個の20日cohortを41sessionで追跡し、独立cohort手値と各日NAVが一致。forward20を加算しない。実戦略接続は残る |
 | V20 | 単元/資金/部分約定 | 日次NAVで単元・呼値・口座別現金・予約現金・決済待ち・共有capacity・partial/no-fillを確認。Decision Engineの連続実行は未接続 |

@@ -53,6 +53,8 @@
 
 再監査は`research audit-candidates --feature-selection <path> --candidate-campaign <path>`を3manifest分指定する。`scripts/audit_daily_evidence.py`は保存checkpointとラベル時点を読み取り専用で調べる。import lineageには当時のraw sourceが必要で、Git archiveのLF変換だけでは当時のbyte hashを復元できない。既存proofを書き換えない。
 
+`--score-development`を追加すると、認証した開発OOFへ新しい順位・確率・分位点の診断を付ける。同点、NA、最小行数、log loss端点、交差分位点の規則は[指標契約](DAILY_EVALUATION_METRICS.md)に固定。元reportの指標とは別に保存し、選択・holdout・採用へ自動的に進めない。
+
 ## 残りの順序と終了条件
 
 日次会計の固定注文評価器を追加した。[入力・会計契約・検証範囲](DAILY_NAV_EVALUATOR.md)を参照。生価格、未収金、企業行動、約定不能、HOLDとの差を扱う。実市場adapter・Decision Engineの連続実行・税シナリオは引き続き未接続。

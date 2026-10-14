@@ -10,4 +10,4 @@
 - 最初の制限環境で既存fixture CLIがPermissionError。TestClient経路の継続も中断し、作業フォルダー内のbasetempと許可されたプロセスで再実行して105 PASS。テストや仕様は緩めていない。
 - dotted module名をcoverage sourceに渡すとNumPy再importでcollectionが失敗したため、既存のfilesystem source設定でcoverage runを使用。新規評価器の通常pytestも45 PASS。
 
-全体pytest/coverageはsource checkpoint後に実行して追記する。実データadapter・戦略連続実行・税シナリオ・全候補比較・最終holdoutは未完。Goal全体の完了とはしない。原学習artifact・source pin・失敗履歴は保持、実注文なし。
+source checkpoint `55e2878`で全体pytest/coverageを実行し、453 PASS、branch込み85.48%（基準85%）を確認した。実データadapter・戦略連続実行・税シナリオ・全候補比較・最終holdoutは未完。Goal全体の完了とはしない。原学習artifact・source pin・失敗履歴は保持、実注文なし。

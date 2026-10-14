@@ -41,6 +41,8 @@
   "focused_tests_passed": 105,
   "new_nav_tests_passed": 45,
   "nav_coverage_percent": 92,
-  "full_regression": "PENDING_AFTER_SOURCE_CHECKPOINT",
+  "full_regression": "PASS_AT_55e2878",
+  "full_tests_passed": 453,
+  "full_coverage_percent": 85.48,
   "test_source_sha256": "402562f394984cd0450d28973c7677abffc4232ad8bf8fdd22d8baeda9ebdf78"
 }
