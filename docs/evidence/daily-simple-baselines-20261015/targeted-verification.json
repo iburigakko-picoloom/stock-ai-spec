@@ -1,0 +1,11 @@
+{
+  "tests_passed": 61,
+  "new_tests": 25,
+  "new_module_coverage_percent": 97.10144927536231,
+  "ruff": "PASS",
+  "mypy_modules": 62,
+  "prototype_numeric_tests": 20,
+  "prototype_integration_tests": 3,
+  "targeted_log_sha256": "8045f273c81431be30fb0c8c569347673589b09021bec8cca0de48197804eea5",
+  "precomparison_design_sha256": "bb552b2e13627f7681d74b1da89cadabe0c58ba1fdf1c4801bb0d5c366b6695d"
+}

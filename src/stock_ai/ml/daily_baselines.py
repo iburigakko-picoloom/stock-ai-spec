@@ -29,6 +29,14 @@ from stock_ai.ml.advanced import (
     load_advanced_research_run,
 )
 from stock_ai.ml.campaign import CampaignBatchStatus, load_campaign_manifest
+from stock_ai.ml.daily_simple_baselines import (
+    ELASTIC_ALPHA,
+    ELASTIC_L1_RATIO,
+    RULE_FEATURES,
+    RULES,
+    fit_streamed_elastic_net,
+    fixed_rule_scores,
+)
 from stock_ai.ml.evaluation_audit import validate_development_oof, write_audit_receipt
 from stock_ai.ml.evaluation_metrics import (
     evaluate_probabilities,
@@ -38,9 +46,9 @@ from stock_ai.ml.evaluation_metrics import (
 from stock_ai.ml.production import _file_sha256, load_production_dataset_snapshot
 from stock_ai.ml.selection import _authenticate_batch_report, load_development_feature_selection
 
-VERSION = "daily-regression-risk-baselines-v2"
+VERSION = "daily-regression-risk-simple-baselines-v3"
 KEYS = ["trading_date", "symbol", "as_of", "label_end", "target", "fold"]
-BASELINES = ("zero_return", "momentum_20d", "ridge_v0")
+BASELINES = ("zero_return", "momentum_20d", "ridge_v0", "elastic_net_v0")
 RISK_BASELINES = ("training_loss_rate", "logistic_v0", "training_quantile")
 FloatArray = NDArray[np.float64]
 
@@ -306,6 +314,16 @@ def _scores(frame: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def _rule_metrics(frame: pd.DataFrame) -> dict[str, Any]:
+    metrics = {}
+    for name in RULES:
+        audit = evaluate_ranking_panel(frame.rename(columns={name: "prediction"}))
+        if audit.excluded_rows:
+            raise ValueError("rule comparison cannot exclude observations")
+        metrics[name] = {"score_unit": "dimensionless_rank", "ranking": asdict(audit)}
+    return metrics
+
+
 def evaluate_baseline_folds(
     connection: duckdb.DuckDBPyConnection,
     report: AdvancedResearchReport,
@@ -451,6 +469,8 @@ def evaluate_baseline_folds(
         model = fit_streamed_ridge(batches(), np.asarray(medians))
         if model.rows != train_audit[0]:
             raise ValueError("Ridge training count changed during fit")
+        progress(f"{horizon}d fold {number}: fit fixed Elastic Net ({train_audit[0]} rows)")
+        elastic = fit_streamed_elastic_net(batches(), model)
         probability, quantile = _one(connection.execute(
             f"SELECT avg(CAST({target} <= ? AS DOUBLE)), quantile_cont({target}, ?) FROM training",
             [config.large_loss_threshold, config.quantile_alpha],
@@ -479,6 +499,9 @@ def evaluate_baseline_folds(
             output["zero_return"] = 0.0
             output["momentum_20d"] = frame["price.return_20d"].fillna(fallback)
             output["ridge_v0"] = model.predict(frame[list(feature_names)].to_numpy(dtype=float))
+            output["elastic_net_v0"] = elastic.predict(
+                frame[list(feature_names)].to_numpy(dtype=float), model
+            )
             output["training_loss_rate"] = probability
             output["training_quantile"] = quantile
             output["logistic_v0"] = logistic.predict(
@@ -491,6 +514,18 @@ def evaluate_baseline_folds(
             result[list((*BASELINES, *RISK_BASELINES))]
         ).all().all():
             raise ValueError("incomplete or nonfinite baseline output")
+        # Rank every available contemporaneous feature row before joining labels.
+        # The scoring cohort must not determine the rule's cross-sectional peers.
+        rule_columns = ", ".join(_identifier(name) for name in RULE_FEATURES)
+        rule_universe = connection.execute(f"""
+            SELECT trading_date, as_of, available_at, symbol, {rule_columns}
+            FROM source WHERE {score_predicate} ORDER BY trading_date, symbol
+        """).df()
+        rules, rule_audit = fixed_rule_scores(rule_universe)
+        result = result.merge(rules, on=["trading_date", "as_of", "symbol"],
+                              how="left", validate="one_to_one")
+        if len(result) != len(observed) or not np.isfinite(result[list(RULES)]).all().all():
+            raise ValueError("rule universe does not cover every scoring row")
         outputs.append(result)
         fold_receipts.append(
             {
@@ -507,6 +542,9 @@ def evaluate_baseline_folds(
                 "momentum_missing_fallback": fallback,
                 "ridge": model.receipt(),
                 "logistic": logistic.receipt(),
+                "elastic_net": elastic.receipt(),
+                "rule_universe": rule_audit,
+                "rule_scores": _rule_metrics(result),
                 "training_loss_rate": probability,
                 "training_quantile": quantile,
                 "risk_scores": _baseline_risk_scores(result, report),
@@ -682,6 +720,7 @@ def run_daily_baselines(
                     name: _scores(oof.rename(columns={name: "prediction"}))
                     for name in (*BASELINES, "equal_weight_candidate_mean")
                 },
+                "rule_scores": _rule_metrics(oof),
                 "risk_definition": {
                     "event": "target <= large_loss_threshold",
                     "large_loss_threshold": reference_report.config.large_loss_threshold,
@@ -703,6 +742,7 @@ def run_daily_baselines(
         raise ValueError("baseline dataset changed during evaluation")
     sources = (
         "daily_baselines.py",
+        "daily_simple_baselines.py",
         "models.py",
         "advanced.py",
         "selection.py",
@@ -723,6 +763,20 @@ def run_daily_baselines(
             "holdout_scored": False,
             "feature_names": V0_MANIFEST.feature_names,
             "ridge_alpha": 5.0,
+            "additional_baseline_policy": {
+                "role": "fixed_exploratory_diagnostic_not_adoption_gate",
+                "elastic_net_alpha": ELASTIC_ALPHA,
+                "elastic_net_l1_ratio": ELASTIC_L1_RATIO,
+                "elastic_net_target_scaling": "none",
+                "elastic_net_max_iterations": 50_000,
+                "elastic_net_max_kkt_residual": 1e-9,
+                "rule_features_positive_direction": RULE_FEATURES,
+                "rule_equal_weight_components": RULES,
+                "rule_normalization": "centered_within_date_midranks_minus1_to1",
+                "rule_missing_constant_singleton": "neutral_zero_fixed_weight",
+                "rule_universe": "all_source_features_on_scoring_dates_before_label_join",
+                "rule_score_unit": "dimensionless_rank_not_return_or_probability",
+            },
             "logistic_c": 1.0,
             "quantile_method": "training_empirical_linear_interpolation",
             "batch_rows": batch_rows,
@@ -740,7 +794,7 @@ def run_daily_baselines(
                 "No bootstrap significance, economic adoption, holdout scoring or live forecast.",
                 "One quantile level cannot verify interval coverage or quantile crossing.",
                 "Single-class logistic fits use an explicitly recorded empirical constant.",
-                "Cost/tax/NAV, remaining rule baselines and learned ensemble remain separate.",
+                "Cost/tax/NAV, final selection and learned-ensemble adoption remain separate.",
             ],
         },
         output_root / "receipts",
