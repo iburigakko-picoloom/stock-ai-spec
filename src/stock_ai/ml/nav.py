@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from decimal import Context, Decimal, localcontext
 from importlib.metadata import version
@@ -269,6 +270,16 @@ class NavResult(NavModel):
     total_trading_cost: Money
     valuation_complete: bool
     adoption_eligible: Literal[False] = False
+
+
+class NavDecisionState(NavModel):
+    """State at the decision cutoff; contains no future execution or closing quotes."""
+
+    as_of: datetime
+    cash: tuple[NavCash, ...]
+    positions: tuple[NavPosition, ...]
+    receivables: tuple[NavReceivable, ...]
+    applied_event_ids: tuple[str, ...]
 
 
 def fixed_bps_policy(bps: Decimal) -> CostPolicy:
@@ -545,7 +556,46 @@ def evaluate_daily_nav(request: NavInput) -> NavResult:
         return _evaluate_daily_nav(request)
 
 
+def evaluate_stateful_nav(
+    request: NavInput,
+    *,
+    decision_times: Sequence[datetime],
+    decide: Callable[[NavDecisionState], tuple[NavOrder, ...]],
+) -> tuple[NavInput, NavResult]:
+    """Replay decisions against actual prior simulated fills, actions and settlements.
+
+    The callback receives only state at its cutoff. All generated orders are
+    retained in a validated fixed-order input so the result can be replayed.
+    """
+    request = NavInput.model_validate(request.model_dump())
+    if request.orders:
+        raise ValueError("stateful NAV cannot mix fixed and generated orders")
+    if len(decision_times) != len(request.sessions):
+        raise ValueError("stateful NAV requires one decision time per session")
+    previous = request.initial_as_of
+    for at, session in zip(decision_times, request.sessions, strict=True):
+        if at.utcoffset() is None:
+            raise ValueError("decision times must be timezone-aware")
+        if (
+            at.astimezone(JST).date() != session.trading_date
+            or not previous <= at < session.execution_at
+        ):
+            raise ValueError("decision time is outside its session window")
+        previous = session.close_at
+    with localcontext(Context(prec=28)):
+        realized, result = _replay_daily_nav(request, tuple(decision_times), decide)
+    return realized, result
+
+
 def _evaluate_daily_nav(request: NavInput) -> NavResult:
+    return _replay_daily_nav(request)[1]
+
+
+def _replay_daily_nav(
+    request: NavInput,
+    decision_times: tuple[datetime, ...] = (),
+    decide: Callable[[NavDecisionState], tuple[NavOrder, ...]] | None = None,
+) -> tuple[NavInput, NavResult]:
     request = NavInput.model_validate(request.model_dump())
     ledger = _Ledger(request)
     initial = sum((cash.amount for cash in request.cash), ZERO)
@@ -561,24 +611,53 @@ def _evaluate_daily_nav(request: NavInput) -> NavResult:
         orders_by_date.setdefault(order.trading_date, []).append(order)
     peak = initial
     drawdown = ZERO
-    for session in request.sessions:
+    generated: list[NavOrder] = []
+    generated_ids: set[str] = set()
+    buckets = {cash.bucket for cash in request.cash}
+    for index, session in enumerate(request.sessions):
         applied: list[str] = []
-        while event is not None and event.effective_at <= session.execution_at:
-            ledger.apply_action(event)
-            applied.append(event.event_id)
-            event = next(pending_actions, None)
-        ledger.settle(session.execution_at)
+
+        def advance(at: datetime, applied_events: list[str]) -> None:
+            nonlocal event
+            while event is not None and event.effective_at <= at:
+                ledger.apply_action(event)
+                applied_events.append(event.event_id)
+                event = next(pending_actions, None)
+            ledger.settle(at)
+
+        daily_orders = orders_by_date.get(session.trading_date, [])
+        if decide is not None:
+            at = decision_times[index]
+            advance(at, applied)
+            state = NavDecisionState(
+                as_of=at,
+                cash=tuple(ledger.cash[k] for k in sorted(ledger.cash)),
+                positions=tuple(ledger.positions[k] for k in sorted(ledger.positions)),
+                receivables=tuple(ledger.receivables),
+                applied_event_ids=tuple(applied),
+            )
+            daily_orders = [NavOrder.model_validate(order.model_dump()) for order in decide(state)]
+            for order in daily_orders:
+                if (
+                    order.decided_at != at
+                    or order.trading_date != session.trading_date
+                    or order.bucket not in buckets
+                    or order.order_id in generated_ids
+                ):
+                    raise ValueError(
+                        "generated order has invalid time, bucket or repeated identity"
+                    )
+                generated_ids.add(order.order_id)
+            generated.extend(daily_orders)
+        advance(session.execution_at, applied)
         prices = {price.symbol: price for price in session.prices}
         capacity = {price.symbol: price.capacity_shares or 0 for price in session.prices}
         orders = sorted(
-            orders_by_date.get(session.trading_date, []),
+            daily_orders,
             key=lambda o: (o.side is TradeSide.BUY, o.order_id),
         )
         fills = tuple(ledger.fill(order, session, prices, capacity) for order in orders)
-        while event is not None and event.effective_at <= session.close_at:
-            ledger.apply_action(event)
-            applied.append(event.event_id)
-            event = next(pending_actions, None)
+        advance(session.close_at, applied)
         day = ledger.mark(session, fills, tuple(applied), previous_nav)
         days.append(day)
         previous_nav = day.nav
@@ -586,7 +665,9 @@ def _evaluate_daily_nav(request: NavInput) -> NavResult:
             peak = max(peak, day.nav)
             drawdown = max(drawdown, ONE - day.nav / peak)
     complete = all(day.nav is not None for day in days)
-    return NavResult(
+    if decide is not None:
+        request = NavInput.model_validate({**request.model_dump(), "orders": tuple(generated)})
+    return request, NavResult(
         input_sha256=hashlib.sha256(_canonical(request)).hexdigest(),
         execution_semantics=request.execution_semantics,
         initial_nav=initial,

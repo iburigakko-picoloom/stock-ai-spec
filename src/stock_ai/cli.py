@@ -1769,6 +1769,29 @@ def evaluate_nav_command(
     )
 
 
+@research_app.command("evaluate-daily-strategy")
+def evaluate_daily_strategy_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/daily-strategies"
+    ),
+) -> None:
+    """Replay causal research decisions and HOLD; no actual orders or model adoption."""
+    from stock_ai.ml.daily_strategy import DailyStrategyInput, write_daily_strategy
+
+    try:
+        request = DailyStrategyInput.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_daily_strategy(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"daily strategy evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(
+        json.dumps(
+            {"research_only": True, "adoption_eligible": False, "evaluation_path": str(path)}
+        )
+    )
+
+
 @research_app.command("daily-oof")
 def daily_oof_command(
     feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],

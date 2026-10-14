@@ -57,7 +57,7 @@
 
 ## 残りの順序と終了条件
 
-日次会計の固定注文評価器を追加した。[入力・会計契約・検証範囲](DAILY_NAV_EVALUATOR.md)を参照。生価格、未収金、企業行動、約定不能、HOLDとの差を扱う。実市場adapter・Decision Engineの連続実行・税シナリオは引き続き未接続。
+日次会計の固定注文評価器と[Decision Engineの連続実行](DAILY_STATEFUL_STRATEGY.md)を追加した。[入力・会計契約・検証範囲](DAILY_NAV_EVALUATOR.md)を参照。生価格、未収金、企業行動、約定不能、HOLDとの差を扱う。実市場adapter・個人税シナリオは引き続き未接続。
 
 1. [26項目の評価試験票](evidence/daily-readiness-20261015/README.md)の不足を実装する。特に日次NAV、企業行動、約定不能を含む状態付き評価を実装し、固定注文の費用10/20/30/50bpsを手計算と照合する。元runの0/10/25/50bps設定は変更しない。
 2. 5日・20日それぞれで開発OOFを比較する。全seed、cash/HOLD/等重み/momentum/Ridge/単一GBDT/ensembleを同一条件で比較し、欠損・停止銘柄を隠さない。単純な20日forward returnの加算をNAVにしない。
@@ -68,7 +68,7 @@
 
 実18候補の新指標診断は[保存証拠](evidence/daily-metrics-20261015/README.md)まで完了した。既存baseline report `47afb247…`は同じdataset IDだが、5日target・holdout境界2026-02-24で、今回の2026-03-04と異なる。旧summaryを直接比較表へ混ぜず、対象日・key・label・purge境界を合わせた開発比較を作る。これは既存holdoutへのアクセス履歴の安全性を断定するものではない。
 
-既存`build_decision_compatible_oof_predictions`は1/5/20日の完全bundleを要求する。別途[日次OOF adapter](DAILY_OOF_ADAPTER.md)を実装し、`research daily-oof`から5/20日・1日nullの研究用receiptを生成できる。horizon不足・較正履歴不足は理由付きで保存し、保有予測が欠ける比較は停止する。単一候補による接続確認であり最終モデル選択ではない。実価格・企業行動・費用契約を満たす連続した日次NAVとの接続は残る。
+既存`build_decision_compatible_oof_predictions`は1/5/20日の完全bundleを要求する。別途[日次OOF adapter](DAILY_OOF_ADAPTER.md)を実装し、`research daily-oof`から5/20日・1日nullの研究用receiptを生成できる。horizon不足・較正履歴不足は理由付きで保存し、保有予測が欠ける比較は停止する。`research evaluate-daily-strategy`で前日の仮想約定を反映する研究会計に接続した。単一候補による接続確認であり最終モデル選択ではない。実価格・企業行動・費用契約を認証した実市場比較は残る。
 
 v04のSB20/SB60区間は反例が再現された。統計的有意性や自動採用の条件には使わず、現段階では診断用とする。学習データは8月時点であり「今日の予測」と表示しない。実注文送信機能はない。
 

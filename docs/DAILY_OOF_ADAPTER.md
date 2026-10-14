@@ -16,7 +16,7 @@ Prediction v2 retains 5d and 20d, sets 1d to null, and uses 20d downside quantil
 
 `propose_daily_oof` requires an exact shared timestamp for the forecasts, portfolio and known market snapshot, a 0/0/1 horizon policy, security/price evidence, and a non-earlier proposal timestamp. It compares explicit new candidates plus every holding across account buckets. A holding without a usable forecast stops the whole comparison. It never drops that position or fabricates a zero-return forecast.
 
-Known market marks update a validated copy of the portfolio; the input state and cost basis remain intact. The existing engine applies its configured cost/tax and discrete-lot policy. The result is a research proposal, not a fill, not a personal recommendation and not an update to the manual execution ledger. Continuous strategy-to-NAV execution, authenticated historical market/actions, personal settings and final adoption remain separate work.
+Known market marks update a validated copy of the portfolio; the input state and cost basis remain intact. The existing engine applies its configured cost/tax and discrete-lot policy. The result is a research proposal, not a fill, not a personal recommendation and not an update to the manual execution ledger. DailyDecisionAudit binds the forecast, market, portfolio and candidate evidence hashes and requires the research-only flag. [Continuous strategy-to-NAV execution](DAILY_STATEFUL_STRATEGY.md) now carries simulated fills forward. Authenticated historical market/actions, personal settings and final adoption remain separate work.
 
 ## Invocation
 

@@ -24,7 +24,7 @@ from stock_ai.domain import (
     PredictionUncertainty,
     Security,
 )
-from stock_ai.domain.models import _require_aware
+from stock_ai.domain.models import DailyDecisionAudit, _require_aware
 from stock_ai.ml.advanced import (
     AdvancedResearchReport,
     DecisionPredictionBlock,
@@ -496,9 +496,29 @@ def propose_daily_oof(
         for bucket in current.account_buckets
         for symbol in sorted(required)
     )
-    return engine.propose(
+    proposal = engine.propose(
         portfolio=current,
         candidates=candidates,
         generated_at=generated_at,
         model_bundle_version=day.model_version,
+    )
+    audit = DailyDecisionAudit(
+        as_of=day.as_of,
+        forecast_content_sha256=content_id(day.model_dump(mode="json")),
+        market_content_sha256=content_id(market.model_dump(mode="json")),
+        portfolio_content_sha256=content_id(current.model_dump(mode="json")),
+        candidate_evidence_sha256=content_id(
+            {"candidates": [candidate.model_dump(mode="json") for candidate in candidates]}
+        ),
+        source_report_ids=day.source_report_ids,
+    )
+    return PortfolioProposal.model_validate(
+        {
+            **proposal.model_dump(),
+            "proposal_id": proposal.proposal_id
+            + "-daily-"
+            + content_id(audit.model_dump(mode="json"))[:16],
+            "daily_audit": audit,
+            "is_research_only": True,
+        }
     )

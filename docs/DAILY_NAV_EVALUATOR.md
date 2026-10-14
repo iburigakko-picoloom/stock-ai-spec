@@ -33,4 +33,6 @@ $env:PYTHONPATH='src'
 
 `tests/test_daily_nav.py`は独立手値で、片道/往復費用、41session中の21個の20日保有cohort、同じ初期保有からのHOLD/入替差、分割、端数、権利落・配当・売却後受取、現金交付、予約現金、決済待ち、no-fill/partial-fill、欠損、時刻・入力違反を検査する。すべて合成のテスト専用入力であり、本人の資金や市場成績ではない。
 
-未実装は、認証済みの実市場/企業行動データadapter、全種類の権利処理、個人口座の税シナリオ、Decision Engineを日ごとに呼ぶ戦略adapter、全候補・各baselineの比較である。現在のprovider価格調整係数だけを分割/配当の確証としない。これらが不足する実データ経路をfixtureで補完しない。holdoutを読む経路はこの評価器にはない。
+Decision Engineを日ごとに呼ぶ[状態付き戦略adapter](DAILY_STATEFUL_STRATEGY.md)を追加した。判断時点の状態だけを渡し、実際の仮想約定/未約定/支払から次の判断を作る。固定注文の既存APIも同じ会計経路を使う。
+
+未実装は、認証済みの実市場/企業行動データadapter、全種類の権利処理、個人口座の税シナリオ、全候補・各baselineの比較である。現在のprovider価格調整係数だけを分割/配当の確証としない。これらが不足する実データ経路をfixtureで補完しない。holdoutを読む経路はこの評価器にはない。

@@ -482,6 +482,20 @@ class MorningDecisionAudit(DomainModel):
         return self
 
 
+class DailyDecisionAudit(DomainModel):
+    """Research lineage for a daily-only proposal, independent of morning data."""
+
+    as_of: datetime
+    forecast_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    market_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    portfolio_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    candidate_evidence_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    source_report_ids: tuple[str, str]
+    is_research_only: Literal[True] = True
+
+    _aware = field_validator("as_of")(_require_aware)
+
+
 class PortfolioProposal(DomainModel):
     proposal_id: str = Field(min_length=1)
     as_of: datetime
@@ -500,6 +514,7 @@ class PortfolioProposal(DomainModel):
     tax_policy_id: str = Field(min_length=1)
     tax_policy_version: str = Field(min_length=1)
     morning_audit: MorningDecisionAudit | None = None
+    daily_audit: DailyDecisionAudit | None = None
     is_research_only: bool = False
     no_trade_reason: str | None = None
     is_order_instruction: bool = False
@@ -523,8 +538,13 @@ class PortfolioProposal(DomainModel):
             raise ValueError("proposal generated_at cannot precede its as_of")
         if self.net_improvement != self.proposed_utility - self.hold_utility:
             raise ValueError("proposal net improvement must equal proposed minus HOLD utility")
-        if self.morning_audit is None and self.is_research_only:
-            raise ValueError("research-only proposal requires morning Decision audit lineage")
+        if self.morning_audit is not None and self.daily_audit is not None:
+            raise ValueError("daily and morning proposal lineage cannot be mixed")
+        if self.morning_audit is None and self.daily_audit is None and self.is_research_only:
+            raise ValueError("research-only proposal requires Decision audit lineage")
+        if self.daily_audit is not None:
+            if not self.is_research_only or self.daily_audit.as_of != self.as_of:
+                raise ValueError("daily proposal research lineage must match proposal as_of")
         if self.morning_audit is not None:
             if not self.is_research_only or self.morning_audit.as_of != self.as_of:
                 raise ValueError("morning proposal research lineage must match proposal as_of")
