@@ -80,6 +80,11 @@ v04のSB20/SB60区間は反例が再現された。統計的有意性や自動�
 
 ## 検証と公開
 
+本人専用アプリの入力は `ops pull-private-portfolio` でPCへ取り込める。
+[取込手順](MANUAL_PORTFOLIO_IMPORT.md)と[公開・実入力検証](evidence/manual-portfolio-import-20261015/README.md)を参照。
+保存版を照合してローカルへ確定した後に、同じ版だけをPC取込済みと表示する。
+この記録を約定/現金/税台帳や個人向け推奨の完成とみなさない。
+
 `research crossfit-daily-ensemble`は[3区間の時系列アンサンブル評価](DAILY_ENSEMBLE.md)を行う。重み学習・確率/分位点調整・後続評価を分け、各境界で未成熟labelを除外する。個別候補と単純平均を同じ後半期間で比較する。最終selectionやholdout入口とは別の研究診断である。
 
 [実18候補の比較結果](evidence/daily-ensemble-20261015/README.md)では、順位の集計指標は改善したが、確率/分位点補正は誤差を悪化させた。個別期間の悪化も保持しており、較正成功・統計的有意差・採用可能とは判定しない。コードは全650試験PASS、coverage86.58%。

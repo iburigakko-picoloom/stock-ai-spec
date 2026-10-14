@@ -948,4 +948,4 @@ research crossfit-daily-ensembleを追加。元18候補と固定datasetを認証
 
 口座/保有/資金/最大下落率の手入力を、本人専用SiteからPCへ取り込む経路を追加。保存版とexportのSHA256、厳密schema、owner固定、版/時刻rollback拒否を行い、SQLiteへ確定してから同じ版の受領記録を返す。アプリはPC取込待ち/取込済みを保存版ごとに表示する。再取得は冪等で受領時刻を保持し、旧版ACKで新しい入力を取込済みにしない。移行は追加tableのみで、元予測/入力を保持する。
 
-関連Python56試験、Node12試験、Ruff全体/mypy61modules、private lint/TypeScript/build PASS。公開反映・実際の本人入力取込・全体回帰試験はこのsource checkpointの後に確認する。入力取込と約定台帳/税/費用/最新予測を使った個人比較は別段階であり、後者は未完了。証拠と手順はdocs/MANUAL_PORTFOLIO_IMPORT.md。Goal active、実注文なし。
+関連Python56試験、CLI認証情報非表示追加後の取込38試験、Node12試験、Ruff全体/mypy61modules、private lint/TypeScript/build PASS。source checkpoint c0f6a81/5be26b4。本人専用公開成功、実際の保有なし/口座0/資金・リスクnullを改変せず取込・冪等再取得・backup検証、画面のPC取込済みまで確認。認証不足/外部Originの4種類はHTTP401。明示再開後に前回Pythonプロセス0件を確認して全回帰を再実行し、688 PASS、coverage86.74%を確認。旧実行はhandle消失/利用上限によるreview不能で19%までの未完ログとして保持する。公開・実入力取込・認証拒否・全体試験の証拠はdocs/evidence/manual-portfolio-import-20261015に保存。入力取込と約定台帳/税/費用/最新予測を使った個人比較は別段階であり、後者は未完了。手順はdocs/MANUAL_PORTFOLIO_IMPORT.md。Goal active、実注文なし。

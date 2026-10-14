@@ -1,0 +1,18 @@
+{
+  "project_id": "appgprj_6acfaa58a14c81919863e7e62f8a939c",
+  "source_commit": "0073ca93f1cf2fcc8947f7d15fda86615bc56261",
+  "deployment_id": "appgdep_6acffa80f10881918d3deedcd1b665f9",
+  "version_id": "appgprj_6acfaa58a14c81919863e7e62f8a939c~appgver_848b27f03840819193d0da0317dde448",
+  "status": "succeeded",
+  "url": "https://stock-ai-private-daily.manato0618.chatgpt.site",
+  "env_set_revision": 1,
+  "updated_at": "2026-10-14T21:56:32.240597+00:00",
+  "audience": "owner-private",
+  "browser_import_pending_before_pull": true,
+  "browser_imported_after_reload": true,
+  "browser_imported_text": "PC取込済み: 2026/10/15 6:57:15 JST",
+  "viewport_override_width": 390,
+  "document_client_width": 375,
+  "document_scroll_width": 375,
+  "viewport_reset": true
+}
