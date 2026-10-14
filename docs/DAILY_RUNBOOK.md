@@ -72,6 +72,8 @@
 
 v04のSB20/SB60区間は反例が再現された。統計的有意性や自動採用の条件には使わず、現段階では診断用とする。学習データは8月時点であり「今日の予測」と表示しない。実注文送信機能はない。
 
+`research project-daily-market`で、[保存raw/normalizedの認証と日足projection](DAILY_MARKET_PROJECTION.md)を追加した。無約定行・元UL/LL・特殊コードを保持し、開発期間だけを読み出す。実データ確認は4日間まで。企業行動・約定能力・全期間の同一source接続を認証した実市場NAVは引き続き未完。
+
 ## 検証と公開
 
 Python: `ruff check .`, `mypy src`, `pytest`, `pytest --cov`。Windowsのrunnerテストはcleanなsource commitを要求するため、checkpoint後に実行する。Git safe.directoryは必要なプロセス内にだけ設定する。テストJSONはUTF-8を明示。

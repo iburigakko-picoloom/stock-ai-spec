@@ -897,3 +897,12 @@ research audit-candidates --score-developmentから新しい診断を実行で�
 追加29試験、関連112 PASS、新module coverage99%。source checkpoint9d39864で全体560 PASS、coverage86.10%、Ruff全体/mypy57modules PASS。手計算のpartial-fill、資金・取得単価・費用、決済待ち、停止株、配当・分割、未来価格変更、欠損時の保有維持を確認。証拠docs/evidence/daily-strategy-20261015。市場成績はまだ計算しておらず、保存した戦略receiptは合成テスト専用。
 
 実sourceの最新raw/normalized各5種、計10objectのschema/byte hashをread-only検査。raw株価のUL/LLはnormalized schemaに未接続、raw財務配当列だけでは権利/支払イベントにならない。公式V2仕様でULは終値ではなく高値到達、特別気配・実際の利用可能時刻・訂正前データは非提供と確認。元学習dataset/履歴は変更なし。次はrawの認証と執行用projection、企業行動/約定能力、全baseline比較。個人税、selection/holdout/最新予測も未完。Goalはactive、実注文なし。
+
+
+## 2026-10-15 — 保存日足の認証と執行用projectionの前段
+
+research project-daily-marketを追加。固定feature selectionとholdout境界を確認後、指定開発期間のraw/normalizedとcatalog/manifest/byte hash/行metadata/値をread-onlyで照合する。無約定行、UL/LL欠損、空partitionを保持。末尾0以外のprovider codeは普通株へ短縮結合せず、元codeとsymbol nullで残す。元dataset/保存sourceは変更しない。
+
+実4日間2025-11-04〜11-07、8object・17,669行の認証に成功。取引あり16,899、無約定770、特殊code20、調整要確認1行。初回は特殊codeを拒否し、保存方法を修正して再検証した。追加30試験、関連115 PASS、新module coverage94%、Ruff全体/mypy58modules PASS。全体回帰はsource checkpoint後に実行し、証拠docs/evidence/daily-market-20261015へ記録する。
+
+投資対象ユニバース/営業日完全性、元dataset source-frame一致、企業行動/約定能力/実用費用は未確認。実市場NAV、全baseline比較、個人税、selection/holdout/最新推論も未完。Goal active、実注文なし。

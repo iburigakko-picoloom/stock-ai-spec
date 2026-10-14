@@ -1792,6 +1792,23 @@ def evaluate_daily_strategy_command(
     )
 
 
+@research_app.command("project-daily-market")
+def project_daily_market_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-market"),
+) -> None:
+    """Authenticate development daily bars; do not assume execution or score holdout."""
+    from stock_ai.ml.daily_market import DailyMarketRequest, write_daily_market
+
+    try:
+        request = DailyMarketRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_daily_market(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"daily market projection blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
 @research_app.command("daily-oof")
 def daily_oof_command(
     feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
