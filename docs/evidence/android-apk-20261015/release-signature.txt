@@ -1,0 +1,18 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: CN=StockAI Android Signing
+V2 Signer: certificate SHA-256 digest: 97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979
+V2 Signer: certificate SHA-1 digest: a427344840eac05d72c4e007502ec20667995224
+V2 Signer: certificate MD5 digest: b9df2778a01fc81ae084d7b1782133ad
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 3072
+V2 Signer: public key SHA-256 digest: edab6b14a730ed4509e11ab8603e181bc974a624a5f51791b0fbb28a248915f5
+V2 Signer: public key SHA-1 digest: af8339639cc3840d9b04e3f74451ce0172541c6d
+V2 Signer: public key MD5 digest: fe32f1e0bcb584eb11487c8b1c0f83bc

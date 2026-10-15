@@ -490,8 +490,8 @@ M16〜M20。
 
 1. 保存地点5b7aa4dとremote mainを比較・保全：完了。remote-only 0、local-only 69。未commit研究差分を保持。
 2. 既存React/CapacitorとオフラインPython、PC 41/51特徴量・3種類推論の一致：ローカル/CI成功。
-3. Keystore、確定保存、差分取得、口座入力、暗号化backup、未採用block：実装済み。大容量分割保存とAndroidエミュレーター試験を追加検証中。
-4. 関連main変更の検証→同一鍵署名→Release/APK/hash/履歴、起動時更新確認：workflow実装。初回CI 38675174542成功。最終修正後のCIとRelease公開は後続。
+3. Keystore、確定保存、差分取得、口座入力、暗号化backup、未採用block：実装済み。大容量分割保存をAPI35 emulatorの3試験で確認。実機は別項目。
+4. 関連main変更の検証→同一鍵署名→Release/APK/hash/履歴、起動時更新確認：初回配布0.1.11/versionCode10011公開済み。CI38682133797成功、公開APKの取得/hash/固定証明書/source/runtime一致と認証なし更新情報取得を確認。実機の更新は未確認。
 5. Xiaomi 14T Proで初回導入/更新/再起動/保存復元/通信失敗/PC一致/性能：本人の後日のUSB接続待ち。
 6. 初回台帳・補足設定・個人比較の完全接続、採用モデルと配布条件の確定：未完。研究用表示を維持する。
 

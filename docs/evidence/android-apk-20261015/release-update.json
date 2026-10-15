@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "jp.stockai.app",
+  "versionName": "0.1.11",
+  "versionCode": 10011,
+  "notes": "StockAI 0.1.11 — 研究用Android APK\n\n端末内Python計算、口座・保有の保存、APIキー暗号化、GitHub更新確認。\nモデル最終採用前です。未採用モデル、履歴不足、API403では最新予測や推奨を表示しません。\n実機での導入・更新は未確認。初回台帳・個人比較の接続と最終モデル採用は準備中です。\n保有・設定・履歴は同じ署名の更新で維持します。実注文機能はありません。\n\nこのリリースの変更:\n- Recognize scheme-labelled certificate output from current apksigner (97f665f)\n- Preserve signing identity across Windows and Java tooling (28f2b6b)\n- Use one explicit AVD directory for Android tools and emulator (36d6f36)\n- Isolate Android emulator gate and retain startup diagnostics (9af5dd9)\n- Locate Android command-line tools explicitly on hosted CI (e9b7538)\n- Run instrumentation for the app and disable native bridge logs (6ac75e6)\n- Persist encrypted Android state in authenticated atomic chunks (f5b4888)\n- Create isolated test parent directory on fresh CI checkout (7e76e02)\n- Verify research OS branches on both Linux and Windows in Android CI (76d84ec)\n- Add secure offline Android data, inference parity and signed release workflow (892d22a)\n\nSource: 97f665f3055d2212882a6fc9b7e7224061bec912\nversionCode: 10011\nSHA-256: bd86aeb312d4185a72c4a9c136aca2dce23e5db3fe0a640d5964d945bd868f9d\n",
+  "sha256": "bd86aeb312d4185a72c4a9c136aca2dce23e5db3fe0a640d5964d945bd868f9d",
+  "size": 21138909,
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.11/StockAI.apk",
+  "commit": "97f665f3055d2212882a6fc9b7e7224061bec912",
+  "researchOnly": true
+}

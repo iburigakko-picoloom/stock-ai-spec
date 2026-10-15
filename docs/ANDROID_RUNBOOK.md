@@ -7,7 +7,8 @@
 - Android化前の保存地点: `5b7aa4d6008e9e5e08291267f9bdc623428ac780`。
 - GitHub mainは`0c9f88c`で69commit遅れ、remote-onlyは0。bundleと未commit差分を`.demo-artifacts/android-preflight`へ保全した。reset/pullで旧mainに戻していない。
 - リポジトリ移転先: https://github.com/iburigakko-picoloom/stock-ai-spec （PUBLIC）。
-- 配布先: https://github.com/iburigakko-picoloom/stock-ai-spec/releases 。公開確認前にAPK取得済みとは報告しない。
+- 初回配布: [StockAI 0.1.11（研究用）](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.11)。[APK](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.11/StockAI.apk) / [SHA256SUMS](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.11/SHA256SUMS)。versionCode 10011、21,138,909 bytes、source `97f665f3055d2212882a6fc9b7e7224061bec912`。
+- APK SHA-256: `bd86aeb312d4185a72c4a9c136aca2dce23e5db3fe0a640d5964d945bd868f9d`。公開ファイルをダウンロードし、update.json/SHA256SUMSとの一致、固定証明書、共有26 source/21依存のhashを確認済み。
 
 ## 端末内の構成
 
@@ -32,7 +33,9 @@ npm run build
 npx playwright test --config playwright.mobile.config.ts
 npx cap sync android
 cd android
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+.\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+# 起動済みの専用emulator/テスト端末がある場合だけ:
+.\gradlew.bat :app:connectedDebugAndroidTest
 ```
 
 runtimeのcore/lock/wheelを更新するときは、`mobile/runtime-packages.json`と`runtime-integrity.json`を同じ変更でレビューする。既存pinと異なるダウンロードは自動的に拒否する。テスト用の合成入力・モデルは`.demo-artifacts/android`にのみ生成し、APKに含めない。
@@ -78,6 +81,10 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 ## 実機の受入試験
 
 本人指定はXiaomi 14T Proで、USB接続は後ほど。Android版は接続後に確認する。ブラウザー/WASMやCIのAndroidエミュレーターを実機成功と数えない。debug APKは`jp.stockai.app.debug`へ分離し、合成3MiB状態の再読込・競合拒否・途中障害rollback・欠落/改変拒否をエミュレーターで確認する。releaseの保有情報やKeystoreには触れない。本人が指定したテスト端末だけで、次を記録する。
+
+[初回公開CI 38682133797](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38682133797)は全job成功。Python 50+6件、React18件、外部通信遮断WASM、Java backup crypto、API35 emulator保存3件、Android lint/build、公式apksignerと固定certificate照合を通過。認証なしのGitHub最新Release APIとupdate.json取得も成功した。アプリの更新検知/安全download/Android確認への接続は実装済みだが、インストール済み実機での更新・データ維持は未確認である。
+
+初回台帳・補足設定と個人比較の全接続、実API403、採用model/配布条件、全市場長期履歴の端末能力は残る。APK公開を実予測の採用完了と扱わない。署名鍵を別媒体へ保管する作業も所有者による実施待ち。
 
 | 項目 | 確認内容 | 状態 |
 | --- | --- | --- |

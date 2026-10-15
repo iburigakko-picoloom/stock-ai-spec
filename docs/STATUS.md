@@ -1059,3 +1059,14 @@ CI 38674953724はfresh checkoutの試験親directory不在で停止し、mkdir�
 PR #1をmainへmergeし、PCも0667659へfast-forward。元の研究71行、DECISIONS31行、STATUS89行は未commitのまま保持した。main CI38679892491でも両検証成功。最初のreleaseはWindows PKCS#12のkey bag別名不一致で署名前に停止。同じ鍵を暗号化PEM pipeで包み直し、元encrypted PFXを保持、同一certificate SHA256とRSA challenge署名を検証し、Secretsを再登録。鍵/証明書を作り直していない。再実行はAPK生成・apksigner検証・package audit成功、公開前の固定証明書の出力照合で停止。公開APK/Releaseはまだない。
 
 固定hashと単一signerの検査は維持し、SDK範囲/大小文字/複数表示とSourceStampを区別する照合helperへ分離。異なる証明書、複数signer、不足出力の拒否を含む9件の試験とruffを通過。public署名情報を診断へ残し次runで公開を確認する。setupは既知の証明書がある状態で鍵が紛失していたら再生成を拒否する。実注文なし。
+
+
+## 2026-10-15 — 研究用APK 0.1.11の初回自動公開と配布ファイル検証
+
+main CI38682133797のverify/android/release全jobが成功。StockAI0.1.11/versionCode10011をGitHub Releasesのandroid-v0.1.11へ自動公開した。source97f665f、APK21,138,909 bytes、SHA256 bd86aeb312d4185a72c4a9c136aca2dce23e5db3fe0a640d5964d945bd868f9d。APK/update.json/SHA256SUMS/signature.txtを実ダウンロードし、サイズ/ハッシュ/固定certificate一致を確認。APK内の26共有PC sourceを当該Git commitのblobとbyte比較、runtime21依存も固定hash一致、approved_models空を確認した。認証なしの最新Release APIとupdate.jsonの取得も成功。
+
+署名照合失敗は公式ツールの実出力がV2 Signer形式だったためと特定し、実際の形式を追加した10件の照合試験を通過。同一certificate/単一signerの拒否条件を維持し、署名鍵/証明書は最初の97a93c...から不変。最終CIのPythonは50+6件、React18件、WASMの41/51特徴量と6合成model vectorのPC一致/保存再起動/履歴不足拒否、Java暗号化、API35 emulator保存3件、Android lint/release build/apksigner/package audit成功。失敗と成功の証拠を保持した。
+
+更新は起動時の版/履歴確認、HTTPS許可host・サイズ・SHA・appId・増加版・同一署名確認後にAndroid画面へ渡す実装。通信失敗時は現行アプリと確定保存を使用する。実機に旧版を入れた状態での更新/保存維持は未確認。Xiaomi14T Proは本人が後日USB接続予定で、Android版・初回導入・再起動・backup復元・403/通信断・実機計算/性能は未確認。エミュレーターを実機成功と数えない。
+
+初回台帳/補足設定と個人比較の全接続、最終モデル採用と配布条件、実API403、全市場長期履歴の端末能力は残る。state128Mi文字・dataset150万行の制限を明記し、実予測/推奨を利用可能と報告しない。モデル/APIキー/実口座/市場データ/秘密鍵は公開APKへ含めない。署名鍵のオフPC保管は手順を用意したが本人実施待ち。元の研究71行・DECISIONS31行・STATUS89行と未追跡研究dataを保持。公開サイトv3は変更せず、実注文なし。実績docs/evidence/android-apk-20261015/release-final.json。

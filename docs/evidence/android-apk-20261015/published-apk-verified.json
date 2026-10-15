@@ -1,0 +1,13 @@
+{
+  "version": "0.1.11",
+  "versionCode": 10011,
+  "sha256": "bd86aeb312d4185a72c4a9c136aca2dce23e5db3fe0a640d5964d945bd868f9d",
+  "bytes": 21138909,
+  "certificate_sha256": "97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979",
+  "shared_pc_sources_verified": 26,
+  "runtime_packages_verified": 21,
+  "models_included": 0,
+  "result": "PASS",
+  "source_commit": "97f665f3055d2212882a6fc9b7e7224061bec912",
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.11/StockAI.apk"
+}

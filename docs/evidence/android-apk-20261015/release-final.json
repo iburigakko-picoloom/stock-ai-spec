@@ -1,0 +1,37 @@
+{
+  "release": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.11",
+  "apk": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.11/StockAI.apk",
+  "version": "0.1.11",
+  "versionCode": 10011,
+  "source": "97f665f3055d2212882a6fc9b7e7224061bec912",
+  "sha256": "bd86aeb312d4185a72c4a9c136aca2dce23e5db3fe0a640d5964d945bd868f9d",
+  "tests": {
+    "python": 56,
+    "react": 18,
+    "android_persistence_api35": 3,
+    "pc_wasm_feature_parity": "41/51 columns, 7 decimal places, 4 synthetic symbols",
+    "pc_wasm_inference_parity": "6 synthetic family/task vectors",
+    "ruff_mypy_lint_build": "PASS",
+    "signed_apk_and_public_download": "PASS"
+  },
+  "public_update_api_without_authentication": "PASS",
+  "physical_xiaomi_tests": "NOT_RUN_USER_WILL_CONNECT_LATER",
+  "automatic_update_on_physical_device": "NOT_RUN",
+  "adopted_models_in_apk": 0,
+  "remaining": [
+    "initial ledger/settings/full personal comparison connection",
+    "real API403/data access",
+    "final model adoption and redistribution evidence",
+    "full-universe historical data resource tests",
+    "owner off-PC signing backup"
+  ],
+  "real_orders": false,
+  "logs_sha256": {
+    "ci-38681461562-release.log": "ea0c5fa4baf7db16db6dd5f54748bd183d54b828f2cce8ad625951f1712ab532",
+    "release-certificate-parser-sdk37.log": "ba58044996ac4162f310e253de84bdc5681bd3d8057016e0e26ad5016132e47f",
+    "ci-final-success.json": "dc6a6168d29ad1c8b00ab13d3385b76b3780d552f6f46eee649bad95482fe03d",
+    "ci-final-success.log": "aa528f414f8a1b9b3c226aaa0d8d9aa218d574de41886146b19bcd5cde13ab7c",
+    "published-release.json": "8bab2625217288806074feb9a2dc9c119462c75aabbe711183b8c92d4a283bd6",
+    "published-apk-verified.json": "5135b818d7b3143caf583117155199aa6245cccb87f741b5a3ae29e32cfced0e"
+  }
+}
