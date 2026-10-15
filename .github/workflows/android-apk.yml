@@ -105,6 +105,9 @@ jobs:
         run: |
           set -euo pipefail
           sudo chmod a+rw /dev/kvm
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
+          test -n "$SDKMANAGER"
+          export PATH="$(dirname "$SDKMANAGER"):$ANDROID_HOME/platform-tools:$PATH"
           sdkmanager --install 'system-images;android-35;default;x86_64' 'emulator' > "$RUNNER_TEMP/stockai-sdk.log"
           echo no | avdmanager create avd --force --name stockai-ci --package 'system-images;android-35;default;x86_64' --device pixel_2
           "$ANDROID_HOME/emulator/emulator" -avd stockai-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/stockai-emulator.log" 2>&1 &
