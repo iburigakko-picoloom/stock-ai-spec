@@ -98,7 +98,7 @@ jobs:
           npx cap sync android
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Android emulator persistence tests
         timeout-minutes: 10
         working-directory: web/android
@@ -116,7 +116,7 @@ jobs:
             sleep 2
           done
           test "$BOOTED" = true
-          ./gradlew --no-daemon connectedDebugAndroidTest
+          ./gradlew --no-daemon :app:connectedDebugAndroidTest
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-web
@@ -175,7 +175,7 @@ jobs:
           npx cap sync android
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest lintRelease assembleRelease
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
       - name: Verify signing and create release manifest
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
