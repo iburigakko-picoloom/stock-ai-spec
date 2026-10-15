@@ -361,6 +361,41 @@ def ops_pull_private_portfolio(
     )
 
 
+@ops_app.command("compare-personal")
+def ops_compare_personal(
+    output: Annotated[Path, typer.Option(dir_okay=False)],
+    input_path: Annotated[Path | None, typer.Option("--input", exists=True, dir_okay=False)] = None,
+    database: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Reconcile app input and compare with HOLD without changing the live ledger."""
+    from stock_ai.operations.manual_portfolio import strict_json
+    from stock_ai.operations.personal import PersonalComparisonRequest, compare_stored_personal
+
+    payload = {} if input_path is None else strict_json(input_path.read_text(encoding="utf-8"))
+    request = PersonalComparisonRequest.model_validate(
+        {
+            "maximum_input_age_hours": 72,
+            **payload,
+            "checked_at": datetime.now(UTC),
+        }
+    )
+    result = compare_stored_personal(OperationalStore(database), request)
+    with output.open("x", encoding="utf-8", newline="\n") as stream:
+        stream.write(result.model_dump_json(indent=2) + "\n")
+    typer.echo(
+        json.dumps(
+            {
+                "comparison_id": result.comparison_id,
+                "research_only": True,
+                "blocked": bool(result.blocking_reasons),
+                "output": str(output),
+            }
+        )
+    )
+
+
 @ops_app.command("verify")
 def ops_verify(
     database: Annotated[

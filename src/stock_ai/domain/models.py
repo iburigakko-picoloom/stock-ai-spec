@@ -490,7 +490,9 @@ class DailyDecisionAudit(DomainModel):
     market_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
     portfolio_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
     candidate_evidence_sha256: str = Field(pattern="^[0-9a-f]{64}$")
-    source_report_ids: tuple[str, str]
+    # A personal snapshot comparison authenticates its original PredictionSnapshot
+    # in the enclosing receipt; it must not invent two development report IDs.
+    source_report_ids: tuple[str, str] | tuple[()]
     is_research_only: Literal[True] = True
 
     _aware = field_validator("as_of")(_require_aware)

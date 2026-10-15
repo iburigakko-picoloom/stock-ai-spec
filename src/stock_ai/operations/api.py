@@ -44,6 +44,7 @@ from stock_ai.operations.models import (
     PaperReadoutPeriod,
     PipelineState,
 )
+from stock_ai.operations.personal import PersonalComparisonRequest, compare_stored_personal
 from stock_ai.operations.store import (
     OperationalConflictError,
     OperationalIntegrityError,
@@ -420,6 +421,18 @@ def create_app(
             "is_stale": snapshot.as_of.astimezone(JST).date() != current_time().date(),
             "research_symbols": snapshot.research_symbols(),
         }
+
+    @app.get("/api/v1/personal/readiness")
+    def personal_readiness() -> object:
+        request = PersonalComparisonRequest(checked_at=current_time(), maximum_input_age_hours=72)
+        return compare_stored_personal(store, request, now=current_time()).model_dump(mode="json")
+
+    @app.post("/api/v1/personal/compare")
+    def personal_compare(
+        body: PersonalComparisonRequest,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        return compare_stored_personal(store, body, now=current_time()).model_dump(mode="json")
 
     @app.get("/api/v1/daily/{snapshot_id}/export")
     def export_daily(snapshot_id: str, format: str = "json") -> Response:

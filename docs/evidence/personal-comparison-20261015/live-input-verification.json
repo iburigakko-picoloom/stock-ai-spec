@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-10-15T00:28:25.351169+00:00",
+  "holdings_status": "none",
+  "holdings_count": 0,
+  "accounts_count": 0,
+  "budget_remains_null": true,
+  "risk_remains_null": true,
+  "proposal_created": false,
+  "blocking_reasons": [
+    "LEDGER_MISSING",
+    "FORECAST_MISSING",
+    "SETTINGS_MISSING",
+    "MARKET_MISSING",
+    "INPUT_MISSING_ACCOUNTS",
+    "INPUT_MISSING_INVESTMENT_BUDGET_YEN",
+    "INPUT_MISSING_MAXIMUM_DRAWDOWN_PERCENT"
+  ],
+  "all_database_records_unchanged": true,
+  "database_logical_sha256_before": "6de0935b38e9275a7a8ed9ec0ee291ebceaaff2bc2a765af9a5ff747b18f4071",
+  "database_logical_sha256_after": "6de0935b38e9275a7a8ed9ec0ee291ebceaaff2bc2a765af9a5ff747b18f4071",
+  "receipt_sha256": "eb48e68caf1b4a1b8da66af823a6d37d5f7699be2204b7769673b3a3cba7bf49",
+  "script_sha256": "ddf3ffeaf112ec66ed8d9660afa1e86d34f9899d5f4ac67d53cda44950b383ad",
+  "model_adopted": false,
+  "no_order_sent": true
+}

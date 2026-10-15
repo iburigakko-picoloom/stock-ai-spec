@@ -63,3 +63,10 @@ the existing model/evaluation adoption gates. Historical forecasts are not relab
 with today's holdings. Original forecasts and scientific artifacts remain immutable.
 
 No securities order is sent by this workflow.
+
+The PC now has a [read-only personal research comparison](PERSONAL_COMPARISON.md).
+It reconciles imported inputs with every account/holding in the existing ledger,
+checks execution and forecast freshness, and uses explicit cost/tax/settings and
+market evidence for HOLD comparison. Missing inputs return named blocks; import
+still does not initialize or replace a ledger. The private app's supplemental
+settings and comparison-result display are not connected yet.
