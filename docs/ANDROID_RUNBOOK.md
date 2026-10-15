@@ -45,6 +45,8 @@ versionCodeは`10000 + github.run_number`、versionNameは`0.1.<run_number>`。m
 
 必要なActions Secretsは`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。`scripts/android_signing_setup.ps1 -RegisterGitHubSecrets`は初回だけ鍵を作り、同じ鍵を再利用する。値をstdinで渡し、秘密値を出力しない。公開できる証明書fingerprintだけを`mobile/signing-certificate.json`へ保存し、配布時に一致を検証する。
 
+Windowsの証明書FriendlyNameだけではJavaのprivate-key bagの別名にならないことがある。setup scriptはGit for WindowsのOpenSSLで同じ鍵を`stockai`名のPKCS#12へ包み直し、中間pipeも暗号化する。変更前の暗号化ファイルを同じ非公開vaultへ保全し、証明書hashと署名検証の一致を確認してから置換/Secrets登録する。鍵や証明書の作り直しではない。公開証明書があるのに鍵がない場合は新規作成を拒否し、バックアップ復旧を求める。
+
 ## 署名鍵のバックアップ
 
 1. `.demo-artifacts/android-signing/stockai-signing.p12`はパスワード暗号化済み。秘密鍵をGit/Release/チャットへ貼り付けない。

@@ -1,0 +1,326 @@
+release	Build native Android	﻿2026-10-15T04:12:24.9482354Z ##[group]Run set -euo pipefail
+release	Build native Android	2026-10-15T04:12:24.9482697Z ^[[36;1mset -euo pipefail^[[0m
+release	Build native Android	2026-10-15T04:12:24.9482962Z ^[[36;1mnpm run build --prefix web^[[0m
+release	Build native Android	2026-10-15T04:12:24.9483229Z ^[[36;1mcd web^[[0m
+release	Build native Android	2026-10-15T04:12:24.9483467Z ^[[36;1mnpx cap sync android^[[0m
+release	Build native Android	2026-10-15T04:12:24.9483944Z ^[[36;1mcd android^[[0m
+release	Build native Android	2026-10-15T04:12:24.9484190Z ^[[36;1mchmod +x gradlew^[[0m
+release	Build native Android	2026-10-15T04:12:24.9484587Z ^[[36;1m./gradlew --no-daemon :app:testDebugUnitTest :app:lintRelease :app:assembleRelease^[[0m
+release	Build native Android	2026-10-15T04:12:24.9525637Z shell: /usr/bin/bash -e {0}
+release	Build native Android	2026-10-15T04:12:24.9525937Z env:
+release	Build native Android	2026-10-15T04:12:24.9526236Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Build native Android	2026-10-15T04:12:24.9526693Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+release	Build native Android	2026-10-15T04:12:24.9527141Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Build native Android	2026-10-15T04:12:24.9527529Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Build native Android	2026-10-15T04:12:24.9527914Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Build native Android	2026-10-15T04:12:24.9528356Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+release	Build native Android	2026-10-15T04:12:24.9528783Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+release	Build native Android	2026-10-15T04:12:24.9529257Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+release	Build native Android	2026-10-15T04:12:24.9529647Z   MAVEN_ARGS: -ntp
+release	Build native Android	2026-10-15T04:12:24.9530488Z   ANDROID_KEYSTORE_PATH: /home/runner/work/_temp/***-signing.p12
+release	Build native Android	2026-10-15T04:12:24.9530855Z   STOCKAI_VERSION_CODE: 10009
+release	Build native Android	2026-10-15T04:12:24.9531125Z   STOCKAI_VERSION_NAME: 0.1.9
+release	Build native Android	2026-10-15T04:12:24.9531509Z   ANDROID_KEYSTORE_PASSWORD: ***
+release	Build native Android	2026-10-15T04:12:24.9531793Z   ANDROID_KEY_ALIAS: ***
+release	Build native Android	2026-10-15T04:12:24.9532135Z   ANDROID_KEY_PASSWORD: ***
+release	Build native Android	2026-10-15T04:12:24.9532377Z ##[endgroup]
+release	Build native Android	2026-10-15T04:12:25.0485617Z 
+release	Build native Android	2026-10-15T04:12:25.0486599Z > stock-ai-decision-support-pwa@0.1.0 build
+release	Build native Android	2026-10-15T04:12:25.0487211Z > tsc -b && vite build
+release	Build native Android	2026-10-15T04:12:25.0487448Z 
+release	Build native Android	2026-10-15T04:12:28.0590940Z ^[[36mvite v8.2.2 ^[[32mbuilding client environment for production...^[[36m^[[39m
+release	Build native Android	2026-10-15T04:12:28.0714100Z transforming...
+release	Build native Android	2026-10-15T04:12:28.1376816Z ✓ 41 modules transformed.
+release	Build native Android	2026-10-15T04:12:28.1816685Z rendering chunks...
+release	Build native Android	2026-10-15T04:12:28.3036112Z computing gzip size...
+release	Build native Android	2026-10-15T04:12:28.3086916Z dist/index.html                           0.69 kB │ gzip:  0.44 kB
+release	Build native Android	2026-10-15T04:12:28.3087503Z dist/assets/compute-worker-CG6GrIlu.js    1.58 kB
+release	Build native Android	2026-10-15T04:12:28.3088062Z dist/assets/index-BKFPJJZL.css           20.46 kB │ gzip:  4.84 kB
+release	Build native Android	2026-10-15T04:12:28.3088639Z dist/assets/index-p8UQhrWy.js           307.55 kB │ gzip: 94.19 kB
+release	Build native Android	2026-10-15T04:12:28.3088906Z 
+release	Build native Android	2026-10-15T04:12:28.3090088Z ^[[32m✓ built in 248ms^[[39m
+release	Build native Android	2026-10-15T04:12:28.9641514Z ✔ Copying web assets from dist to android/app/src/main/assets/public in 10.97ms
+release	Build native Android	2026-10-15T04:12:28.9648366Z ✔ Creating capacitor.config.json in android/app/src/main/assets in 528.46μs
+release	Build native Android	2026-10-15T04:12:28.9697279Z ✔ copy android in 23.15ms
+release	Build native Android	2026-10-15T04:12:28.9795618Z ✔ Updating Android plugins in 3.15ms
+release	Build native Android	2026-10-15T04:12:29.0721425Z ✔ update android in 99.10ms
+release	Build native Android	2026-10-15T04:12:29.0771815Z [info] Sync finished in 0.139s
+release	Build native Android	2026-10-15T04:12:30.9604783Z Downloading https://services.gradle.org/distributions/gradle-8.14.3-all.zip
+release	Build native Android	2026-10-15T04:12:33.7406300Z .....................10%.....................20%......................30%.....................40%......................50%.....................60%.....................70%......................80%.....................90%......................100%
+release	Build native Android	2026-10-15T04:12:37.6290771Z 
+release	Build native Android	2026-10-15T04:12:37.6292087Z Welcome to Gradle 8.14.3!
+release	Build native Android	2026-10-15T04:12:37.6292780Z 
+release	Build native Android	2026-10-15T04:12:37.6293495Z Here are the highlights of this release:
+release	Build native Android	2026-10-15T04:12:37.6294416Z  - Java 24 support
+release	Build native Android	2026-10-15T04:12:37.6295074Z  - GraalVM Native Image toolchain selection
+release	Build native Android	2026-10-15T04:12:37.6295893Z  - Enhancements to test reporting
+release	Build native Android	2026-10-15T04:12:37.6296558Z  - Build Authoring improvements
+release	Build native Android	2026-10-15T04:12:37.6296962Z 
+release	Build native Android	2026-10-15T04:12:37.6297523Z For more details see https://docs.gradle.org/8.14.3/release-notes.html
+release	Build native Android	2026-10-15T04:12:37.6679726Z 
+release	Build native Android	2026-10-15T04:12:37.8288853Z To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+release	Build native Android	2026-10-15T04:12:39.9286179Z Daemon will be stopped at the end of the build 
+release	Build native Android	2026-10-15T04:13:05.6307235Z 
+release	Build native Android	2026-10-15T04:13:05.6354962Z > Configure project :app
+release	Build native Android	2026-10-15T04:13:05.6385409Z WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+release	Build native Android	2026-10-15T04:13:07.5324411Z 
+release	Build native Android	2026-10-15T04:13:07.5325562Z > Configure project :capacitor-cordova-android-plugins
+release	Build native Android	2026-10-15T04:13:07.5349680Z WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+release	Build native Android	2026-10-15T04:13:09.3282314Z 
+release	Build native Android	2026-10-15T04:13:09.3283865Z > Task :app:preBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:09.3284605Z > Task :app:preDebugBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:09.4307384Z > Task :capacitor-android:preBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:09.4308554Z > Task :capacitor-android:preDebugBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:09.4309568Z > Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:09.4310556Z > Task :capacitor-cordova-android-plugins:preDebugBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:09.4311468Z > Task :capacitor-android:writeDebugAarMetadata
+release	Build native Android	2026-10-15T04:13:09.4312385Z > Task :capacitor-cordova-android-plugins:writeDebugAarMetadata
+release	Build native Android	2026-10-15T04:13:09.4313300Z > Task :capacitor-android:processDebugNavigationResources
+release	Build native Android	2026-10-15T04:13:09.4314219Z > Task :app:javaPreCompileDebug
+release	Build native Android	2026-10-15T04:13:13.4285195Z > Task :capacitor-cordova-android-plugins:processDebugNavigationResources
+release	Build native Android	2026-10-15T04:13:13.4285792Z > Task :app:checkDebugAarMetadata
+release	Build native Android	2026-10-15T04:13:13.4286225Z > Task :app:processDebugNavigationResources
+release	Build native Android	2026-10-15T04:13:13.7285837Z > Task :app:generateDebugResValues
+release	Build native Android	2026-10-15T04:13:13.7286913Z > Task :capacitor-android:generateDebugResValues
+release	Build native Android	2026-10-15T04:13:13.7287809Z > Task :app:compileDebugNavigationResources
+release	Build native Android	2026-10-15T04:13:13.7288600Z > Task :capacitor-android:generateDebugResources
+release	Build native Android	2026-10-15T04:13:13.8290281Z > Task :capacitor-android:packageDebugResources
+release	Build native Android	2026-10-15T04:13:13.8345810Z > Task :capacitor-cordova-android-plugins:generateDebugResValues
+release	Build native Android	2026-10-15T04:13:13.8347100Z > Task :capacitor-cordova-android-plugins:generateDebugResources
+release	Build native Android	2026-10-15T04:13:13.8348377Z > Task :capacitor-cordova-android-plugins:packageDebugResources
+release	Build native Android	2026-10-15T04:13:13.8349256Z > Task :app:mapDebugSourceSetPaths
+release	Build native Android	2026-10-15T04:13:13.8349893Z > Task :app:generateDebugResources
+release	Build native Android	2026-10-15T04:13:14.5305229Z > Task :app:packageDebugResources
+release	Build native Android	2026-10-15T04:13:15.1284904Z > Task :app:mergeDebugResources
+release	Build native Android	2026-10-15T04:13:15.9298509Z > Task :app:createDebugCompatibleScreenManifests
+release	Build native Android	2026-10-15T04:13:15.9315369Z > Task :app:extractDeepLinksDebug
+release	Build native Android	2026-10-15T04:13:15.9318536Z > Task :capacitor-android:extractDeepLinksDebug
+release	Build native Android	2026-10-15T04:13:16.0284646Z > Task :capacitor-cordova-android-plugins:extractDeepLinksDebug
+release	Build native Android	2026-10-15T04:13:16.0325449Z > Task :capacitor-android:compileDebugLibraryResources
+release	Build native Android	2026-10-15T04:13:16.0354801Z > Task :app:parseDebugLocalResources
+release	Build native Android	2026-10-15T04:13:16.1285136Z > Task :capacitor-cordova-android-plugins:compileDebugLibraryResources
+release	Build native Android	2026-10-15T04:13:16.1321314Z > Task :capacitor-android:parseDebugLocalResources
+release	Build native Android	2026-10-15T04:13:16.1340553Z > Task :capacitor-cordova-android-plugins:processDebugManifest
+release	Build native Android	2026-10-15T04:13:16.1349960Z > Task :capacitor-android:processDebugManifest
+release	Build native Android	2026-10-15T04:13:16.1401019Z > Task :capacitor-cordova-android-plugins:parseDebugLocalResources
+release	Build native Android	2026-10-15T04:13:16.1402724Z > Task :capacitor-android:generateDebugRFile
+release	Build native Android	2026-10-15T04:13:16.2294948Z > Task :app:processDebugMainManifest
+release	Build native Android	2026-10-15T04:13:16.5298255Z > Task :app:processDebugManifest
+release	Build native Android	2026-10-15T04:13:16.5315887Z > Task :app:processDebugManifestForPackage
+release	Build native Android	2026-10-15T04:13:16.5323014Z > Task :capacitor-cordova-android-plugins:generateDebugRFile
+release	Build native Android	2026-10-15T04:13:16.5326184Z > Task :capacitor-android:javaPreCompileDebug
+release	Build native Android	2026-10-15T04:13:16.5327152Z > Task :capacitor-cordova-android-plugins:javaPreCompileDebug
+release	Build native Android	2026-10-15T04:13:17.6292236Z > Task :app:processDebugResources
+release	Build native Android	2026-10-15T04:13:23.1301258Z Note: Some input files use unchecked or unsafe operations.
+release	Build native Android	2026-10-15T04:13:23.1301817Z 
+release	Build native Android	2026-10-15T04:13:23.1302599Z Note: Recompile with -Xlint:unchecked for details.
+release	Build native Android	2026-10-15T04:13:23.1303284Z > Task :capacitor-android:compileDebugJavaWithJavac
+release	Build native Android	2026-10-15T04:13:25.0282155Z 
+release	Build native Android	2026-10-15T04:13:25.0283507Z > Task :capacitor-cordova-android-plugins:compileDebugJavaWithJavac NO-SOURCE
+release	Build native Android	2026-10-15T04:13:25.0288654Z > Task :app:preDebugUnitTestBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:25.0289935Z > Task :capacitor-cordova-android-plugins:bundleLibCompileToJarDebug
+release	Build native Android	2026-10-15T04:13:25.0290912Z > Task :app:processDebugJavaRes NO-SOURCE
+release	Build native Android	2026-10-15T04:13:25.0291655Z > Task :app:processDebugUnitTestJavaRes NO-SOURCE
+release	Build native Android	2026-10-15T04:13:25.0292383Z > Task :app:javaPreCompileDebugUnitTest
+release	Build native Android	2026-10-15T04:13:25.0293198Z > Task :capacitor-android:processDebugJavaRes NO-SOURCE
+release	Build native Android	2026-10-15T04:13:25.0294416Z > Task :capacitor-cordova-android-plugins:processDebugJavaRes NO-SOURCE
+release	Build native Android	2026-10-15T04:13:25.0295274Z > Task :app:preReleaseBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:25.0296111Z > Task :capacitor-cordova-android-plugins:bundleLibRuntimeToJarDebug
+release	Build native Android	2026-10-15T04:13:25.0297038Z > Task :capacitor-android:preReleaseBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:25.0297897Z > Task :capacitor-android:bundleLibCompileToJarDebug
+release	Build native Android	2026-10-15T04:13:25.0298694Z > Task :capacitor-android:writeReleaseAarMetadata
+release	Build native Android	2026-10-15T04:13:25.0299409Z > Task :app:javaPreCompileRelease
+release	Build native Android	2026-10-15T04:13:25.0300175Z > Task :capacitor-android:bundleLibRuntimeToJarDebug
+release	Build native Android	2026-10-15T04:13:25.4282486Z 
+release	Build native Android	2026-10-15T04:13:25.4284717Z Note: /home/runner/work/stock-ai-spec/stock-ai-spec/web/android/app/src/main/java/jp/***/app/StockAIPlugin.java uses or overrides a deprecated API.
+release	Build native Android	2026-10-15T04:13:25.4285962Z Note: Recompile with -Xlint:deprecation for details.
+release	Build native Android	2026-10-15T04:13:25.4286936Z > Task :app:compileDebugJavaWithJavac
+release	Build native Android	2026-10-15T04:13:25.4287741Z 
+release	Build native Android	2026-10-15T04:13:25.4288315Z > Task :capacitor-cordova-android-plugins:preReleaseBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:25.4289160Z > Task :app:bundleDebugClassesToCompileJar
+release	Build native Android	2026-10-15T04:13:25.4290020Z > Task :capacitor-cordova-android-plugins:writeReleaseAarMetadata
+release	Build native Android	2026-10-15T04:13:25.4290953Z > Task :capacitor-android:processReleaseNavigationResources
+release	Build native Android	2026-10-15T04:13:25.4291723Z > Task :app:bundleDebugClassesToRuntimeJar
+release	Build native Android	2026-10-15T04:13:25.9307466Z > Task :app:compileDebugUnitTestJavaWithJavac
+release	Build native Android	2026-10-15T04:13:28.9296345Z > Task :app:testDebugUnitTest
+release	Build native Android	2026-10-15T04:13:28.9302098Z > Task :app:checkReleaseAarMetadata
+release	Build native Android	2026-10-15T04:13:28.9303129Z > Task :capacitor-cordova-android-plugins:processReleaseNavigationResources
+release	Build native Android	2026-10-15T04:13:28.9304570Z > Task :app:processReleaseNavigationResources
+release	Build native Android	2026-10-15T04:13:28.9305529Z > Task :app:compileReleaseNavigationResources
+release	Build native Android	2026-10-15T04:13:28.9336199Z > Task :app:generateReleaseResValues
+release	Build native Android	2026-10-15T04:13:28.9337112Z > Task :capacitor-android:generateReleaseResValues
+release	Build native Android	2026-10-15T04:13:28.9337809Z > Task :capacitor-android:generateReleaseResources
+release	Build native Android	2026-10-15T04:13:28.9338515Z > Task :capacitor-android:packageReleaseResources
+release	Build native Android	2026-10-15T04:13:28.9339411Z > Task :capacitor-cordova-android-plugins:generateReleaseResValues
+release	Build native Android	2026-10-15T04:13:28.9340275Z > Task :capacitor-cordova-android-plugins:generateReleaseResources
+release	Build native Android	2026-10-15T04:13:28.9341188Z > Task :capacitor-cordova-android-plugins:packageReleaseResources
+release	Build native Android	2026-10-15T04:13:28.9341916Z > Task :app:mapReleaseSourceSetPaths
+release	Build native Android	2026-10-15T04:13:28.9342486Z > Task :app:generateReleaseResources
+release	Build native Android	2026-10-15T04:13:29.4305241Z > Task :app:packageReleaseResources
+release	Build native Android	2026-10-15T04:13:29.6315512Z > Task :app:createReleaseCompatibleScreenManifests
+release	Build native Android	2026-10-15T04:13:29.6344624Z > Task :app:extractDeepLinksRelease
+release	Build native Android	2026-10-15T04:13:29.6394805Z > Task :capacitor-android:extractDeepLinksRelease
+release	Build native Android	2026-10-15T04:13:29.6435115Z > Task :app:parseReleaseLocalResources
+release	Build native Android	2026-10-15T04:13:29.6474960Z > Task :capacitor-cordova-android-plugins:extractDeepLinksRelease
+release	Build native Android	2026-10-15T04:13:29.6518004Z > Task :capacitor-android:processReleaseManifest
+release	Build native Android	2026-10-15T04:13:29.6544640Z > Task :capacitor-cordova-android-plugins:processReleaseManifest
+release	Build native Android	2026-10-15T04:13:29.7324850Z > Task :app:processReleaseMainManifest
+release	Build native Android	2026-10-15T04:13:29.7354713Z > Task :app:processReleaseManifest
+release	Build native Android	2026-10-15T04:13:29.8285181Z > Task :app:processReleaseManifestForPackage
+release	Build native Android	2026-10-15T04:13:29.8344939Z > Task :capacitor-android:parseReleaseLocalResources
+release	Build native Android	2026-10-15T04:13:29.8423507Z > Task :capacitor-cordova-android-plugins:compileReleaseLibraryResources
+release	Build native Android	2026-10-15T04:13:29.8434846Z > Task :capacitor-android:compileReleaseLibraryResources
+release	Build native Android	2026-10-15T04:13:29.8464623Z > Task :capacitor-android:generateReleaseRFile
+release	Build native Android	2026-10-15T04:13:29.8465680Z > Task :capacitor-cordova-android-plugins:parseReleaseLocalResources
+release	Build native Android	2026-10-15T04:13:29.8466814Z > Task :capacitor-android:javaPreCompileRelease
+release	Build native Android	2026-10-15T04:13:29.8467681Z > Task :capacitor-cordova-android-plugins:generateReleaseRFile
+release	Build native Android	2026-10-15T04:13:29.8468815Z > Task :capacitor-cordova-android-plugins:javaPreCompileRelease
+release	Build native Android	2026-10-15T04:13:30.1305390Z > Task :app:mergeReleaseResources
+release	Build native Android	2026-10-15T04:13:30.6295990Z Note: Some input files use unchecked or unsafe operations.
+release	Build native Android	2026-10-15T04:13:30.6296644Z 
+release	Build native Android	2026-10-15T04:13:30.6298023Z Note: Recompile with -Xlint:unchecked for details.
+release	Build native Android	2026-10-15T04:13:30.6298816Z > Task :capacitor-android:compileReleaseJavaWithJavac
+release	Build native Android	2026-10-15T04:13:30.7311814Z 
+release	Build native Android	2026-10-15T04:13:30.7336221Z > Task :capacitor-cordova-android-plugins:compileReleaseJavaWithJavac NO-SOURCE
+release	Build native Android	2026-10-15T04:13:30.7365167Z > Task :capacitor-android:bundleLibCompileToJarRelease
+release	Build native Android	2026-10-15T04:13:30.7395184Z > Task :capacitor-cordova-android-plugins:bundleLibCompileToJarRelease
+release	Build native Android	2026-10-15T04:13:30.7396473Z > Task :app:extractProguardFiles
+release	Build native Android	2026-10-15T04:13:30.7425420Z > Task :capacitor-android:processReleaseJavaRes NO-SOURCE
+release	Build native Android	2026-10-15T04:13:30.7455830Z > Task :capacitor-android:bundleLibRuntimeToJarRelease
+release	Build native Android	2026-10-15T04:13:30.7465002Z > Task :capacitor-android:extractProguardFiles
+release	Build native Android	2026-10-15T04:13:30.7504812Z > Task :capacitor-android:createFullJarRelease
+release	Build native Android	2026-10-15T04:13:31.0305621Z > Task :app:processReleaseResources
+release	Build native Android	2026-10-15T04:13:31.9295470Z > Task :capacitor-android:generateReleaseLintModel
+release	Build native Android	2026-10-15T04:13:32.2285942Z Note: /home/runner/work/stock-ai-spec/stock-ai-spec/web/android/app/src/main/java/jp/***/app/StockAIPlugin.java uses or overrides a deprecated API.
+release	Build native Android	2026-10-15T04:13:32.2287050Z 
+release	Build native Android	2026-10-15T04:13:32.2300306Z Note: Recompile with -Xlint:deprecation for details.
+release	Build native Android	2026-10-15T04:13:32.2301173Z > Task :app:compileReleaseJavaWithJavac
+release	Build native Android	2026-10-15T04:13:32.2324296Z 
+release	Build native Android	2026-10-15T04:13:32.2355092Z > Task :capacitor-android:prepareLintJarForPublish
+release	Build native Android	2026-10-15T04:13:32.2381038Z > Task :capacitor-cordova-android-plugins:bundleLibRuntimeToJarRelease
+release	Build native Android	2026-10-15T04:13:32.2382412Z > Task :capacitor-cordova-android-plugins:processReleaseJavaRes NO-SOURCE
+release	Build native Android	2026-10-15T04:13:32.2383518Z > Task :capacitor-cordova-android-plugins:createFullJarRelease
+release	Build native Android	2026-10-15T04:13:32.2385262Z > Task :capacitor-cordova-android-plugins:extractProguardFiles
+release	Build native Android	2026-10-15T04:13:33.8298765Z > Task :capacitor-cordova-android-plugins:generateReleaseLintModel
+release	Build native Android	2026-10-15T04:13:33.8325671Z > Task :capacitor-cordova-android-plugins:prepareLintJarForPublish
+release	Build native Android	2026-10-15T04:13:33.8341544Z > Task :capacitor-android:checkReleaseAarMetadata
+release	Build native Android	2026-10-15T04:13:34.0285800Z > Task :app:generateReleaseLintReportModel
+release	Build native Android	2026-10-15T04:13:34.0297328Z > Task :capacitor-android:mergeReleaseJniLibFolders
+release	Build native Android	2026-10-15T04:13:34.0322263Z > Task :capacitor-android:mergeReleaseNativeLibs NO-SOURCE
+release	Build native Android	2026-10-15T04:13:34.0323811Z > Task :capacitor-android:stripReleaseDebugSymbols NO-SOURCE
+release	Build native Android	2026-10-15T04:13:34.0325196Z > Task :capacitor-android:extractDeepLinksForAarRelease
+release	Build native Android	2026-10-15T04:13:34.0326308Z > Task :capacitor-android:copyReleaseJniLibsProjectAndLocalJars
+release	Build native Android	2026-10-15T04:13:39.0282817Z > Task :capacitor-android:extractReleaseAnnotations
+release	Build native Android	2026-10-15T04:13:39.0286448Z > Task :capacitor-android:mergeReleaseShaders
+release	Build native Android	2026-10-15T04:13:39.1282194Z > Task :capacitor-android:compileReleaseShaders NO-SOURCE
+release	Build native Android	2026-10-15T04:13:39.1287882Z > Task :capacitor-android:generateReleaseAssets UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:39.1315219Z > Task :capacitor-android:mergeReleaseAssets
+release	Build native Android	2026-10-15T04:13:39.1344920Z > Task :capacitor-android:mergeReleaseGeneratedProguardFiles
+release	Build native Android	2026-10-15T04:13:39.1375071Z > Task :capacitor-android:mergeReleaseConsumerProguardFiles
+release	Build native Android	2026-10-15T04:13:39.1404817Z > Task :capacitor-android:prepareReleaseArtProfile
+release	Build native Android	2026-10-15T04:13:39.1406117Z > Task :capacitor-cordova-android-plugins:checkReleaseAarMetadata
+release	Build native Android	2026-10-15T04:13:39.1407097Z > Task :capacitor-cordova-android-plugins:mergeReleaseJniLibFolders
+release	Build native Android	2026-10-15T04:13:39.1407775Z > Task :capacitor-cordova-android-plugins:mergeReleaseNativeLibs NO-SOURCE
+release	Build native Android	2026-10-15T04:13:39.1408508Z > Task :capacitor-cordova-android-plugins:stripReleaseDebugSymbols NO-SOURCE
+release	Build native Android	2026-10-15T04:13:39.1409158Z > Task :capacitor-cordova-android-plugins:extractDeepLinksForAarRelease
+release	Build native Android	2026-10-15T04:13:39.1409890Z > Task :capacitor-cordova-android-plugins:copyReleaseJniLibsProjectAndLocalJars
+release	Build native Android	2026-10-15T04:13:39.2286201Z > Task :capacitor-android:mergeReleaseJavaResource
+release	Build native Android	2026-10-15T04:13:39.5353279Z > Task :capacitor-cordova-android-plugins:extractReleaseAnnotations
+release	Build native Android	2026-10-15T04:13:39.5354817Z > Task :capacitor-android:syncReleaseLibJars
+release	Build native Android	2026-10-15T04:13:39.5386384Z > Task :capacitor-android:bundleReleaseLocalLintAar
+release	Build native Android	2026-10-15T04:13:39.6325761Z > Task :capacitor-cordova-android-plugins:mergeReleaseShaders
+release	Build native Android	2026-10-15T04:13:39.6385342Z > Task :capacitor-cordova-android-plugins:compileReleaseShaders NO-SOURCE
+release	Build native Android	2026-10-15T04:13:39.6415032Z > Task :capacitor-cordova-android-plugins:generateReleaseAssets UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:39.6444807Z > Task :capacitor-cordova-android-plugins:mergeReleaseAssets
+release	Build native Android	2026-10-15T04:13:39.6472938Z > Task :capacitor-cordova-android-plugins:mergeReleaseGeneratedProguardFiles
+release	Build native Android	2026-10-15T04:13:39.6484086Z > Task :capacitor-cordova-android-plugins:mergeReleaseConsumerProguardFiles
+release	Build native Android	2026-10-15T04:13:39.6485769Z > Task :capacitor-cordova-android-plugins:prepareReleaseArtProfile
+release	Build native Android	2026-10-15T04:13:39.6487024Z > Task :app:preReleaseUnitTestBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:39.6488215Z > Task :capacitor-cordova-android-plugins:mergeReleaseJavaResource
+release	Build native Android	2026-10-15T04:13:39.6489418Z > Task :app:bundleReleaseClassesToCompileJar
+release	Build native Android	2026-10-15T04:13:39.6490466Z > Task :capacitor-android:writeReleaseLintModelMetadata
+release	Build native Android	2026-10-15T04:13:39.6491715Z > Task :capacitor-cordova-android-plugins:syncReleaseLibJars
+release	Build native Android	2026-10-15T04:13:39.6492955Z > Task :capacitor-cordova-android-plugins:bundleReleaseLocalLintAar
+release	Build native Android	2026-10-15T04:13:39.6494422Z > Task :capacitor-cordova-android-plugins:writeReleaseLintModelMetadata
+release	Build native Android	2026-10-15T04:13:39.8283201Z > Task :app:generateReleaseUnitTestLintModel
+release	Build native Android	2026-10-15T04:13:39.8284432Z > Task :capacitor-android:preReleaseUnitTestBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:40.5320501Z > Task :capacitor-android:generateReleaseUnitTestLintModel
+release	Build native Android	2026-10-15T04:13:40.5323852Z > Task :capacitor-cordova-android-plugins:preReleaseUnitTestBuild UP-TO-DATE
+release	Build native Android	2026-10-15T04:13:40.6282905Z > Task :capacitor-cordova-android-plugins:generateReleaseUnitTestLintModel
+release	Build native Android	2026-10-15T04:13:40.6295424Z > Task :app:mergeReleaseJniLibFolders
+release	Build native Android	2026-10-15T04:13:40.6299542Z > Task :capacitor-android:copyReleaseJniLibsProjectOnly
+release	Build native Android	2026-10-15T04:13:40.6300847Z > Task :capacitor-cordova-android-plugins:copyReleaseJniLibsProjectOnly
+release	Build native Android	2026-10-15T04:13:40.7342977Z > Task :app:mergeReleaseNativeLibs NO-SOURCE
+release	Build native Android	2026-10-15T04:13:40.7382857Z > Task :app:stripReleaseDebugSymbols NO-SOURCE
+release	Build native Android	2026-10-15T04:13:40.7395794Z > Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+release	Build native Android	2026-10-15T04:13:40.7405851Z > Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+release	Build native Android	2026-10-15T04:13:40.7407127Z > Task :capacitor-android:bundleLibRuntimeToDirRelease
+release	Build native Android	2026-10-15T04:13:40.8307821Z > Task :capacitor-cordova-android-plugins:bundleLibRuntimeToDirRelease
+release	Build native Android	2026-10-15T04:13:41.0315547Z > Task :app:checkReleaseDuplicateClasses
+release	Build native Android	2026-10-15T04:13:41.8305556Z > Task :app:dexBuilderRelease
+release	Build native Android	2026-10-15T04:13:41.8335276Z > Task :app:desugarReleaseFileDependencies
+release	Build native Android	2026-10-15T04:13:41.8355131Z > Task :app:mergeReleaseStartupProfile
+release	Build native Android	2026-10-15T04:13:53.3315481Z > Task :capacitor-cordova-android-plugins:lintAnalyzeRelease
+release	Build native Android	2026-10-15T04:14:08.4282928Z > Task :capacitor-android:lintAnalyzeRelease
+release	Build native Android	2026-10-15T04:14:10.7319761Z > Task :app:lintAnalyzeReleaseUnitTest
+release	Build native Android	2026-10-15T04:14:10.8315515Z > Task :app:mergeReleaseArtProfile
+release	Build native Android	2026-10-15T04:14:11.1294459Z > Task :capacitor-android:lintAnalyzeReleaseUnitTest
+release	Build native Android	2026-10-15T04:14:11.1314835Z > Task :app:mergeReleaseGlobalSynthetics
+release	Build native Android	2026-10-15T04:14:11.1345235Z > Task :app:mergeReleaseShaders
+release	Build native Android	2026-10-15T04:14:11.1358683Z > Task :app:compileReleaseShaders NO-SOURCE
+release	Build native Android	2026-10-15T04:14:11.1374744Z > Task :app:generateReleaseAssets UP-TO-DATE
+release	Build native Android	2026-10-15T04:14:11.4315416Z > Task :capacitor-cordova-android-plugins:lintAnalyzeReleaseUnitTest
+release	Build native Android	2026-10-15T04:14:11.5305552Z > Task :app:mergeReleaseAssets
+release	Build native Android	2026-10-15T04:14:11.7335338Z > Task :app:extractReleaseVersionControlInfo
+release	Build native Android	2026-10-15T04:14:11.7365142Z > Task :app:generateReleaseLintVitalReportModel
+release	Build native Android	2026-10-15T04:14:11.8290370Z > Task :app:mergeExtDexRelease
+release	Build native Android	2026-10-15T04:14:13.8284703Z > Task :app:compressReleaseAssets
+release	Build native Android	2026-10-15T04:14:13.8305204Z > Task :capacitor-android:generateReleaseLintVitalModel
+release	Build native Android	2026-10-15T04:14:13.8335464Z > Task :capacitor-cordova-android-plugins:generateReleaseLintVitalModel
+release	Build native Android	2026-10-15T04:14:13.8364790Z > Task :app:processReleaseJavaRes NO-SOURCE
+release	Build native Android	2026-10-15T04:14:14.7323068Z > Task :app:lintAnalyzeRelease
+release	Build native Android	2026-10-15T04:14:15.2283089Z > Task :app:mergeReleaseJavaResource
+release	Build native Android	2026-10-15T04:14:15.6282579Z 
+release	Build native Android	2026-10-15T04:14:15.6345077Z > Task :app:lintReportRelease
+release	Build native Android	2026-10-15T04:14:15.6375710Z Wrote HTML report to file:///home/runner/work/stock-ai-spec/stock-ai-spec/web/android/app/build/reports/lint-results-release.html
+release	Build native Android	2026-10-15T04:14:15.6404072Z 
+release	Build native Android	2026-10-15T04:14:15.6455027Z > Task :app:lintRelease
+release	Build native Android	2026-10-15T04:14:15.7295386Z > Task :app:optimizeReleaseResources
+release	Build native Android	2026-10-15T04:14:15.8315426Z > Task :app:collectReleaseDependencies
+release	Build native Android	2026-10-15T04:14:15.9295363Z > Task :app:sdkReleaseDependencyData
+release	Build native Android	2026-10-15T04:14:15.9355312Z > Task :app:validateSigningRelease
+release	Build native Android	2026-10-15T04:14:15.9414872Z > Task :app:writeReleaseAppMetadata
+release	Build native Android	2026-10-15T04:14:16.0345736Z > Task :app:writeReleaseSigningConfigVersions
+release	Build native Android	2026-10-15T04:14:16.6285778Z > Task :capacitor-cordova-android-plugins:lintVitalAnalyzeRelease
+release	Build native Android	2026-10-15T04:14:16.6335034Z > Task :app:mergeDexRelease
+release	Build native Android	2026-10-15T04:14:17.2315602Z > Task :app:compileReleaseArtProfile
+release	Build native Android	2026-10-15T04:14:18.1301877Z > Task :capacitor-android:lintVitalAnalyzeRelease
+release	Build native Android	2026-10-15T04:14:18.4305129Z > Task :app:lintVitalAnalyzeRelease
+release	Build native Android	2026-10-15T04:14:18.4332472Z > Task :app:lintVitalReportRelease SKIPPED
+release	Build native Android	2026-10-15T04:14:18.4345414Z > Task :app:lintVitalRelease SKIPPED
+release	Build native Android	2026-10-15T04:14:18.4346433Z > Task :app:packageRelease FAILED
+release	Build native Android	2026-10-15T04:14:18.5281435Z 
+release	Build native Android	2026-10-15T04:14:18.5281621Z 
+release	Build native Android	2026-10-15T04:14:18.5284430Z [Incubating] Problems report is available at: file:///home/runner/work/stock-ai-spec/stock-ai-spec/web/android/build/reports/problems/problems-report.html
+release	Build native Android	2026-10-15T04:14:18.5285876Z 
+release	Build native Android	2026-10-15T04:14:18.5286737Z Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+release	Build native Android	2026-10-15T04:14:18.5287553Z 
+release	Build native Android	2026-10-15T04:14:18.5288694Z You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+release	Build native Android	2026-10-15T04:14:18.5289787Z 
+release	Build native Android	2026-10-15T04:14:18.5291003Z For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+release	Build native Android	2026-10-15T04:14:18.5292985Z 175 actionable tasks: 175 executed
+release	Build native Android	2026-10-15T04:14:18.5310941Z FAILURE: Build failed with an exception.
+release	Build native Android	2026-10-15T04:14:18.5334634Z 
+release	Build native Android	2026-10-15T04:14:18.5335851Z * What went wrong:
+release	Build native Android	2026-10-15T04:14:18.5337118Z Execution failed for task ':app:packageRelease'.
+release	Build native Android	2026-10-15T04:14:18.5339169Z > A failure occurred while executing com.android.build.gradle.tasks.PackageAndroidArtifact$IncrementalSplitterRunnable
+release	Build native Android	2026-10-15T04:14:18.5342008Z    > com.android.ide.common.signing.KeytoolException: Failed to read key *** from store "/home/runner/work/_temp/***-signing.p12": No key with alias '***' found in keystore /home/runner/work/_temp/***-signing.p12
+release	Build native Android	2026-10-15T04:14:18.5343417Z 
+release	Build native Android	2026-10-15T04:14:18.5344027Z * Try:
+release	Build native Android	2026-10-15T04:14:18.5345012Z > Run with --stacktrace option to get the stack trace.
+release	Build native Android	2026-10-15T04:14:18.5346043Z > Run with --info or --debug option to get more log output.
+release	Build native Android	2026-10-15T04:14:18.5346988Z > Run with --scan to get full insights.
+release	Build native Android	2026-10-15T04:14:18.5347886Z > Get more help at https://help.gradle.org.
+release	Build native Android	2026-10-15T04:14:18.5348478Z 
+release	Build native Android	2026-10-15T04:14:18.5348920Z BUILD FAILED in 1m 48s
+release	Build native Android	2026-10-15T04:14:18.7428482Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="jp.stockai.app.StatePersistenceTest" tests="3" failures="0" errors="0" skipped="0" time="1.207" timestamp="2026-10-15T04:05:44" hostname="localhost">
+  <properties>
+    <property name="device" value="emulator-5554 - 15" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="interruptedMultiChunkWriteRollsBackWholeGeneration" classname="jp.stockai.app.StatePersistenceTest" time="0.102" />
+  <testcase name="removedOrTamperedChunkIsNeverReturnedAsValidState" classname="jp.stockai.app.StatePersistenceTest" time="0.122" />
+  <testcase name="payloadLargerThanCursorWindowSurvivesReopenAndRejectsStaleWrites" classname="jp.stockai.app.StatePersistenceTest" time="0.379" />
+</testsuite>

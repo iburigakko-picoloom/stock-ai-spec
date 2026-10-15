@@ -1,0 +1,29 @@
+verify	Android emulator persistence tests	﻿2026-10-15T03:40:09.7913061Z ##[group]Run set -euo pipefail
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7913437Z ^[[36;1mset -euo pipefail^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7913704Z ^[[36;1msudo chmod a+rw /dev/kvm^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7914225Z ^[[36;1msdkmanager --install 'system-images;android-35;default;x86_64' 'emulator' > "$RUNNER_TEMP/stockai-sdk.log"^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7915044Z ^[[36;1mecho no | avdmanager create avd --force --name stockai-ci --package 'system-images;android-35;default;x86_64' --device pixel_2^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7916172Z ^[[36;1m"$ANDROID_HOME/emulator/emulator" -avd stockai-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/stockai-emulator.log" 2>&1 &^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7917051Z ^[[36;1mtrap 'adb emu kill >/dev/null 2>&1 || true' EXIT^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7917396Z ^[[36;1mtimeout 180 adb wait-for-device^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7917673Z ^[[36;1mBOOTED=false^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7917906Z ^[[36;1mfor attempt in $(seq 1 90); do^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7918398Z ^[[36;1m  if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = '1' ]; then BOOTED=true; break; fi^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7918850Z ^[[36;1m  sleep 2^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7919072Z ^[[36;1mdone^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7919283Z ^[[36;1mtest "$BOOTED" = true^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7919606Z ^[[36;1m./gradlew --no-daemon :app:connectedDebugAndroidTest^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7989708Z shell: /usr/bin/bash -e {0}
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7989989Z env:
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7990269Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7990714Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7991143Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7991527Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7991901Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7992548Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7992999Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7993477Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7994063Z   MAVEN_ARGS: -ntp
+verify	Android emulator persistence tests	2026-10-15T03:40:09.7994284Z ##[endgroup]
+verify	Android emulator persistence tests	2026-10-15T03:40:09.8171621Z /home/runner/work/_temp/5f828a8a-527b-43f4-a87b-bf3b30f142b0.sh: line 3: sdkmanager: command not found
+verify	Android emulator persistence tests	2026-10-15T03:40:09.8186013Z ##[error]Process completed with exit code 127.

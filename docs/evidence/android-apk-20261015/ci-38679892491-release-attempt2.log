@@ -1,0 +1,31 @@
+release	Verify signing and create release manifest	﻿2026-10-15T04:20:51.7870412Z ##[group]Run set -euo pipefail
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7870774Z ^[[36;1mset -euo pipefail^[[0m
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7871054Z ^[[36;1mmkdir -p release^[[0m
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7871485Z ^[[36;1mcp web/android/app/build/outputs/apk/release/app-release.apk release/StockAI.apk^[[0m
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7872106Z ^[[36;1mSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)^[[0m
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7873024Z ^[[36;1m"$SIGNER" verify --verbose --print-certs release/StockAI.apk > release/signature.txt^[[0m
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7873627Z ^[[36;1mpython scripts/android_package_audit.py release/StockAI.apk^[[0m
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7874069Z ^[[36;1mpython scripts/android_release_manifest.py^[[0m
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7943816Z shell: /usr/bin/bash -e {0}
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7944102Z env:
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7944406Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7944879Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7945325Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7945761Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7946155Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7946556Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7947002Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7947500Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7947900Z   MAVEN_ARGS: -ntp
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7948317Z   ANDROID_KEYSTORE_PATH: /home/runner/work/_temp/***-signing.p12
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7948706Z   STOCKAI_VERSION_CODE: 10009
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7948976Z   STOCKAI_VERSION_NAME: 0.1.9
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7949371Z   ANDROID_KEYSTORE_PASSWORD: ***
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7951898Z   GH_TOKEN: ***
+release	Verify signing and create release manifest	2026-10-15T04:20:51.7952149Z ##[endgroup]
+release	Verify signing and create release manifest	2026-10-15T04:20:52.4303591Z {"package": "release/StockAI.apk", "entries": 475, "private_path_check": "PASS"}
+release	Verify signing and create release manifest	2026-10-15T04:20:52.5145053Z Traceback (most recent call last):
+release	Verify signing and create release manifest	2026-10-15T04:20:52.5146200Z   File "/home/runner/work/stock-ai-spec/stock-ai-spec/scripts/android_release_manifest.py", line 30, in <module>
+release	Verify signing and create release manifest	2026-10-15T04:20:52.5147211Z     raise ValueError("APK signing identity changed")
+release	Verify signing and create release manifest	2026-10-15T04:20:52.5147820Z ValueError: APK signing identity changed
+release	Verify signing and create release manifest	2026-10-15T04:20:52.5246304Z ##[error]Process completed with exit code 1.

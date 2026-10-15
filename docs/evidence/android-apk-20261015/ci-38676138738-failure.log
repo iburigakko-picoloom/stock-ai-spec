@@ -1,0 +1,370 @@
+verify	Android compiler, backup crypto tests and lint	﻿2026-10-15T03:30:10.2384103Z ##[group]Run npx cap sync android
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2384615Z ^[[36;1mnpx cap sync android^[[0m
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2384888Z ^[[36;1mcd android^[[0m
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2385121Z ^[[36;1mchmod +x gradlew^[[0m
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2385602Z ^[[36;1m./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest^[[0m
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2467193Z shell: /usr/bin/bash -e {0}
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2467503Z env:
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2467805Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2468279Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2468749Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2469160Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2469579Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2469990Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2470439Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2471458Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2471887Z   MAVEN_ARGS: -ntp
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:10.2472109Z ##[endgroup]
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:11.0439324Z ✔ Copying web assets from dist to android/app/src/main/assets/public in 17.51ms
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:11.0450023Z ✔ Creating capacitor.config.json in android/app/src/main/assets in 739.47μs
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:11.0522519Z ✔ copy android in 35.79ms
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:11.0673882Z ✔ Updating Android plugins in 4.35ms
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:11.0875607Z ✔ update android in 30.12ms
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:11.0945847Z [info] Sync finished in 0.09s
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:12.8111056Z Downloading https://services.gradle.org/distributions/gradle-8.14.3-all.zip
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:16.4587190Z .....................10%.....................20%......................30%.....................40%......................50%.....................60%.....................70%......................80%.....................90%......................100%
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2437375Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2438264Z Welcome to Gradle 8.14.3!
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2439013Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2439749Z Here are the highlights of this release:
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2440731Z  - Java 24 support
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2442200Z  - GraalVM Native Image toolchain selection
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2443116Z  - Enhancements to test reporting
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2444410Z  - Build Authoring improvements
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2445013Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2446572Z For more details see https://docs.gradle.org/8.14.3/release-notes.html
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.2447567Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:20.4436992Z To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:30:22.1452182Z Daemon will be stopped at the end of the build 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:00.4440557Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:00.4453040Z > Configure project :app
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:00.4454516Z WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:03.1428469Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:03.1429752Z > Configure project :capacitor-cordova-android-plugins
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:03.1431806Z WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.0452172Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.0482207Z > Task :app:preBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.0484417Z > Task :app:preDebugBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2452120Z > Task :capacitor-android:preBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2456692Z > Task :capacitor-android:preDebugBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2481993Z > Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2514239Z > Task :capacitor-cordova-android-plugins:preDebugBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2541828Z > Task :app:javaPreCompileDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2572102Z > Task :capacitor-android:writeDebugAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2574292Z > Task :capacitor-cordova-android-plugins:writeDebugAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:05.2602784Z > Task :capacitor-android:processDebugNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:12.4434567Z > Task :capacitor-cordova-android-plugins:processDebugNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:12.4435398Z > Task :app:checkDebugAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:12.4435901Z > Task :app:processDebugNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.0429035Z > Task :app:generateDebugResValues
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.0441450Z > Task :app:compileDebugNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.0442635Z > Task :capacitor-android:generateDebugResValues
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.0443779Z > Task :capacitor-android:generateDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.0444873Z > Task :capacitor-android:packageDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.1454794Z > Task :capacitor-cordova-android-plugins:generateDebugResValues
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.1456553Z > Task :capacitor-cordova-android-plugins:generateDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.1457753Z > Task :capacitor-cordova-android-plugins:packageDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.2428815Z > Task :app:mapDebugSourceSetPaths
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:13.2433808Z > Task :app:generateDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:14.3429221Z > Task :app:packageDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:14.4429215Z > Task :app:mergeDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.2434106Z > Task :app:createDebugCompatibleScreenManifests
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.2483647Z > Task :app:extractDeepLinksDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.2542106Z > Task :capacitor-android:extractDeepLinksDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.3455434Z > Task :capacitor-cordova-android-plugins:extractDeepLinksDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.3516346Z > Task :capacitor-android:compileDebugLibraryResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.4429313Z > Task :capacitor-android:processDebugManifest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.4452913Z > Task :app:parseDebugLocalResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.4471912Z > Task :capacitor-cordova-android-plugins:processDebugManifest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.4481986Z > Task :capacitor-android:parseDebugLocalResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.4483318Z > Task :capacitor-cordova-android-plugins:compileDebugLibraryResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.6441915Z > Task :app:processDebugMainManifest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:17.9452245Z > Task :app:processDebugManifest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0441926Z > Task :app:processDebugManifestForPackage
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0462102Z > Task :capacitor-android:javaPreCompileDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0463146Z > Task :app:preDebugUnitTestBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0464303Z > Task :capacitor-cordova-android-plugins:javaPreCompileDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0465322Z > Task :app:javaPreCompileDebugUnitTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0466423Z > Task :capacitor-cordova-android-plugins:parseDebugLocalResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0467478Z > Task :capacitor-android:generateDebugRFile
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.0468369Z > Task :app:processDebugJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:18.1434411Z > Task :capacitor-cordova-android-plugins:generateDebugRFile
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:25.5435727Z Note: Some input files use unchecked or unsafe operations.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:25.5436718Z Note: Recompile with -Xlint:unchecked for details.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:25.5437177Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:25.5437589Z > Task :capacitor-android:compileDebugJavaWithJavac
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.1434565Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.1466368Z > Task :capacitor-cordova-android-plugins:compileDebugJavaWithJavac NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2451820Z > Task :app:processDebugUnitTestJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2481739Z > Task :capacitor-cordova-android-plugins:bundleLibCompileToJarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2511620Z > Task :capacitor-android:processDebugJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2541638Z > Task :capacitor-android:bundleLibCompileToJarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2571660Z > Task :capacitor-android:bundleLibRuntimeToJarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2601750Z > Task :capacitor-cordova-android-plugins:bundleLibRuntimeToJarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2627178Z > Task :capacitor-cordova-android-plugins:processDebugJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.2651615Z > Task :capacitor-android:preDebugUnitTestBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:28.6433295Z > Task :app:processDebugResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:29.5428696Z > Task :capacitor-android:generateDebugUnitTestStubRFile
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.0442742Z Note: /home/runner/work/stock-ai-spec/stock-ai-spec/web/android/app/src/main/java/jp/stockai/app/StockAIPlugin.java uses or overrides a deprecated API.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.0444267Z Note: Recompile with -Xlint:deprecation for details.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.0444721Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.0476172Z > Task :app:compileDebugJavaWithJavac
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.0477038Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.0501834Z > Task :app:bundleDebugClassesToCompileJar
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.1428677Z > Task :app:bundleDebugClassesToRuntimeJar
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:30.8452266Z > Task :app:compileDebugUnitTestJavaWithJavac
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:34.7429117Z > Task :app:testDebugUnitTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:34.7430231Z > Task :capacitor-android:javaPreCompileDebugUnitTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:34.7431705Z > Task :capacitor-android:processDebugUnitTestJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:34.7433442Z > Task :capacitor-android:compileDebugUnitTestJavaWithJavac NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:34.7435048Z > Task :capacitor-android:testDebugUnitTest NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:34.7436596Z > Task :capacitor-cordova-android-plugins:preDebugUnitTestBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.7436451Z > Task :capacitor-cordova-android-plugins:javaPreCompileDebugUnitTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.7438993Z > Task :capacitor-cordova-android-plugins:processDebugUnitTestJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.7440295Z > Task :capacitor-android:checkDebugAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.7441764Z > Task :capacitor-cordova-android-plugins:generateDebugUnitTestStubRFile
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.7442935Z > Task :capacitor-android:mergeDebugJniLibFolders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.7444223Z > Task :capacitor-cordova-android-plugins:compileDebugUnitTestJavaWithJavac NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.8429159Z > Task :capacitor-cordova-android-plugins:testDebugUnitTest NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.8430422Z > Task :capacitor-android:mergeDebugNativeLibs NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.8431581Z > Task :capacitor-android:stripDebugDebugSymbols NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:36.8432453Z > Task :capacitor-android:copyDebugJniLibsProjectAndLocalJars
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:41.9435403Z > Task :capacitor-android:extractDebugAnnotations
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:41.9477835Z > Task :capacitor-android:extractDeepLinksForAarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:41.9478842Z > Task :capacitor-android:mergeDebugShaders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:41.9480120Z > Task :capacitor-android:compileDebugShaders NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:41.9481464Z > Task :capacitor-android:generateDebugAssets UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.0433986Z > Task :capacitor-android:mergeDebugAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.0462956Z > Task :capacitor-android:mergeDebugGeneratedProguardFiles
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.0475184Z > Task :capacitor-android:mergeDebugConsumerProguardFiles
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.0502314Z > Task :capacitor-android:prepareDebugArtProfile
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.0528690Z > Task :capacitor-android:prepareLintJarForPublish
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.1439549Z > Task :capacitor-android:mergeDebugJavaResource
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.1443009Z > Task :capacitor-cordova-android-plugins:checkDebugAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.1444164Z > Task :capacitor-android:syncDebugLibJars
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.2452151Z > Task :capacitor-android:bundleDebugLocalLintAar
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.2454811Z > Task :capacitor-cordova-android-plugins:mergeDebugJniLibFolders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.2456118Z > Task :capacitor-cordova-android-plugins:mergeDebugNativeLibs NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.2457487Z > Task :capacitor-cordova-android-plugins:stripDebugDebugSymbols NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.2458970Z > Task :capacitor-cordova-android-plugins:copyDebugJniLibsProjectAndLocalJars
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8431541Z > Task :capacitor-cordova-android-plugins:extractDebugAnnotations
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8437773Z > Task :capacitor-cordova-android-plugins:extractDeepLinksForAarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8439164Z > Task :capacitor-cordova-android-plugins:mergeDebugShaders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8440378Z > Task :capacitor-cordova-android-plugins:compileDebugShaders NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8442379Z > Task :capacitor-cordova-android-plugins:generateDebugAssets UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8447503Z > Task :capacitor-cordova-android-plugins:mergeDebugAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8456575Z > Task :capacitor-cordova-android-plugins:mergeDebugGeneratedProguardFiles
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8457981Z > Task :capacitor-cordova-android-plugins:mergeDebugConsumerProguardFiles
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8459198Z > Task :capacitor-cordova-android-plugins:prepareDebugArtProfile
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8460364Z > Task :capacitor-cordova-android-plugins:prepareLintJarForPublish
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8461667Z > Task :app:preDebugAndroidTestBuild SKIPPED
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8462679Z > Task :capacitor-cordova-android-plugins:mergeDebugJavaResource
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.8463669Z > Task :app:generateDebugAndroidTestResValues
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.9433023Z > Task :capacitor-cordova-android-plugins:syncDebugLibJars
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.9434751Z > Task :capacitor-cordova-android-plugins:bundleDebugLocalLintAar
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.9435977Z > Task :capacitor-android:createFullJarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.9436948Z > Task :capacitor-android:writeDebugLintModelMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.9437998Z > Task :capacitor-cordova-android-plugins:createFullJarDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:42.9439709Z > Task :capacitor-cordova-android-plugins:writeDebugLintModelMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:44.8428885Z > Task :app:generateDebugAndroidTestLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:44.8429739Z > Task :app:extractProguardFiles
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:44.8430413Z > Task :capacitor-android:extractProguardFiles
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:44.9429207Z > Task :capacitor-android:generateDebugLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:44.9430279Z > Task :capacitor-cordova-android-plugins:extractProguardFiles
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:45.0432077Z > Task :capacitor-cordova-android-plugins:generateDebugLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:45.1429220Z > Task :app:generateDebugLintReportModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:45.2428947Z > Task :app:generateDebugUnitTestLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:45.2430944Z > Task :capacitor-android:preDebugAndroidTestBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:45.2432388Z > Task :capacitor-android:generateDebugAndroidTestResValues
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:46.2429787Z > Task :capacitor-android:generateDebugAndroidTestLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.1462541Z > Task :capacitor-android:generateDebugUnitTestLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.1467980Z > Task :capacitor-cordova-android-plugins:preDebugAndroidTestBuild UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.1492796Z > Task :capacitor-cordova-android-plugins:generateDebugAndroidTestResValues
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.1506042Z > Task :capacitor-cordova-android-plugins:generateDebugAndroidTestLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.1507282Z > Task :capacitor-cordova-android-plugins:generateDebugUnitTestLintModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.2429626Z > Task :capacitor-android:generateDebugLintReportModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.2461912Z > Task :capacitor-cordova-android-plugins:generateDebugLintReportModel
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.2491750Z > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.2507782Z > Task :app:mergeDebugShaders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.2531575Z > Task :app:compileDebugShaders NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.2551360Z > Task :app:generateDebugAssets UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.3451847Z > Task :app:mergeDebugAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.9452065Z > Task :app:compressDebugAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:47.9481918Z > Task :app:desugarDebugFileDependencies
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:31:48.7433216Z > Task :app:dexBuilderDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:00.2452740Z > Task :capacitor-cordova-android-plugins:lintAnalyzeDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:15.1428643Z > Task :capacitor-android:lintAnalyzeDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:18.7472217Z > Task :app:mergeDebugGlobalSynthetics
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:23.3442118Z > Task :app:checkDebugDuplicateClasses
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:24.0434619Z > Task :app:mergeDebugJavaResource
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:24.0435618Z > Task :app:lintAnalyzeDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:24.1452074Z > Task :capacitor-android:bundleLibRuntimeToDirDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:24.6492224Z > Task :app:lintAnalyzeDebugUnitTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:25.3431936Z > Task :capacitor-android:lintAnalyzeDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:26.2467073Z > Task :capacitor-android:lintAnalyzeDebugUnitTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:26.2512036Z > Task :capacitor-cordova-android-plugins:bundleLibRuntimeToDirDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:26.5452308Z > Task :capacitor-cordova-android-plugins:lintAnalyzeDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:26.6468696Z > Task :app:mergeLibDexDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:26.9442013Z > Task :capacitor-cordova-android-plugins:lintAnalyzeDebugUnitTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.0481787Z > Task :app:mergeProjectDexDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.1431904Z > Task :app:mergeDebugJniLibFolders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.3471797Z > Task :capacitor-android:copyDebugJniLibsProjectOnly
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.3472386Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.3472796Z > Task :capacitor-android:lintReportDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.3511810Z Lint found 3 hints (and 6 errors filtered by baseline lint-baseline.xml)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.3531720Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.3562991Z 6 errors/warnings were listed in the baseline file (/home/runner/work/stock-ai-spec/stock-ai-spec/web/node_modules/@capacitor/android/capacitor/lint-baseline.xml) but not found in the project; perhaps they have been fixed?
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.4431025Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.4461595Z > Task :capacitor-android:lintDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.4469666Z > Task :capacitor-cordova-android-plugins:copyDebugJniLibsProjectOnly
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.6431348Z > Task :app:mergeDebugNativeLibs NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.6461584Z > Task :app:stripDebugDebugSymbols NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.6490985Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.6521760Z > Task :capacitor-cordova-android-plugins:lintReportDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:27.6524416Z Wrote HTML report to file:///home/runner/work/stock-ai-spec/stock-ai-spec/web/android/capacitor-cordova-android-plugins/build/reports/lint-results-debug.html
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.6431225Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.6431973Z > Task :app:mergeExtDexDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.7449149Z > Task :app:validateSigningDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.7450253Z > Task :capacitor-cordova-android-plugins:lintDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.7451434Z > Task :app:writeDebugAppMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.7452394Z > Task :app:writeDebugSigningConfigVersions
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8438142Z > Task :capacitor-android:bundleDebugAar
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8469838Z > Task :capacitor-android:assembleDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8475629Z > Task :capacitor-cordova-android-plugins:bundleDebugAar
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8484087Z > Task :capacitor-cordova-android-plugins:assembleDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8510001Z > Task :app:javaPreCompileDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8514231Z > Task :app:checkDebugAndroidTestAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8524302Z > Task :app:processDebugAndroidTestNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.8527072Z > Task :app:compileDebugAndroidTestNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.9453435Z > Task :app:mapDebugAndroidTestSourceSetPaths
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.9483304Z > Task :app:generateDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:28.9521882Z > Task :app:mergeDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.0428476Z > Task :app:processDebugAndroidTestManifest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.1442001Z > Task :app:mergeDebugAndroidTestShaders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.1467655Z > Task :app:compileDebugAndroidTestShaders NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.1491782Z > Task :app:generateDebugAndroidTestAssets UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.1492636Z > Task :app:mergeDebugAndroidTestAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.1493346Z > Task :app:compressDebugAndroidTestAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.1494164Z > Task :app:desugarDebugAndroidTestFileDependencies
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.1495051Z > Task :app:processDebugAndroidTestJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.2428757Z > Task :app:processDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.4444659Z > Task :app:mergeDebugAndroidTestJavaResource
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:29.7443749Z > Task :app:lintAnalyzeDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:30.2482276Z > Task :app:compileDebugAndroidTestJavaWithJavac
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:30.3429292Z > Task :app:dexBuilderDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:31.9451350Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:31.9461955Z > Task :app:lintReportDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:31.9492333Z Wrote HTML report to file:///home/runner/work/stock-ai-spec/stock-ai-spec/web/android/app/build/reports/lint-results-debug.html
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8441609Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8454730Z > Task :app:mergeDebugAndroidTestGlobalSynthetics
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8511828Z > Task :app:packageDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8545145Z > Task :app:lintDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8575430Z > Task :app:createDebugApkListingFileRedirect
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8588976Z > Task :app:assembleDebug
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8634825Z > Task :app:checkDebugAndroidTestDuplicateClasses
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.8661882Z > Task :app:mergeDebugAndroidTestJniLibFolders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.9428786Z > Task :app:mergeLibDexDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:32.9462111Z > Task :app:mergeDebugAndroidTestNativeLibs NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0431888Z > Task :app:mergeProjectDexDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0461954Z > Task :app:stripDebugAndroidTestDebugSymbols NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0491727Z > Task :app:validateSigningDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0492895Z > Task :app:writeDebugAndroidTestSigningConfigVersions
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0521725Z > Task :capacitor-android:javaPreCompileDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0551884Z > Task :capacitor-android:processDebugAndroidTestNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0581650Z > Task :capacitor-android:checkDebugAndroidTestAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0611506Z > Task :capacitor-android:compileDebugAndroidTestNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0612898Z > Task :capacitor-android:mapDebugAndroidTestSourceSetPaths
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.0631585Z > Task :capacitor-android:generateDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.4428902Z > Task :app:mergeExtDexDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7491952Z > Task :capacitor-android:processDebugAndroidTestManifest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7492939Z > Task :capacitor-android:mergeDebugAndroidTestShaders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7521602Z > Task :capacitor-android:compileDebugAndroidTestShaders NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7565699Z > Task :capacitor-android:generateDebugAndroidTestAssets UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7591702Z > Task :capacitor-android:mergeDebugAndroidTestAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7611908Z > Task :capacitor-android:desugarDebugAndroidTestFileDependencies
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7628223Z > Task :capacitor-android:processDebugAndroidTestJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.7648521Z > Task :capacitor-android:compressDebugAndroidTestAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.8451816Z > Task :app:packageDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.8507243Z > Task :capacitor-android:checkDebugAndroidTestDuplicateClasses
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.8533013Z > Task :app:createDebugAndroidTestApkListingFileRedirect
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:33.8574816Z > Task :app:assembleDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.0444287Z > Task :capacitor-android:mergeDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.2444505Z > Task :capacitor-android:mergeDebugAndroidTestJavaResource
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3432214Z > Task :capacitor-android:mergeDebugAndroidTestJniLibFolders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3456348Z > Task :capacitor-android:mergeDebugAndroidTestNativeLibs NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3504883Z > Task :capacitor-android:stripDebugAndroidTestDebugSymbols NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3528479Z > Task :capacitor-android:validateSigningDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3542085Z > Task :capacitor-android:writeDebugAndroidTestSigningConfigVersions
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3543422Z > Task :capacitor-cordova-android-plugins:javaPreCompileDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3580811Z > Task :capacitor-android:mergeLibDexDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3582251Z > Task :capacitor-cordova-android-plugins:checkDebugAndroidTestAarMetadata
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3583821Z > Task :capacitor-cordova-android-plugins:processDebugAndroidTestNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.3585425Z > Task :capacitor-cordova-android-plugins:compileDebugAndroidTestNavigationResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.4445497Z > Task :capacitor-cordova-android-plugins:mapDebugAndroidTestSourceSetPaths
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.4472196Z > Task :capacitor-cordova-android-plugins:generateDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:34.9428461Z > Task :capacitor-android:processDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:35.1462130Z > Task :capacitor-android:compileDebugAndroidTestJavaWithJavac NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:35.5428901Z > Task :capacitor-cordova-android-plugins:mergeDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:35.7442206Z > Task :capacitor-android:dexBuilderDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:35.7518051Z > Task :capacitor-android:mergeDebugAndroidTestGlobalSynthetics
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:35.8451926Z > Task :capacitor-android:mergeProjectDexDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:35.9452195Z > Task :capacitor-cordova-android-plugins:processDebugAndroidTestManifest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.2434058Z > Task :capacitor-cordova-android-plugins:mergeDebugAndroidTestShaders
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.2474674Z > Task :capacitor-cordova-android-plugins:compileDebugAndroidTestShaders NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.2502122Z > Task :capacitor-cordova-android-plugins:generateDebugAndroidTestAssets UP-TO-DATE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.2576251Z > Task :capacitor-cordova-android-plugins:mergeDebugAndroidTestAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.2603768Z > Task :capacitor-cordova-android-plugins:compressDebugAndroidTestAssets
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.3429927Z > Task :capacitor-cordova-android-plugins:desugarDebugAndroidTestFileDependencies
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.3445980Z > Task :capacitor-cordova-android-plugins:processDebugAndroidTestJavaRes NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.8429637Z > Task :capacitor-cordova-android-plugins:processDebugAndroidTestResources
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.8463553Z > Task :capacitor-cordova-android-plugins:compileDebugAndroidTestJavaWithJavac NO-SOURCE
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.9452217Z > Task :capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses FAILED
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:36.9481994Z > Task :capacitor-cordova-android-plugins:mergeDebugAndroidTestJavaResource
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.0462030Z > Task :capacitor-cordova-android-plugins:dexBuilderDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6429819Z > Task :capacitor-android:mergeExtDexDebugAndroidTest
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6431315Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6433221Z [Incubating] Problems report is available at: file:///home/runner/work/stock-ai-spec/stock-ai-spec/web/android/build/reports/problems/problems-report.html
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6434500Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6481466Z FAILURE: Build failed with an exception.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6481927Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6482815Z Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6487644Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6487795Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6488235Z * What went wrong:
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6489727Z You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6492019Z Execution failed for task ':capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses'.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6493043Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6494036Z > A failure occurred while executing com.android.build.gradle.internal.tasks.CheckDuplicatesRunnable
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6496288Z For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6513111Z    > Duplicate class kotlin.collections.jdk8.CollectionsJDK8Kt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6514422Z 205 actionable tasks: 205 executed
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6542181Z      Duplicate class kotlin.internal.jdk7.JDK7PlatformImplementations found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6544602Z      Duplicate class kotlin.internal.jdk7.JDK7PlatformImplementations$ReflectSdkVersion found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6547314Z      Duplicate class kotlin.internal.jdk8.JDK8PlatformImplementations found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6549603Z      Duplicate class kotlin.internal.jdk8.JDK8PlatformImplementations$ReflectSdkVersion found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6551909Z      Duplicate class kotlin.io.path.ExperimentalPathApi found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6553946Z      Duplicate class kotlin.io.path.PathRelativizer found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6556059Z      Duplicate class kotlin.io.path.PathsKt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6558052Z      Duplicate class kotlin.io.path.PathsKt__PathReadWriteKt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6560109Z      Duplicate class kotlin.io.path.PathsKt__PathUtilsKt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6573875Z      Duplicate class kotlin.jdk7.AutoCloseableKt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk7-1.6.21.jar -> kotlin-stdlib-jdk7-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6576090Z      Duplicate class kotlin.jvm.jdk8.JvmRepeatableKt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6578151Z      Duplicate class kotlin.random.jdk8.PlatformThreadLocalRandom found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6580215Z      Duplicate class kotlin.streams.jdk8.StreamsKt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6582455Z      Duplicate class kotlin.streams.jdk8.StreamsKt$asSequence$$inlined$Sequence$1 found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6584666Z      Duplicate class kotlin.streams.jdk8.StreamsKt$asSequence$$inlined$Sequence$2 found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6587085Z      Duplicate class kotlin.streams.jdk8.StreamsKt$asSequence$$inlined$Sequence$3 found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6589282Z      Duplicate class kotlin.streams.jdk8.StreamsKt$asSequence$$inlined$Sequence$4 found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6591530Z      Duplicate class kotlin.text.jdk8.RegexExtensionsJDK8Kt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6593609Z      Duplicate class kotlin.time.jdk8.DurationConversionsJDK8Kt found in modules kotlin-stdlib-1.8.22.jar -> kotlin-stdlib-1.8.22 (org.jetbrains.kotlin:kotlin-stdlib:1.8.22) and kotlin-stdlib-jdk8-1.6.21.jar -> kotlin-stdlib-jdk8-1.6.21 (org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.21)
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6594858Z      
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6595362Z      Learn how to fix dependency resolution errors at https://d.android.com/r/tools/classpath-sync-errors
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6595796Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6595888Z * Try:
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6596213Z > Run with --stacktrace option to get the stack trace.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6596672Z > Run with --info or --debug option to get more log output.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6597079Z > Run with --scan to get full insights.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6597459Z > Get more help at https://help.gradle.org.
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6597678Z 
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.6597795Z BUILD FAILED in 2m 25s
+verify	Android compiler, backup crypto tests and lint	2026-10-15T03:32:37.9235905Z ##[error]Process completed with exit code 1.

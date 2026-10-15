@@ -18,11 +18,15 @@ if ($isNewVault) {
 }
 $pfxPath = Join-Path $vault 'stockai-signing.p12'
 $credentialPath = Join-Path $vault 'credentials.dpapi'
+$publicPath = Join-Path $workspace 'mobile/signing-certificate.json'
 Add-Type -AssemblyName System.Security.Cryptography.ProtectedData
 if ((Test-Path -LiteralPath $pfxPath) -ne (Test-Path -LiteralPath $credentialPath)) {
     throw 'Signing backup is incomplete. Restore it; never replace an existing signing key.'
 }
 if (!(Test-Path -LiteralPath $pfxPath)) {
+    if (Test-Path -LiteralPath $publicPath) {
+        throw 'A signing identity already exists. Restore its encrypted backup; do not generate a replacement key.'
+    }
     $random = [Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
     $password = [Convert]::ToBase64String($random)
     $rsa = [Security.Cryptography.RSA]::Create(3072)
@@ -43,7 +47,6 @@ if (!(Test-Path -LiteralPath $pfxPath)) {
 }
 $record = $credentials | ConvertFrom-Json
 $fingerprint = $certificate.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant()
-$publicPath = Join-Path $workspace 'mobile/signing-certificate.json'
 $public = @{ schema_version=1; certificate_sha256=$fingerprint; alias=$record.alias; application_id='jp.stockai.app' } | ConvertTo-Json
 if (Test-Path -LiteralPath $publicPath) {
     $old = Get-Content -LiteralPath $publicPath -Raw | ConvertFrom-Json
@@ -51,6 +54,37 @@ if (Test-Path -LiteralPath $publicPath) {
 } else {
     [IO.File]::WriteAllText($publicPath, $public + "`n", [Text.UTF8Encoding]::new($false))
 }
+# Windows certificate FriendlyName does not reliably label the private-key bag
+# that Java selects. Rewrap the SAME key/certificate with an explicit PKCS#12
+# alias. The intermediate pipe contains encrypted PEM, never plaintext keys.
+$openssl = Join-Path $env:ProgramFiles 'Git/usr/bin/openssl.exe'
+if (!(Test-Path -LiteralPath $openssl)) {
+    $opensslCommand = Get-Command openssl -ErrorAction SilentlyContinue
+    if ($null -eq $opensslCommand) { throw 'OpenSSL is required (included with Git for Windows).' }
+    $openssl = $opensslCommand.Source
+}
+$canonicalPath = Join-Path $vault 'stockai-signing.canonical.p12'
+$originalBackupPath = Join-Path $vault 'stockai-signing.original-format.p12'
+if (!(Test-Path -LiteralPath $originalBackupPath)) { Copy-Item -LiteralPath $pfxPath -Destination $originalBackupPath }
+$env:STOCKAI_SIGNING_TASK_PASSWORD = $record.storePassword
+try {
+    & $openssl pkcs12 -in $pfxPath -passin env:STOCKAI_SIGNING_TASK_PASSWORD -passout env:STOCKAI_SIGNING_TASK_PASSWORD |
+        & $openssl pkcs12 -export -name $record.alias -passin env:STOCKAI_SIGNING_TASK_PASSWORD -passout env:STOCKAI_SIGNING_TASK_PASSWORD -iter 210000 -out $canonicalPath
+    if ($LASTEXITCODE -ne 0) { throw 'Encrypted PKCS#12 compatibility export failed; original key is unchanged.' }
+    $validated = [Security.Cryptography.X509Certificates.X509Certificate2]::new($canonicalPath, $record.storePassword, [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)
+    try {
+        if (!$validated.HasPrivateKey -or $validated.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant() -ne $fingerprint) { throw 'Refusing a signing identity change.' }
+        $signer = [Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($validated)
+        $verifier = [Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($certificate)
+        try {
+            $challenge = [Text.Encoding]::UTF8.GetBytes('StockAI signing identity compatibility check')
+            $signature = $signer.SignData($challenge, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
+            if (!$verifier.VerifyData($challenge, $signature, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)) { throw 'Restored private key does not match the original public key.' }
+        } finally { $signer.Dispose(); $verifier.Dispose() }
+    } finally { $validated.Dispose() }
+    # Both files are inside the already-validated owner-only vault.
+    [IO.File]::Move($canonicalPath, $pfxPath, $true)
+} finally { $env:STOCKAI_SIGNING_TASK_PASSWORD = $null }
 if ($RegisterGitHubSecrets) {
     $repository = 'iburigakko-picoloom/stock-ai-spec'
     $values = @{

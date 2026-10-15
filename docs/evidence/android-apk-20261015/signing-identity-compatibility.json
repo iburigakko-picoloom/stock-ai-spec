@@ -1,0 +1,10 @@
+{
+  "private_key_regenerated": false,
+  "original_encrypted_pfx_retained": true,
+  "intermediate_pipe": "encrypted PEM",
+  "certificate_sha256": "97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979",
+  "same_private_public_key_challenge": "PASS",
+  "secrets_reregistered_without_newlines": true,
+  "release_parser_tests": 9,
+  "release_status": "PENDING_NEW_RUN"
+}

@@ -1,0 +1,38 @@
+verify	Android emulator persistence tests	﻿2026-10-15T03:49:14.8378409Z ##[group]Run set -euo pipefail
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8378762Z ^[[36;1mset -euo pipefail^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8379023Z ^[[36;1msudo chmod a+rw /dev/kvm^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8379503Z ^[[36;1mSDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8380005Z ^[[36;1mtest -n "$SDKMANAGER"^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8380397Z ^[[36;1mexport PATH="$(dirname "$SDKMANAGER"):$ANDROID_HOME/platform-tools:$PATH"^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8381050Z ^[[36;1msdkmanager --install 'system-images;android-35;default;x86_64' 'emulator' > "$RUNNER_TEMP/stockai-sdk.log"^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8381891Z ^[[36;1mecho no | avdmanager create avd --force --name stockai-ci --package 'system-images;android-35;default;x86_64' --device pixel_2^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8383070Z ^[[36;1m"$ANDROID_HOME/emulator/emulator" -avd stockai-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/stockai-emulator.log" 2>&1 &^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8384033Z ^[[36;1mtrap 'adb emu kill >/dev/null 2>&1 || true' EXIT^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8384367Z ^[[36;1mtimeout 180 adb wait-for-device^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8384646Z ^[[36;1mBOOTED=false^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8384874Z ^[[36;1mfor attempt in $(seq 1 90); do^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8385333Z ^[[36;1m  if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = '1' ]; then BOOTED=true; break; fi^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8385785Z ^[[36;1m  sleep 2^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8386000Z ^[[36;1mdone^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8386729Z ^[[36;1mtest "$BOOTED" = true^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8387131Z ^[[36;1m./gradlew --no-daemon :app:connectedDebugAndroidTest^[[0m
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8451277Z shell: /usr/bin/bash -e {0}
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8451541Z env:
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8451819Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8452274Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8452731Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8453133Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8453516Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8453926Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8454359Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8454838Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8455220Z   MAVEN_ARGS: -ntp
+verify	Android emulator persistence tests	2026-10-15T03:49:14.8455437Z ##[endgroup]
+verify	Android emulator persistence tests	2026-10-15T03:49:37.2703713Z Loading local repository...                                                     
+verify	Android emulator persistence tests	2026-10-15T03:49:37.2705122Z [=========                              ] 25% Loading local repository...       
+verify	Android emulator persistence tests	2026-10-15T03:49:37.2714833Z [=========                              ] 25% Fetch remote repository...        
+verify	Android emulator persistence tests	2026-10-15T03:49:37.2718568Z [=======================================] 100% Fetch remote repository...       
+verify	Android emulator persistence tests	2026-10-15T03:49:37.3219441Z Auto-selecting single ABI x86_64
+verify	Android emulator persistence tests	2026-10-15T03:49:37.8912934Z * daemon not running; starting now at tcp:5037
+verify	Android emulator persistence tests	2026-10-15T03:49:38.0660943Z * daemon started successfully
+verify	Android emulator persistence tests	2026-10-15T03:52:37.7160336Z ##[error]Process completed with exit code 124.
