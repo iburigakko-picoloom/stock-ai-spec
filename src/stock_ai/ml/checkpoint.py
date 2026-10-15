@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import tempfile
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -111,7 +112,7 @@ class _ExclusiveLock:
             os.fsync(self._stream.fileno())
         self._stream.seek(0)
         try:
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 msvcrt.locking(self._stream.fileno(), msvcrt.LK_NBLCK, 1)
@@ -127,7 +128,7 @@ class _ExclusiveLock:
         if self._closed:
             return
         self._stream.seek(0)
-        if os.name == "nt":
+        if sys.platform == "win32":
             import msvcrt
 
             msvcrt.locking(self._stream.fileno(), msvcrt.LK_UNLCK, 1)

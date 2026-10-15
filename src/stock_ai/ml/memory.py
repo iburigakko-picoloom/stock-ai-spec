@@ -222,26 +222,27 @@ def _available_physical_bytes() -> int:
     if sys.platform != "win32":
         raise RuntimeError("explicit fit memory guard is currently Windows-only")
 
-    class MemoryStatus(ctypes.Structure):
-        _fields_ = [("length", ctypes.c_uint32), ("load", ctypes.c_uint32)] + [
-            (name, ctypes.c_uint64)
-            for name in (
-                "total_physical",
-                "available_physical",
-                "total_pagefile",
-                "available_pagefile",
-                "total_virtual",
-                "available_virtual",
-                "available_extended_virtual",
-            )
-        ]
+    else:
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [("length", ctypes.c_uint32), ("load", ctypes.c_uint32)] + [
+                (name, ctypes.c_uint64)
+                for name in (
+                    "total_physical",
+                    "available_physical",
+                    "total_pagefile",
+                    "available_pagefile",
+                    "total_virtual",
+                    "available_virtual",
+                    "available_extended_virtual",
+                )
+            ]
 
-    status = MemoryStatus()
-    status.length = ctypes.sizeof(status)
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    if not kernel.GlobalMemoryStatusEx(ctypes.byref(status)):
-        raise OSError(ctypes.get_last_error(), "unable to read fit memory headroom")
-    return int(status.available_physical)
+        status = MemoryStatus()
+        status.length = ctypes.sizeof(status)
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        if not kernel.GlobalMemoryStatusEx(ctypes.byref(status)):
+            raise OSError(ctypes.get_last_error(), "unable to read fit memory headroom")
+        return int(status.available_physical)
 
 
 def check_fit_headroom() -> None:

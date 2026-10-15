@@ -1,0 +1,22 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\manat\app\��AI\stock-ai-spec\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\manat\app\��AI\stock-ai-spec
+configfile: pyproject.toml
+plugins: anyio-4.14.2, cov-7.1.0
+collecting ... collected 6 items
+
+tests/test_research_checkpoint.py::test_fold_checkpoint_is_atomic_authenticated_and_read_only_status PASSED [ 16%]
+tests/test_locked_holdout.py::test_locked_holdout_resumes_components_and_never_refits_successes PASSED [ 33%]
+tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom[2-False] PASSED [ 50%]
+tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom[3.5-True] PASSED [ 66%]
+tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom[5-True] PASSED [ 83%]
+tests/test_research_memory.py::test_low_headroom_never_calls_fit PASSED  [100%]
+
+============================== warnings summary ===============================
+tests/test_research_memory.py::test_low_headroom_never_calls_fit
+  C:\Users\manat\app\��AI\stock-ai-spec\tests\test_research_memory.py:178: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+    "label_end": dates + pd.Timedelta(days=1),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 6 passed, 1 warning in 5.45s =========================

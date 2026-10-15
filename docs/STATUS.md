@@ -1038,3 +1038,8 @@ Python39件中37成功、XGBoost2件のfloat32 cutとJSON decimalの境界差を
 main関連変更→PR検証→main署名build→immutable Release/APK/hash/変更履歴のworkflow、署名証明書照合、増加versionCode、更新先/署名/サイズ/hash検査を実装。署名鍵は暗号化p12とWindows本人DPAPIで保全し、4Secretsへ改行なしstdinで登録済み。オフPCバックアップ手順とOSS表示を追加。AndroidコンパイルとReleaseはまだ未実行。本人端末はXiaomi 14T Proで、USB接続は後ほどとの回答。実機試験/Android版は未確認。
 
 初回台帳・補足設定と保有比較の完全接続、最終model採用/配布条件、実API403と大量履歴の実機能力、本人による鍵のオフPC保管は残る。実注文なし。証拠docs/evidence/android-apk-20261015/stage2.json。
+
+
+## 2026-10-15 — 公開前履歴検査とLinux CIの型検査対応
+
+未公開履歴781 blobで秘密鍵/生市場ファイル/token形式を検査し該当なし。本人の指示に従い検証branchを公開し、draft PR #1を作成。初回CI 38674562787は既存PC用memory/checkpoint/holdoutのWindows分岐をLinux型検査が判別できず停止し、Androidコンパイル前。sys.platformの明示分岐へ変更し、計算や保存方針は変更しない。Linux/Windows指定のmypyは各63module PASS、Windowsの排他保存/holdout再開/メモリー保護6件PASS。CIへ両OSの型検査と関連試験を追加し再実行する。実データ再学習・実holdout評価は行っていない。実注文なし。
