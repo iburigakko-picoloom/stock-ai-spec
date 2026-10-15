@@ -123,8 +123,15 @@ jobs:
           test -n "$SDKMANAGER"
           export PATH="$(dirname "$SDKMANAGER"):$ANDROID_HOME/platform-tools:$PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/stockai-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           sdkmanager --install 'system-images;android-35;default;x86_64' 'emulator' > "$RUNNER_TEMP/stockai-sdk.log"
-          echo no | avdmanager create avd --force --name stockai-ci --package 'system-images;android-35;default;x86_64' --device pixel_2
+          echo no | avdmanager create avd --force --name stockai-ci --path "$ANDROID_AVD_HOME/stockai-ci.avd" --package 'system-images;android-35;default;x86_64' --device pixel_2
+          # New command-line tools and the emulator have different default
+          # Android user directories. Register the explicit, isolated AVD path.
+          printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-35\n' "$ANDROID_AVD_HOME/stockai-ci.avd" > "$ANDROID_AVD_HOME/stockai-ci.ini"
+          test -f "$ANDROID_AVD_HOME/stockai-ci.avd/config.ini"
           export QT_QPA_PLATFORM=offscreen
           nohup "$ANDROID_HOME/emulator/emulator" -avd stockai-ci -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics -gpu swiftshader -feature -Vulkan -memory 2048 -cores 2 -camera-back none -camera-front none > "$RUNNER_TEMP/stockai-emulator.log" 2>&1 < /dev/null &
           if ! timeout 120 adb wait-for-device; then
