@@ -80,7 +80,9 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 
 ## 実機の受入試験
 
-本人指定はXiaomi 14T Proで、USB接続は後ほど。Android版は接続後に確認する。ブラウザー/WASMやCIのAndroidエミュレーターを実機成功と数えない。debug APKは`jp.stockai.app.debug`へ分離し、合成3MiB状態の再読込・競合拒否・途中障害rollback・欠落/改変拒否をエミュレーターで確認する。releaseの保有情報やKeystoreには触れない。本人が指定したテスト端末だけで、次を記録する。
+本人指定はXiaomi 14T Pro。本人の最新指示により、USBなしで端末を操作して結果を報告する方式で進める。USB接続はPCからのログ取得や操作を必要とするときの選択肢であり、導入・通常利用・アプリ更新の前提にしない。Android版は端末の設定で確認し、未報告の間は不明とする。[USBなしの実機確認手順](evidence/android-apk-20261015/xiaomi-manual-acceptance.md)に沿って段階的に確認する。
+
+ブラウザー/WASMやCIのAndroidエミュレーターを実機成功と数えない。本人の報告と自動検証の結果を区別する。debug APKは`jp.stockai.app.debug`へ分離し、合成3MiB状態の再読込・競合拒否・途中障害rollback・欠落/改変拒否をエミュレーターで確認する。releaseの保有情報やKeystoreには触れない。本人が指定したテスト端末だけで、次を記録する。
 
 [初回公開CI 38682133797](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38682133797)は全job成功。Python 50+6件、React18件、外部通信遮断WASM、Java backup crypto、API35 emulator保存3件、Android lint/build、公式apksignerと固定certificate照合を通過。認証なしのGitHub最新Release APIとupdate.json取得も成功した。アプリの更新検知/安全download/Android確認への接続は実装済みだが、インストール済み実機での更新・データ維持は未確認である。
 
