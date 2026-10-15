@@ -15,6 +15,8 @@ Capacitor8.5.3、Android8/API26以上、更新済みAndroid System WebViewを対
 
 APIキーはnative Android KeystoreのAES256-GCM鍵で暗号化し、JavaからJ-Quantsへだけ送信する。キー値の読出しAPI、ブラウザー保存、ログ記録は実装しない。口座/設定/台帳/市場データは端末の非公開SQLiteとKeystore暗号化した保存領域へ置く。保存の確定応答はnative SQLite transactionのcommit後。APK更新でapplicationId、署名、保存名を変更しない。自動OSバックアップは無効にする。
 
+大きな暗号文をSQLiteの1行に置かず、256Ki文字の分割ごとに暗号化して保存する。GCMの認証情報へ世代番号と分割番号を含め、暗号化した見出しに全体hash/長さ/分割数を保存する。全分割と見出しは同じtransactionで確定する。分割欠落・改変・途中書込失敗・古い世代の書込を拒否する。現在の保存上限はbase64 state 128Mi文字、データ読出しはdatasetごと150万行。全市場の長期履歴がこの範囲と実機RAMへ収まるとは未確認で、上限・不足時は計算を止める。大量履歴の運用性能は実機検証事項である。
+
 ## 開発と検証
 
 ```powershell
@@ -73,7 +75,7 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 
 ## 実機の受入試験
 
-現時点は未接続。ブラウザー/WASMの結果を実機成功と数えない。本人が指定したテスト端末だけで、次を記録する。
+本人指定はXiaomi 14T Proで、USB接続は後ほど。Android版は接続後に確認する。ブラウザー/WASMやCIのAndroidエミュレーターを実機成功と数えない。debug APKは`jp.stockai.app.debug`へ分離し、合成3MiB状態の再読込・競合拒否・途中障害rollback・欠落/改変拒否をエミュレーターで確認する。releaseの保有情報やKeystoreには触れない。本人が指定したテスト端末だけで、次を記録する。
 
 | 項目 | 確認内容 | 状態 |
 | --- | --- | --- |

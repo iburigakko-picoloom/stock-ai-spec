@@ -98,7 +98,25 @@ jobs:
           npx cap sync android
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+      - name: Android emulator persistence tests
+        timeout-minutes: 10
+        working-directory: web/android
+        run: |
+          set -euo pipefail
+          sudo chmod a+rw /dev/kvm
+          sdkmanager --install 'system-images;android-35;default;x86_64' 'emulator' > "$RUNNER_TEMP/stockai-sdk.log"
+          echo no | avdmanager create avd --force --name stockai-ci --package 'system-images;android-35;default;x86_64' --device pixel_2
+          "$ANDROID_HOME/emulator/emulator" -avd stockai-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/stockai-emulator.log" 2>&1 &
+          trap 'adb emu kill >/dev/null 2>&1 || true' EXIT
+          timeout 180 adb wait-for-device
+          BOOTED=false
+          for attempt in $(seq 1 90); do
+            if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = '1' ]; then BOOTED=true; break; fi
+            sleep 2
+          done
+          test "$BOOTED" = true
+          ./gradlew --no-daemon connectedDebugAndroidTest
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-web

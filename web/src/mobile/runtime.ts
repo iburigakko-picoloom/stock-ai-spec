@@ -8,6 +8,12 @@ let startup: Promise<void> | null = null;
 let queue = Promise.resolve();
 const pending = new Map<number, { resolve: (reply: Reply) => void; reject: (reason: Error) => void }>();
 
+function stopRuntime(message: string): void {
+  worker?.terminate(); worker = null; startup = null;
+  for (const item of pending.values()) item.reject(new Error(message));
+  pending.clear();
+}
+
 function send(input: Record<string, unknown>): Promise<Reply> {
   const id = ++sequence;
   return new Promise((resolve, reject) => {
@@ -17,14 +23,14 @@ function send(input: Record<string, unknown>): Promise<Reply> {
 }
 
 async function persist(reply: Reply): Promise<void> {
-  if (reply.error) throw new Error(reply.error);
+  if (reply.error) { stopRuntime(reply.error); throw new Error(reply.error); }
   if (reply.state !== null) {
     try {
       const saved = await StockAI.writeState({ generation, payload: reply.state });
       generation = saved.generation;
     } catch {
-      worker?.terminate(); worker = null; startup = null;
-      throw new Error("保存が確定しませんでした。保存済みの状態から再起動してください。");
+      const message = "保存が確定しませんでした。保存済みの状態から再起動してください。";
+      stopRuntime(message); throw new Error(message);
     }
   }
 }
@@ -38,8 +44,7 @@ async function start(): Promise<void> {
     if (item) { pending.delete(event.data.id); item.resolve(event.data); }
   };
   worker.onerror = () => {
-    for (const item of pending.values()) item.reject(new Error("端末内の計算環境が停止しました。アプリを再起動してください。"));
-    pending.clear();
+    stopRuntime("端末内の計算環境が停止しました。アプリを再起動してください。");
   };
   await persist(await send({ command: "initialize", state: state.payload }));
 }

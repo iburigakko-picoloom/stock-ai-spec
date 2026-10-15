@@ -1043,3 +1043,10 @@ main関連変更→PR検証→main署名build→immutable Release/APK/hash/変�
 ## 2026-10-15 — 公開前履歴検査とLinux CIの型検査対応
 
 未公開履歴781 blobで秘密鍵/生市場ファイル/token形式を検査し該当なし。本人の指示に従い検証branchを公開し、draft PR #1を作成。初回CI 38674562787は既存PC用memory/checkpoint/holdoutのWindows分岐をLinux型検査が判別できず停止し、Androidコンパイル前。sys.platformの明示分岐へ変更し、計算や保存方針は変更しない。Linux/Windows指定のmypyは各63module PASS、Windowsの排他保存/holdout再開/メモリー保護6件PASS。CIへ両OSの型検査と関連試験を追加し再実行する。実データ再学習・実holdout評価は行っていない。実注文なし。
+
+
+## 2026-10-15 — 初回Android CI成功・大容量保存の追加検証
+
+CI 38674953724はfresh checkoutの試験親directory不在で停止し、mkdirを追加。続く38675174542でPython40件/関連6件、両OS型検査、React18件、通信遮断WASM一致、公開範囲検査、Android debugコンパイル/backup暗号化test/lintがすべて成功した。まだmainへmergeせずReleaseは未作成。
+
+公開前のコード点検でnative SQLiteの単一blob読出し上限が大きな保存内容の障害になると判断し、256Ki文字ずつのGCM暗号化と世代/分割番号の認証、全体hash/長さ/分割数、transaction rollbackへ修正。初期の小さな状態だけでなく、3MiB合成状態の再読込・古い書込拒否・途中障害rollback・欠落/改変拒否をAndroid instrumentationへ追加した。debugアプリは別applicationIdへ隔離し、release状態を試験で変更しない。エミュレーター試験はCIの追加gateでありXiaomi実機試験の代替ではない。保存失敗/worker異常時には未確定メモリー状態を破棄し、確定保存から再起動する。画面lint/型検査/build成功、native修正とinstrumentationはCI待ち。128Mi文字state/150万行dataset制限と全市場長期履歴の実機能力未確認をrunbookへ明記。実注文なし。

@@ -1,0 +1,210 @@
+verify	Shared Python and persistence tests	﻿2026-10-15T03:11:41.0395967Z ##[group]Run uv run ruff check .
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0396340Z ^[[36;1muv run ruff check .^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0396485Z ^[[36;1muv run mypy src^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0396625Z ^[[36;1muv run mypy src --platform win32^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0397172Z ^[[36;1muv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_models.py tests/test_mobile_market.py tests/test_production_research.py tests/test_features.py -q --basetemp=.demo-artifacts/pytest-mobile-ci^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0398404Z ^[[36;1muv run python -m pytest tests/test_research_checkpoint.py::test_fold_checkpoint_is_atomic_authenticated_and_read_only_status tests/test_locked_holdout.py::test_locked_holdout_resumes_components_and_never_refits_successes tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom tests/test_research_memory.py::test_low_headroom_never_calls_fit -q --basetemp=.demo-artifacts/pytest-platform-ci^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0450418Z shell: /usr/bin/bash -e {0}
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0450591Z env:
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0450735Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0450969Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0451193Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0451395Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0451604Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0451807Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0452022Z   STOCK_AI_CODE_COMMIT: 98d32f70a6908ed2a8d0581bf02e86bbe85d72d7
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.0452210Z ##[endgroup]
+verify	Shared Python and persistence tests	2026-10-15T03:11:41.1362475Z All checks passed!
+verify	Shared Python and persistence tests	2026-10-15T03:12:01.5607167Z Success: no issues found in 63 source files
+verify	Shared Python and persistence tests	2026-10-15T03:12:21.7354210Z Success: no issues found in 63 source files
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3399794Z EEEEE......EEE....E...E...EE............                                 [100%]
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3400314Z ==================================== ERRORS ====================================
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3400629Z _ ERROR at setup of test_shared_api_runs_without_server_and_preserves_no_order_boundary _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3400893Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3401223Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3401673Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3401832Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3401996Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3402280Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3402503Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3402781Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3402939Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3403144Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3403770Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3404202Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3404500Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3404864Z _ ERROR at setup of test_unknown_manual_inputs_survive_restart_and_exact_backup _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3405027Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3405227Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3405507Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3405616Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3405715Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3405886Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3406021Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3406606Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3406707Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3406835Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3407207Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3407615Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3407788Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3408110Z ________ ERROR at setup of test_invalid_input_does_not_publish_revision ________
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3408262Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3408456Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3408731Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3408836Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3408933Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3409103Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3409241Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3409388Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3409485Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3409610Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3409974Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3410242Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3410414Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3410728Z _________ ERROR at setup of test_core_views_work_in_embedded_dispatch __________
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3410883Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3411072Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3411346Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3411451Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3411550Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3411720Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3411853Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3411998Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3412095Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3412219Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3412581Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3412841Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3413011Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3413333Z _ ERROR at setup of test_unadopted_model_cannot_be_imported_or_generate_forecast _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3413497Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3413685Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3413959Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3414060Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3414157Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3414324Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3414453Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3414597Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3414694Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3414819Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3415180Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3415446Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3415613Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3415957Z _ ERROR at setup of test_delta_ingestion_is_idempotent_and_retains_exact_receipt_boundary _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3416262Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3416454Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3416726Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3416826Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3417025Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3417191Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3417322Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3417469Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3417567Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3417688Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3418140Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3418401Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3418569Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3418890Z _ ERROR at setup of test_later_correction_does_not_replace_earlier_known_price _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3419048Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3419237Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3419510Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3419616Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3419711Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3419874Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3420007Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3420153Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3420250Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3420373Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3420739Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3421001Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3421172Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3421492Z _ ERROR at setup of test_partial_or_invalid_day_cannot_advance_success_watermark _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3421649Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3421840Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422110Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422217Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422311Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422476Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422607Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422749Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422845Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3422970Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3423332Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3423591Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3423760Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3424110Z _ ERROR at setup of test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3424293Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3424481Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3424753Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3424859Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3424957Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3425120Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3425251Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3425395Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3425493Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3425622Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3425981Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3426390Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3426563Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3426900Z _ ERROR at setup of test_production_momentum_and_ridge_walk_forward_keep_holdout_locked _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3427076Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3427263Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3427633Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3427733Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3427833Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3427996Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3428125Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3428349Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3428447Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3428570Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3428933Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3429191Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3429358Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3429700Z _ ERROR at setup of test_premium_1230_labels_are_partial_and_snapshot_maturity_is_enforced _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3429876Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3430089Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3430365Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3430468Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3430564Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3430730Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3430864Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3431009Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3431104Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3431225Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3431584Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3431843Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3432012Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3432346Z _ ERROR at setup of test_production_build_orchestration_publishes_one_verifiable_batch _
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3432521Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3432711Z self = PosixPath('/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci')
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3432980Z mode = 448, parents = False, exist_ok = False
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3433084Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3433181Z     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3433350Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3433481Z         Create a new directory at this given path.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3433656Z         """
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3433764Z         try:
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3433886Z >           os.mkdir(self, mode)
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3434246Z E           FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3434506Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3434674Z /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/pathlib.py:1311: FileNotFoundError
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3434958Z =============================== warnings summary ===============================
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3437047Z tests/test_production_research.py::test_mobile_latest_features_require_authenticated_next_session_and_closed_cutoff
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.3438342Z   /home/runner/work/stock-ai-spec/stock-ai-spec/.venv/lib/python3.12/site-packages/pandas/core/internals/concat.py:510: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4509726Z     return dtype.type("NaT")
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4509988Z 
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4510270Z -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4510767Z =========================== short test summary info ============================
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4511836Z ERROR tests/test_mobile_runtime.py::test_shared_api_runs_without_server_and_preserves_no_order_boundary - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4513198Z ERROR tests/test_mobile_runtime.py::test_unknown_manual_inputs_survive_restart_and_exact_backup - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4514731Z ERROR tests/test_mobile_runtime.py::test_invalid_input_does_not_publish_revision - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4515997Z ERROR tests/test_mobile_runtime.py::test_core_views_work_in_embedded_dispatch - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4517396Z ERROR tests/test_mobile_runtime.py::test_unadopted_model_cannot_be_imported_or_generate_forecast - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4518292Z ERROR tests/test_mobile_market.py::test_delta_ingestion_is_idempotent_and_retains_exact_receipt_boundary - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4519177Z ERROR tests/test_mobile_market.py::test_later_correction_does_not_replace_earlier_known_price - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4520040Z ERROR tests/test_mobile_market.py::test_partial_or_invalid_day_cannot_advance_success_watermark - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4520942Z ERROR tests/test_production_research.py::test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4521869Z ERROR tests/test_production_research.py::test_production_momentum_and_ridge_walk_forward_keep_holdout_locked - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4522791Z ERROR tests/test_production_research.py::test_premium_1230_labels_are_partial_and_snapshot_maturity_is_enforced - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4523715Z ERROR tests/test_production_research.py::test_production_build_orchestration_publishes_one_verifiable_batch - FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/stock-ai-spec/stock-ai-spec/.demo-artifacts/pytest-mobile-ci'
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.4524229Z 28 passed, 1 warning, 12 errors in 7.23s
+verify	Shared Python and persistence tests	2026-10-15T03:12:31.7042825Z ##[error]Process completed with exit code 1.

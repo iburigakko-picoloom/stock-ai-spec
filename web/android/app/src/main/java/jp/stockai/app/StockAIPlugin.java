@@ -40,18 +40,69 @@ public class StockAIPlugin extends Plugin {
     final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     SQLiteDatabase db;
     volatile JSONObject pendingUpdate;
+    static final int STATE_CHUNK_CHARACTERS = 256 * 1024;
+    static final int MAX_STATE_CHARACTERS = 128 * 1024 * 1024;
+    static final String STATE_FORMAT = "stockai-state-chunks-v1:";
+
+    static String hex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte value : bytes) result.append(String.format("%02x", value & 255));
+        return result.toString();
+    }
+
+    byte[] encryptChunk(String text, long generation, int index) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, key());
+        cipher.updateAAD(("state:" + generation + ":" + index).getBytes(StandardCharsets.US_ASCII));
+        ByteArrayOutputStream output = new ByteArrayOutputStream(); output.write(cipher.getIV());
+        output.write(cipher.doFinal(text.getBytes(StandardCharsets.UTF_8))); return output.toByteArray();
+    }
+
+    String decryptChunk(byte[] data, long generation, int index) throws Exception {
+        if (data.length < 28 || data.length > STATE_CHUNK_CHARACTERS * 4 + 28) throw new SecurityException();
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(128, Arrays.copyOfRange(data, 0, 12)));
+        cipher.updateAAD(("state:" + generation + ":" + index).getBytes(StandardCharsets.US_ASCII));
+        return new String(cipher.doFinal(data, 12, data.length - 12), StandardCharsets.UTF_8);
+    }
 
     JSObject readStateData() throws Exception {
         JSObject result = new JSObject().put("generation", 0).put("payload", "");
         try (Cursor cursor = db.rawQuery("SELECT generation,payload FROM state WHERE id=1", null)) {
-            if (cursor.moveToFirst()) { result.put("generation", cursor.getLong(0)); result.put("payload", decrypt(cursor.getBlob(1))); }
+            if (cursor.moveToFirst()) {
+                long generation = cursor.getLong(0);
+                String envelope = decrypt(cursor.getBlob(1));
+                String payload = envelope;
+                if (envelope.startsWith(STATE_FORMAT)) {
+                    JSONObject metadata = new JSONObject(envelope.substring(STATE_FORMAT.length()));
+                    int length = metadata.getInt("length"), count = metadata.getInt("chunks");
+                    if (length < 0 || length > MAX_STATE_CHARACTERS || count != (length + STATE_CHUNK_CHARACTERS - 1) / STATE_CHUNK_CHARACTERS) throw new SecurityException();
+                    StringBuilder content = new StringBuilder(length); MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                    int index = 0;
+                    try (Cursor chunks = db.rawQuery("SELECT piece,payload FROM state_chunks ORDER BY piece", null)) {
+                        while (chunks.moveToNext()) {
+                            if (chunks.getInt(0) != index || index >= count) throw new SecurityException();
+                            String fragment = decryptChunk(chunks.getBlob(1), generation, index++);
+                            if (fragment.length() > STATE_CHUNK_CHARACTERS) throw new SecurityException();
+                            digest.update(fragment.getBytes(StandardCharsets.UTF_8)); content.append(fragment);
+                        }
+                    }
+                    if (index != count || content.length() != length || !hex(digest.digest()).equals(metadata.getString("sha256"))) throw new SecurityException();
+                    payload = content.toString();
+                }
+                result.put("generation", generation); result.put("payload", payload);
+            }
         }
         return result;
     }
 
     @Override public void load() {
         db = getContext().openOrCreateDatabase("stockai-device.sqlite3", 0, null);
+        initializeStateTables();
+    }
+
+    void initializeStateTables() {
         db.execSQL("CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK(id=1), generation INTEGER NOT NULL, payload BLOB NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS state_chunks (piece INTEGER PRIMARY KEY, payload BLOB NOT NULL)");
     }
 
     interface Work { void run() throws Exception; }
@@ -95,19 +146,33 @@ public class StockAIPlugin extends Plugin {
         call.resolve(readStateData());
     }); }
 
-    @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
-        Integer generation = call.getInt("generation"); String payload = call.getString("payload");
-        if (generation == null || payload == null || payload.length() > 128 * 1024 * 1024) throw new IllegalArgumentException();
-        byte[] encrypted = encrypt(payload);
+    long writeStateData(long generation, String payload) throws Exception {
+        if (generation < 0 || payload == null || payload.length() > MAX_STATE_CHARACTERS) throw new IllegalArgumentException();
         db.beginTransaction();
         try {
             long current = 0;
             try (Cursor cursor = db.rawQuery("SELECT generation FROM state WHERE id=1", null)) { if (cursor.moveToFirst()) current = cursor.getLong(0); }
             if (current != generation) throw new IllegalStateException("state conflict");
-            db.execSQL("INSERT OR REPLACE INTO state(id,generation,payload) VALUES(1,?,?)", new Object[]{ current + 1, encrypted });
+            db.execSQL("DELETE FROM state_chunks");
+            MessageDigest digest = MessageDigest.getInstance("SHA-256"); int index = 0;
+            for (int offset = 0; offset < payload.length(); offset += STATE_CHUNK_CHARACTERS) {
+                String fragment = payload.substring(offset, Math.min(offset + STATE_CHUNK_CHARACTERS, payload.length()));
+                digest.update(fragment.getBytes(StandardCharsets.UTF_8));
+                db.execSQL("INSERT INTO state_chunks(piece,payload) VALUES(?,?)", new Object[]{index, encryptChunk(fragment, current + 1, index)});
+                index++;
+            }
+            JSONObject metadata = new JSONObject().put("length", payload.length()).put("chunks", index).put("sha256", hex(digest.digest()));
+            db.execSQL("INSERT OR REPLACE INTO state(id,generation,payload) VALUES(1,?,?)", new Object[]{current + 1, encrypt(STATE_FORMAT + metadata.toString())});
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
-        call.resolve(new JSObject().put("generation", generation + 1));
+        return generation + 1;
+    }
+
+    @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
+        Integer generation = call.getInt("generation");
+        if (generation == null) throw new IllegalArgumentException();
+        long saved = writeStateData(generation, call.getString("payload"));
+        call.resolve(new JSObject().put("generation", saved));
     }); }
 
     String apiKey() throws Exception {
