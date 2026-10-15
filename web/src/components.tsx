@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import type { Action } from "./types";
+import { MobileUpdateNotice } from "./mobile/MobileDevicePanel";
 
 export function yen(value: string | number | null | undefined): string {
   if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return "—";
@@ -95,6 +96,7 @@ const nav = [
 export function AppShell(): ReactNode {
   return (
     <div className="app-shell">
+      <MobileUpdateNotice />
       <a className="skip-link" href="#main">本文へ移動</a>
       <header className="app-brand">
         <span className="brand-mark" aria-hidden="true">株</span>

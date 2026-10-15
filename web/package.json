@@ -12,6 +12,8 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
     "@vitejs/plugin-react": "latest",
     "react": "latest",
     "react-dom": "latest",
@@ -19,6 +21,7 @@
     "vite": "latest"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.3",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.62.1",
     "@testing-library/jest-dom": "latest",

@@ -1,0 +1,34 @@
+{
+  "recorded_at": "2026-10-15T02:01:13.585194+00:00",
+  "local_base": "5b7aa4d6008e9e5e08291267f9bdc623428ac780",
+  "remote_main_before": "0c9f88c9896247ff15b81d0e5912db7a4d3bad62",
+  "remote_only_commits": 0,
+  "local_only_commits": 69,
+  "canonical_repository": "iburigakko-picoloom/stock-ai-spec",
+  "visibility": "PUBLIC",
+  "backup_bundle": ".demo-artifacts/android-preflight/checkpoint-5b7aa4d.bundle",
+  "user_uncommitted_patch": ".demo-artifacts/android-preflight/user-uncommitted.before.patch",
+  "stage": "offline runtime and React/native integration foundation",
+  "tests": {
+    "embedded_api": 4,
+    "existing_react": 18,
+    "offline_browser_pc_feature_parity": "PASS: 41/51 columns, 4 synthetic symbols, 7 decimal places; external HTTPS blocked",
+    "typescript": "PASS",
+    "eslint": "PASS after excluding generated Android/assets/runtime binaries",
+    "production_web_build": "PASS"
+  },
+  "android_apk_build": "NOT_YET_RUN",
+  "signed_release": "NOT_YET_CREATED",
+  "physical_device_tests": "PENDING_DEVICE_CONNECTION",
+  "adopted_model": "NONE",
+  "private_models_and_market_data_packaged": false,
+  "log_hashes": {
+    "mobile-python-tests-1.log": "07386d3d57cde401cde359784a59714616909af96a476b52df6236d82ea42495",
+    "mobile-python-tests-2.log": "ee7faec63ea5037125767334b10596785f260b5e75795e3b864e69af5fcc3b1b",
+    "web-tests-2.log": "5e04d741a297701dd163421a57cb4c8f86c2b2494a82086a3dcf0086591b60fe",
+    "web-build-1.log": "611dc6ab66cba9103cd5277e3a68161bd920f44432f2b34b585498c540fdc68c",
+    "mobile-browser-1.log": "3a4d27438cd73e2c3d609167c8b6940ae5af6c62999b148210537964aa6860f1",
+    "mobile-browser-2.log": "274dd57dda7dec90195c05f78d66aab536a91c677778d1387488d5dc0b575ea2",
+    "mobile-browser-3.log": "ec89d1a6bb347557a1861a19531f2b3ba09f74faf60bd3c5d1e80cb9bd7ff935"
+  }
+}

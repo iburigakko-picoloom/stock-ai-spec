@@ -1,0 +1,29 @@
+[WebServer] (node:11376) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+(node:26204) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/1] web\mobile-tests\runtime.spec.ts:4:1 › offline Python preserves input and matches PC 41/51 features
+  1) web\mobile-tests\runtime.spec.ts:4:1 › offline Python preserves input and matches PC 41/51 features 
+
+    Error: ENOENT: no such file or directory, open 'C:\Users\manat\app\株AI\.demo-artifacts\android\mobile-golden.json'
+
+      3 |
+      4 | test("offline Python preserves input and matches PC 41/51 features", async ({ page, context }) => {
+    > 5 |   const golden = JSON.parse(readFileSync("../.demo-artifacts/android/mobile-golden.json", "utf-8"));
+        |                             ^
+      6 |   await context.route("https://**", route => route.abort());
+      7 |   await page.route("**/mobile-test", route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Offline runtime verification</title>" }));
+      8 |   await page.goto("/mobile-test");
+        at C:\Users\manat\app\株AI\stock-ai-spec\web\mobile-tests\runtime.spec.ts:5:29
+
+    Error Context: web\test-results\runtime-offline-Python-pre-35bf9-d-matches-PC-41-51-features\error-context.md
+
+
+  1 failed
+    web\mobile-tests\runtime.spec.ts:4:1 › offline Python preserves input and matches PC 41/51 features 

@@ -34,3 +34,16 @@ artifacts/logs/
 *.sqlite3
 *.sqlite-shm
 *.sqlite-wal
+web/public/python/
+web/android/.gradle/
+web/android/.idea/
+web/android/local.properties
+web/android/**/build/
+web/android/app/src/main/assets/public/
+web/android/app/src/main/assets/capacitor.*.json
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.apk
+*.aab

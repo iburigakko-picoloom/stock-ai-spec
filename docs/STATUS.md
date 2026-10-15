@@ -1018,3 +1018,12 @@ source 7eea42a44642ad6ddf520c5359edfb7295c000f8で全747試験PASS、coverage86.
 本人の「きりいいところで停止して進捗とどれくらいかかりそうか教えて」により、このローカル検証済み・未公開の境界で停止する。確認用サーバーsession19454はCtrl-Cで終了、port5193の待受なしを確認。学習・監査・全回帰も終了済み。公開サイトはv3/source0073ca93のまま。選択されたSites checkoutの変更15ファイルをprivate/へ同一byteで保存し、Sites側のcommit/push/deployは行わない。Goalは本人依頼によるpausedへ移す。
 
 全747試験PASS/coverage86.9514%のPython sourceは7eea42aから不変。18候補の学習・開発比較と386営業日の価格/当日銘柄網羅監査は完了。実市場の企業行動/執行/決済/費用/税を通す資産推移比較、最終モデル固定/holdout、最新予測・同期は未完。J-Quants API403も未解消。再開後の概算はアプリ残接続/結合確認が数時間〜1日、実市場評価/最終検証が追加数日以上。データアクセスと必要な企業行動情報が揃うことを前提とする粗い作業見積もりで、稼働日や採用を保証しない。実注文なし。
+
+
+## 2026-10-15 — Android化の初期基盤とオフライン計算一致
+
+本人のAPK配布・端末内計算の新指示に従い開始。PC main5b7aa4dはGitHub main0c9f88cより69commit先で、remote-onlyは0。Git bundleと未commit差分を保存し、fetchだけで照合した。移転先iburigakko-picoloom/stock-ai-specはPUBLIC、既存Release/Actions signing secretsなし。未公開設定・既存研究成果・本人の未commit変更を保全する。
+
+既存React UIへCapacitor8.5.3/Android基盤を追加。PCの特徴量・保有比較・台帳/APIの具体module23本を同一byteでAPKへ同梱し、公式Pyodide0.29.3と依存21packageのhashを固定する。Web Worker上の端末内ASGI adapterを通し、ネットワークのPC/serverを立てない。desktop ingestionとfixture bootstrapのpackage facadeだけをmobile namespaceへ置換し、元計算moduleは変更しない。APIキーのKeystore暗号化・端末保存・更新確認のnative基盤も追加したが、Androidコンパイル/署名/配布・backup UI・差分取得・モデル取込は後続検証中。
+
+端末内API4試験、既存React18試験、型検査/lint/Web build成功。外部HTTPSを遮断したEdgeの実WASMで、保有なし/nullの保存とPC版41/51特徴量の4合成銘柄に対する小数7桁一致を確認。初回の不足namespace、試験path、WAL backup/新FastAPI ASGI互換を修正し失敗logも保存。Windows制限環境のrename EPERMは許可された実行で再検証。Android実機は未接続で確認待ち。採用モデルは依然なし、公開APKへ私有モデル/市場データ/口座/APIキーを入れず研究表示を維持。証拠docs/evidence/android-apk-20261015/stage1.json。実注文なし。
