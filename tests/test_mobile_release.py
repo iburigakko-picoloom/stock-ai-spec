@@ -12,6 +12,7 @@ OTHER = "cd" * 32
     [
         f"Signer #1 certificate SHA-256 digest: {PIN}",
         f"Signer #1 certificate SHA-256 digest: {PIN.upper()}",
+        f"V2 Signer: certificate SHA-256 digest: {PIN}",
         f"Signer (minSdkVersion=26, maxSdkVersion=32) #1 certificate SHA-256 digest: {PIN}\n"
         f"Signer (minSdkVersion=33) #1 certificate SHA-256 digest: {PIN}",
     ],

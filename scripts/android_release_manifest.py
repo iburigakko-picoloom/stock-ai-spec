@@ -17,7 +17,8 @@ def verify_signing_identity(output: str, expected: str) -> None:
     # must use the one pinned certificate; a source stamp is a separate key.
     counts = re.findall(r"(?im)^\s*Number of signers:\s*(\d+)\s*$", output)
     digests = re.findall(
-        r"(?im)^\s*Signer[^\r\n]*?certificate SHA-256 digest:\s*([0-9a-f:]+)\s*$",
+        r"(?im)^\s*(?:V\d+(?:\.\d+)?\s+)?Signer[^\r\n]*?certificate SHA-256 digest:"
+        r"\s*([0-9a-f:]+)\s*$",
         output,
     )
     actual = {value.replace(":", "").lower() for value in digests}
