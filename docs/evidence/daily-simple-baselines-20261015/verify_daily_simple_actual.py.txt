@@ -1,0 +1,197 @@
+"""Read-only actual-data replay, preserving every earlier research artifact."""
+from pathlib import Path
+import hashlib
+import json
+import math
+
+import duckdb
+import numpy as np
+import pandas as pd
+from scipy.stats import rankdata
+
+ROOT = Path(__file__).resolve().parent.parent
+OLD = ROOT / 'artifacts/daily-risk-baselines/receipts/76c4e566403571331f71b89c15d92475d82e94c82b78a1231be44166d356861d.json'
+NEW_ROOT = ROOT / 'artifacts/daily-simple-baselines'
+OUT = ROOT / 'docs/evidence/daily-simple-baselines-20261015'
+SOURCE = '7fccbe1ea3bb491362e3bfd0ad19cb8de327184b'
+
+
+def digest(path):
+    value = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8 * 1024 * 1024), b''):
+            value.update(block)
+    return value.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def receipt(path):
+    value = read(path)
+    encoded = json.dumps(value, sort_keys=True, ensure_ascii=False, indent=2, allow_nan=False)
+    assert hashlib.sha256(encoded.encode()).hexdigest() == path.stem
+    return value
+
+
+def canonical(frame):
+    result = frame.copy()
+    for name in ('trading_date', 'label_end'):
+        result[name] = pd.to_datetime(result[name]).astype('datetime64[ns]')
+    result['as_of'] = pd.to_datetime(result.as_of, utc=True).astype('datetime64[ns, UTC]')
+    return result.sort_values(['trading_date', 'symbol']).reset_index(drop=True)
+
+
+def sql_name(value):
+    return '"' + value.replace('"', '""') + '"'
+
+
+result = read(ROOT / '.demo-artifacts/daily-simple-baselines-actual-2-result.json')
+assert result['exit_code'] == 0 and result['source_commit'] == SOURCE
+paths = list((NEW_ROOT / 'receipts').glob('*.json'))
+assert len(paths) == 1, paths
+new_path = paths[0]
+old, new = receipt(OLD), receipt(new_path)
+assert new['schema_version'] == 'daily-regression-risk-simple-baselines-v3'
+for field in ('feature_selection_id', 'data_snapshot_id', 'dataset_byte_sha256',
+              'locked_holdout_start', 'feature_names', 'ridge_alpha', 'logistic_c'):
+    assert old[field] == new[field], field
+assert new['holdout_scored'] is False and new['adoption_eligible'] is False
+assert new['research_only'] is True
+for name, expected in new['source_sha256'].items():
+    assert digest(ROOT / 'src/stock_ai/ml' / name) == expected, name
+
+dataset = ROOT / 'data/live/datasets/production' / new['data_snapshot_id'] / (new['data_snapshot_id'] + '.parquet')
+assert digest(dataset) == new['dataset_byte_sha256']
+original_hashes = {str(OLD.relative_to(ROOT)): digest(OLD)}
+features = new['feature_names']
+rule_features = new['additional_baseline_policy']['rule_features_positive_direction']
+rules = new['additional_baseline_policy']['rule_equal_weight_components']
+comparisons = []
+with duckdb.connect(config={'threads': 1, 'memory_limit': '512MB'}) as connection:
+    connection.read_parquet(str(dataset)).create_view('source')
+    for current in new['results']:
+        horizon = current['horizon']
+        previous = next(x for x in old['results'] if x['horizon'] == horizon)
+        assert current['candidates'] == previous['candidates'], 'original 18 candidate metrics changed'
+        assert current['comparison_rows'] == previous['comparison_rows']
+        assert current['risk_definition'] == previous['risk_definition']
+        for scores in [current['rule_scores'], *(fold['rule_scores'] for fold in current['folds'])]:
+            for value in scores.values():
+                assert 'mse' not in value
+                assert 'mean_squared_error' not in value['ranking']['metrics']
+        for item in (current, previous):
+            assert digest(item['oof_path']) == item['oof_byte_sha256']
+        original_hashes[previous['oof_path']] = previous['oof_byte_sha256']
+        now, before = canonical(pd.read_parquet(current['oof_path'])), canonical(pd.read_parquet(previous['oof_path']))
+        keys = ['trading_date', 'symbol', 'as_of', 'label_end', 'target', 'fold']
+        pd.testing.assert_frame_equal(now[keys], before[keys], check_exact=True)
+        differences = {}
+        for column in before.columns.difference(keys):
+            delta = float(np.max(np.abs(now[column].to_numpy() - before[column].to_numpy())))
+            assert math.isfinite(delta) and delta <= 1e-10, (horizon, column, delta)
+            differences[column] = delta
+        assert len(current['folds']) == len(previous['folds'])
+        folds = []
+        for fold in current['folds']:
+            number = fold['fold']
+            prior_fold = next(x for x in previous['folds'] if x['fold'] == number)
+            for field in ('original_validation_start', 'score_start', 'validation_end', 'train_end',
+                          'fit_cutoff', 'training_rows', 'latest_training_label_end',
+                          'latest_training_label_available_at', 'validation_rows'):
+                assert fold[field] == prior_fold[field], (horizon, number, field)
+            model = fold['elastic_net']
+            assert model['rows'] == fold['training_rows']
+            assert model['alpha'] == .001 and model['l1_ratio'] == .5
+            assert 0 <= model['kkt_residual'] <= 1e-9
+            assert 1 <= model['iterations'] <= 50000
+            assert math.isfinite(model['objective']) and model['objective'] >= 0
+            assert math.isfinite(model['objective_gap_bound']) and model['objective_gap_bound'] >= 0
+            score = now.loc[now.fold == number].reset_index(drop=True)
+            columns = list(dict.fromkeys([*features, *rule_features]))
+            universe = connection.execute(
+                'SELECT trading_date, as_of, available_at, symbol, ' + ', '.join(map(sql_name, columns))
+                + ' FROM source WHERE trading_date BETWEEN ? AND ? ORDER BY trading_date, symbol',
+                [fold['score_start'], fold['validation_end']],
+            ).df()
+            universe['trading_date'] = pd.to_datetime(universe.trading_date).astype('datetime64[ns]')
+            universe['as_of'] = pd.to_datetime(universe.as_of, utc=True).astype('datetime64[ns, UTC]')
+            universe['available_at'] = pd.to_datetime(universe.available_at, utc=True)
+            assert not universe.duplicated(['trading_date', 'symbol']).any()
+            assert (universe.available_at <= universe.as_of).all()
+            assert (universe.groupby('trading_date').as_of.nunique() == 1).all()
+            joined = score[keys].merge(universe, on=['trading_date', 'as_of', 'symbol'],
+                                       how='left', validate='one_to_one', indicator=True)
+            assert (joined['_merge'] == 'both').all()
+            values = joined[features].to_numpy(float)
+            missing = np.isnan(values)
+            transform = fold['ridge']
+            imputed = np.column_stack([np.where(missing, transform['medians'], values), missing.astype(float)])
+            standardized = (imputed - transform['mean']) / transform['scale']
+            prediction = model['target_mean'] + standardized @ model['coefficient']
+            elastic_delta = float(np.max(np.abs(prediction - score.elastic_net_v0.to_numpy())))
+            assert elastic_delta <= 1e-12, elastic_delta
+            # Independent rank implementation: scipy rankdata, by date and observed peers only.
+            component = pd.DataFrame(0., index=universe.index, columns=rule_features)
+            for _, indices in universe.groupby('trading_date').groups.items():
+                for name in rule_features:
+                    values = universe.loc[indices, name]
+                    present = values.notna()
+                    n = int(present.sum())
+                    if n > 1:
+                        ranks = rankdata(values.loc[present].to_numpy(float), method='average')
+                        component.loc[values.index[present], name] = (ranks - (n + 1) / 2) * 2 / (n - 1)
+            expected_rules = universe[['trading_date', 'as_of', 'symbol']].copy()
+            for name, names in rules.items():
+                expected_rules[name] = component[names].sum(axis=1) / len(names)
+            expected_rules = score[['trading_date', 'as_of', 'symbol']].merge(
+                expected_rules, on=['trading_date', 'as_of', 'symbol'], validate='one_to_one')
+            rule_deltas = {}
+            for name in rules:
+                delta = float(np.max(np.abs(expected_rules[name].to_numpy() - score[name].to_numpy())))
+                assert delta <= 1e-14, (horizon, number, name, delta)
+                rule_deltas[name] = delta
+            audit = fold['rule_universe']
+            assert audit['universe_rows'] == len(universe)
+            assert audit['dates'] == universe.trading_date.nunique()
+            assert audit['universe_uses_labels'] is False
+            for name in rule_features:
+                assert audit['feature_coverage'][name] == {
+                    'observed_rows': int(universe[name].notna().sum()),
+                    'neutral_missing_rows': int(universe[name].isna().sum()),
+                }
+            folds.append({
+                'fold': number, 'training_rows': fold['training_rows'], 'validation_rows': len(score),
+                'score_start': fold['score_start'], 'validation_end': fold['validation_end'],
+                'elastic_net': model, 'elastic_prediction_replay_max_difference': elastic_delta,
+                'rule_replay_max_difference': rule_deltas, 'rule_universe': audit,
+                'unscored_feature_peers': len(universe) - len(score),
+                'baseline_scores': fold['scores'], 'rule_scores': fold['rule_scores'],
+            })
+            print(f'{horizon}d fold {number}: replay PASS, {len(score)} evaluated / {len(universe)} peers', flush=True)
+        comparisons.append({
+            'horizon': horizon, 'rows': len(now), 'dates': int(now.trading_date.nunique()),
+            'oof_path': current['oof_path'], 'oof_byte_sha256': current['oof_byte_sha256'],
+            'original_candidates_exact_match': True, 'original_keys_exact_match': True,
+            'old_prediction_max_differences': differences, 'folds': folds,
+            'baseline_scores': current['baseline_scores'], 'rule_scores': current['rule_scores'],
+            'candidates': current['candidates'],
+        })
+for path, expected in original_hashes.items():
+    assert digest(ROOT / path) == expected, path
+summary = {
+    'source_commit': SOURCE, 'receipt_id': new_path.stem,
+    'receipt_path': str(new_path.relative_to(ROOT)), 'receipt_file_sha256': digest(new_path),
+    'schema_version': new['schema_version'], 'additional_baseline_policy': new['additional_baseline_policy'],
+    'feature_selection_id': new['feature_selection_id'], 'data_snapshot_id': new['data_snapshot_id'],
+    'dataset_byte_sha256': new['dataset_byte_sha256'], 'locked_holdout_start': new['locked_holdout_start'],
+    'holdout_scored': False, 'adoption_eligible': False, 'no_order_sent': True,
+    'source_sha256': new['source_sha256'], 'dependencies': new['dependencies'],
+    'comparisons': comparisons, 'original_artifacts_unchanged': original_hashes,
+    'verification_script_sha256': digest(__file__),
+}
+destination = OUT / 'summary.json'
+assert not destination.exists(), 'Preserve earlier replay evidence'
+destination.write_text(json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False) + '\n', encoding='utf-8', newline='\n')
+print('ALL REPLAYS PASS: ' + str(destination), flush=True)

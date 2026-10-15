@@ -971,3 +971,12 @@ compare-daily-baselines v3へ固定Elastic Netとmomentum+revision/4特徴等重
 これは入力の同一性監査。元データの全暦日にはholdout日付も含むが、予測/target/成績を計算していない。訂正前vintage、全期間raw/normalized行ペア、PITユニバース/営業日完全性、企業行動/執行能力の保証には置き換えず、projectionはevaluation_ready=falseを維持する。catalog・元データ・dataset・学習成果は不変。
 
 同日の公式V2への読み取り確認では、株価Bulk一覧とFree対応の銘柄一覧がいずれもHTTP403。配当APIは未要求で、原因や本人の契約プランは未確定。認証値・応答本文は記録せず、契約/資格情報/production dataも変更していない。契約プランとキー有効状態を本人へ確認依頼済み。最新取得・最新推論は接続復旧が必要だが、保存データの追加比較・残実装は継続する。証拠docs/evidence/live-data-access-20261015。Goal active、実注文なし。
+
+
+## 2026-10-15 — 追加Elastic Net・固定ルールの実比較と全行再現完了
+
+source7fccbe1で5日1,327,530行/354日/6fold、20日1,044,317行/279日/5foldの比較を08:28〜09:07 JSTに正常完了。receipt acc6ee1190f496ebce794281bb7927269b6b4e77ec46da027c9138dd0a51c5de。全18候補の元指標・key/target/foldはv2と完全一致、既存baseline予測の差も0。全11foldの保存係数と別実装scipy順位計算から全採点行を再現し、いずれも差0。KKT残差1e-9以下を確認した。正解未受領等のpeerを5日14,027行/20日13,385行含め、未来labelによる順位母集団選択を行っていない。証拠docs/evidence/daily-simple-baselines-20261015。
+
+Elastic Netの平均Rank ICは5日0.010408/20日0.017013で、全18候補が上回った。ただしMSEで上回るのは5日8/9、20日5/9。2種類の固定ルールは両期間で平均ICが負だが、5日の等重みルールのNDCG@20は0.381223で個別候補最大0.381083より高い。指標ごとの混在結果と全fold/全候補を保持し、勝者選択や有意差・実用収益の断定は行わない。別のensemble診断は評価日数が異なる。
+
+全713試験PASS/coverage86.81%と実比較の正常終了は別証拠として保存。初回中断・出力単位の修正履歴も保持した。元成果を変更せず、holdout採点・実注文なし。実市場の企業行動/約定能力/費用/個人税を通す状態付きNAV、本人入力の比較接続、最終selection/holdout、最新refit/推論/同期は残る。最新データAPI403の解消も必要。Goal active。

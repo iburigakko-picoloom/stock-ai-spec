@@ -95,6 +95,8 @@ Python: `ruff check .`, `mypy src`, `pytest`, `pytest --cov`。Windowsのrunner�
 
 追加baselineの順位指標修正後、source `7fccbe1`で全713試験PASS、coverage86.81%を確認した。[全体回帰の記録](evidence/daily-simple-baselines-20261015/full-regression.json)を参照。実18候補との追加比較は別の実行であり、試験成功だけで実スコア計算や採用を完了扱いにしない。
 
+同sourceで[Elastic Net・固定ルールと全18候補の実比較](evidence/daily-simple-baselines-20261015/README.md)も完了した。5日6区間・20日5区間の全行で再現性を確認。元候補指標と旧baseline予測は完全一致し、保存係数と独立順位計算も再現誤差0。平均Rank ICとMSE/NDCGで結論が異なる結果を保持しており、費用/税/実市場NAV・最終評価・採用は未完。
+
 `private/`: Nodeのschema/fault tests、TypeScript、eslint、Sites build、390px表示確認。`web/`は既存PWAのlint/typecheck/test/buildを維持。履歴sourceのコピーは科学的証拠としてlint書換え対象から除き、coverage分母は実際の`src/stock_ai`に限定する。
 
 Sitesは既存`hosted/`と別のproject。publish用の隔離コピーは`.demo-artifacts/private-site-publish`。Windowsではhelperのプロセス内PATHへGit Bashを追加し、`TAR_OPTIONS=--force-local`を設定する。Nodeのnpm wrapperもcheckout内だけに置く。グローバル設定は変更しない。正規helperがpushしたcommitと対応archiveだけをprivate deployへ渡す。

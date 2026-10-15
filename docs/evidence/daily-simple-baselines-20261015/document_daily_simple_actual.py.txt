@@ -1,0 +1,87 @@
+from pathlib import Path
+import hashlib
+import json
+import re
+
+root = Path(__file__).resolve().parent.parent
+folder = root / 'docs/evidence/daily-simple-baselines-20261015'
+summary = json.loads((folder / 'summary.json').read_text(encoding='utf-8'))
+test_result = json.loads((root / '.demo-artifacts/tests-daily-simple-full-2-result.json').read_text(encoding='utf-8-sig'))
+assert test_result['exit_code'] == 0 and test_result['source_commit'] == summary['source_commit']
+test_log_path = root / '.demo-artifacts/tests-daily-simple-full-2.log'
+test_log = test_log_path.read_text(encoding='utf-8', errors='replace')
+assert re.search(r'713 passed,', test_log) and 'FAILED ' not in test_log
+coverage_path = root / '.demo-artifacts/coverage-daily-simple-full-2.json'
+coverage = json.loads(coverage_path.read_text(encoding='utf-8'))
+percent = coverage['totals']['percent_covered']
+assert percent >= 85
+paths = [test_log_path, coverage_path,
+         root / '.demo-artifacts/tests-daily-simple-full-2-result.json',
+         root / '.demo-artifacts/daily-simple-baselines-actual-2.log',
+         root / '.demo-artifacts/daily-simple-baselines-actual-2-result.json',
+         root / '.demo-artifacts/daily-simple-baselines-replay-2.log']
+verification = {
+    'source_commit': summary['source_commit'], 'full_tests_passed': 713,
+    'full_coverage_percent': percent, 'coverage_required_percent': 85,
+    'ruff': 'PASS', 'mypy_modules': 62,
+    'targeted_before_correction': 61, 'targeted_after_correction': 25,
+    'actual_comparison': 'PASS', 'saved_model_and_independent_rule_replay': 'PASS',
+    'original_candidate_metrics_exact_match': True, 'original_keys_exact_match': True,
+    'old_prediction_allowed_absolute_tolerance': 1e-10,
+    'elastic_replay_allowed_absolute_tolerance': 1e-12,
+    'independent_rule_replay_allowed_absolute_tolerance': 1e-14,
+    'evidence_sha256': {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths},
+}
+(folder / 'verification.json').write_text(json.dumps(verification, indent=2) + '\n', encoding='utf-8', newline='\n')
+
+
+def fmt(value, digits=6):
+    return '—' if value is None else f'{value:.{digits}f}'
+
+
+lines = ['# 固定Elastic Net・単純ルールの実18候補比較', '',
+    f"Source `{summary['source_commit']}`。正本receipt `{summary['receipt_id']}`。",
+    '追加前に条件を固定した探索診断。以前の候補成績を見た後の追加であり、採用の事前登録検証とは扱わない。', '',
+    '全18候補の元指標、日付・銘柄・as_of・target・foldは前回v2と完全一致。既存baseline予測の数値差は下記へ記録。原成果・v1/v2・ensemble receiptは変更していない。', '',
+    '| 期間 | 手法 | seed | リターンMSE | 日付等重みRank IC | NDCG@20 |',
+    '| --- | --- | --- | ---: | ---: | ---: |']
+for comparison in summary['comparisons']:
+    horizon = comparison['horizon']
+    methods = [(c['model_family'], c['seed'], c['scores']) for c in comparison['candidates']]
+    methods += [(name, '—', value) for name, value in comparison['baseline_scores'].items()]
+    methods += [(name, '—', value) for name, value in comparison['rule_scores'].items()]
+    for name, seed, score in methods:
+        ranking = score['ranking']['metrics']
+        lines.append(f"| {horizon}日 | {name} | {seed} | {fmt(score.get('mse'))} | {fmt(ranking['mean_daily_rank_ic'])} | {fmt(ranking['ndcg_at_20'])} |")
+lines += ['', 'MSEは小さい方、Rank IC/NDCGは大きい方が良い。ゼロ予測のICは未定義。順位ルールは無単位のため、入れ子を含めリターンMSEを出力しない。異なるhorizonの成績を直接優劣比較しない。', '', '## 期間別の検証範囲', '']
+for comparison in summary['comparisons']:
+    h = comparison['horizon']
+    folds = comparison['folds']
+    largest = max(comparison['old_prediction_max_differences'].values())
+    max_kkt = max(f['elastic_net']['kkt_residual'] for f in folds)
+    max_elastic = max(f['elastic_prediction_replay_max_difference'] for f in folds)
+    max_rule = max(max(f['rule_replay_max_difference'].values()) for f in folds)
+    peers = sum(f['unscored_feature_peers'] for f in folds)
+    lines.append(f"- {h}日: {comparison['rows']:,}行 / {comparison['dates']}日 / {len(folds)}fold。旧baseline予測との差は最大{largest:.3g}。Elastic NetのKKT残差は最大{max_kkt:.3g}、保存係数の予測再現誤差は最大{max_elastic:.3g}。独立scipy順位計算との差は最大{max_rule:.3g}。正解未受領など採点対象外の特徴量peer {peers:,}行も順位母集団へ含めた。")
+    elastic_ic = comparison['baseline_scores']['elastic_net_v0']['ranking']['metrics']['mean_daily_rank_ic']
+    elastic_mse = comparison['baseline_scores']['elastic_net_v0']['mse']
+    beats_ic = None if elastic_ic is None else sum(
+        c['scores']['ranking']['metrics']['mean_daily_rank_ic'] is not None
+        and c['scores']['ranking']['metrics']['mean_daily_rank_ic'] > elastic_ic
+        for c in comparison['candidates'])
+    beats_mse = sum(c['scores']['mse'] < elastic_mse for c in comparison['candidates'])
+    ic_text = 'Elastic NetのICは未定義' if beats_ic is None else f'Elastic Netを集計Rank ICで上回るのは{beats_ic}/9'
+    lines.append(f"  各9候補のうち{ic_text}、リターンMSEで上回るのは{beats_mse}/9。fold別・全候補の値はsummary.jsonへ保存した。")
+lines += ['', '全11 fitで固定alpha0.001・l1_ratio0.5を使用。train内中央値・標準化、全学習行のGram統計、KKT残差1e-9以下を確認。行抽出・パラメータ探索は行っていない。', '',
+    'ルールは同日全特徴量peerで正解結合前に順位化した。欠損・定数・1件だけの値は中立0、重みの再配分なし。特徴量の利用可能時刻・同日as_of・全peer件数/欠損数を再照合した。保存済みスコアは別実装のscipy.rankdataから全採点行で再現。', '',
+    '## 試験・限界', '',
+    f'全713試験PASS、coverage{percent:.2f}%（基準85%）。追加前の関連61試験、指標出力修正後の25試験、Ruff全体/mypy62modules PASS。verification.jsonにlog・coverageのhashを記録。', '',
+    '初回の実比較と全回帰は、共有順位auditに無単位スコアとreturnのMSEが混ざることを発見して中断。新規実スコアを見る前に1件の失敗試験で再現し、ルール出力からその指標だけを除去して再実行した。元の条件・予測値・候補指標は変更していない。中断logとrank-unit-correction.jsonを保持。', '',
+    'これは開発OOFの予測診断。統計的有意差、cash/HOLDのNAV、費用/税を引いた収益、採用可能性は証明しない。重なる5日/20日forward returnを日次returnとして足し上げない。SB20/SB60を採用根拠に使わない。', '',
+    '企業行動・約定能力・費用・個人税を含む状態付き実市場比較、最終selection/holdout、最新推論、本人設定を使った個人比較は未完。holdoutは採点しておらず、実注文も送信していない。']
+(folder / 'README.md').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+print(f'full_tests=713 coverage={percent:.8f}')
+for comparison in summary['comparisons']:
+    print('horizon', comparison['horizon'])
+    for name, value in {**comparison['baseline_scores'], **comparison['rule_scores']}.items():
+        print(name, value.get('mse'), value['ranking']['metrics']['mean_daily_rank_ic'])

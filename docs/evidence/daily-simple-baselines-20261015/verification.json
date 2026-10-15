@@ -1,0 +1,36 @@
+{
+  "source_commit": "7fccbe1ea3bb491362e3bfd0ad19cb8de327184b",
+  "full_tests_passed": 713,
+  "full_coverage_percent": 86.80975203167327,
+  "coverage_required_percent": 85,
+  "ruff": "PASS",
+  "mypy_modules": 62,
+  "targeted_before_correction": 61,
+  "targeted_after_correction": 25,
+  "actual_comparison": "PASS",
+  "saved_model_and_independent_rule_replay": "PASS",
+  "original_candidate_metrics_exact_match": true,
+  "original_keys_exact_match": true,
+  "old_prediction_allowed_absolute_tolerance": 1e-10,
+  "elastic_replay_allowed_absolute_tolerance": 1e-12,
+  "independent_rule_replay_allowed_absolute_tolerance": 1e-14,
+  "evidence_sha256": {
+    ".demo-artifacts\\tests-daily-simple-full-2.log": "ee33cb0cc5f2d6eb57d28207ee4deede05b7f2e734d39ff31352270fa23376c3",
+    ".demo-artifacts\\coverage-daily-simple-full-2.json": "009294c486858e1e5972c8ee0e5eb3068cbd6c839fd242511aa070bcb542436c",
+    ".demo-artifacts\\tests-daily-simple-full-2-result.json": "fe9f4cc36d13a21ed5def36e68df5e8bc48e2ba2da473edff130865da4d4a43e",
+    ".demo-artifacts\\daily-simple-baselines-actual-2.log": "70a94d499d226ad85f6af9b39132939df86480b9e0d5e9bf7c079cc425dfffc6",
+    ".demo-artifacts\\daily-simple-baselines-actual-2-result.json": "20c187fa470c18d83a7dda3a42a96517a543e1bda2b3cf992ab3a01977834f37",
+    ".demo-artifacts\\daily-simple-baselines-replay-2.log": "9817b1b19c39185c3532db7d70fd63c12e01c55e0836d4e7aee316215fcdaf36"
+  },
+  "executed_sources_and_run_receipts_sha256": {
+    "verify_daily_simple_actual.py.txt": "ac3979cb7945a18d5649569bc090d129a4b9e06825d3bf4d26256c764ca57632",
+    "document_daily_simple_actual.py.txt": "e2478875513c3684861dcf90bdd0c88ac7474df203aa9446552c1643fe9b7a9c",
+    "daily-simple-baselines-actual-2-start.json": "b470f21bd29b422fc3125797c4101401a3a67866e29b3649022fb1d212da4e41",
+    "daily-simple-baselines-actual-2-result.json": "805fd7148449082ea3630c53ce4acb9e02047f8c7f8ee8bcb533150369888893"
+  },
+  "original_run_receipts_sha256": {
+    "daily-simple-baselines-actual-2-start.json": "7a780b69955f7775356abcce9d82c391dc6f8bb6918d081414a07cab88c41442",
+    "daily-simple-baselines-actual-2-result.json": "20c187fa470c18d83a7dda3a42a96517a543e1bda2b3cf992ab3a01977834f37"
+  },
+  "run_receipt_copy_encoding": "UTF-8 LF, same parsed JSON values; original byte hashes retained separately"
+}

@@ -51,4 +51,6 @@ Elastic Netの目的関数は[scikit-learnの公式仕様](https://scikit-learn.
 
 検証は通常のmedian-imputer/StandardScaler/Ridgeとの数値一致、batchサイズ不変性、欠損・定数列・大きい値、未来のvalidation変更による過去予測不変性、全候補の欠損/重複/改変拒否、protected rowの採点排除を含む。
 
-v3の実データ比較はsource checkpoint後に別receiptへ保存する。cross-fitted learned ensembleは別の時系列診断として検証済み。cash/HOLD/等重みの実市場状態付きNAV、企業行動・実用費用・個人税、最終selection/holdoutと最新推論は残る。ここでの正解は重なる将来returnであり、日次リターンとして足し上げない。SB20/SB60を有意性や採用の根拠にしない。実注文なし。
+v3の[実データ比較と全行再現](evidence/daily-simple-baselines-20261015/README.md)はsource `7fccbe1`で完了した。5日1,327,530行/6区間、20日1,044,317行/5区間。全18候補の指標・key/targetはv2と完全一致し、旧baseline予測、保存係数からのElastic Net、独立scipy順位計算の差はいずれも0。全候補がElastic Netを平均Rank ICで上回った一方、MSEでは5日8/9・20日5/9。5日の等重みルールは平均ICが負でもNDCG@20は個別候補より高く、指標間の差も記録している。
+
+cross-fitted learned ensembleは評価期間が異なる別の時系列診断として検証済み。cash/HOLD/等重みの実市場状態付きNAV、企業行動・実用費用・個人税、最終selection/holdoutと最新推論は残る。ここでの正解は重なる将来returnであり、日次リターンとして足し上げない。SB20/SB60を有意性や採用の根拠にしない。実注文なし。
