@@ -1,0 +1,45 @@
+
+> stock-ai-decision-support-pwa@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+> stock-ai-decision-support-pwa@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 C:/Users/manat/app/株AI/stock-ai-spec/web
+
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  11:59:46
+   Duration  5.24s (transform 444ms, setup 317ms, import 635ms, tests 2.56s, environment 1.42s)
+
+
+> stock-ai-decision-support-pwa@0.1.0 build
+> tsc -b && vite build
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 41 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                           0.69 kB │ gzip:  0.44 kB
+dist/assets/compute-worker-CG6GrIlu.js    1.58 kB
+dist/assets/index-BKFPJJZL.css           20.46 kB │ gzip:  4.84 kB
+dist/assets/index-BTBCM-_3.js           307.50 kB │ gzip: 94.17 kB
+
+✓ built in 239ms
+
+[WebServer] (node:21196) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+
+(node:2052) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1/1] mobile-tests\runtime.spec.ts:4:1 › offline Python preserves input and matches PC 41/51 features and six model vectors
+  1 passed (29.8s)
+{"package": "dist", "entries": 39, "private_path_check": "PASS"}

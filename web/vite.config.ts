@@ -12,7 +12,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    exclude: [...configDefaults.exclude, "e2e/**"],
+    exclude: [...configDefaults.exclude, "e2e/**", "mobile-tests/**", "android/**"],
     setupFiles: "./src/test-setup.ts",
   },
 });

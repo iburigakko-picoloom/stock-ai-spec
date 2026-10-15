@@ -13,9 +13,10 @@ export interface StockAINative {
   clearApiKey(): Promise<void>;
   checkUpdate(): Promise<ReleaseInfo>;
   installUpdate(input: { versionCode: number }): Promise<{ needsPermission: boolean }>;
-  fetchMarket(input: { date: string }): Promise<{ status: number; datasets?: Record<string, unknown[]>; failedDataset?: string }>;
+  fetchMarket(input: { date: string }): Promise<{ date: string; received_at: string; status: number; datasets?: Record<string, unknown[]>; failedDataset?: string }>;
   exportBackup(input: { password: string }): Promise<void>;
   importBackup(input: { password: string }): Promise<NativeState>;
+  importModel(): Promise<{ content: string }>;
 }
 export const isAndroid = (): boolean => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 export const StockAI = registerPlugin<StockAINative>("StockAI");

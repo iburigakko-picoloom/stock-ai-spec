@@ -57,8 +57,32 @@ export async function mobileRequest<T>(method: "GET" | "POST", path: string, bod
       throw new Error(typeof errorBody?.detail === "string" ? errorBody.detail : "入力または端末の状態を確認してください。");
     }
     result = reply.result.body as T;
+    if (path === "/api/v1/settings" && result && typeof result === "object") {
+      const settings = result as { data?: { jQuantsApiKeyConfigured: boolean }; runtime?: { remoteAccess: string } };
+      if (settings.data) settings.data.jQuantsApiKeyConfigured = (await StockAI.keyStatus()).configured;
+      if (settings.runtime) settings.runtime.remoteAccess = "端末内で実行";
+    }
   });
   queue = operation.catch(() => undefined);
   await operation;
   return result;
+}
+
+export async function restoreMobileState(payload: string): Promise<void> {
+  await queue;
+  const saved = await StockAI.readState();
+  // Use an isolated worker; malformed backups cannot mutate the active runtime.
+  const candidate = new Worker(new URL("./compute-worker.ts", import.meta.url), { type: "module" });
+  try {
+    const verified = await new Promise<string>((resolve, reject) => {
+      candidate.onmessage = (event: MessageEvent<Reply>) => {
+        if (event.data.error || !event.data.state) reject(new Error("バックアップの整合性を確認できませんでした。"));
+        else resolve(event.data.state);
+      };
+      candidate.onerror = () => reject(new Error("バックアップを読み込めませんでした。"));
+      candidate.postMessage({ id: 1, command: "initialize", state: payload });
+    });
+    await StockAI.writeState({ generation: saved.generation, payload: verified });
+    window.location.reload();
+  } finally { candidate.terminate(); }
 }

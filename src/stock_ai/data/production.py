@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, time
 from itertools import pairwise
-from typing import Final
+from typing import Final, Protocol
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -18,7 +18,13 @@ from stock_ai.data.contracts import (
     DatasetName,
     HistoricalRevisionPolicy,
 )
-from stock_ai.data.storage import DuckDBCatalog
+
+
+class PointInTimeCatalog(Protocol):
+    """Read-only input boundary shared by desktop DuckDB and mobile SQLite."""
+
+    def point_in_time(self, dataset: DatasetName, as_of: datetime) -> pd.DataFrame: ...
+
 
 _JST: Final = ZoneInfo("Asia/Tokyo")
 _ELIGIBLE_MARKETS: Final = frozenset(("0111", "0112", "0113"))
@@ -48,11 +54,12 @@ class ProductionDataBundle:
 
 
 def build_production_data(
-    catalog: DuckDBCatalog,
+    catalog: PointInTimeCatalog,
     *,
     source_snapshot_as_of: datetime,
     minimum_market_coverage: float = 0.95,
     revision_policy: HistoricalRevisionPolicy = HistoricalRevisionPolicy.SINGLE_VINTAGE_AS_REVISED,
+    proposal_as_of: datetime | None = None,
 ) -> ProductionDataBundle:
     """Build causally timestamped research inputs from one immutable source vintage."""
 
@@ -98,6 +105,17 @@ def build_production_data(
         topix=topix,
     )
     availability = _next_proposal_cutoffs(business_dates)
+    if proposal_as_of is not None:
+        if proposal_as_of.tzinfo is None or proposal_as_of.utcoffset() is None:
+            raise ValueError("proposal_as_of must be timezone-aware")
+        local_cutoff = proposal_as_of.astimezone(_JST)
+        if local_cutoff.time() != time(11, 30) or source_snapshot_as_of > proposal_as_of:
+            raise ValueError("current features require a closed 11:30 source cutoff")
+        future_sessions = _business_dates(calendar)
+        future_sessions = future_sessions[future_sessions > business_dates[-1]]
+        if len(future_sessions) == 0 or future_sessions[0].date() != local_cutoff.date():
+            raise ValueError("BLOCKED_BY_DATA_CAPABILITY: next session is not authenticated")
+        availability[business_dates[-1]] = pd.Timestamp(proposal_as_of).tz_convert("UTC")
     universe = build_point_in_time_universe(master, business_dates=business_dates)
     daily = _canonical_daily(
         prices,
@@ -151,9 +169,9 @@ def _source_frame_id(dataset: DatasetName, frame: pd.DataFrame) -> str:
     }[dataset]
     canonical = frame.sort_values(list(keys)).reset_index(drop=True)
     schema = tuple((str(column), str(dtype)) for column, dtype in canonical.dtypes.items())
-    metadata = json.dumps(
-        {"dataset": dataset.value, "schema": schema}, sort_keys=True
-    ).encode("utf-8")
+    metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True).encode(
+        "utf-8"
+    )
     rows = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
     return hashlib.sha256(metadata + rows).hexdigest()
 
@@ -214,9 +232,7 @@ def build_point_in_time_universe(
         next_position = member["last_member_date"].map(date_position).astype(int) + 1
         member["valid_to"] = pd.Series(
             [
-                ordered_dates[position].isoformat()
-                if position < len(ordered_dates)
-                else pd.NA
+                ordered_dates[position].isoformat() if position < len(ordered_dates) else pd.NA
                 for position in next_position
             ],
             index=member.index,
@@ -406,8 +422,7 @@ def _canonical_daily(
     if missing_price_dates:
         first = min(missing_price_dates).date()
         raise ValueError(
-            "BLOCKED_BY_DATA_CAPABILITY: daily prices contain no PIT-universe rows for "
-            f"{first}"
+            f"BLOCKED_BY_DATA_CAPABILITY: daily prices contain no PIT-universe rows for {first}"
         )
     frame = frame.rename(
         columns={
@@ -590,9 +605,7 @@ def _daily_financial_features(
         if column not in right:
             right[column] = np.nan
         right[column] = pd.to_numeric(right[column], errors="coerce")
-    right["shares_outstanding"] = (
-        right["shares_outstanding_fy"] - right["treasury_shares_fy"]
-    )
+    right["shares_outstanding"] = right["shares_outstanding_fy"] - right["treasury_shares_fy"]
     shares_reason = pd.Series(pd.NA, index=right.index, dtype="string")
     shares_reason = shares_reason.mask(
         right["shares_outstanding_fy"].isna(),
@@ -602,9 +615,7 @@ def _daily_financial_features(
         right["shares_outstanding_fy"].notna() & right["treasury_shares_fy"].isna(),
         "fiscal treasury shares is missing",
     )
-    invalid_shares = right["shares_outstanding"].notna() & (
-        right["shares_outstanding"] <= 0
-    )
+    invalid_shares = right["shares_outstanding"].notna() & (right["shares_outstanding"] <= 0)
     shares_reason = shares_reason.mask(invalid_shares, "derived shares outstanding is non-positive")
     right.loc[invalid_shares, "shares_outstanding"] = np.nan
     right["shares_outstanding_missing_reason"] = shares_reason
@@ -615,15 +626,13 @@ def _daily_financial_features(
     right["roe"] = provider_roe
     right["operating_margin"] = _safe_ratio(right["operating_profit"], right["sales"])
     right["revenue_growth_yoy"] = _point_in_time_year_over_year(right, "sales")
-    right["operating_profit_growth_yoy"] = _point_in_time_year_over_year(
-        right, "operating_profit"
-    )
+    right["operating_profit_growth_yoy"] = _point_in_time_year_over_year(right, "operating_profit")
     right = right.sort_values(["symbol", "available_at", "disclosure_number"])
     # The normalized V2 contract has no stronger forecast-target key. Comparing only the
     # same disclosed accounting period avoids treating a fiscal-period rollover as a revision.
-    previous_forecast = right.groupby(
-        ["symbol", "period_end"], sort=False, dropna=False
-    )["forecast_eps"].shift(1)
+    previous_forecast = right.groupby(["symbol", "period_end"], sort=False, dropna=False)[
+        "forecast_eps"
+    ].shift(1)
     right["forecast_revision"] = _safe_ratio(right["forecast_eps"], previous_forecast) - 1
     right.loc[previous_forecast.isna(), "forecast_revision"] = np.nan
 
@@ -757,9 +766,7 @@ def _aggregate_context(
     returns["return_1d"] = returns.groupby("symbol", sort=False)["adjusted_close"].pct_change(
         fill_method=None
     )
-    contiguous = (
-        returns.groupby("symbol", sort=False)["trading_session_index"].diff().eq(1)
-    )
+    contiguous = returns.groupby("symbol", sort=False)["trading_session_index"].diff().eq(1)
     returns.loc[~contiguous, "return_1d"] = np.nan
     eligible_count = universe.groupby("effective_date")["symbol"].nunique()
     observed = returns.groupby("trading_date").agg(
@@ -856,9 +863,7 @@ def _corporate_actions(daily: pd.DataFrame) -> pd.DataFrame:
 
 
 def _safe_ratio(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
-    result = pd.to_numeric(numerator, errors="coerce") / pd.to_numeric(
-        denominator, errors="coerce"
-    )
+    result = pd.to_numeric(numerator, errors="coerce") / pd.to_numeric(denominator, errors="coerce")
     return result.where(np.isfinite(result), np.nan)
 
 

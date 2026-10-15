@@ -1027,3 +1027,14 @@ source 7eea42a44642ad6ddf520c5359edfb7295c000f8で全747試験PASS、coverage86.
 既存React UIへCapacitor8.5.3/Android基盤を追加。PCの特徴量・保有比較・台帳/APIの具体module23本を同一byteでAPKへ同梱し、公式Pyodide0.29.3と依存21packageのhashを固定する。Web Worker上の端末内ASGI adapterを通し、ネットワークのPC/serverを立てない。desktop ingestionとfixture bootstrapのpackage facadeだけをmobile namespaceへ置換し、元計算moduleは変更しない。APIキーのKeystore暗号化・端末保存・更新確認のnative基盤も追加したが、Androidコンパイル/署名/配布・backup UI・差分取得・モデル取込は後続検証中。
 
 端末内API4試験、既存React18試験、型検査/lint/Web build成功。外部HTTPSを遮断したEdgeの実WASMで、保有なし/nullの保存とPC版41/51特徴量の4合成銘柄に対する小数7桁一致を確認。初回の不足namespace、試験path、WAL backup/新FastAPI ASGI互換を修正し失敗logも保存。Windows制限環境のrename EPERMは許可された実行で再検証。Android実機は未接続で確認待ち。採用モデルは依然なし、公開APKへ私有モデル/市場データ/口座/APIキーを入れず研究表示を維持。証拠docs/evidence/android-apk-20261015/stage1.json。実注文なし。
+
+
+## 2026-10-15 — Android端末内処理と署名配布のローカル検証
+
+PCと同じ26具体moduleを同梱。Keystore暗号化SQLiteの確定保存、競合拒否、端末口座入力、J-Quants V2の5dataset差分取得/検証/訂正時点保持、41/51特徴量、data-onlyの3種類GBDT adapter、確認済みhashのみのモデル取込、暗号化backup/明示復元を追加。元PC production loaderは読出しProtocolと11:30当日計算の明示引数を追加し、既存研究pathは維持した。履歴不足・403・未採用を最新予測へ見せない。現在approved_modelsは空で私有model/dataを同梱しない。
+
+Python39件中37成功、XGBoost2件のfloat32 cutとJSON decimalの境界差を発見・修正。3種類×2taskの6件と追加締切1件が成功し、重複を除く40ケースを確認。全体ruff、mypy63module、React18件、TypeScript/lint/build成功。外部HTTPS遮断WASMで41/51特徴量の小数7桁一致と6合成model vectorのPC一致、保存後のworker再起動/復元、短い履歴の422拒否を確認。VitestがPlaywright試験を拾う設定不備とpackage auditのroot-relative path判定も修正し、失敗logを保全した。
+
+main関連変更→PR検証→main署名build→immutable Release/APK/hash/変更履歴のworkflow、署名証明書照合、増加versionCode、更新先/署名/サイズ/hash検査を実装。署名鍵は暗号化p12とWindows本人DPAPIで保全し、4Secretsへ改行なしstdinで登録済み。オフPCバックアップ手順とOSS表示を追加。AndroidコンパイルとReleaseはまだ未実行。本人端末はXiaomi 14T Proで、USB接続は後ほどとの回答。実機試験/Android版は未確認。
+
+初回台帳・補足設定と保有比較の完全接続、最終model採用/配布条件、実API403と大量履歴の実機能力、本人による鍵のオフPC保管は残る。実注文なし。証拠docs/evidence/android-apk-20261015/stage2.json。

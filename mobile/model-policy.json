@@ -1,0 +1,5 @@
+{
+  "schema_version": "mobile-model-policy-v1",
+  "approved_models": [],
+  "reason": "Final model adoption, distribution review and physical-device inference parity are pending."
+}

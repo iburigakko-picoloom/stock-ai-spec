@@ -18,7 +18,9 @@ async function initialize(state: string): Promise<void> {
   const archive = new Uint8Array(await (await fetch("/python/stock_ai.zip")).arrayBuffer());
   python.unpackArchive(archive, "zip", { extractDir: "/stockai-code" });
   python.globals.set("saved_state", state);
-  await python.runPythonAsync("import sys, os\nsys.path.insert(0, '/stockai-code')\nos.environ['STOCK_AI_CODE_COMMIT'] = 'apk-shared-source'\nfrom stock_ai.mobile import runtime\nruntime.initialize(saved_state)");
+  const build = await (await fetch("/python/build-info.json")).json();
+  python.globals.set("source_commit", build.source_commit);
+  await python.runPythonAsync("import sys, os\nsys.path.insert(0, '/stockai-code')\nos.environ['STOCK_AI_CODE_COMMIT'] = source_commit\nfrom stock_ai.mobile import runtime\nruntime.initialize(saved_state)");
 }
 
 // Serialize every operation, including startup, so no update can overtake an

@@ -1,0 +1,185 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-apk.yml'
+      - 'web/**'
+      - 'mobile/**'
+      - 'src/stock_ai/**'
+      - 'tests/test_mobile*.py'
+      - 'tests/test_production_research.py'
+      - 'tests/test_features.py'
+      - 'scripts/*mobile*.py'
+      - 'scripts/android_*.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  pull_request:
+    paths:
+      - '.github/workflows/android-apk.yml'
+      - 'web/**'
+      - 'mobile/**'
+      - 'src/stock_ai/**'
+      - 'tests/test_mobile*.py'
+      - 'tests/test_production_research.py'
+      - 'tests/test_features.py'
+      - 'scripts/*mobile*.py'
+      - 'scripts/android_*.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install locked dependencies
+        # Use the same locked research dependencies to generate PC references.
+        run: |
+          python -m pip install uv==0.10.0
+          uv sync --locked --all-groups
+          npm ci --prefix web
+      - name: Shared Python and persistence tests
+        env:
+          STOCK_AI_CODE_COMMIT: ${{ github.sha }}
+        run: |
+          uv run ruff check .
+          uv run mypy src
+          uv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_models.py tests/test_mobile_market.py tests/test_production_research.py tests/test_features.py -q --basetemp=.demo-artifacts/pytest-mobile-ci
+      - name: Prepare offline interpreter and PC reference vectors
+        env:
+          PYTHONPATH: src
+        run: |
+          uv run python scripts/prepare_mobile.py --download
+          uv run python -m scripts.generate_mobile_golden
+      - name: React and TypeScript checks
+        working-directory: web
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+          npx playwright install --with-deps chromium
+          npx playwright test --config playwright.mobile.config.ts
+      - name: Validate package contents
+        run: |
+          uv run python scripts/android_source_audit.py
+          uv run python scripts/android_package_audit.py web/dist
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Android compiler, backup crypto tests and lint
+        working-directory: web
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-web
+          path: web/dist
+          retention-days: 3
+
+  release:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare signed build
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/stockai-signing.p12"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/stockai-signing.p12" >> "$GITHUB_ENV"
+          echo "STOCKAI_VERSION_CODE=$((10000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "STOCKAI_VERSION_NAME=0.1.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+          npm ci --prefix web
+          python scripts/prepare_mobile.py --download
+      - name: Build native Android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          npm run build --prefix web
+          cd web
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest lintRelease assembleRelease
+      - name: Verify signing and create release manifest
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          cp web/android/app/build/outputs/apk/release/app-release.apk release/StockAI.apk
+          SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$SIGNER" verify --verbose --print-certs release/StockAI.apk > release/signature.txt
+          python scripts/android_package_audit.py release/StockAI.apk
+          python scripts/android_release_manifest.py
+      - name: Publish immutable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="android-v$STOCKAI_VERSION_NAME"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists. Never overwrite a published APK or reuse a versionCode."
+            exit 1
+          fi
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "StockAI $STOCKAI_VERSION_NAME (研究用)" --notes-file release/CHANGELOG.md --draft
+          gh release upload "$TAG" release/StockAI.apk release/update.json release/SHA256SUMS release/signature.txt
+          gh release edit "$TAG" --draft=false --latest
+      - name: Remove ephemeral signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/stockai-signing.p12"

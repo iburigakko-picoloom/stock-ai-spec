@@ -12,11 +12,13 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import androidx.core.content.FileProvider;
+import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.ActivityCallback;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -35,8 +37,17 @@ public class StockAIPlugin extends Plugin {
     static final String REPO = "iburigakko-picoloom/stock-ai-spec";
     static final String KEY_ALIAS = "stockai-local-v1";
     final ExecutorService executor = Executors.newSingleThreadExecutor();
+    final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     SQLiteDatabase db;
-    JSONObject pendingUpdate;
+    volatile JSONObject pendingUpdate;
+
+    JSObject readStateData() throws Exception {
+        JSObject result = new JSObject().put("generation", 0).put("payload", "");
+        try (Cursor cursor = db.rawQuery("SELECT generation,payload FROM state WHERE id=1", null)) {
+            if (cursor.moveToFirst()) { result.put("generation", cursor.getLong(0)); result.put("payload", decrypt(cursor.getBlob(1))); }
+        }
+        return result;
+    }
 
     @Override public void load() {
         db = getContext().openOrCreateDatabase("stockai-device.sqlite3", 0, null);
@@ -51,7 +62,13 @@ public class StockAIPlugin extends Plugin {
         }});
     }
 
-    SecretKey key() throws Exception {
+    void network(PluginCall call, Work work) {
+        networkExecutor.execute(() -> { try { work.run(); } catch (Exception ignored) {
+            call.reject("通信を完了できませんでした。現在のアプリと保存データを使用できます。", "STOCKAI_NETWORK_FAILED");
+        }});
+    }
+
+    synchronized SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
         if (!store.containsAlias(KEY_ALIAS)) {
             KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
@@ -75,11 +92,7 @@ public class StockAIPlugin extends Plugin {
     }
 
     @PluginMethod public void readState(PluginCall call) { background(call, () -> {
-        JSObject result = new JSObject().put("generation", 0).put("payload", "");
-        try (Cursor cursor = db.rawQuery("SELECT generation,payload FROM state WHERE id=1", null)) {
-            if (cursor.moveToFirst()) { result.put("generation", cursor.getLong(0)); result.put("payload", decrypt(cursor.getBlob(1))); }
-        }
-        call.resolve(result);
+        call.resolve(readStateData());
     }); }
 
     @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
@@ -108,8 +121,54 @@ public class StockAIPlugin extends Plugin {
         if (!getContext().getSharedPreferences("stockai-secrets", 0).edit().putString("jquants", Base64.encodeToString(encrypt(value.trim()), Base64.NO_WRAP)).commit()) throw new IOException();
         call.resolve();
     }); }
-    @PluginMethod public void clearApiKey(PluginCall call) {
-        getContext().getSharedPreferences("stockai-secrets", 0).edit().remove("jquants").commit(); call.resolve();
+    @PluginMethod public void clearApiKey(PluginCall call) { background(call, () -> {
+        if (!getContext().getSharedPreferences("stockai-secrets", 0).edit().remove("jquants").commit()) throw new IOException();
+        call.resolve();
+    }); }
+
+    @PluginMethod public void exportBackup(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, "StockAI-backup.stockaib");
+        startActivityForResult(call, intent, "backupCreated");
+    }
+    @ActivityCallback private void backupCreated(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("バックアップ保存を取り消しました。"); return; }
+        Uri uri = result.getData().getData();
+        background(call, () -> {
+            byte[] bytes = BackupCrypto.encrypt(call.getString("password"), readStateData().toString().getBytes(StandardCharsets.UTF_8));
+            try (OutputStream stream = getContext().getContentResolver().openOutputStream(uri, "wt")) { if (stream == null) throw new IOException(); stream.write(bytes); stream.flush(); }
+            call.resolve();
+        });
+    }
+    @PluginMethod public void importBackup(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(call, intent, "backupSelected");
+    }
+    @PluginMethod public void importModel(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(call, intent, "modelSelected");
+    }
+    @ActivityCallback private void modelSelected(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("モデル取込を取り消しました。"); return; }
+        Uri uri = result.getData().getData();
+        background(call, () -> {
+            byte[] content = read(getContext().getContentResolver().openInputStream(uri), 64 * 1024 * 1024);
+            call.resolve(new JSObject().put("content", new String(content, StandardCharsets.UTF_8)));
+        });
+    }
+    @ActivityCallback private void backupSelected(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("復元を取り消しました。"); return; }
+        Uri uri = result.getData().getData();
+        background(call, () -> {
+            byte[] content = read(getContext().getContentResolver().openInputStream(uri), 128 * 1024 * 1024);
+            JSONObject value = new JSONObject(new String(BackupCrypto.decrypt(call.getString("password"), content), StandardCharsets.UTF_8));
+            if (!value.has("payload") || value.length() != 2 || !value.has("generation")) throw new SecurityException();
+            // Return a preview only. Restoring requires Python integrity checks
+            // and an explicit later confirmation before a CAS durable write.
+            call.resolve(new JSObject(value.toString()));
+        });
     }
 
     static HttpURLConnection connection(String url) throws Exception {
@@ -119,6 +178,41 @@ public class StockAIPlugin extends Plugin {
         conn.setConnectTimeout(15000); conn.setReadTimeout(60000); conn.setInstanceFollowRedirects(false);
         conn.setRequestProperty("User-Agent", "StockAI-Android"); return conn;
     }
+
+    long lastProviderRequest = 0;
+    @PluginMethod public void fetchMarket(PluginCall call) { network(call, () -> {
+        String day = call.getString("date"), credential = apiKey();
+        if (day == null || !day.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}") || credential == null) throw new IllegalArgumentException();
+        String[][] endpoints = {{"security_master", "/equities/master"}, {"daily_prices", "/equities/bars/daily"},
+            {"trading_calendar", "/markets/calendar"}, {"topix", "/indices/bars/daily/topix"}, {"financial_summary", "/fins/summary"}};
+        JSONObject datasets = new JSONObject();
+        for (String[] endpoint : endpoints) {
+            JSONArray records = new JSONArray(); String page = null;
+            java.util.HashSet<String> seen = new java.util.HashSet<>();
+            do {
+                long delay = 12500 - (android.os.SystemClock.elapsedRealtime() - lastProviderRequest);
+                if (lastProviderRequest != 0 && delay > 0) Thread.sleep(delay);
+                String query = endpoint[0].equals("trading_calendar") ? "?from=" + day + "&to=" + java.time.LocalDate.parse(day).plusDays(21) : "?date=" + day;
+                if (page != null) query += "&pagination_key=" + java.net.URLEncoder.encode(page, "UTF-8");
+                HttpURLConnection conn = connection("https://api.jquants.com/v2" + endpoint[1] + query);
+                conn.setRequestProperty("x-api-key", credential);
+                try {
+                    lastProviderRequest = android.os.SystemClock.elapsedRealtime(); int status = conn.getResponseCode();
+                    if (status != 200) { call.resolve(new JSObject().put("date", day).put("status", status).put("failedDataset", endpoint[0])); return; }
+                    JSONObject response = new JSONObject(new String(read(conn.getInputStream(), 20 * 1024 * 1024), StandardCharsets.UTF_8));
+                    JSONArray values = response.getJSONArray("data");
+                    for (int i = 0; i < values.length(); i++) records.put(values.getJSONObject(i));
+                    page = response.optString("pagination_key", "");
+                    if (page.isEmpty()) page = null;
+                    if (page != null && (!seen.add(page) || seen.size() > 100)) throw new SecurityException();
+                } finally { conn.disconnect(); }
+            } while (page != null);
+            datasets.put(endpoint[0], records);
+        }
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+        format.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        call.resolve(new JSObject().put("date", day).put("received_at", format.format(new java.util.Date())).put("status", 200).put("datasets", datasets));
+    }); }
     static byte[] read(InputStream stream, long limit) throws Exception {
         try (InputStream input = stream; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[32768]; long count = 0; int length;
@@ -146,7 +240,7 @@ public class StockAIPlugin extends Plugin {
         return Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
     }
 
-    @PluginMethod public void checkUpdate(PluginCall call) { background(call, () -> {
+    @PluginMethod public void checkUpdate(PluginCall call) { network(call, () -> {
         JSONObject release = json("https://api.github.com/repos/" + REPO + "/releases/latest");
         if (release.optBoolean("draft") || release.optBoolean("prerelease")) throw new SecurityException();
         String tag = release.getString("tag_name");
@@ -207,7 +301,7 @@ public class StockAIPlugin extends Plugin {
         if (a.length != 1 || b.length != 1 || !MessageDigest.isEqual(a[0].toByteArray(), b[0].toByteArray())) throw new SecurityException();
     }
 
-    @PluginMethod public void installUpdate(PluginCall call) { background(call, () -> {
+    @PluginMethod public void installUpdate(PluginCall call) { network(call, () -> {
         if (pendingUpdate == null || call.getInt("versionCode", 0) != pendingUpdate.getLong("versionCode")) throw new SecurityException();
         if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
             getActivity().runOnUiThread(() -> getActivity().startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()))));
