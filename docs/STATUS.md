@@ -998,3 +998,12 @@ source 7eea42a44642ad6ddf520c5359edfb7295c000f8で全747試験PASS、coverage86.
 開発評価期間2024-07-31〜2026-03-03の日足を42区間で認証。386営業日、raw/normalized 772 object、1,702,477行。全営業日の欠落・予定外日付・四本値の大小関係違反は0。取引あり1,629,008行、無約定73,469行、特殊code1,675行、調整要確認394行を保持。全receiptのcontent identity/byte hash、区間集計を独立に再確認した。元データは不変、最終評価の価格行・成績は未読/未採点。証拠docs/evidence/daily-market-development-20261015。
 
 独立集計scriptの初回はWindows既定cp932による日本語path誤読でidentity照合が失敗。元receiptの不変と正しいidentityを確認し、UTF-8を明示して再確認した。元audit・学習・全回帰は再実行せず、失敗scriptも保存した。次は当時の銘柄一覧とのキー照合。個別銘柄網羅、訂正前vintage、企業行動/約定能力/決済/費用/税、実市場NAV、初回台帳・クラウド補足設定/比較表示、最終selection/holdout・最新予測は残る。API403未解消。Goal active、実注文なし。
+
+
+## 2026-10-15 — 開発期間の当日銘柄一覧と全価格キーを照合
+
+固定vintageの当日master raw/normalized 772 objectを認証し、2024-07-31〜2026-03-03の386営業日・全1,702,477キーを価格と外部結合した。全営業日のmasterが存在し、対象銘柄の価格欠落・価格だけが存在する銘柄・全masterの価格欠落は0。既存対象ルールに一致する1,471,945行のうち、取引あり1,461,907、無約定10,038、不完全日足0、企業行動要確認359。対象外市場228,857行・特殊provider code1,675行も保持。単元株数は提供されないためnullを保つ。
+
+元sourceのcatalog/manifest/byte hash/行metadata/キー/会社・市場・業種等の値を照合。全master catalogのpath/hash一覧は既存の学習時source-frame ID一致証拠に結び付け、終了後の元ファイル不変を確認した。42件の保存Parquetのhash・キー・日付・集計も独立再計算で一致。初回は同じキー値に対するpandas object/StringDtypeの差で0区間で停止。最初の4,386キーが一致することを別に確認し、両側の文字列dtypeを合わせた第2試行が09:55 JSTに正常終了。元データ・失敗記録は保持した。証拠docs/evidence/daily-universe-development-20261015。
+
+これは当日銘柄一覧と価格の網羅確認であり、訂正前vintageや上場廃止イベントの復元ではない。最終評価期間のmaster/価格行・予測・target・NAVを読まず、採用へ昇格しない。企業行動/約定能力/呼値/決済/費用/税を通すNAV、本人設定/初回台帳/クラウド比較表示、最終selection/holdout・最新予測は未完。ライブラリsourceは7eea42aから不変で全747試験PASS証拠を保持し、同じ全回帰を再実行しない。Goal active、実注文なし。

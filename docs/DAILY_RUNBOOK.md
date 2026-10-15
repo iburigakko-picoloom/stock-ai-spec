@@ -103,4 +103,4 @@ Python: `ruff check .`, `mypy src`, `pytest`, `pytest --cov`。Windowsのrunner�
 
 Sitesは既存`hosted/`と別のproject。publish用の隔離コピーは`.demo-artifacts/private-site-publish`。Windowsではhelperのプロセス内PATHへGit Bashを追加し、`TAR_OPTIONS=--force-local`を設定する。Nodeのnpm wrapperもcheckout内だけに置く。グローバル設定は変更しない。正規helperがpushしたcommitと対応archiveだけをprivate deployへ渡す。
 
-個人比較を含むsource `7eea42a`で全747試験PASS、coverage86.95%。[証拠](evidence/personal-comparison-20261015/full-regression.json)を参照。開発期間の日足も[42区間・386営業日・1,702,477行の照合](evidence/daily-market-development-20261015/README.md)が完了し、無約定・特殊code・調整要確認を保持した。営業日網羅は個別銘柄・企業行動・約定能力の証明ではなく、実市場NAVと採用判定は引き続き未完。
+個人比較を含むsource `7eea42a`で全747試験PASS、coverage86.95%。[証拠](evidence/personal-comparison-20261015/full-regression.json)を参照。開発期間の日足も[42区間・386営業日・1,702,477行の照合](evidence/daily-market-development-20261015/README.md)が完了し、無約定・特殊code・調整要確認を保持した。[当日銘柄一覧との照合](evidence/daily-universe-development-20261015/README.md)では全キー一致、対象1,471,945行の価格欠落0を確認。対象内の無約定10,038行・企業行動要確認359行も残している。固定vintageの網羅確認を訂正前情報・企業行動・約定能力の証明とはせず、実市場NAVと採用判定は引き続き未完。
