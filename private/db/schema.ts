@@ -26,3 +26,14 @@ export const portfolioImports = sqliteTable("portfolio_imports", {
   importedAt: text("imported_at").notNull(),
   acknowledgedAt: text("acknowledged_at").notNull(),
 });
+
+// Supplemental inputs reference the reviewed portfolio revision; existing input remains immutable.
+export const personalSettingsVersions = sqliteTable("personal_settings_versions", {
+  sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+  revisionId: text("revision_id").notNull().unique(),
+  ownerId: text("owner_id").notNull(),
+  parentRevision: text("parent_revision").notNull(),
+  portfolioRevisionId: text("portfolio_revision_id").notNull().references(() => portfolioVersions.revisionId),
+  savedAt: text("saved_at").notNull(),
+  payloadJson: text("payload_json").notNull(),
+}, table => [uniqueIndex("personal_settings_owner_parent").on(table.ownerId, table.parentRevision)]);

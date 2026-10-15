@@ -1,0 +1,49 @@
+
+> site-creator-vinext-starter@0.1.0 build
+> node scripts/run-framework.mjs build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2K
+transforming...✓ 368 modules transformed.
+rendering chunks...
+✓ built in 765ms
+[2/5] analyze server references...
+[2K
+transforming...✓ 144 modules transformed.
+rendering chunks...
+✓ built in 237ms
+[3/5] build rsc environment...
+[2K
+transforming...✓ 365 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 1.10s
+[4/5] build client environment...
+[2K
+transforming...✓ 152 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 752ms
+[5/5] build ssr environment...
+[2K
+transforming...✓ 146 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 591ms
+[0m
+  Route (app)
+  ┌ ƒ /                            
+  ├ λ /api/personal-settings       
+  ├ λ /api/personal-settings/export
+  ├ λ /api/portfolio               
+  ├ λ /api/portfolio/export        
+  ├ λ /api/sync                    
+  ├ ƒ /portfolio                   
+  └ ƒ /settings                    
+
+  λ API  ƒ Dynamic
+  Build complete. Run `vinext start` to start the production server.
+

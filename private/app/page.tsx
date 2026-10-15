@@ -24,7 +24,7 @@ export default async function Home() {
   const forecasts = payload?.forecasts ?? [];
   return <main className="shell">
     <header className="topbar"><Link href="/" className="brand"><span className="brand-mark">株</span><span>株AI<small>DAILY RESEARCH</small></span></Link><span className="private-badge">● 本人専用</span></header>
-    <nav aria-label="ページ内メニュー"><a href="#overview">概要</a><a href="#forecasts">原予測</a><a href="#research">企業調査</a><a href="#status">運用状況</a><Link href="/portfolio">口座・保有</Link></nav>
+    <nav aria-label="ページ内メニュー"><a href="#overview">概要</a><a href="#forecasts">原予測</a><a href="#research">企業調査</a><a href="#status">運用状況</a><Link href="/portfolio">口座・保有</Link><Link href="/settings">比較の設定</Link></nav>
     <section id="overview" className="hero">
       <div className="eyebrow">DAILY BRIEF / 日次版</div>
       <h1>判断の前に、<br/>予測と根拠を確認。</h1>
