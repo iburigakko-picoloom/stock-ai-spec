@@ -63,6 +63,7 @@ jobs:
         env:
           STOCK_AI_CODE_COMMIT: ${{ github.sha }}
         run: |
+          mkdir -p .demo-artifacts
           uv run ruff check .
           uv run mypy src
           uv run mypy src --platform win32
