@@ -69,3 +69,66 @@ test("offline Python preserves input and matches PC 41/51 features and six model
     });
   }
 });
+
+test("offline personal settings compile and confirmed balances survive a new interpreter", async ({ page, context }) => {
+  await context.route("https://**", route => route.abort());
+  await page.route("**/mobile-personal-test", route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Offline personal account verification</title>" }));
+  await page.goto("/mobile-personal-test");
+  const result = await page.evaluate(async () => {
+    let worker = new Worker("/src/mobile/compute-worker.ts", { type: "module" });
+    let sequence = 0;
+    type Reply = { state: string; result: { status: number; body: Record<string, unknown> } };
+    async function send(value: Record<string, unknown>): Promise<Reply> {
+      return new Promise((resolve, reject) => {
+        const id = ++sequence;
+        worker.onmessage = event => {
+          if (event.data.id === id) {
+            if (event.data.error) reject(new Error(event.data.error));
+            else resolve(event.data);
+          }
+        };
+        worker.onerror = event => reject(new Error(event.message));
+        worker.postMessage({ ...value, id });
+      });
+    }
+    async function request(method: string, path: string, body?: unknown) {
+      return send({ command: "request", method, path, body: JSON.stringify(body ?? null) });
+    }
+    await send({ command: "initialize", state: "" });
+    const account = "11111111-1111-4111-8111-111111111111";
+    const profile = { schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: "200000",
+      maximum_drawdown_percent: 20, accounts: [{ id: account, name: "Synthetic account", account_type: "taxable_specified",
+        withholding_mode: "withholding", available_cash_yen: "1000.0001" }], holdings: [] };
+    const saved = await request("POST", "/api/v1/mobile/portfolio", { expected_revision_id: null, portfolio: profile });
+    const settings = { schema_version: "manual-personal-settings-v1", portfolio_revision_id: saved.result.body.revision_id,
+      cash_basis: "deployable_after_reserved", budget_basis: "maximum_total_equity_market_value",
+      nisa_capacity_basis: "remaining_purchase_notional_no_same_day_sale_restore", tax_year: new Date(Date.now() + 9 * 3600000).getUTCFullYear(),
+      accounts: [{ account_id: account, reserved_cash_yen: "100", pending_activity: "none", realized_gain_ytd: "0",
+        realized_loss_ytd: "0", loss_carryforward_user_input: "0", nisa_annual_capacity_user_input: null, nisa_lifetime_capacity_user_input: null }],
+      cost_assumptions: { commission_fixed_yen: "0", commission_bps: "0", minimum_commission_yen: "0", zero_commission_confirmed: true,
+        full_spread_bps: "10", slippage_bps: "5", impact_bps_at_full_adv: "25" },
+      tax_assumptions: { effective_from: "2020-01-01", taxable_rate_percent: "20", nisa_opportunity_cost_percent: "0" },
+      research_decision_policy: "daily-decision-engine-v2", research_conditions_reviewed: true };
+    const extra = await request("POST", "/api/v1/mobile/personal/settings", { expected_revision_id: null, settings });
+    const preview = await request("POST", "/api/v1/mobile/personal/initial/preview", {});
+    const refused = await request("POST", "/api/v1/mobile/personal/initial/confirm", { preview_id: preview.result.body.preview_id, confirmed: false });
+    const applied = await request("POST", "/api/v1/mobile/personal/initial/confirm", { preview_id: preview.result.body.preview_id, confirmed: true });
+    const home = await request("GET", "/api/v1/home");
+    worker.terminate();
+    worker = new Worker("/src/mobile/compute-worker.ts", { type: "module" });
+    await send({ command: "initialize", state: applied.state });
+    const restored = await request("GET", "/api/v1/home");
+    const restoredExtra = await request("GET", "/api/v1/mobile/personal/settings");
+    const ready = await request("GET", "/api/v1/mobile/personal/readiness");
+    worker.terminate();
+    return { extra, preview, refused, applied, home, restored, restoredExtra, ready };
+  });
+  expect(result.extra.result.status).toBe(200);
+  expect(result.preview.result.body.blocking_reasons).toEqual([]);
+  expect(result.refused.result.status).toBe(422);
+  expect(result.applied.result.status).toBe(200);
+  expect(result.home.result.body).toMatchObject({ portfolio: { cashValue: "1100.0001", equityValue: "0", holdingsCount: 0 }, initialLedger: { referencePriceDate: null } });
+  expect(result.restored.result.body).toEqual(result.home.result.body);
+  expect(result.restoredExtra.result.body).toEqual(result.extra.result.body);
+  expect(result.ready.result.body).toMatchObject({ input_gaps: [], comparison: { proposal: null, research_only: true } });
+});

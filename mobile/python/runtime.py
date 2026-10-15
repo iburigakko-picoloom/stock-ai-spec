@@ -15,9 +15,11 @@ import httpx
 from fastapi.routing import APIRoute, request_response
 
 from stock_ai.operations.api import create_app
-from stock_ai.operations.manual_portfolio import ManualPortfolio
+from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
+from stock_ai.operations.manual_settings import ManualPersonalSettings
+from stock_ai.operations.store import OperationalConflictError
 
-from . import market, models
+from . import market, models, personal
 from .features import bundled_selection, calculate
 from .portable_model import predict
 
@@ -76,6 +78,8 @@ def initialize(encoded: str = "") -> dict:
         )
     market.initialize(STATE / "mobile.sqlite3")
     models.initialize(STATE / "mobile.sqlite3")
+    personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
+    _app.state.store.verify_integrity()
     return {"research_only": True, "order_submission": False}
 
 
@@ -107,22 +111,62 @@ async def request(method: str, path: str, body: str = "null") -> dict:
     if path == "/api/v1/mobile/portfolio":
         if method == "POST":
             try:
-                value = ManualPortfolio.model_validate_json(body)
+                incoming = strict_json(body)
+                # Legacy raw writes are accepted only for the first input. New
+                # clients always submit an expected revision and cannot overwrite
+                # a newer draft from a stale screen.
+                if isinstance(incoming, dict) and set(incoming) == {
+                    "expected_revision_id", "portfolio"
+                }:
+                    expected = incoming["expected_revision_id"]
+                    value = ManualPortfolio.model_validate(incoming["portfolio"])
+                else:
+                    expected = None
+                    value = ManualPortfolio.model_validate(incoming)
+                personal.save_portfolio(_app.state.store, value, expected, datetime.now(UTC))
+            except OperationalConflictError as error:
+                return {"status": 409, "body": {"detail": str(error)}}
             except ValueError:
                 return {"status": 422, "body": {"detail": "口座・保有の入力を確認してください。"}}
-            with mobile_db() as db:
-                db.execute(
-                    "INSERT INTO manual_inputs(saved_at,payload) VALUES (?,?)",
-                    (datetime.now(UTC).isoformat(), value.model_dump_json()),
-                )
-        with mobile_db() as db:
-            row = db.execute(
-                "SELECT saved_at,payload FROM manual_inputs ORDER BY id DESC LIMIT 1"
-            ).fetchone()
-        return {
-            "status": 200,
-            "body": None if row is None else {"saved_at": row[0], "portfolio": json.loads(row[1])},
-        }
+        return {"status": 200, "body": personal.portfolio_view(_app.state.store)}
+    if path.startswith("/api/v1/mobile/personal/"):
+        store = _app.state.store
+        now = datetime.now(UTC)
+        try:
+            if path == "/api/v1/mobile/personal/settings":
+                if method == "POST":
+                    incoming = strict_json(body)
+                    if not isinstance(incoming, dict) or set(incoming) != {
+                        "expected_revision_id", "settings"
+                    }:
+                        raise ValueError("Invalid settings envelope")
+                    value = ManualPersonalSettings.model_validate(incoming["settings"])
+                    return {"status": 200, "body": personal.save_settings(
+                        store, value, incoming["expected_revision_id"], now,
+                    )}
+                return {"status": 200, "body": personal.settings_view(store)}
+            if path == "/api/v1/mobile/personal/readiness" and method == "GET":
+                return {"status": 200, "body": personal.readiness(
+                    store, STATE / "mobile.sqlite3", now,
+                )}
+            if path == "/api/v1/mobile/personal/initial/preview" and method == "POST":
+                return {"status": 200, "body": personal.preview_initial(
+                    store, STATE / "mobile.sqlite3", now, persist=True,
+                )}
+            if path == "/api/v1/mobile/personal/initial/confirm" and method == "POST":
+                incoming = strict_json(body)
+                if not isinstance(incoming, dict) or set(incoming) != {"preview_id", "confirmed"}:
+                    raise ValueError("Invalid confirmation envelope")
+                return {"status": 200, "body": personal.confirm_initial(
+                    store, STATE / "mobile.sqlite3", incoming["preview_id"],
+                    incoming["confirmed"], now,
+                )}
+        except OperationalConflictError as error:
+            return {"status": 409, "body": {"detail": str(error)}}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {
+                "detail": "補足設定・未入力項目・口座との対応を確認してください。"
+            }}
     if path == "/api/v1/mobile/features" and method == "POST":
         try:
             return {"status": 200, "body": calculate(json.loads(body), bundled_selection())}
@@ -213,4 +257,6 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             payload = response.json()
         except ValueError:
             payload = {"detail": "この端末ではJSON形式で書き出してください。"}
+        if path == "/api/v1/home" and response.status_code == 200:
+            payload["initialLedger"] = personal.initial_reference(_app.state.store)
         return {"status": response.status_code, "body": payload}

@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { restoreMobileState } from "./runtime";
+import { MobilePersonalPanel } from "./MobilePersonalPanel";
+import type { LocalPortfolio, SavedPortfolio } from "./personal";
 
 export function MobileUpdateNotice(): ReactNode {
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
@@ -24,14 +26,6 @@ export function MobileUpdateNotice(): ReactNode {
   </section>;
 }
 
-interface LocalPortfolio {
-  schema_version: "manual-portfolio-v1";
-  holdings_status: "unrecorded" | "none" | "recorded";
-  investment_budget_yen: string | null;
-  maximum_drawdown_percent: number | null;
-  accounts: { id: string; name: string; account_type: "unknown_manual" | "taxable_specified" | "taxable_general" | "nisa"; withholding_mode: "unknown" | "withholding" | "no_withholding" | "not_applicable"; available_cash_yen: string | null }[];
-  holdings: { account_id: string; symbol: string; shares: number; average_acquisition_price_yen: string | null }[];
-}
 const blank: LocalPortfolio = { schema_version: "manual-portfolio-v1", holdings_status: "unrecorded", investment_budget_yen: null, maximum_drawdown_percent: null, accounts: [], holdings: [] };
 
 export function MobileDevicePanel(): ReactNode {
@@ -39,6 +33,7 @@ export function MobileDevicePanel(): ReactNode {
   const [key, setKey] = useState("");
   const [password, setPassword] = useState("");
   const [portfolio, setPortfolio] = useState<LocalPortfolio>(blank);
+  const [savedPortfolio, setSavedPortfolio] = useState<SavedPortfolio | null>(null);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -50,8 +45,9 @@ export function MobileDevicePanel(): ReactNode {
   useEffect(() => {
     if (!isAndroid()) return;
     void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setMessage("APIキーの保存状態を確認できません。再起動してください。"));
-    void apiGet<{ portfolio: LocalPortfolio } | null>("/api/v1/mobile/portfolio").then(value => {
+    void apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio").then(value => {
       if (value) setPortfolio(value.portfolio);
+      setSavedPortfolio(value);
       setPortfolioLoaded(true);
     }).catch(() => setMessage("保存済みの口座入力を確認できません。再起動してから編集してください。"));
     void apiGet<{ latest_data_date: string | null; completed_dates: string[] }>("/api/v1/mobile/market").then(setMarketStatus).catch(() => setMessage("保存済みの市場データを確認できません。再起動してください。"));
@@ -103,8 +99,16 @@ export function MobileDevicePanel(): ReactNode {
           setPortfolio({ ...portfolio, holdings, holdings_status: holdings.length ? "recorded" : "unrecorded" });
         }}>この保有入力を削除</button>
       </fieldset>)}
-      <button className="button" disabled={busy || !portfolioLoaded} onClick={() => void action(() => apiPost("/api/v1/mobile/portfolio", portfolio), "口座・保有を端末に保存しました。時価・税・初期残高の照合は別途必要です。")}>口座・保有を保存</button>
+      <button className="button" disabled={busy || !portfolioLoaded} onClick={() => void action(async () => {
+        const value = await apiPost<SavedPortfolio>("/api/v1/mobile/portfolio", { expected_revision_id: savedPortfolio?.revision_id ?? null, portfolio });
+        setSavedPortfolio(value); setPortfolio(value.portfolio);
+      }, "口座・保有を端末に保存しました。補足設定と初回台帳の確認へ進めます。")}>口座・保有を保存</button>
+      <button className="button button--secondary" disabled={busy} onClick={() => void action(async () => {
+        const value = await apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio");
+        setSavedPortfolio(value); setPortfolio(value?.portfolio ?? blank); setPortfolioLoaded(true);
+      }, "保存済みの口座・保有を読み直しました。")}>保存済みの口座・保有を読み直す</button>
     </section>
+    <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
     <section className="section"><h2>市場データの差分取得</h2>
       <p>保存済みの最終日：{marketStatus?.latest_data_date ?? "未取得"}。予測の更新日時とは別に表示しています。</p>
       <p>1日分ずつ取得し、保存済みの日付は再取得しません。初回は特徴量の計算に必要な履歴を用意する必要があります。</p>

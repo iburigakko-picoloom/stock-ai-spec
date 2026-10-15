@@ -39,6 +39,7 @@ SOURCE_FILES = [
     "operations/store.py",
     "operations/daily.py",
     "operations/manual_portfolio.py",
+    "operations/manual_settings.py",
     "operations/personal.py",
     "operations/api.py",
 ]

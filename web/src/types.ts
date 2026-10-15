@@ -78,6 +78,7 @@ export interface HoldingView {
 }
 
 export interface HomeResponse {
+  initialLedger?: { confirmedAt: string; referencePriceDate: string | null } | null;
   runtimeMode: string;
   portfolio: PortfolioSummary | null;
   holdings: HoldingView[];

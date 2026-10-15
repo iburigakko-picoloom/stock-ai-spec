@@ -30,6 +30,7 @@ export function HomePage(): ReactNode {
     <div className="page">
       <PageHeader eyebrow="実際の状態" title="ホーム" meta={`更新 ${dateTime(data.portfolio.asOf)} JST`} />
       <RuntimeBanner mode={data.runtimeMode} />
+      {data.initialLedger && <p className="explain">初回台帳の残高です。口座・保有の入力欄を編集しても、この台帳は更新されません。{data.initialLedger.referencePriceDate && `株価は${data.initialLedger.referencePriceDate}の日足終値を参照しています。`}</p>}
       <section className="hero-balance" aria-labelledby="assets-title">
         <p id="assets-title">総資産</p>
         <strong>{yen(data.portfolio.totalAssets)}</strong>
