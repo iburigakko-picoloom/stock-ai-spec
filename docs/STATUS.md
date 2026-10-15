@@ -1093,3 +1093,14 @@ main CI38682133797のverify/android/release全jobが成功。StockAI0.1.11/versi
 manual-personal-settings-v1の共有Python schemaと端末内保存、口座・保有revisionの競合拒否、旧0.1.11入力の共有storeへの移行を実装。null・明示0・無料手数料確認・NISA区分・小数現金を保持し、補足設定は正確な保有revisionへ結ぶ。初回台帳は全口座の確認previewから明示確定し、台帳と確認receiptを一transactionへ保存。15分失効、変更/改変/不足/既存台帳/約定履歴を拒否。日足参照日と初回残高をhomeへ表示し、その後のdraft編集で台帳を書き換えない。共有のread-only個人比較へ入力・補足条件を渡し、不足理由を画面表示する。最新原予測/市場根拠、モデル採用と実市場評価は未完。
 
 変更部分のPython26件、React21件、型/Lint/buildを確認。通信遮断WASMの特徴量41/51・6モデルvectorと新規の補足設定/初回現金/再起動復元は2件成功。最後の確認内容再計算の追加後はPython26件成功、WASM再試験はローカルserver起動30秒でtimeoutしたため全体試験後に再実行する。全Python790件とcoverageの検査は実行中。最初のPython試験は金額文字列表記1/1.0の比較、最初のReact試験はcleanup漏れで失敗し、値の検査を維持して修正。失敗logも保持する。実注文なし。
+
+
+## 2026-10-16 — 補足設定・初回台帳APK 0.1.12公開と検証完了
+
+source ab2d5caを保存してmainへpushし、CI38766244677のverify/android/release全job成功。Python71+6件、React21件、通信遮断WASM2件、Android15/API35の保存3件、Java暗号化/lint/build/署名/公開範囲検査を通過した。ローカルWASM再試験のserver起動timeoutは同一最終sourceのCI成功で確認を完了し、試験条件を緩和していない。
+
+StockAI0.1.12/versionCode10012を自動公開。APK21,150,645 bytes、SHA256 d3a31fc717a28bd2453eb5ca1f69df9398893404051e8c880bad44e997162fe0。配布4ファイルを実取得し、サイズ/hash、初回から不変の固定certificateを持つ署名build報告、27共有PC source・mobile adapter6件のGit blob一致、21runtime依存hash、採用model0件を確認。認証なしの最新Release API/update.jsonも10012を返した。実機の更新/新画面の確認は別途未実施。
+
+ローカル全回帰は790件を収集し789成功、1件が試験準備のgit rev-parseで作業directoryの所有者確認により停止した。信頼先を当該試験processのGIT_CONFIG環境だけへ指定し、該当1件と全体収集後に追加した3件を再実行して4成功。既存789件と合わせ最終793件を確認し、append後coverage87.07%（基準85%）を達成。全件が一度のrunで成功したという記録にはしない。コード修正や試験skipで回避せず、元の失敗logを保持した。64moduleの型検査、React型/Lint/build、変更部Python26件も成功。証拠docs/evidence/android-personal-20261016/verification.json。
+
+本人の0.1.11での保存・オフライン・端末再起動・backup/復元の成功報告は記録済み。新APKの実機更新、新画面、最新原予測/市場根拠と個人比較の全接続、初期履歴の一括取得、最終モデル採用/配布条件、実市場NAV、実API403、全市場長期履歴の端末能力、所有者による鍵のオフPC保管は残る。元の研究71行・DECISIONS31行・STATUS89行と未追跡dataを保持し、private siteは変更していない。実注文なし。

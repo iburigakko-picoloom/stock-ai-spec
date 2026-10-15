@@ -1,6 +1,6 @@
 # StockAI Android APK
 
-2026-10-15。D109が正本。既存React UIとPC版の計算moduleを端末へ同梱し、PC・クラウド計算の必須依存を外す。大規模な再学習はPCで行う。最終モデルは未採用で、現在は研究用。
+2026-10-16。D109〜D111が正本。既存React UIとPC版の計算moduleを端末へ同梱し、PC・クラウド計算の必須依存を外す。大規模な再学習はPCで行う。最終モデルは未採用で、現在は研究用。
 
 ## 保存地点と公開元
 
@@ -9,6 +9,8 @@
 - リポジトリ移転先: https://github.com/iburigakko-picoloom/stock-ai-spec （PUBLIC）。
 - 初回配布: [StockAI 0.1.11（研究用）](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.11)。[APK](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.11/StockAI.apk) / [SHA256SUMS](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.11/SHA256SUMS)。versionCode 10011、21,138,909 bytes、source `97f665f3055d2212882a6fc9b7e7224061bec912`。
 - APK SHA-256: `bd86aeb312d4185a72c4a9c136aca2dce23e5db3fe0a640d5964d945bd868f9d`。公開ファイルをダウンロードし、update.json/SHA256SUMSとの一致、固定証明書、共有26 source/21依存のhashを確認済み。
+- 最新配布: [StockAI 0.1.12（研究用）](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.12)。[APK](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.12/StockAI.apk) / [SHA256SUMS](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.12/SHA256SUMS)。versionCode 10012、21,150,645 bytes、source `ab2d5ca9ecd7ec107e187f7c0697e053c3288316`。
+- 最新APK SHA-256: `d3a31fc717a28bd2453eb5ca1f69df9398893404051e8c880bad44e997162fe0`。配布APKの実取得とサイズ/hash、固定署名のbuild報告、共有27 source/mobile adapter6件/21依存の一致を確認。署名鍵とappIdは初回から不変。認証不要の最新Release API/update.jsonも10012を返す。旧版からの実機更新は本人による確認待ち。
 
 ## 端末内の構成
 
@@ -86,11 +88,11 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 
 [初回公開CI 38682133797](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38682133797)は全job成功。Python 50+6件、React18件、外部通信遮断WASM、Java backup crypto、API35 emulator保存3件、Android lint/build、公式apksignerと固定certificate照合を通過。認証なしのGitHub最新Release APIとupdate.json取得も成功した。アプリの更新検知/安全download/Android確認への接続は実装済みだが、インストール済み実機での更新・データ維持は未確認である。
 
-0.1.11の初回台帳・補足設定は未接続だった。次版のsourceへ、端末内の補足設定保存と初回台帳のpreview/明示確定、home表示、共有比較の不足理由表示を追加した。既存の入力は共有の不変revisionへ移行し、旧入力tableは保持する。空欄はnull、無料手数料は明示確認、口座・保有の更新後は補足設定を見直す。初回台帳は全口座と保有・現金・税を確認して一度だけ確定し、以後の入力欄の編集では上書きしない。
+0.1.11の初回台帳・補足設定は未接続だった。0.1.12へ、端末内の補足設定保存と初回台帳のpreview/明示確定、home表示、共有比較の不足理由表示を追加した。既存の入力は共有の不変revisionへ移行し、旧入力tableは保持する。空欄はnull、無料手数料は明示確認、口座・保有の更新後は補足設定を見直す。初回台帳は全口座と保有・現金・税を確認して一度だけ確定し、以後の入力欄の編集では上書きしない。
 
 保有株の初期評価には保存済みの未調整終値を使い、参照日を表示する。全保有の同一日価格がない場合や5日超経過した場合は停止する。約定能力・企業行動の実証には使わない。確認内容は15分で失効し、入力・設定・価格の変化で再確認を要求する。台帳と確認receiptは同じSQLite transactionで保存し、native保存が確定してからUIへ完了を返す。新しいstateも既存の暗号化backupへ含め、APIキーは引き続き除外する。
 
-最新原予測/市場根拠と個人比較の全接続、実API403、採用model/配布条件、全市場長期履歴の端末能力は残る。APK公開を実予測の採用完了と扱わない。署名鍵を別媒体へ保管する作業も所有者による実施待ち。次版の新画面は実機で未確認。
+最新原予測/市場根拠と個人比較の全接続、実API403、採用model/配布条件、全市場長期履歴の端末能力は残る。APK公開を実予測の採用完了と扱わない。署名鍵を別媒体へ保管する作業も所有者による実施待ち。0.1.12の新画面は実機で未確認。
 
 | 項目 | 確認内容 | 状態 |
 | --- | --- | --- |

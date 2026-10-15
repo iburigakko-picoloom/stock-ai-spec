@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "jp.stockai.app",
+  "versionName": "0.1.12",
+  "versionCode": 10012,
+  "notes": "StockAI 0.1.12 — 研究用Android APK\n\n端末内Python計算、口座・保有の保存、APIキー暗号化、GitHub更新確認。\nモデル最終採用前です。未採用モデル、履歴不足、API403では最新予測や推奨を表示しません。\n実機での導入・更新は未確認。初回台帳・個人比較の接続と最終モデル採用は準備中です。\n保有・設定・履歴は同じ署名の更新で維持します。実注文機能はありません。\n\nこのリリースの変更:\n- Connect mobile supplemental settings and reviewed initial balances (ab2d5ca)\n\nSource: ab2d5ca9ecd7ec107e187f7c0697e053c3288316\nversionCode: 10012\nSHA-256: d3a31fc717a28bd2453eb5ca1f69df9398893404051e8c880bad44e997162fe0\n",
+  "sha256": "d3a31fc717a28bd2453eb5ca1f69df9398893404051e8c880bad44e997162fe0",
+  "size": 21150645,
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.12/StockAI.apk",
+  "commit": "ab2d5ca9ecd7ec107e187f7c0697e053c3288316",
+  "researchOnly": true
+}

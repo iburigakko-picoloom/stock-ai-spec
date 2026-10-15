@@ -1,0 +1,409 @@
+{
+  "conclusion": "success",
+  "headSha": "ab2d5ca9ecd7ec107e187f7c0697e053c3288316",
+  "jobs": [
+    {
+      "completedAt": "2026-10-15T16:10:45Z",
+      "conclusion": "success",
+      "databaseId": 116530070094,
+      "name": "android",
+      "startedAt": "2026-10-15T16:07:01Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T16:07:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T16:07:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:04Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T16:07:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:11Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": 3,
+          "startedAt": "2026-10-15T16:07:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:11Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "number": 4,
+          "startedAt": "2026-10-15T16:07:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:12Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad",
+          "number": 5,
+          "startedAt": "2026-10-15T16:07:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:08:24Z",
+          "conclusion": "success",
+          "name": "Start isolated Android emulator",
+          "number": 6,
+          "startedAt": "2026-10-15T16:07:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:08:41Z",
+          "conclusion": "success",
+          "name": "Prepare APK assets",
+          "number": 7,
+          "startedAt": "2026-10-15T16:08:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:16Z",
+          "conclusion": "success",
+          "name": "Android compiler, backup crypto tests and lint",
+          "number": 8,
+          "startedAt": "2026-10-15T16:08:41Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:42Z",
+          "conclusion": "success",
+          "name": "Android persistence tests",
+          "number": 9,
+          "startedAt": "2026-10-15T16:10:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:42Z",
+          "conclusion": "skipped",
+          "name": "Android diagnostics",
+          "number": 10,
+          "startedAt": "2026-10-15T16:10:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:42Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": 11,
+          "startedAt": "2026-10-15T16:10:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:42Z",
+          "conclusion": "success",
+          "name": "Stop emulator",
+          "number": 12,
+          "startedAt": "2026-10-15T16:10:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:42Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad",
+          "number": 21,
+          "startedAt": "2026-10-15T16:10:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:43Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "number": 22,
+          "startedAt": "2026-10-15T16:10:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:43Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": 23,
+          "startedAt": "2026-10-15T16:10:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:43Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 24,
+          "startedAt": "2026-10-15T16:10:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:43Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-10-15T16:10:43Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38766244677/job/116530070094"
+    },
+    {
+      "completedAt": "2026-10-15T16:11:00Z",
+      "conclusion": "success",
+      "databaseId": 116530070487,
+      "name": "verify",
+      "startedAt": "2026-10-15T16:07:01Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T16:07:04Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T16:07:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T16:07:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": 3,
+          "startedAt": "2026-10-15T16:07:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "number": 4,
+          "startedAt": "2026-10-15T16:07:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:07:17Z",
+          "conclusion": "success",
+          "name": "Install locked dependencies",
+          "number": 5,
+          "startedAt": "2026-10-15T16:07:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:09:42Z",
+          "conclusion": "success",
+          "name": "Shared Python and persistence tests",
+          "number": 6,
+          "startedAt": "2026-10-15T16:07:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:09:51Z",
+          "conclusion": "success",
+          "name": "Prepare offline interpreter and PC reference vectors",
+          "number": 7,
+          "startedAt": "2026-10-15T16:09:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:55Z",
+          "conclusion": "success",
+          "name": "React and TypeScript checks",
+          "number": 8,
+          "startedAt": "2026-10-15T16:09:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:55Z",
+          "conclusion": "success",
+          "name": "Validate package contents",
+          "number": 9,
+          "startedAt": "2026-10-15T16:10:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:57Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": 10,
+          "startedAt": "2026-10-15T16:10:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:57Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "number": 18,
+          "startedAt": "2026-10-15T16:10:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:57Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": 19,
+          "startedAt": "2026-10-15T16:10:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:58Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 20,
+          "startedAt": "2026-10-15T16:10:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:10:58Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 21,
+          "startedAt": "2026-10-15T16:10:58Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38766244677/job/116530070487"
+    },
+    {
+      "completedAt": "2026-10-15T16:13:33Z",
+      "conclusion": "success",
+      "databaseId": 116532053278,
+      "name": "release",
+      "startedAt": "2026-10-15T16:11:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T16:11:04Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T16:11:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:11:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T16:11:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:11:06Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": 3,
+          "startedAt": "2026-10-15T16:11:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:11:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "number": 4,
+          "startedAt": "2026-10-15T16:11:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:11:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad",
+          "number": 5,
+          "startedAt": "2026-10-15T16:11:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:11:17Z",
+          "conclusion": "success",
+          "name": "Prepare signed build",
+          "number": 6,
+          "startedAt": "2026-10-15T16:11:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:24Z",
+          "conclusion": "success",
+          "name": "Build native Android",
+          "number": 7,
+          "startedAt": "2026-10-15T16:11:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:26Z",
+          "conclusion": "success",
+          "name": "Verify signing and create release manifest",
+          "number": 8,
+          "startedAt": "2026-10-15T16:13:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:31Z",
+          "conclusion": "success",
+          "name": "Publish immutable release assets",
+          "number": 9,
+          "startedAt": "2026-10-15T16:13:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:31Z",
+          "conclusion": "success",
+          "name": "Remove ephemeral signing key",
+          "number": 10,
+          "startedAt": "2026-10-15T16:13:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:31Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad",
+          "number": 17,
+          "startedAt": "2026-10-15T16:13:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:31Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "number": 18,
+          "startedAt": "2026-10-15T16:13:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:31Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": 19,
+          "startedAt": "2026-10-15T16:13:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:31Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 20,
+          "startedAt": "2026-10-15T16:13:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T16:13:31Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 21,
+          "startedAt": "2026-10-15T16:13:31Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38766244677/job/116532053278"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38766244677"
+}

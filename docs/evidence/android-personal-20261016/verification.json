@@ -1,0 +1,71 @@
+{
+  "recorded_at": "2026-10-15T16:21:23.595699+00:00",
+  "source_commit": "ab2d5ca9ecd7ec107e187f7c0697e053c3288316",
+  "release": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.12",
+  "apk": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.12/StockAI.apk",
+  "ci": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38766244677",
+  "ci_result": "SUCCESS",
+  "ci_python_cases": 77,
+  "react_cases": 21,
+  "offline_wasm_cases": 2,
+  "android_persistence_cases": 3,
+  "local_full_regression": {
+    "initial_collected": 790,
+    "initial_passed": 789,
+    "initial_failed": 1,
+    "initial_failure": "Git dubious ownership during test setup; no product assertion reached",
+    "retry_passed": 4,
+    "new_cases_added_after_collection": 3,
+    "all_793_unique_cases_confirmed": true,
+    "single_run_all_passed": false,
+    "trust_configuration": "process-scoped safe.directory only"
+  },
+  "coverage_percent": 87.07280080889788,
+  "minimum_coverage_percent": 85,
+  "mypy_modules": 64,
+  "physical_device": {
+    "device": "Xiaomi 14T Pro",
+    "evidence": "owner-reported",
+    "version_0_1_11": [
+      "install/start",
+      "save/reopen",
+      "offline",
+      "device restart",
+      "backup export",
+      "wrong-password rejection",
+      "restore"
+    ],
+    "version_0_1_12_update_and_new_ui": "NOT_RUN",
+    "android_hyperos_versions": "NOT_REPORTED"
+  },
+  "pc_compute_required": false,
+  "adopted_models_in_apk": 0,
+  "real_orders": false,
+  "completed": [
+    "supplemental draft settings and exact portfolio revision linkage",
+    "legacy input migration into shared immutable store",
+    "preview and explicit atomic one-time initial-ledger confirmation",
+    "initial balances/reference date on home",
+    "shared personal-comparison readiness/gap display"
+  ],
+  "remaining": [
+    "authoritative latest forecast and market-evidence connection",
+    "initial historical range import",
+    "model adoption/distribution evidence and real-market evaluation",
+    "real API403 and full-universe phone capacity",
+    "physical update/new UI and numeric parity/performance",
+    "owner off-PC signing-key backup"
+  ],
+  "log_sha256": {
+    "mobile-personal-full.log": "635f780f2b16efa1b8f8a364b38986e098c62f0a8b3049141ec376f940b23236",
+    "mobile-personal-final-retry.log": "29be424ace715ca68dd6b5e622bdb9f28a93d379f58d316a003468c351a3a0d6",
+    "mobile-personal-tests-final.log": "ce943fa26e395b3086b8a94a3037bdf719c06ffa8ddf08e42ced6109412ed2f9",
+    "mobile-personal-coverage-final.json": "7932472db4d61948f84989fd3d82a311e84d688f6443dfe86f935b316e87e3d8",
+    "mobile-personal-ci-final.log": "57df8eb8d375b2e1516b86f40a419328a70e8b609f263801d3922f0a7f9ffb60",
+    "mobile-personal-source-audit.log": "4693f014500297be6598995d178b56745d5e663b4a9da61a36641d521f7de307",
+    "mobile-personal-package-audit.log": "da6be441fe7ca24b4efb1609068194f736de12831f7fd31175264f1eb25b8dc6",
+    "mobile-personal-tests-1.log": "ce150f9bb116a97f6079f4510d2edc164e25cd72cae72f885bf0bcd9476223fc",
+    "mobile-personal-react.log": "66a2e43a552c31c37c7c9cc87ac776ec348cfce0535f0ab308516527e1a99de5",
+    "mobile-personal-wasm-final.log": "d1bd515b56f9f78747e18c4f07e9400bb7df2fa8955b410c70437475a997e264"
+  }
+}
