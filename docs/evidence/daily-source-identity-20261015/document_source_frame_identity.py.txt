@@ -1,0 +1,107 @@
+"""Bind all read-only identity audits to the frozen feature decision and build."""
+from pathlib import Path
+import hashlib
+import json
+
+from stock_ai.ml.production import _metadata_hash
+from stock_ai.ml.selection import load_development_feature_selection
+
+root = Path(__file__).resolve().parent.parent
+feature_id = '13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d'
+feature_path = root / 'artifacts/selections/goal3-features' / feature_id / (feature_id + '.json')
+features = load_development_feature_selection(feature_path)
+assert features.feature_selection_id == feature_id
+build_path = root / 'data/live/builds/production' / features.build_id / (features.build_id + '.json')
+build = json.loads(build_path.read_text(encoding='utf-8'))
+assert build['metadata_hash'] == _metadata_hash(build)
+identity = {name: build[name] for name in ('source_snapshot_as_of', 'source_snapshot_ids',
+            'v0_snapshot_id', 'v1_snapshot_id', 'v2_snapshot_id', 'dataset_snapshot_id')}
+assert hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest() == features.build_id
+assert build['build_id'] == features.build_id
+assert build['dataset_snapshot_id'] == features.data_snapshot_id
+metadata_path = Path(build['dataset_parquet_path']).with_suffix('.json')
+metadata = json.loads(metadata_path.read_text(encoding='utf-8'))
+assert metadata['metadata_hash'] == _metadata_hash(metadata)
+assert metadata['snapshot_id'] == features.data_snapshot_id
+assert metadata['source_snapshot_ids'] == build['source_snapshot_ids']
+assert metadata['source_snapshot_as_of'] == build['source_snapshot_as_of']
+expected = dict(build['source_snapshot_ids'])
+small_path = root / '.demo-artifacts/small-source-frames-audit.json'
+small = json.loads(small_path.read_text(encoding='utf-8'))
+assert small['dataset_snapshot_id'] == features.data_snapshot_id
+assert small['source_snapshot_as_of'] == build['source_snapshot_as_of']
+audits = list(small['datasets'])
+paths = [small_path]
+for dataset in ['financial_summary', 'security_master', 'daily_prices']:
+    path = root / f'.demo-artifacts/source-frame-identity-{dataset}.json'
+    paths.append(path)
+    audit = json.loads(path.read_text(encoding='utf-8'))
+    assert audit['dataset_snapshot_id'] == features.data_snapshot_id
+    assert audit['source_snapshot_as_of'] == build['source_snapshot_as_of']
+    assert audit['metadata_file_sha256'] == hashlib.sha256(metadata_path.read_bytes()).hexdigest()
+    audits.append(audit)
+assert {a['dataset'] for a in audits} == set(expected) and len(audits) == len(expected)
+for audit in audits:
+    assert audit['source_snapshot_id'] == audit['expected_source_snapshot_id'] == expected[audit['dataset']]
+    assert audit['file_hashes_before_after_match'] is True
+folder = root / 'docs/evidence/daily-source-identity-20261015'
+folder.mkdir(exist_ok=True)
+destination = folder / 'summary.json'
+assert not destination.exists(), 'Preserve earlier evidence'
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+assert small['prototype_sha256'] == sha(root / '.demo-artifacts/prototype_source_frame_hash.py')
+assert small['audit_script_sha256'] == sha(root / '.demo-artifacts/audit_small_source_frames.py')
+for audit in audits:
+    if 'audit_script_sha256' in audit:
+        assert audit['prototype_sha256'] == sha(root / '.demo-artifacts/prototype_source_frame_hash.py')
+        assert audit['audit_script_sha256'] == sha(root / '.demo-artifacts/audit_large_source_frame.py')
+scripts = ['prototype_source_frame_hash.py', 'audit_small_source_frames.py',
+           'audit_large_source_frame.py', 'document_source_frame_identity.py']
+files = [feature_path, build_path, metadata_path, *paths]
+log_names = ['small-source-frames-audit.log', *('source-frame-identity-' + name + '.log'
+             for name in ['financial_summary', 'security_master', 'daily_prices'])]
+files += [root / '.demo-artifacts' / name for name in log_names]
+for path in paths:
+    (folder / path.name).write_bytes(path.read_bytes())
+for name in scripts:
+    path = root / '.demo-artifacts' / name
+    files.append(path)
+    # Byte-exact executed source, intentionally retained as evidence text.
+    (folder / (name + '.txt')).write_bytes(path.read_bytes())
+summary = {
+    'schema_version': 'frozen-source-frame-identity-audit-v1', 'status': 'PASS',
+    'feature_selection_id': feature_id, 'build_id': features.build_id,
+    'data_snapshot_id': features.data_snapshot_id,
+    'source_snapshot_as_of': build['source_snapshot_as_of'],
+    'build_content_identity_verified': True, 'all_five_source_frames_exact_match': True,
+    'normalized_objects_before_after_verified': sum(a['normalized_objects_verified'] for a in audits),
+    'full_source_dates_include_holdout_calendar_dates': True,
+    'purpose': 'source identity authentication only; no prediction, target or performance scoring',
+    'holdout_scored': False, 'adoption_eligible': False, 'no_order_sent': True,
+    'limitations': ['No reconstruction of historical correction vintages.',
+                    'No new full-history raw/normalized row-pair validation.',
+                    'No new completeness assertion for eligible universe, actions or execution capacity.',
+                    'Does not turn daily-market projection into evaluation_ready.'],
+    'datasets': audits,
+    'evidence_sha256': {str(p.relative_to(root)): sha(p) for p in files},
+}
+destination.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
+lines = ['# 学習時の元データ5種類との識別値照合', '',
+    '固定feature selection → production buildのcontent identity → dataset metadata → 全5種類のsource frameという対応を読み取り専用で照合した。catalogや元ファイルは書き換えていない。', '',
+    '| 元データ | 最新版選択後の行数 | 検証したnormalized object数 | 学習時の識別値 |',
+    '| --- | ---: | ---: | --- |']
+for audit in audits:
+    lines.append(f"| {audit['dataset']} | {audit['rows']:,} | {audit['normalized_objects_verified']:,} | 完全一致 |")
+lines += ['',
+    'catalogの成功・品質合格・固定vintage内のnormalizedファイルを選び、元のpoint_in_timeと同じキー・available_at/received_at/payload_hash優先順位で最新版を選択。各ファイルのbyte SHAを処理前後に検証した。build IDは固定feature decisionのbuild_idと一致し、全source IDを含むcontent hashを再計算した。', '',
+    'hashのschemaにはPandasの型も含む。全体の欠損有無でnullable型を先に決め、各chunkを同じ型へ戻してから、元の_source_frame_idと同じ行hashを連結する。小規模試験は5,005行、最後のchunkだけに欠損がある整数/実数/文字列/真偽/時刻と全欠損列を含め、1/2/8 vector単位で元の全件計算と一致し、値改変を検出した。営業日/TOPIXは実データでも元の全件計算と一致。大型データは512MBのDuckDB予算と一時diskを使い、元の学習時source IDとの完全一致を確認した。', '',
+    'これは学習入力との同一性の確認。全期間のraw/normalized行ペア認証、PITユニバース/営業日完全性、配当/分割/現金交付、呼値/約定数量/決済、実用費用は別の未完項目。過去の訂正前vintageを復元したものではなく、SINGLE_VINTAGE_AS_REVISED制約は残る。', '',
+    '固定vintage全体の識別値を再計算するため、元データにはholdoutに当たる暦日も含む。予測・target・成績は計算しておらず、holdout評価や採用判定には使っていない。元のdataset/feature/report/OOFは変更していない。実注文なし。', '',
+    'summary.jsonに対応関係、source ID、schema、入力・log・実行scriptのSHAを保存。*.py.txtは実行したscriptのbyte一致コピーで、元の.demo-artifacts位置を前提とする。既存結果の上書きを拒否するため、再実行時は元の証拠を保持した別試行にする。']
+(folder / 'README.md').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+print('All five frozen source identities PASS; evidence saved', destination)

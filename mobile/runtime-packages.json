@@ -1,0 +1,5 @@
+{
+  "version": "0.29.3",
+  "indexURL": "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/",
+  "packages": ["numpy", "pandas", "pydantic", "sqlite3", "tzdata", "fastapi", "httpx"]
+}

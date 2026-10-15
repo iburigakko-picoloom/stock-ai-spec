@@ -32,6 +32,13 @@ from stock_ai.domain import (
     TradeSide,
     UserDecision,
 )
+from stock_ai.operations.daily import (
+    CompanyResearchRecord,
+    OwnerAdoptionReview,
+    PredictionSnapshot,
+    validate_research_link,
+)
+from stock_ai.operations.manual_portfolio import ImportedManualPortfolio
 from stock_ai.operations.models import (
     AutomationJobRecord,
     AutomationStage,
@@ -112,6 +119,10 @@ _HASHED_TABLES = (
     "paper_outcomes",
     "import_previews",
     "position_reconciliations",
+    "prediction_snapshots",
+    "company_research",
+    "adoption_reviews",
+    "manual_portfolio_imports",
 )
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -125,7 +136,29 @@ def _verify_hashed_row(table: str, row: sqlite3.Row) -> None:
     payload = _checked_payload(row, table)
     item: Any
     try:
-        if table == "portfolio_states":
+        if table == "manual_portfolio_imports":
+            item = _parse_model(ImportedManualPortfolio, payload)
+            expected = {
+                "export_sha256": item.export_sha256,
+                "revision_id": item.export.revision_id,
+                "revision_sequence": item.export.revision_sequence,
+                "owner_scope_hash": item.owner_scope_hash,
+            }
+        elif table == "adoption_reviews":
+            item = _parse_model(OwnerAdoptionReview, payload)
+            expected = {"review_id": item.review_id, "selection_id": item.selection_id}
+        elif table == "prediction_snapshots":
+            item = _parse_model(PredictionSnapshot, payload)
+            expected = {"snapshot_id": item.snapshot_id, "as_of": item.as_of.isoformat()}
+        elif table == "company_research":
+            item = _parse_model(CompanyResearchRecord, payload)
+            expected = {
+                "research_id": item.research_id,
+                "prediction_snapshot_id": item.prediction_snapshot_id,
+                "symbol": item.symbol,
+                "reviewed_at": item.reviewed_at.isoformat(),
+            }
+        elif table == "portfolio_states":
             item = _parse_model(PortfolioState, payload)
             expected = {
                 "portfolio_id": item.portfolio_id,
@@ -249,7 +282,21 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
     counts: dict[str, int] = {}
     metadata_rows = connection.execute("SELECT key FROM operational_metadata").fetchall()
     counts["operational_metadata"] = len(metadata_rows)
+    schema_version = connection.execute("PRAGMA user_version").fetchone()[0]
+    tables = {
+        row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
     for table in _HASHED_TABLES:
+        if table == "manual_portfolio_imports" and schema_version < 3 and table not in tables:
+            counts[table] = 0
+            continue
+        if (
+            schema_version < 2
+            and table not in tables
+            and table in {"prediction_snapshots", "company_research", "adoption_reviews"}
+        ):
+            counts[table] = 0
+            continue  # Previous-version backups remain verifiable before migration.
         rows = connection.execute(f"SELECT * FROM {table}").fetchall()
         for row in rows:
             _verify_hashed_row(table, row)
@@ -310,7 +357,51 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
     for row in status_rows:
         status = _parse_model(DailyOperationStatus, _checked_payload(row, "daily_status"))
         _validate_status_proposal(connection, status)
+    if "company_research" in tables:
+        for row in connection.execute("SELECT payload, content_hash FROM company_research"):
+            research = _parse_model(
+                CompanyResearchRecord, _checked_payload(row, "company_research")
+            )
+            linked = connection.execute(
+                "SELECT payload, content_hash FROM prediction_snapshots WHERE snapshot_id = ?",
+                (research.prediction_snapshot_id,),
+            ).fetchone()
+            if linked is None:
+                raise OperationalIntegrityError("research is missing its original prediction")
+            original_prediction = _parse_model(
+                PredictionSnapshot, _checked_payload(linked, "prediction_snapshots")
+            )
+            try:
+                validate_research_link(research, original_prediction)
+            except ValueError as exc:
+                raise OperationalIntegrityError("invalid research-to-prediction link") from exc
+    if "prediction_snapshots" in tables:
+        for row in connection.execute("SELECT payload, content_hash FROM prediction_snapshots"):
+            original = _parse_model(
+                PredictionSnapshot, _checked_payload(row, "prediction_snapshots")
+            )
+            _validate_snapshot_approval(connection, original)
     return counts
+
+
+def _validate_snapshot_approval(
+    connection: sqlite3.Connection, snapshot: PredictionSnapshot
+) -> None:
+    if snapshot.adoption_review_id is None:
+        return
+    row = connection.execute(
+        "SELECT payload, content_hash FROM adoption_reviews WHERE review_id = ?",
+        (snapshot.adoption_review_id,),
+    ).fetchone()
+    if row is None:
+        raise OperationalIntegrityError("snapshot requires a saved owner adoption review")
+    review = _parse_model(OwnerAdoptionReview, _checked_payload(row, "adoption_reviews"))
+    if (
+        review.decision != "adopt"
+        or review.selection_id != snapshot.selection_id
+        or review.reviewed_at > snapshot.generated_at
+    ):
+        raise OperationalIntegrityError("snapshot does not match owner adoption review")
 
 
 def _validate_status_proposal(connection: sqlite3.Connection, status: DailyOperationStatus) -> None:
@@ -405,6 +496,38 @@ class OperationalStore:
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS prediction_snapshots (
+                    snapshot_id TEXT PRIMARY KEY,
+                    as_of TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    content_hash TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS adoption_reviews (
+                    review_id TEXT PRIMARY KEY,
+                    selection_id TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    content_hash TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_prediction_as_of ON prediction_snapshots(as_of);
+                CREATE TABLE IF NOT EXISTS company_research (
+                    research_id TEXT PRIMARY KEY,
+                    prediction_snapshot_id TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    reviewed_at TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    FOREIGN KEY(prediction_snapshot_id) REFERENCES prediction_snapshots(snapshot_id)
+                );
+                CREATE TABLE IF NOT EXISTS manual_portfolio_imports (
+                    export_sha256 TEXT PRIMARY KEY,
+                    revision_id TEXT NOT NULL UNIQUE,
+                    revision_sequence INTEGER NOT NULL UNIQUE,
+                    owner_scope_hash TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    content_hash TEXT NOT NULL
+                );
+                PRAGMA user_version=3;
 
                 CREATE TABLE IF NOT EXISTS proposals (
                     proposal_id TEXT PRIMARY KEY,
@@ -562,6 +685,151 @@ class OperationalStore:
             values,
         )
         return True
+
+    def import_manual_portfolio(self, item: ImportedManualPortfolio) -> ImportedManualPortfolio:
+        """Append a verified input without modifying balances or recorded executions."""
+        item = ImportedManualPortfolio.model_validate_json(item.model_dump_json())
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                "SELECT * FROM manual_portfolio_imports ORDER BY revision_sequence DESC"
+            ).fetchall()
+            for row in rows:
+                _verify_hashed_row("manual_portfolio_imports", row)
+                previous = _parse_model(ImportedManualPortfolio, row["payload"])
+                if previous.owner_scope_hash != item.owner_scope_hash:
+                    raise OperationalConflictError(
+                        "manual portfolio owner differs from pinned owner"
+                    )
+            if rows:
+                latest = _parse_model(ImportedManualPortfolio, rows[0]["payload"])
+                if item.export.revision_sequence < latest.export.revision_sequence:
+                    raise OperationalConflictError("manual portfolio revision rollback refused")
+                if item.export_sha256 == latest.export_sha256:
+                    return latest  # Preserve the first receipt time, including ACK retries.
+                if item.export.revision_sequence == latest.export.revision_sequence:
+                    raise OperationalConflictError("manual portfolio revision identity conflict")
+                if item.export.saved_at < latest.export.saved_at:
+                    raise OperationalConflictError("manual portfolio saved time rollback refused")
+                if item.export.revision_id in {row["revision_id"] for row in rows}:
+                    raise OperationalConflictError("manual portfolio revision replay conflict")
+            self._insert_immutable(
+                connection,
+                table="manual_portfolio_imports",
+                identity_column="export_sha256",
+                identity=item.export_sha256,
+                columns={
+                    "revision_id": item.export.revision_id,
+                    "revision_sequence": item.export.revision_sequence,
+                    "owner_scope_hash": item.owner_scope_hash,
+                },
+                payload=_canonical_payload(item),
+            )
+            connection.commit()
+            return item
+
+    def latest_manual_portfolio(self) -> ImportedManualPortfolio | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM manual_portfolio_imports ORDER BY revision_sequence DESC LIMIT 1"
+            ).fetchone()
+            if row is None:
+                return None
+            _verify_hashed_row("manual_portfolio_imports", row)
+            return _parse_model(ImportedManualPortfolio, row["payload"])
+
+    def append_prediction_snapshot(self, snapshot: PredictionSnapshot) -> bool:
+        snapshot = PredictionSnapshot.model_validate_json(snapshot.model_dump_json())
+        with self._connect() as connection:
+            _validate_snapshot_approval(connection, snapshot)
+            inserted = self._insert_immutable(
+                connection,
+                table="prediction_snapshots",
+                identity_column="snapshot_id",
+                identity=snapshot.snapshot_id,
+                columns={"as_of": snapshot.as_of.isoformat()},
+                payload=_canonical_payload(snapshot),
+            )
+            connection.commit()
+            return inserted
+
+    def append_adoption_review(self, review: OwnerAdoptionReview) -> bool:
+        review = OwnerAdoptionReview.model_validate_json(review.model_dump_json())
+        # A manually supplied report ID is not authenticated evaluation evidence.
+        # Until the release gate consumes the actual final selection, holdout and
+        # evaluator artifacts, record paper/reject reviews but never promote.
+        if review.decision == "adopt":
+            raise ValueError(
+                "adoption is blocked: authenticated evaluator/holdout evidence "
+                "and personal execution settings are not connected"
+            )
+        with self._connect() as connection:
+            inserted = self._insert_immutable(
+                connection,
+                table="adoption_reviews",
+                identity_column="review_id",
+                identity=review.review_id,
+                columns={"selection_id": review.selection_id},
+                payload=_canonical_payload(review),
+            )
+            connection.commit()
+            return inserted
+
+    def adoption_review(self, review_id: str) -> OwnerAdoptionReview:
+        return self._load_one("adoption_reviews", "review_id", review_id, OwnerAdoptionReview)
+
+    def prediction_snapshot(self, snapshot_id: str) -> PredictionSnapshot:
+        return self._load_one(
+            "prediction_snapshots", "snapshot_id", snapshot_id, PredictionSnapshot
+        )
+
+    def latest_prediction_snapshot(self) -> PredictionSnapshot | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT snapshot_id FROM prediction_snapshots "
+                "ORDER BY julianday(as_of) DESC, snapshot_id DESC LIMIT 1"
+            ).fetchone()
+        return self.prediction_snapshot(row[0]) if row else None
+
+    def append_company_research(self, research: CompanyResearchRecord) -> bool:
+        research = CompanyResearchRecord.model_validate_json(research.model_dump_json())
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload, content_hash FROM prediction_snapshots WHERE snapshot_id = ?",
+                (research.prediction_snapshot_id,),
+            ).fetchone()
+            if row is None:
+                raise OperationalConflictError("original prediction snapshot must exist first")
+            snapshot = _parse_model(
+                PredictionSnapshot, _checked_payload(row, "prediction_snapshots")
+            )
+            validate_research_link(research, snapshot)
+            inserted = self._insert_immutable(
+                connection,
+                table="company_research",
+                identity_column="research_id",
+                identity=research.research_id,
+                columns={
+                    "prediction_snapshot_id": research.prediction_snapshot_id,
+                    "symbol": research.symbol,
+                    "reviewed_at": research.reviewed_at.isoformat(),
+                },
+                payload=_canonical_payload(research),
+            )
+            connection.commit()
+            return inserted
+
+    def company_research(self, snapshot_id: str) -> tuple[CompanyResearchRecord, ...]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM company_research WHERE prediction_snapshot_id = ? "
+                "ORDER BY julianday(reviewed_at), research_id",
+                (snapshot_id,),
+            ).fetchall()
+        return tuple(
+            _parse_model(CompanyResearchRecord, _checked_payload(row, "company_research"))
+            for row in rows
+        )
 
     def append_portfolio(self, portfolio: PortfolioState, *, created_at: datetime) -> bool:
         if created_at.tzinfo is None or created_at.utcoffset() is None:

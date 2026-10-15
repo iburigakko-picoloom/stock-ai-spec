@@ -5,6 +5,8 @@
 
 ## このリポジトリの目的
 
+Android APKの端末内計算・署名・GitHub Releases更新は [Android運用手順](docs/ANDROID_RUNBOOK.md) を参照。現在は研究用で、実機受入と最終モデル採用は未完です。
+
 このプロジェクトは、毎営業日11:30時点で利用可能な情報を使い、現在の保有株・現金・税金・取引コスト・新規候補を同時に評価して、12:30に向けた投資提案を作る意思決定支援システムです。
 
 AIやアプリは実注文を出しません。最終判断と注文はユーザーが行います。
@@ -181,7 +183,9 @@ development OOFから残る全選択を固定する。
 
 ```text
 stock-ai research freeze-features \
-  --ablation-campaign <completed-v2-ablation-manifest> \
+  --ablation-campaign <completed-5d-v2-ablation-manifest> \
+  --ablation-campaign <completed-20d-v2-ablation-manifest> \
+  --one-day-decision <authenticated-1d-exclusion-decision.json> \
   --feature-selection-root artifacts/selections/goal3-features
 stock-ai research candidate-campaigns \
   --feature-selection <content-addressed-feature-selection.json> \
@@ -189,12 +193,12 @@ stock-ai research candidate-campaigns \
   --code-commit <exact-candidate-commit>
 stock-ai research finalize-selection \
   --feature-selection <content-addressed-feature-selection.json> \
-  --candidate-campaign <completed-h1-manifest> \
   --candidate-campaign <completed-h5-manifest> \
   --candidate-campaign <completed-h20-manifest>
 ```
 
-この段階で1 / 5 / 20日ごとのfeature family、expected-return / rank / downside / large-loss model、
+1日screenが全gateを通過してFull Ablationを完了した場合は、1日のablation / candidate manifestも加える。
+この段階で対象horizonごとのfeature family、expected-return / rank / downside / large-loss model、
 全hyperparameter、OOF ensemble weight、uncertainty calibrationが固定され、Experiment Registryには
 `locked_holdout_accessed=false`で記録される。不完全campaign、3 seed未満、snapshot / Build / feature / code不一致、
 holdoutを含むreportは拒否する。

@@ -1,0 +1,13 @@
+{
+  "checked_at": "2026-10-15T00:00:13.939353+00:00",
+  "endpoint": "/equities/master",
+  "date": "2025-11-06",
+  "client_minimum_capability": "free",
+  "inferred_subscription": null,
+  "catalog_or_production_files_changed": false,
+  "holdout_scored": false,
+  "status": "API_ACCESS_NOT_CONFIRMED",
+  "error_type": "JQuantsRequestError",
+  "safe_error": "J-Quants V2 request failed with HTTP 403 for /equities/master",
+  "implementation_sha256": "e3c0871978efc075733489542b53d5cc9483da3a7515b3530b502fab3be7bce8"
+}

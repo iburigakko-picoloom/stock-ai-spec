@@ -1,0 +1,26 @@
+verify	Shared Python and persistence tests	﻿2026-10-15T03:07:11.5019250Z ##[group]Run uv run ruff check .
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5019462Z ^[[36;1muv run ruff check .^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5019596Z ^[[36;1muv run mypy src^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5020066Z ^[[36;1muv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_models.py tests/test_mobile_market.py tests/test_production_research.py tests/test_features.py -q --basetemp=.demo-artifacts/pytest-mobile-ci^[[0m
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5073974Z shell: /usr/bin/bash -e {0}
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5074253Z env:
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5074406Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5074649Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5074907Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5075121Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5075335Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5075551Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5075829Z   STOCK_AI_CODE_COMMIT: 13231aad280e017c7d60d14ae423767f2a1c61ee
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.5076014Z ##[endgroup]
+verify	Shared Python and persistence tests	2026-10-15T03:07:11.8247119Z All checks passed!
+verify	Shared Python and persistence tests	2026-10-15T03:07:21.8239397Z src/stock_ai/ml/memory.py:225: error: Statement is unreachable  [unreachable]
+verify	Shared Python and persistence tests	2026-10-15T03:07:33.1078188Z src/stock_ai/ml/checkpoint.py:117: error: Module has no attribute "locking"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:33.1078668Z src/stock_ai/ml/checkpoint.py:117: error: Module has no attribute "LK_NBLCK"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:33.1079041Z src/stock_ai/ml/checkpoint.py:133: error: Module has no attribute "locking"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:33.1079447Z src/stock_ai/ml/checkpoint.py:133: error: Module has no attribute "LK_UNLCK"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:34.4334670Z src/stock_ai/ml/holdout.py:264: error: Module has no attribute "locking"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:34.4335141Z src/stock_ai/ml/holdout.py:264: error: Module has no attribute "LK_NBLCK"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:34.4335536Z src/stock_ai/ml/holdout.py:280: error: Module has no attribute "locking"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:34.4335875Z src/stock_ai/ml/holdout.py:280: error: Module has no attribute "LK_UNLCK"  [attr-defined]
+verify	Shared Python and persistence tests	2026-10-15T03:07:35.9685389Z Found 9 errors in 3 files (checked 63 source files)
+verify	Shared Python and persistence tests	2026-10-15T03:07:36.0092376Z ##[error]Process completed with exit code 1.

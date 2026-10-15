@@ -1,0 +1,15 @@
+{
+  "checked_at_utc": "2026-10-03T01:27:44.079691+00:00",
+  "code_commit": "a68e8327914e265e6594e22e02f24bdbbfee39a5",
+  "destination_path": "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2",
+  "imported_reloaded_units": 15,
+  "outer_folds": 11,
+  "tuning_units": 4,
+  "optuna_database": "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\optuna.sqlite3",
+  "reuses_real_evidence_recomputed_at_utc": "2026-10-03T00:59:25.389207+00:00",
+  "worker_will_recompute_evidence_and_fully_authenticate_inputs_before_fit": true,
+  "old_namespace_unchanged": true,
+  "chained_import": false,
+  "new_model_fits": 0,
+  "training_started": false
+}

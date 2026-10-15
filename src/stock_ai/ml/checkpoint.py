@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import tempfile
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -111,7 +112,7 @@ class _ExclusiveLock:
             os.fsync(self._stream.fileno())
         self._stream.seek(0)
         try:
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 msvcrt.locking(self._stream.fileno(), msvcrt.LK_NBLCK, 1)
@@ -127,7 +128,7 @@ class _ExclusiveLock:
         if self._closed:
             return
         self._stream.seek(0)
-        if os.name == "nt":
+        if sys.platform == "win32":
             import msvcrt
 
             msvcrt.locking(self._stream.fileno(), msvcrt.LK_UNLCK, 1)
@@ -141,8 +142,11 @@ class _ExclusiveLock:
 class ResearchCheckpointStore:
     """Persist and authenticate successful OOF folds under one research identity."""
 
-    def __init__(self, root: Path, *, provenance: Mapping[str, object]) -> None:
+    def __init__(
+        self, root: Path, *, provenance: Mapping[str, object], import_plan: Path | None = None,
+    ) -> None:
         self.provenance = dict(provenance)
+        self.import_plan: dict[str, Any] | None = None
         self.checkpoint_id = checkpoint_id_for_provenance(self.provenance)
         self.path = root.resolve() / self.checkpoint_id
         self.path.mkdir(parents=True, exist_ok=True)
@@ -151,6 +155,18 @@ class ResearchCheckpointStore:
             self._authenticate_or_create_namespace()
             self._progress = self._load_or_create_progress()
             self._mark_abandoned_units_interrupted()
+            if import_plan is not None:
+                from stock_ai.ml.checkpoint_import import authenticate_checkpoint_import_plan
+
+                plan = _load_json(import_plan, description="checkpoint import plan")
+                authenticate_checkpoint_import_plan(plan, self.provenance)
+                retained = self.path / "import-plan.json"
+                if retained.exists():
+                    if _load_json(retained, description="retained import plan") != plan:
+                        raise RuntimeError("checkpoint import plan changed within a namespace")
+                else:
+                    _atomic_write_json(retained, plan)
+                self.import_plan = plan
         except Exception:
             self._lock.close()
             raise
@@ -191,7 +207,19 @@ class ResearchCheckpointStore:
         if not artifact.exists():
             if progress is not None and progress.get("status") == "SUCCEEDED":
                 raise RuntimeError("successful fold checkpoint artifact is missing")
-            return None
+            if self.import_plan is None:
+                return None
+            from stock_ai.ml.checkpoint_import import import_authenticated_fold
+
+            imported = import_authenticated_fold(
+                source_checkpoint=Path(self.import_plan["source_checkpoint_path"]),
+                destination=self,
+                evidence=evidence,
+                equivalence_proof=self.import_plan["equivalence_proof"],
+                frame_hash=frame_hash,
+            )
+            if imported is None:
+                return None
         frame = self._authenticate_fold(
             artifact,
             unit_id=unit_id,
@@ -240,12 +268,29 @@ class ResearchCheckpointStore:
         frame: pd.DataFrame,
         *,
         frame_hash: Callable[[pd.DataFrame], str],
+        import_lineage: Mapping[str, object] | None = None,
     ) -> Path:
+        if import_lineage is not None:
+            from stock_ai.ml.checkpoint_import import authenticate_fold_import_lineage
+
+            authenticate_fold_import_lineage(
+                import_lineage,
+                destination_provenance=self.provenance,
+                evidence=evidence,
+                frame_sha256=frame_hash(frame),
+            )
         unit_id = self.unit_id(evidence)
         folds_root = self.path / "folds"
         folds_root.mkdir(parents=True, exist_ok=True)
         destination = folds_root / unit_id
         if destination.exists():
+            observed_metadata = _load_json(
+                destination / "manifest.json", description="fold checkpoint",
+            )
+            if observed_metadata.get("import_lineage") != (
+                None if import_lineage is None else dict(import_lineage)
+            ):
+                raise RuntimeError("fold checkpoint import lineage mismatch")
             self._authenticate_fold(
                 destination,
                 unit_id=unit_id,
@@ -277,6 +322,8 @@ class ResearchCheckpointStore:
                 "frame_sha256": frame_hash(frame),
                 "parquet_sha256": _file_sha256(parquet),
             }
+            if import_lineage is not None:
+                metadata["import_lineage"] = dict(import_lineage)
             metadata["metadata_hash"] = _metadata_hash(metadata)
             _atomic_write_json(temporary / "manifest.json", metadata)
             os.rename(temporary, destination)
@@ -417,6 +464,18 @@ class ResearchCheckpointStore:
             raise RuntimeError("fold checkpoint shape mismatch")
         if metadata.get("frame_sha256") != frame_hash(frame):
             raise RuntimeError("fold checkpoint content hash mismatch")
+        if "import_lineage" in metadata:
+            from stock_ai.ml.checkpoint_import import authenticate_fold_import_lineage
+
+            lineage = metadata["import_lineage"]
+            if not isinstance(lineage, dict):
+                raise RuntimeError("fold checkpoint import lineage is invalid")
+            authenticate_fold_import_lineage(
+                lineage,
+                destination_provenance=self.provenance,
+                evidence=evidence,
+                frame_sha256=frame_hash(frame),
+            )
         return frame
 
 

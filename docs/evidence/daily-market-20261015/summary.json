@@ -1,0 +1,141 @@
+{
+  "schema_version": "daily-market-projection-v1",
+  "request": {
+    "catalog_path": "data\\live\\catalog.duckdb",
+    "end": "2025-11-07",
+    "feature_selection_path": "artifacts\\selections\\goal3-features\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d.json",
+    "revision_policy": "SINGLE_VINTAGE_AS_REVISED",
+    "source_snapshot_as_of": "2026-08-29T23:30:00+09:00",
+    "start": "2025-11-04",
+    "store_root": "data\\live"
+  },
+  "feature_selection_id": "13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d",
+  "locked_holdout_start": "2026-03-04",
+  "summary": {
+    "adjustment_rows": 1,
+    "bar_states": {
+      "reported_no_trade": 770,
+      "reported_trade": 16899
+    },
+    "dates": 4,
+    "lower_limit_rows": 15,
+    "nonstandard_code_rows": 20,
+    "rows": 17669,
+    "source_rows": 17669,
+    "upper_limit_rows": 36
+  },
+  "capabilities": {
+    "buy_status": "unknown",
+    "capacity_shares": null,
+    "corporate_actions": "UNVERIFIED",
+    "evaluation_ready": false,
+    "historical_as_known": false,
+    "sale_cash_available_at": null,
+    "sell_status": "unknown",
+    "tick_size": null
+  },
+  "implementation_sha256": "cf5e6b08f8c0dbade34143db0bde6d8b5c7e94f0442736d024028373b088aaf1",
+  "dependencies": {
+    "duckdb": "1.5.5",
+    "pandas": "2.3.3"
+  },
+  "receipt_id": "23db5bc7074b4b3946ee56ac886f38dba88992602337d86864840fc00826f0de",
+  "receipt_path": "artifacts/daily-market/23db5bc7074b4b3946ee56ac886f38dba88992602337d86864840fc00826f0de.json",
+  "receipt_file_sha256": "bc5300702515254a57107c00552076eb1f9fee06817243805e4688b925e18542",
+  "source_objects": [
+    {
+      "object_id": "2f636f78a43be9d5d3259d7dece64b562c18a768dd645d3dd936a7713fb4a299",
+      "kind": "raw",
+      "source_date": "2025-11-07",
+      "parquet_hash": "46c72d287d6af59249048931938c1d5a22beea56020c33149e55ba4a1c40fbfc",
+      "rows": 4416,
+      "schema_version": "jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    },
+    {
+      "object_id": "45f566743743683cec373a689da3c3ec9b5f5ae6fa228ebd88f5db58d05116fe",
+      "kind": "raw",
+      "source_date": "2025-11-05",
+      "parquet_hash": "51b51177cc91ca574cc637639dbbc801c41d46ae1e527c5fa8357156a0092d83",
+      "rows": 4418,
+      "schema_version": "jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    },
+    {
+      "object_id": "88c69f99e8deb2be1a90ddf97bef82771e3a09fef471601edcd7a243457f9da6",
+      "kind": "normalized",
+      "source_date": "2025-11-06",
+      "parquet_hash": "8cb930422b8b627bfa440f61d19e22dcc654928e7791d34d96fef4c901146628",
+      "rows": 4417,
+      "schema_version": "goal2a-normalized-v2+jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    },
+    {
+      "object_id": "8f0cb06626746293f54cb3972efc9a2317264a830d365b4f958e1014cbd650a5",
+      "kind": "raw",
+      "source_date": "2025-11-04",
+      "parquet_hash": "f2de552febdc7df8e460bb83056053ded653e389c091a0ec94f64d7e7119adc6",
+      "rows": 4418,
+      "schema_version": "jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    },
+    {
+      "object_id": "b6e5de1d0578ce38dfa6ca1e86ee77d915eda1b914002f2864e7b5591dc51c19",
+      "kind": "normalized",
+      "source_date": "2025-11-07",
+      "parquet_hash": "820d591f511183c5f22f1720291f375fbb077620daffd67f193f196fef4b5f95",
+      "rows": 4416,
+      "schema_version": "goal2a-normalized-v2+jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    },
+    {
+      "object_id": "bf2289ec3119757e6804f76917cc14552c861f5e691c1619e27469deb2a36010",
+      "kind": "raw",
+      "source_date": "2025-11-06",
+      "parquet_hash": "98f7c2dae6754de31645a3e467decdd0451b1cc371275ed8d75305d0399bc537",
+      "rows": 4417,
+      "schema_version": "jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    },
+    {
+      "object_id": "e5bdcc78ef14a64d2f4e39ba79f328826160be4bcd9ae38e0bd780f7934f95a8",
+      "kind": "normalized",
+      "source_date": "2025-11-04",
+      "parquet_hash": "fe4b6ea0313c4694b4ae05154057aed0bf515eb1d61b20ae0d9c4faf8ded7559",
+      "rows": 4418,
+      "schema_version": "goal2a-normalized-v2+jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    },
+    {
+      "object_id": "f2e60f91fe9ce5aec44a44fa9b59069c6d17baa7f38792b1d1d2a4cf974ac9bd",
+      "kind": "normalized",
+      "source_date": "2025-11-05",
+      "parquet_hash": "fb3a7b07a9b70fb5b9125b9c9ab3ec9103f31dab485f5f756f4ad1a7c59e6257",
+      "rows": 4418,
+      "schema_version": "goal2a-normalized-v2+jquants-v2-eq-bars-daily-2026-08+bulk-file-v1",
+      "received_at": "2026-08-29T14:12:46.122579Z",
+      "available_at": "2026-08-29T14:12:46.122579Z"
+    }
+  ],
+  "scope": "actual four-day source projection, not a strategy evaluation",
+  "source_commit": "da999e11e48bb29d0497bf13e1ed3d1eaf2e217f",
+  "validation": {
+    "full_tests_passed": 590,
+    "warnings": 109,
+    "elapsed_seconds": 475.5,
+    "coverage_percent": 86.27549876709259,
+    "targeted_tests_passed": 115,
+    "new_tests": 30,
+    "ruff": "PASS",
+    "mypy_modules": 58,
+    "full_log_sha256": "11017511fed6431af31d8e071833df0c2a0753cab7516bce72fb96aa53895517",
+    "coverage_json_sha256": "971dfa2950f20e81c2de6e3c1d43881fd07ae1d721e8b5bed61a4fa7e76055a6"
+  }
+}

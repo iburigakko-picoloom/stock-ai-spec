@@ -1,0 +1,22 @@
+{
+  "pid": 36004,
+  "started_at_utc": "2026-10-07T16:46:36.612542+00:00",
+  "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+  "campaign_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h20-spill-retry-20261008.json",
+  "campaign_id": "25719080f56a2453a0ebe32e272574925abb143be54add20a2bb439960cbfe63",
+  "feature_count": 51,
+  "minimum_fit_headroom_gib": 3.5,
+  "threads": 1,
+  "research_only": true,
+  "error": null,
+  "completed_batches": [],
+  "worker_sha256": "cca3c2377aceb7d9732f30e09a64263b75bd79294ac60573fd55af66f49c393a",
+  "phase": "AUTHENTICATING_INPUT",
+  "updated_at_utc": "2026-10-07T16:46:36.621655+00:00",
+  "batch_id": "h20-lightgbm-s17",
+  "model_family": "lightgbm",
+  "seed": 17,
+  "checkpoint_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d-spill-retry-20261008\\aa19b9a05483990346873d85846b5f1854ba701c72b0f8cf1b536f058f5020d8",
+  "config_hash": "1687964ccf1392e6b26f66b93ec895cdaf5aff8879aa9bf0814304f1dbe04cbe",
+  "before_candidate_available_gib": 5.845760345458984
+}

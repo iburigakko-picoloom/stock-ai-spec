@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
+import { ActionBadge, DecisionSteps, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, TodayResponse } from "../types";
 
@@ -21,8 +21,8 @@ function ProposalRow({ line }: { line: ProposalLine }): ReactNode {
         <span>{line.symbol} ・ {line.accountBucketId}</span>
       </div>
       <div className="proposal-row__shares">
-        <strong>{line.currentShares}株 → {line.recommendedShares}株</strong>
-        <span>{line.shareDifference === 0 ? "変更なし" : `${line.shareDifference > 0 ? "+" : ""}${line.shareDifference}株`}</span>
+        <strong>{line.currentShares.toLocaleString("ja-JP")}株 <span aria-label="から">→</span> {line.recommendedShares.toLocaleString("ja-JP")}株</strong>
+        <span className={line.shareDifference > 0 ? "text-positive" : line.shareDifference < 0 ? "text-negative" : undefined}>{line.shareDifference === 0 ? "変更なし" : `${line.shareDifference > 0 ? "+" : ""}${line.shareDifference.toLocaleString("ja-JP")}株`}</span>
       </div>
     </Link>
   );
@@ -30,33 +30,35 @@ function ProposalRow({ line }: { line: ProposalLine }): ReactNode {
 
 export function TodayPage(): ReactNode {
   const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today");
-  if (loading) return <StatePanel title="今日の状態を確認しています" />;
-  if (error) return <StatePanel tone="error" title="今日の提案を取得できません" detail={error} />;
-  if (!data) return <StatePanel tone="error" title="状態を確認できません" />;
-  const proposal = data.proposal;
+  if (loading || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
+  const proposal = data.isStale ? null : data.proposal;
   const visible = proposal?.lines
     .filter((line) => line.action !== "SKIP" && line.action !== "HOLD")
     .sort((a, b) => (priority.get(a.action) ?? 9) - (priority.get(b.action) ?? 9));
   const holds = proposal?.lines.filter((line) => line.action === "HOLD") || [];
+  const cashValues = Object.values(proposal?.estimatedCashAfter || {});
+  const cashAfter = cashValues.length > 0 && cashValues.every((value) => value.trim() !== "" && Number.isFinite(Number(value)))
+    ? cashValues.reduce((sum, value) => sum + Number(value), 0) : null;
 
   return (
-    <div className="page page--with-sticky">
-      <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)}` : undefined} />
+    <div className={`page${proposal ? " page--with-sticky" : ""}`}>
+      <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} />
       <RuntimeBanner mode={data.runtimeMode} />
       {!proposal ? (
-        <StatePanel
+        <><StatePanel
           tone={data.isStale ? "warning" : "neutral"}
           title={data.isStale ? "今日は提案を表示できません" : "次回の分析を待っています"}
-          detail={data.blockingReason || `現在の状態: ${data.pipelineState}`}
-        />
+          detail={data.blockingReason || "データとモデルの準備が整い、当日の分析が完了すると提案を表示します。"}
+        /><Link className="button button--secondary" to="/settings/data">データの更新状況を確認</Link></>
       ) : (
         <>
-          <section className="proposal-hero">
-            <div><span>11:30 FREEZE</span><strong>{proposal.changeCount}件の変更</strong></div>
-            <div><span>モデル</span><strong>{proposal.modelBundleVersion}</strong></div>
+          <DecisionSteps current="proposal" />
+          <section className="proposal-hero" aria-label="今日の提案概要">
+            <div><span>今日の変更</span><strong>{proposal.changeCount}<small>件</small></strong></div>
+            <span className="status-pill">{proposal.isResearchOnly ? "研究用の提案" : "提案を確認できます"}</span>
           </section>
           <section className="section">
-            <div className="section-title"><div><span>TODAY'S ACTIONS</span><h2>株数の変更</h2></div></div>
+            <div className="section-title"><div><span>TODAY'S ACTIONS</span><h2>株数の変更</h2></div><small>現在 → 提案</small></div>
             {visible && visible.length > 0 ? visible.map((line) => <ProposalRow key={line.lineId} line={line} />) : (
               <StatePanel title="今日は株数変更なし" detail={proposal.noTradeReason || "HOLD比較後の純改善が基準に届きませんでした。"} />
             )}
@@ -75,8 +77,22 @@ export function TodayPage(): ReactNode {
               <Metric label="推定取引コスト" value={yen(proposal.estimatedTransactionCost)} />
               <Metric label="推定税影響" value={yen(proposal.estimatedTaxEffect)} />
             </div>
-            <div className="summary-total"><span>純改善</span><strong>{yen(proposal.netImprovement)}</strong></div>
+            <div className="summary-total"><span>取引後の推定現金（合計）</span><strong>{yen(cashAfter)}</strong></div>
+            <details className="metadata-details"><summary>口座別の現金・推定改善を確認</summary>
+              <dl className="summary-list">
+                {Object.entries(proposal.estimatedCashAfter).map(([bucket, cash]) => <div key={bucket}><dt>{bucket}</dt><dd>{yen(cash)}</dd></div>)}
+                <div><dt>何もしない場合に対する推定純改善</dt><dd className={Number(proposal.netImprovement) < 0 ? "text-negative" : undefined}>{yen(proposal.netImprovement)}</dd></div>
+              </dl>
+              <p className="explain">推定値です。将来の利益や実際の約定価格を保証しません。</p>
+            </details>
           </section>
+          <details className="metadata-details proposal-metadata"><summary>提案の基準時刻・モデル詳細</summary>
+            <dl className="summary-list">
+              <div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div>
+              <div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div>
+              <div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div>
+            </dl>
+          </details>
           <div className="sticky-action">
             <p>保存しても証券会社への注文は行われません</p>
             <Link className="button button--primary" to="/today/review">判断を確認</Link>

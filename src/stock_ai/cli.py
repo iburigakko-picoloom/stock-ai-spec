@@ -130,6 +130,7 @@ from stock_ai.ml import (
     write_production_dataset_snapshot,
     write_production_feature_snapshot,
 )
+from stock_ai.ml.advanced import research_input_columns
 from stock_ai.ml.campaign import (
     CampaignBatchStatus,
     create_campaign_manifest,
@@ -139,6 +140,7 @@ from stock_ai.ml.campaign import (
     reconcile_campaign,
     write_campaign_manifest,
 )
+from stock_ai.ml.evaluation_audit import audit_candidate_campaigns, write_audit_receipt
 from stock_ai.ml.experiments import ExperimentRecord, ExperimentRegistry
 from stock_ai.operations import (
     AutomationStage,
@@ -150,6 +152,8 @@ from stock_ai.operations import (
     create_app,
     windows_task_scheduler_script,
 )
+from stock_ai.operations.cloud import cloud_projection, pull_private_portfolio, sync_private_results
+from stock_ai.operations.daily import export_prediction_snapshot
 from stock_ai.research import run_research_decision_e2e
 
 app = typer.Typer(
@@ -284,6 +288,112 @@ def ops_run_daily(
         )
     if records and records[-1].status.value != "SUCCEEDED":
         raise typer.Exit(code=2)
+
+
+@ops_app.command("export-daily")
+def ops_export_daily(
+    snapshot_id: Annotated[str, typer.Option()],
+    output: Annotated[Path, typer.Option(dir_okay=False)],
+    format: Annotated[str, typer.Option()] = "json",
+    database: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Export the immutable original prediction snapshot without rewriting it."""
+    snapshot = OperationalStore(database).prediction_snapshot(snapshot_id)
+    payload = export_prediction_snapshot(snapshot, format=format)
+    with output.open("x", encoding="utf-8", newline="") as stream:
+        stream.write(payload)
+    typer.echo(str(output))
+
+
+@ops_app.command("sync-private")
+def ops_sync_private(
+    snapshot_id: Annotated[str, typer.Option()],
+    training_completed: Annotated[int, typer.Option(min=0, max=18)],
+    database: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Sync minimal results to the separate owner-private Site and verify readback."""
+    token = os.environ.get("STOCK_AI_PRIVATE_SITE_TOKEN", "")
+    if not token:
+        raise typer.BadParameter("STOCK_AI_PRIVATE_SITE_TOKEN is not configured")
+    store = OperationalStore(database)
+    snapshot = store.prediction_snapshot(snapshot_id)
+    payload = cloud_projection(
+        snapshot,
+        store.company_research(snapshot_id),
+        training_completed=training_completed,
+    )
+    receipt = sync_private_results(payload, bearer_token=token)
+    typer.echo(json.dumps(receipt))
+
+
+@ops_app.command("pull-private-portfolio")
+def ops_pull_private_portfolio(
+    database: Annotated[Path, typer.Option(dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Import the owner's app inputs; acknowledge only after durable local storage."""
+    token = os.environ.get("STOCK_AI_PRIVATE_SITE_TOKEN", "")
+    if not token:
+        raise typer.BadParameter("STOCK_AI_PRIVATE_SITE_TOKEN is not configured")
+    try:
+        item = pull_private_portfolio(OperationalStore(database), bearer_token=token)
+    except Exception:
+        # Typer's diagnostic locals must never expose the in-memory credential.
+        typer.echo("Private portfolio import failed; local records were retained.", err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(
+        json.dumps(
+            {
+                "revision_id": item.export.revision_id,
+                "export_sha256": item.export_sha256,
+                "received_at": item.received_at.isoformat(),
+                "acknowledged": True,
+                "holding_count": len(item.portfolio.holdings),
+                "missing_fields": item.portfolio.missing_fields,
+                "applied_to_execution_ledger": False,
+            }
+        )
+    )
+
+
+@ops_app.command("compare-personal")
+def ops_compare_personal(
+    output: Annotated[Path, typer.Option(dir_okay=False)],
+    input_path: Annotated[Path | None, typer.Option("--input", exists=True, dir_okay=False)] = None,
+    database: Annotated[Path, typer.Option(exists=True, dir_okay=False)] = Path(
+        "data/operations/stock-ai.sqlite3"
+    ),
+) -> None:
+    """Reconcile app input and compare with HOLD without changing the live ledger."""
+    from stock_ai.operations.manual_portfolio import strict_json
+    from stock_ai.operations.personal import PersonalComparisonRequest, compare_stored_personal
+
+    payload = {} if input_path is None else strict_json(input_path.read_text(encoding="utf-8"))
+    request = PersonalComparisonRequest.model_validate(
+        {
+            "maximum_input_age_hours": 72,
+            **payload,
+            "checked_at": datetime.now(UTC),
+        }
+    )
+    result = compare_stored_personal(OperationalStore(database), request)
+    with output.open("x", encoding="utf-8", newline="\n") as stream:
+        stream.write(result.model_dump_json(indent=2) + "\n")
+    typer.echo(
+        json.dumps(
+            {
+                "comparison_id": result.comparison_id,
+                "research_only": True,
+                "blocked": bool(result.blocking_reasons),
+                "output": str(output),
+            }
+        )
+    )
 
 
 @ops_app.command("verify")
@@ -1026,10 +1136,29 @@ def research_advanced(
     ] = Path("artifacts/experiments/advanced.jsonl"),
     checkpoint_root: Annotated[
         Path | None,
+        typer.Option(help="Optional authenticated fold and Optuna root; campaigns always set it."),
+    ] = None,
+    checkpoint_import_plan: Annotated[
+        Path | None,
         typer.Option(
-            help="Optional authenticated fold and Optuna root; campaigns always set it."
+            exists=True,
+            dir_okay=False,
+            help="Explicit authenticated cross-code CPU recovery import plan.",
         ),
     ] = None,
+    memory_scratch_root: Annotated[
+        Path | None,
+        typer.Option(
+            file_okay=False,
+            help="Local scratch for identical arrays and authenticated input projection.",
+        ),
+    ] = None,
+    minimum_fit_headroom_gib: Annotated[
+        float,
+        typer.Option(
+            min=0.0, help="Require this much free physical RAM immediately before each fit."
+        ),
+    ] = 0.0,
 ) -> None:
     """Run leakage-safe GBDT/LTR/downside/OOF research; never open the holdout."""
 
@@ -1109,7 +1238,12 @@ def research_advanced(
         # research dataset for no additional integrity guarantee.
         v2_snapshot = load_production_feature_snapshot_metadata(build.v2_parquet_path)
         authenticated_feature_snapshot_id = v2_snapshot.snapshot_id
-        snapshot, dataset = load_production_dataset_snapshot(build.dataset_parquet_path)
+        snapshot, dataset = load_production_dataset_snapshot(
+            build.dataset_parquet_path,
+            columns=research_input_columns(config, selected_feature_names)
+            if memory_scratch_root is not None
+            else None,
+        )
         run = run_advanced_research(
             dataset,
             data_snapshot_id=snapshot.snapshot_id,
@@ -1120,6 +1254,10 @@ def research_advanced(
             feature_manifest_hash=v2_snapshot.manifest_hash,
             feature_names=selected_feature_names,
             checkpoint_root=checkpoint_root,
+            checkpoint_import_plan=checkpoint_import_plan,
+            memory_scratch_root=memory_scratch_root,
+            release_source_frame=memory_scratch_root is not None and len(config.horizons) == 1,
+            minimum_fit_headroom_gib=minimum_fit_headroom_gib,
         )
         metadata_path, oof_path = write_advanced_research_run(run, report_root)
         # Read through the authenticated boundary before declaring publication complete.
@@ -1383,9 +1521,7 @@ def research_campaign(
             common_config=manifest.common_config,
             seed=batch.seed,
             checkpoint_root=(
-                None
-                if manifest.checkpoint_root is None
-                else Path(manifest.checkpoint_root)
+                None if manifest.checkpoint_root is None else Path(manifest.checkpoint_root)
             ),
         )
         typer.echo(f"batch={batch.batch_id} status=RUNNING attempt={batch.attempts} log={log_path}")
@@ -1426,6 +1562,14 @@ def research_campaign(
         batch.status = CampaignBatchStatus.FAILED
         batch.completed_at = datetime.now(UTC)
         batch.last_error = batch.last_error or f"advanced child exit code {return_code}"
+        # A deterministic split/validation failure cannot heal by retrying the
+        # identical immutable campaign. Persist only a fixed, non-secret marker.
+        if return_code != 0 and "BLOCKED_BY_VALIDATION:" in log_path.read_text(
+            encoding="utf-8", errors="replace"
+        ):
+            batch.last_error = (
+                "BLOCKED_BY_VALIDATION: requires audited repair; automatic retry disabled"
+            )
         write_campaign_manifest(manifest, campaign_manifest)
         typer.echo(
             f"batch={batch.batch_id} status=FAILED reason={batch.last_error} log={log_path}",
@@ -1563,9 +1707,10 @@ def research_candidate_campaigns(
     except (ValueError, RuntimeError, OSError) as exc:
         typer.echo(f"final candidate campaigns blocked: {exc}", err=True)
         raise typer.Exit(code=2) from None
+    horizon_list = ",".join(str(horizon.horizon) for horizon in feature_plan.horizons)
     typer.echo(
         f"feature_selection={feature_plan.feature_selection_id} "
-        "candidate_campaigns=SUCCEEDED horizons=1,5,20 locked_holdout_accessed=false"
+        f"candidate_campaigns=SUCCEEDED horizons={horizon_list} locked_holdout_accessed=false"
     )
 
 
@@ -1669,6 +1814,199 @@ def research_checkpoint_status(
     typer.echo(json.dumps(status, ensure_ascii=False, sort_keys=True))
 
 
+@research_app.command("evaluate-nav")
+def evaluate_nav_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/nav-evaluations"),
+) -> None:
+    """Evaluate explicit research orders and HOLD; no market fetch or holdout access."""
+    from stock_ai.ml.nav import NavInput, write_nav_evaluation
+
+    try:
+        request = NavInput.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_nav_evaluation(request, output_root)
+    except (ValueError, OSError) as exc:
+        typer.echo(f"NAV evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(
+        json.dumps(
+            {"research_only": True, "adoption_eligible": False, "evaluation_path": str(path)}
+        )
+    )
+
+
+@research_app.command("evaluate-daily-strategy")
+def evaluate_daily_strategy_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/daily-strategies"
+    ),
+) -> None:
+    """Replay causal research decisions and HOLD; no actual orders or model adoption."""
+    from stock_ai.ml.daily_strategy import DailyStrategyInput, write_daily_strategy
+
+    try:
+        request = DailyStrategyInput.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_daily_strategy(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"daily strategy evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(
+        json.dumps(
+            {"research_only": True, "adoption_eligible": False, "evaluation_path": str(path)}
+        )
+    )
+
+
+@research_app.command("compare-daily-baselines")
+def compare_daily_baselines_command(
+    feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
+    dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-baselines"),
+    batch_rows: Annotated[int, typer.Option(min=1)] = 32_768,
+) -> None:
+    """Compare daily candidate regression/risk and simple baselines on exact development folds."""
+    from stock_ai.ml.daily_baselines import run_daily_baselines
+    from stock_ai.ml.evaluation_audit import write_audit_receipt
+
+    request = {"feature_selection": str(feature_selection), "dataset": str(dataset),
+               "campaigns": [str(path) for path in candidate_campaign], "batch_rows": batch_rows}
+    started = write_audit_receipt(
+        {"status": "STARTED", "request": request, "created_at": datetime.now(UTC).isoformat()},
+        output_root / "runs",
+    )
+    try:
+        path = run_daily_baselines(
+            feature_selection_path=feature_selection, campaign_paths=candidate_campaign,
+            dataset_path=dataset, output_root=output_root, batch_rows=batch_rows,
+            progress=lambda message: typer.echo(message, err=True),
+        )
+    except Exception as exc:
+        write_audit_receipt({"status": "FAILED", "started": str(started),
+                             "error_type": type(exc).__name__, "error": str(exc)},
+                            output_root / "runs")
+        typer.echo(f"daily baseline comparison blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    write_audit_receipt({"status": "SUCCEEDED", "started": str(started), "receipt": str(path)},
+                        output_root / "runs")
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
+@research_app.command("crossfit-daily-ensemble")
+def crossfit_daily_ensemble_command(
+    feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
+    dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-ensemble"),
+    batch_rows: Annotated[int, typer.Option(min=1)] = 32_768,
+) -> None:
+    """Cross-fit weights/calibration on development OOF; no selection or holdout scoring."""
+    from stock_ai.ml.daily_ensemble import run_daily_ensemble
+    from stock_ai.ml.evaluation_audit import write_audit_receipt
+
+    request = {"feature_selection": str(feature_selection), "dataset": str(dataset),
+               "campaigns": [str(path) for path in candidate_campaign], "batch_rows": batch_rows}
+    started = write_audit_receipt(
+        {"status": "STARTED", "request": request, "created_at": datetime.now(UTC).isoformat()},
+        output_root / "runs",
+    )
+    try:
+        path = run_daily_ensemble(
+            feature_selection_path=feature_selection, campaign_paths=candidate_campaign,
+            dataset_path=dataset, output_root=output_root, batch_rows=batch_rows,
+            progress=lambda message: typer.echo(message, err=True),
+        )
+    except Exception as exc:
+        write_audit_receipt({"status": "FAILED", "started": str(started),
+                             "error_type": type(exc).__name__, "error": str(exc)},
+                            output_root / "runs")
+        typer.echo(f"daily ensemble blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    write_audit_receipt({"status": "SUCCEEDED", "started": str(started), "receipt": str(path)},
+                        output_root / "runs")
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
+@research_app.command("project-daily-market")
+def project_daily_market_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-market"),
+) -> None:
+    """Authenticate development daily bars; do not assume execution or score holdout."""
+    from stock_ai.ml.daily_market import DailyMarketRequest, write_daily_market
+
+    try:
+        request = DailyMarketRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_daily_market(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"daily market projection blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
+@research_app.command("daily-oof")
+def daily_oof_command(
+    feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
+    dataset: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    family: Annotated[str, typer.Option()],
+    seed: Annotated[int, typer.Option()],
+    as_of: Annotated[str, typer.Option(help="Exact aware historical decision timestamp.")],
+    minimum_calibration_dates: Annotated[int, typer.Option(min=1)] = 20,
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/daily-oof"),
+) -> None:
+    """Adapt one explicit 5d/20d candidate pair; no model selection or live forecast."""
+    from stock_ai.ml.daily_oof import load_daily_oof_adapter, write_daily_oof_day
+
+    try:
+        timestamp = datetime.fromisoformat(as_of)
+        adapter = load_daily_oof_adapter(
+            feature_selection_path=feature_selection,
+            campaign_paths=candidate_campaign,
+            dataset_path=dataset,
+            family=family,
+            seed=seed,
+            minimum_calibration_dates=minimum_calibration_dates,
+        )
+        day = adapter.at(timestamp)
+        path = write_daily_oof_day(day, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"daily OOF blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(
+        json.dumps(
+            {
+                "research_only": True,
+                "prediction_count": len(day.predictions),
+                "blocked_count": len(day.blocked),
+                "receipt": str(path),
+            }
+        )
+    )
+
+
+@research_app.command("audit-candidates")
+def audit_candidates_command(
+    feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    candidate_campaign: Annotated[list[Path], typer.Option(exists=True, dir_okay=False)],
+    audit_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/audits"),
+    score_development: Annotated[
+        bool, typer.Option(help="Add versioned development diagnostics; no selection or holdout.")
+    ] = False,
+) -> None:
+    """Authenticate candidate OOF evidence without opening the locked holdout."""
+    receipt = audit_candidate_campaigns(
+        feature_selection_path=feature_selection,
+        candidate_campaign_paths=candidate_campaign,
+        score_development=score_development,
+    )
+    path = write_audit_receipt(receipt, audit_root)
+    typer.echo(json.dumps({"status": receipt["status"], "audit_path": str(path)}))
+    if receipt["status"] != "PASS":
+        raise typer.Exit(1)
+
+
 @research_app.command("freeze-features")
 def research_freeze_features(
     ablation_campaign: Annotated[
@@ -1684,6 +2022,10 @@ def research_freeze_features(
         Path,
         typer.Option(help="Content-addressed tuning-only feature-selection root."),
     ] = Path("artifacts/selections/goal3-features"),
+    one_day_decision: Annotated[
+        Path | None,
+        typer.Option(help="D080 exclusion decision when only 5d/20d ablations ran."),
+    ] = None,
     experiment_registry: Annotated[
         Path,
         typer.Option(help="Append-only Goal 3 feature/model selection registry."),
@@ -1693,7 +2035,8 @@ def research_freeze_features(
 
     try:
         feature_selection = freeze_development_features(
-            ablation_campaign_paths=tuple(ablation_campaign)
+            ablation_campaign_paths=tuple(ablation_campaign),
+            one_day_decision_path=one_day_decision,
         )
         path = write_development_feature_selection(
             feature_selection,
@@ -1813,10 +2156,7 @@ def _echo_development_selection(
     *,
     path: Path,
 ) -> None:
-    typer.echo(
-        f"selection={selection.selection_id} holdout_accessed=false "
-        "choices_complete=true"
-    )
+    typer.echo(f"selection={selection.selection_id} holdout_accessed=false choices_complete=true")
     for horizon in selection.horizons:
         typer.echo(
             f"horizon={horizon.horizon}d features={len(horizon.feature_names)} "
@@ -1880,9 +2220,7 @@ def research_holdout_evaluate(
     )
     for ensemble in result.report.ensemble_results:
         rank_ic = (
-            "NA"
-            if ensemble.mean_daily_rank_ic is None
-            else f"{ensemble.mean_daily_rank_ic:.8f}"
+            "NA" if ensemble.mean_daily_rank_ic is None else f"{ensemble.mean_daily_rank_ic:.8f}"
         )
         typer.echo(
             f"horizon={ensemble.horizon}d ensemble_adopted_on_development="
@@ -1919,9 +2257,7 @@ def _feature_selection_experiment_record(
     *,
     path: Path,
 ) -> ExperimentRecord:
-    selected_features = {
-        name for horizon in selection.horizons for name in horizon.feature_names
-    }
+    selected_features = {name for horizon in selection.horizons for name in horizon.feature_names}
     return ExperimentRecord(
         experiment_id=f"feature-selection-{selection.feature_selection_id}",
         created_at=selection.created_at,
@@ -1977,9 +2313,7 @@ def _selection_experiment_record(
     *,
     path: Path,
 ) -> ExperimentRecord:
-    selected_features = {
-        name for horizon in selection.horizons for name in horizon.feature_names
-    }
+    selected_features = {name for horizon in selection.horizons for name in horizon.feature_names}
     return ExperimentRecord(
         experiment_id=f"selection-{selection.selection_id}",
         created_at=selection.created_at,
@@ -2077,8 +2411,7 @@ def _holdout_experiment_record(
         },
         seed=None,
         fold_results=tuple(
-            _holdout_component_audit_row(result)
-            for result in report.component_results
+            _holdout_component_audit_row(result) for result in report.component_results
         ),
         aggregate_results={
             "ensemble_results_json": json.dumps(
@@ -2164,8 +2497,7 @@ def _advanced_campaign_child_command(
             str(seed)
             if seed is not None
             else ",".join(
-                str(seed_value)
-                for seed_value in cast(tuple[int, ...], common_config["seeds"])
+                str(seed_value) for seed_value in cast(tuple[int, ...], common_config["seeds"])
             )
         ),
         "--feature-names",

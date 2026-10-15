@@ -1,0 +1,37 @@
+{
+  "recorded_at": "2026-10-15T03:01:48.299081+00:00",
+  "stage": "local runtime, secure backup, incremental data, portable inference and release workflow",
+  "tests": {
+    "python_regression": "37/39 initially passed; XGBoost 2 failures fixed; 6 model parity + 1 new cutoff test passed",
+    "distinct_python_cases_passing": 40,
+    "ruff_full": "PASS",
+    "mypy": "PASS: 63 modules",
+    "react": "18 PASS",
+    "typescript_lint_build": "PASS",
+    "offline_wasm": "PASS: 41/51 features, six native-PC model vectors, restart/restore, insufficient history rejected; external HTTPS blocked",
+    "package_source_integrity_and_private_paths": "PASS"
+  },
+  "signing_secrets": "four registered; no values recorded",
+  "certificate_sha256": "97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979",
+  "physical_device": "Xiaomi 14T Pro; user will connect later; Android version unknown",
+  "android_compilation": "PENDING_CI",
+  "release": "NOT_CREATED",
+  "adopted_models": 0,
+  "remaining": [
+    "real Android acceptance tests",
+    "model adoption and redistribution approval",
+    "initial portfolio ledger/settings connection and full personal comparison",
+    "real API entitlement/403 and full-universe device resource tests",
+    "off-PC signing-key backup by owner"
+  ],
+  "real_orders": false,
+  "log_hashes": {
+    "stage2-python.log": "e6274482fb75390994e8c65b13b0adb5443d9320e9525d154b27da67daa37839",
+    "stage2-python-fix.log": "26ff84d1dd1b606245dac93103c500b20f8dbc1c9fe0b43d341a6f8dfa2703ba",
+    "stage2-ruff-full.log": "a4443afdcfb6d7363adb285762515ccf7cf50473b1a05c20c1a50f6bed4d26b0",
+    "stage2-mypy.log": "f2c516ba5ce01d3c6f76ca55c2f89cff34c5cbc868b35fbc747e978d235dfa09",
+    "stage2-web.log": "1c19dee1657ec8c6235d61d1bc972e989e8c1df1da0b7719e607ba1955cd2f91",
+    "stage2-web-fixed.log": "510d1ffd0a476958af2c6b67045977774de6af9d1e563139b4a25da9bc18956f",
+    "stage2-final-web.log": "a6b4468ca76d6ccc3d7a5c05d648027ec4cf07ac085fa08b9f1b0a4444c26446"
+  }
+}

@@ -7,6 +7,7 @@ import json
 import math
 import os
 import shutil
+import sys
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -214,8 +215,11 @@ class LockedHoldoutReport(BaseModel):
 
     @model_validator(mode="after")
     def coherent_report(self) -> Self:
-        if tuple(item.horizon for item in self.ensemble_results) != (1, 5, 20):
-            raise ValueError("holdout report requires ordered 1d/5d/20d ensemble results")
+        if tuple(item.horizon for item in self.ensemble_results) not in (
+            (5, 20),
+            (1, 5, 20),
+        ):
+            raise ValueError("holdout report requires ordered 5d/20d or 1d/5d/20d results")
         if not self.component_results or not self.adoption_blocking_reasons:
             raise ValueError("holdout report cannot claim live adoption")
         if not self.feature_definition_hashes or any(
@@ -255,7 +259,7 @@ class _ExclusiveHoldoutLock:
             os.fsync(self._stream.fileno())
         self._stream.seek(0)
         try:
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 msvcrt.locking(self._stream.fileno(), msvcrt.LK_NBLCK, 1)
@@ -271,7 +275,7 @@ class _ExclusiveHoldoutLock:
         if self._closed:
             return
         self._stream.seek(0)
-        if os.name == "nt":
+        if sys.platform == "win32":
             import msvcrt
 
             msvcrt.locking(self._stream.fileno(), msvcrt.LK_UNLCK, 1)

@@ -1,0 +1,14 @@
+{
+  "first_ci": 38674562787,
+  "failure": "pre-existing Windows-only branch typing on Linux",
+  "linux_and_windows_mypy": "PASS: 63 modules each",
+  "targeted_tests": 6,
+  "unpublished_history_blobs_scanned": 781,
+  "log_sha256": {
+    "ci-38674562787-failure.log": "4bd9602fdc58fa419dca17d8139ed5fd81da7c6a942a2fef63cc7ea5ea7269ac",
+    "ci-linux-mypy-fix.log": "f2c516ba5ce01d3c6f76ca55c2f89cff34c5cbc868b35fbc747e978d235dfa09",
+    "ci-windows-mypy-fix.log": "f2c516ba5ce01d3c6f76ca55c2f89cff34c5cbc868b35fbc747e978d235dfa09",
+    "ci-platform-tests.log": "d760b5e98b21c95834e2113567d14f6dd8608d544cee294fe30d2cd36ad48bb8",
+    "history-source-audit.json": "2deb995efe7eb78b4a136e9bdd6740fc8e65124aa9529db6f997d68bec8c8bd8"
+  }
+}

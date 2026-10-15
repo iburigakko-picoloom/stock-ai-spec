@@ -1,0 +1,33 @@
+{
+  "version": "daily-simple-diagnostics-v1",
+  "status": "fixed_before_new_real_data_scores",
+  "role": "exploratory_diagnostic_not_confirmatory_adoption_gate",
+  "horizons": [5, 20],
+  "elastic_net": {
+    "features": "V0 with training medians, missing indicators and standardization",
+    "target_scaling": "none",
+    "alpha": 0.001,
+    "l1_ratio": 0.5,
+    "selection": "cyclic",
+    "maximum_iterations": 50000,
+    "maximum_kkt_residual": 1e-9,
+    "hyperparameter_search": false,
+    "row_sampling": false
+  },
+  "rules": {
+    "momentum_revision_rank": ["price.return_20d", "fundamental.forecast_revision"],
+    "equal_weight_rule_rank": ["price.return_20d", "relative.sector_20d", "fundamental.roe", "fundamental.forecast_revision"],
+    "directions": "all positive",
+    "weights": "fixed equal weights within each rule",
+    "normalization": "within-date centered midrank on observed values, minus1 to1",
+    "missing_constant_singleton": "neutral zero; no weight redistribution",
+    "universe": "all source feature rows on evaluation dates before any label join",
+    "cutoff": "one as_of per date; available_at <= as_of for all peers",
+    "units": "dimensionless score; never a return or probability",
+    "evaluation": "ranking metrics only, no MSE against raw returns"
+  },
+  "comparison": "all original 18 candidates, exact development keys/folds; preserve v1/v2 and learned-ensemble receipts",
+  "holdout_scored": false,
+  "adoption_eligible": false,
+  "no_order_sent": true
+}

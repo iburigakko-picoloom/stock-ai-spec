@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
-import { ActionBadge, PageHeader, StatePanel, yen } from "../components";
+import { ActionBadge, DecisionSteps, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { DecisionReview, TodayResponse } from "../types";
 
@@ -16,7 +16,7 @@ export function DecisionReviewPage(): ReactNode {
   const [review, setReview] = useState<DecisionReview | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const proposal = data?.proposal;
+  const proposal = data?.isStale ? null : data?.proposal;
 
   useEffect(() => {
     if (!proposal) return;
@@ -70,6 +70,7 @@ export function DecisionReviewPage(): ReactNode {
   return (
     <div className="page page--with-sticky">
       <PageHeader eyebrow="AI提案とは別に保存" title="判断を確認" />
+      <DecisionSteps current="review" />
       <section className="notice-box"><strong>これは注文画面ではありません</strong><span>証券会社での操作はご自身で行い、結果を後から記録します。</span></section>
       <section className="section review-list">
         {proposal.lines.filter((line) => line.action !== "SKIP").map((line) => (

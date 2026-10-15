@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import hashlib
 import json
 import math
@@ -9,6 +10,7 @@ import os
 import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from importlib.metadata import version
@@ -39,13 +41,23 @@ from stock_ai.domain import Prediction, PredictionUncertainty
 from stock_ai.features import FEATURE_REGISTRY, V0_MANIFEST, V2_EXTENDED_MANIFEST
 from stock_ai.ml.checkpoint import ResearchCheckpointStore, stable_hash
 from stock_ai.ml.dataset import HORIZONS
+from stock_ai.ml.memory import (
+    allocate_array,
+    array_workspace,
+    check_fit_headroom,
+    spill_frame,
+    take_column,
+)
 from stock_ai.ml.research_metrics import (
     RankingMetrics,
     cross_sectional_relevance,
     evaluate_cross_sectional_predictions,
     within_date_rank_standardize,
 )
-from stock_ai.ml.validation import PurgedExpandingWindowSplitter, reserve_locked_final_holdout
+from stock_ai.ml.validation import (
+    PurgedExpandingWindowSplitter,
+    reserve_locked_final_holdout,
+)
 
 ModelFamily = Literal["lightgbm", "xgboost", "catboost"]
 ModelTask = Literal["regression", "ranking", "quantile", "large_loss"]
@@ -159,9 +171,7 @@ class TrialAudit(BaseModel):
 
     @field_validator("parameters", mode="after")
     @classmethod
-    def freeze_trial_parameters(
-        cls, value: Mapping[str, int | float]
-    ) -> Mapping[str, int | float]:
+    def freeze_trial_parameters(cls, value: Mapping[str, int | float]) -> Mapping[str, int | float]:
         return MappingProxyType(dict(value))
 
     @field_serializer("parameters")
@@ -574,6 +584,7 @@ def generate_oof_predictions(
     progress_sink: list[pd.DataFrame] | None = None,
     checkpoint_store: ResearchCheckpointStore | None = None,
     checkpoint_scope: str = "oof",
+    _collect_parts_only: bool = False,
 ) -> pd.DataFrame:
     """Generate one model's OOF predictions using only each fold's training rows."""
 
@@ -595,20 +606,18 @@ def generate_oof_predictions(
         embargo_periods=horizon,
         label_horizon_periods=horizon,
     )
+    columns = [name for name in frame.columns if name in required or name == "as_of"]
+    fold_source = frame.loc[:, columns]
+    evidence_source = frame.loc[:, ["symbol", "trading_date", target_column, label_end_column]]
     outputs: list[pd.DataFrame] = []
     for fold in splitter.split(frame, label_end_column=label_end_column):
-        train = frame.iloc[list(fold.train_indices)].copy()
-        validation = frame.iloc[list(fold.validation_indices)].copy()
-        train = train.loc[train[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
+        train = _prepare_fold_rows(evidence_source, fold.train_indices, target_column=target_column)
+        validation = _prepare_fold_rows(
+            evidence_source,
+            fold.validation_indices,
+            target_column=target_column,
+            validation_not_before=validation_not_before,
         )
-        validation = validation.loc[validation[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
-        )
-        if validation_not_before is not None:
-            validation = validation.loc[
-                pd.to_datetime(validation["trading_date"]) >= validation_not_before
-            ]
         if train.empty or validation.empty:
             continue
         checkpoint_evidence = _fold_checkpoint_evidence(
@@ -635,6 +644,17 @@ def generate_oof_predictions(
             else None
         )
         if output is None:
+            train = _prepare_fold_rows(
+                fold_source,
+                fold.train_indices,
+                target_column=target_column,
+            )
+            validation = _prepare_fold_rows(
+                fold_source,
+                fold.validation_indices,
+                target_column=target_column,
+                validation_not_before=validation_not_before,
+            )
             if checkpoint_store is not None:
                 checkpoint_store.begin_fold(checkpoint_evidence)
             try:
@@ -646,7 +666,12 @@ def generate_oof_predictions(
                 ).fit(train)
                 train_x = preprocessor.transform(train)
                 validation_x = preprocessor.transform(validation)
+                preserved = {"symbol", "trading_date", "as_of", target_column, label_end_column}
+                finished_features = [name for name in feature_names if name not in preserved]
+                train.drop(columns=finished_features, inplace=True)
+                validation.drop(columns=finished_features, inplace=True)
                 train_target = train[target_column].astype(float)
+                check_fit_headroom()
                 prediction = _fit_predict(
                     family=family,
                     task=task,
@@ -685,6 +710,7 @@ def generate_oof_predictions(
                         output,
                         frame_hash=_frame_hash,
                     )
+                del train_x, validation_x, train_target, preprocessor
             except Exception as exc:
                 if checkpoint_store is not None:
                     checkpoint_store.fail_fold(
@@ -695,10 +721,23 @@ def generate_oof_predictions(
         outputs.append(output)
         if progress_sink is not None:
             progress_sink.append(output)
+        del train, validation
     if not outputs:
         raise ValueError(f"BLOCKED_BY_VALIDATION: no OOF rows for {family}/{task}/{horizon}d")
-    combined = pd.concat(outputs, ignore_index=True)
     key = ["symbol", "trading_date", "horizon", "model_family", "task", "seed"]
+    if _collect_parts_only:
+        if progress_sink is None:
+            raise ValueError("parts-only OOF collection requires an explicit progress sink")
+        # The research caller owns these parts and ignores this return value.
+        # Preserve duplicate/nonfinite checks without concatenating and sorting
+        # a second complete prediction table before the next model's fit.
+        identities = pd.concat([part.loc[:, key] for part in outputs], ignore_index=True)
+        if identities.duplicated(key).any():
+            raise RuntimeError("OOF predictions contain duplicate model-row identities")
+        if any(not np.isfinite(part["prediction"].to_numpy(dtype=float)).all() for part in outputs):
+            raise RuntimeError("model emitted non-finite OOF predictions")
+        return pd.DataFrame()
+    combined = pd.concat(outputs, ignore_index=True)
     if combined.duplicated(key).any():
         raise RuntimeError("OOF predictions contain duplicate model-row identities")
     if not np.isfinite(combined["prediction"].to_numpy(dtype=float)).all():
@@ -743,13 +782,9 @@ def bounded_optuna_search(
                 target=oof["target"],
                 prediction=oof["prediction"],
             )
-            return (
-                metrics.mean_daily_rank_ic if metrics.mean_daily_rank_ic is not None else -1.0
-            )
+            return metrics.mean_daily_rank_ic if metrics.mean_daily_rank_ic is not None else -1.0
         except Exception as exc:
-            trial.set_user_attr(
-                "failure_reason", f"{type(exc).__name__}: {str(exc)[:500]}"
-            )
+            trial.set_user_attr("failure_reason", f"{type(exc).__name__}: {str(exc)[:500]}")
             raise
 
     storage: optuna.storages.RDBStorage | None = None
@@ -773,6 +808,16 @@ def bounded_optuna_search(
         }
         study_identity = stable_hash(study_evidence)
         database = checkpoint_store.optuna_database_path
+        if not database.exists() and checkpoint_store.import_plan is not None:
+            from stock_ai.ml.checkpoint_import import import_authenticated_optuna_study
+
+            plan = checkpoint_store.import_plan
+            import_authenticated_optuna_study(
+                source_checkpoint=Path(plan["source_checkpoint_path"]),
+                destination=checkpoint_store,
+                study_evidence=study_evidence,
+                equivalence_proof=plan["equivalence_proof"],
+            )
         storage = optuna.storages.RDBStorage(
             url=f"sqlite:///{database.as_posix()}",
         )
@@ -791,9 +836,25 @@ def bounded_optuna_search(
             }
         }
         if study.user_attrs:
-            if study.user_attrs != expected_attributes:
+            observed_attributes = dict(study.user_attrs)
+            import_lineage = observed_attributes.pop("import_lineage", None)
+            if observed_attributes != expected_attributes:
                 storage.remove_session()
                 raise RuntimeError("persistent Optuna study provenance mismatch")
+            if import_lineage is not None:
+                from stock_ai.ml.checkpoint_import import (
+                    authenticate_optuna_import_lineage,
+                )
+
+                if not isinstance(import_lineage, dict):
+                    storage.remove_session()
+                    raise RuntimeError("persistent Optuna import lineage is invalid")
+                authenticate_optuna_import_lineage(
+                    import_lineage,
+                    destination_provenance=checkpoint_store.provenance,
+                    study_evidence=study_evidence,
+                    trials=study.get_trials(deepcopy=False),
+                )
         else:
             if study.trials:
                 storage.remove_session()
@@ -810,9 +871,7 @@ def bounded_optuna_search(
         finished = [trial for trial in study.trials if trial.state in terminal_states]
         remaining_trials = max(0, config.tuning_trials - len(finished))
         elapsed = sum(
-            trial.duration.total_seconds()
-            for trial in finished
-            if trial.duration is not None
+            trial.duration.total_seconds() for trial in finished if trial.duration is not None
         )
         remaining_timeout = max(0.0, config.tuning_timeout_seconds - elapsed)
     if remaining_trials > 0 and remaining_timeout > 0:
@@ -1375,18 +1434,13 @@ def oos_permutation_diagnostics(
     )
     fold_count = 0
     for fold in splitter.split(frame, label_end_column=label_end_column):
-        train = frame.iloc[list(fold.train_indices)].copy()
-        validation = frame.iloc[list(fold.validation_indices)].copy()
-        train = train.loc[train[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
+        train = _prepare_fold_rows(frame, fold.train_indices, target_column=target_column)
+        validation = _prepare_fold_rows(
+            frame,
+            fold.validation_indices,
+            target_column=target_column,
+            validation_not_before=validation_not_before,
         )
-        validation = validation.loc[validation[target_column].notna()].sort_values(
-            ["trading_date", "symbol"], kind="stable"
-        )
-        if validation_not_before is not None:
-            validation = validation.loc[
-                pd.to_datetime(validation["trading_date"]) >= validation_not_before
-            ]
         if train.empty or validation.empty:
             continue
         processor = FoldPreprocessor(
@@ -1397,6 +1451,11 @@ def oos_permutation_diagnostics(
         ).fit(train)
         train_x = processor.transform(train)
         validation_x = processor.transform(validation)
+        preserved = {"symbol", "trading_date", "as_of", target_column, label_end_column}
+        finished_features = [name for name in feature_names if name not in preserved]
+        train.drop(columns=finished_features, inplace=True)
+        validation.drop(columns=finished_features, inplace=True)
+        check_fit_headroom()
         model = _regressor(
             family,
             task="regression",
@@ -1420,7 +1479,9 @@ def oos_permutation_diagnostics(
             prediction = np.asarray(model.predict(permuted), dtype=float)
             permuted_mse = float(np.mean(np.square(target - prediction)))
             importance[name].append(permuted_mse - baseline_mse)
+            del permuted, prediction
         fold_count += 1
+        del model, processor, train_x, validation_x, train, validation, target, baseline
     if fold_count == 0:
         raise ValueError("BLOCKED_BY_VALIDATION: no folds for OOS permutation diagnostics")
     diagnostics: list[FeatureDiagnostic] = []
@@ -1556,9 +1617,7 @@ def build_decision_compatible_oof_predictions(
             validate="one_to_one",
         )
         residual_frame["squared"] = residual_frame["residual"].pow(2)
-        maturity = residual_frame.groupby("label_end", sort=True)["squared"].agg(
-            ["sum", "count"]
-        )
+        maturity = residual_frame.groupby("label_end", sort=True)["squared"].agg(["sum", "count"])
         maturity.index = pd.to_datetime(maturity.index)
         maturity = maturity.sort_index()
         cumulative_sum = maturity["sum"].cumsum()
@@ -1604,8 +1663,7 @@ def build_decision_compatible_oof_predictions(
             raise RuntimeError("large-loss OOF probability is outside [0, 1]")
         outputs.append(output)
     horizon_key_sets = [
-        set(map(tuple, output.loc[:, ["symbol", "trading_date"]].to_numpy()))
-        for output in outputs
+        set(map(tuple, output.loc[:, ["symbol", "trading_date"]].to_numpy())) for output in outputs
     ]
     common_keys = set.intersection(*horizon_key_sets)
     if not common_keys:
@@ -1618,9 +1676,7 @@ def build_decision_compatible_oof_predictions(
             .groupby(["symbol", "trading_date"], sort=True)["as_of"]
             .first()
         )
-        missing_keys = sorted(
-            union_keys - common_keys, key=lambda key: (key[1], key[0])
-        )
+        missing_keys = sorted(union_keys - common_keys, key=lambda key: (key[1], key[0]))
         for symbol, trading_date in missing_keys:
             timestamp = pd.Timestamp(provenance.loc[(symbol, trading_date)])
             if timestamp.tzinfo is None:
@@ -1687,16 +1743,10 @@ def build_decision_compatible_oof_predictions(
                 expected_return_5d=float(row["expected_return_5d"]),
                 expected_return_20d=float(row["expected_return_20d"]),
                 downside_quantile=float(row[f"downside_quantile_{decision_horizon}d"]),
-                large_loss_probability=float(
-                    row[f"large_loss_probability_{decision_horizon}d"]
-                ),
+                large_loss_probability=float(row[f"large_loss_probability_{decision_horizon}d"]),
                 uncertainty=PredictionUncertainty(
-                    standard_error=float(
-                        row[f"uncertainty_standard_error_{decision_horizon}d"]
-                    ),
-                    model_disagreement=float(
-                        row[f"model_disagreement_{decision_horizon}d"]
-                    ),
+                    standard_error=float(row[f"uncertainty_standard_error_{decision_horizon}d"]),
+                    model_disagreement=float(row[f"model_disagreement_{decision_horizon}d"]),
                     coverage_warning="expanding past-only OOF residual calibration",
                 ),
                 model_version=model_version,
@@ -1706,9 +1756,7 @@ def build_decision_compatible_oof_predictions(
         )
     if not predictions:
         raise ValueError("BLOCKED_BY_CALIBRATION_HISTORY: no typed prediction row is usable")
-    return DecisionCompatiblePredictionBatch(
-        predictions=tuple(predictions), blocked=tuple(blocked)
-    )
+    return DecisionCompatiblePredictionBatch(predictions=tuple(predictions), blocked=tuple(blocked))
 
 
 _FEATURE_ABLATION_FAMILIES: Mapping[str, tuple[str, tuple[str, ...]]] = MappingProxyType(
@@ -1746,9 +1794,7 @@ def feature_family_ablation_plan(
         )
         if family_id == "F8":
             added = tuple(
-                name
-                for name in added
-                if "forecast_revision" not in name and "surprise" not in name
+                name for name in added if "forecast_revision" not in name and "surprise" not in name
             )
         available = bool(added)
         output.append(
@@ -1784,31 +1830,43 @@ def _split_research_stages(
     """Reserve a later outer OOF period never seen by hyperparameter selection."""
 
     dates = pd.DatetimeIndex(pd.to_datetime(development["trading_date"]).sort_values().unique())
-    minimum_index = (
-        config.initial_train_periods
-        + config.validation_periods
-        + (2 * horizon)
-    )
+    minimum_index = config.initial_train_periods + config.validation_periods + (2 * horizon)
     evaluation_index = max(minimum_index, math.ceil(len(dates) * 0.60))
+    trading_date = pd.to_datetime(development["trading_date"])
+    label_end = pd.to_datetime(development[label_end_column])
+    required_tuning_dates = config.initial_train_periods + horizon + config.validation_periods
+    # Count distinct causal dates, not an assumed horizon offset. Production
+    # labels and missing sessions can require a later boundary. Only timestamp
+    # availability determines this repair; target values never select the split.
+    first_available = (
+        pd.DataFrame({"trading_date": trading_date, "label_end": label_end})
+        .dropna()
+        .groupby("trading_date")["label_end"]
+        .min()
+        .reset_index()
+        .max(axis=1)
+        .sort_values()
+    )
+    if len(first_available) >= required_tuning_dates:
+        causal_index = int(
+            dates.searchsorted(first_available.iloc[required_tuning_dates - 1], side="right")
+        )
+        evaluation_index = max(evaluation_index, causal_index)
+    else:
+        raise ValueError(f"BLOCKED_BY_VALIDATION: {horizon}d insufficient causal tuning dates")
     if evaluation_index + config.validation_periods > len(dates):
         raise ValueError(
             f"BLOCKED_BY_VALIDATION: {horizon}d development history cannot separate "
             "tuning from outer model evaluation"
         )
     evaluation_start = dates[evaluation_index]
-    trading_date = pd.to_datetime(development["trading_date"])
-    label_end = pd.to_datetime(development[label_end_column])
-    tuning = development.loc[
-        (trading_date < evaluation_start)
-        & label_end.notna()
-        & (label_end < evaluation_start)
-    ].copy()
+    tuning = _select_rows_columnwise(
+        development,
+        (trading_date < evaluation_start) & label_end.notna() & (label_end < evaluation_start),
+    )
     if tuning.empty:
         raise ValueError(f"BLOCKED_BY_VALIDATION: no causal tuning rows for {horizon}d")
     tuning_dates = pd.DatetimeIndex(pd.to_datetime(tuning["trading_date"]).sort_values().unique())
-    required_tuning_dates = (
-        config.initial_train_periods + horizon + config.validation_periods
-    )
     if len(tuning_dates) < required_tuning_dates:
         raise ValueError(
             f"BLOCKED_BY_VALIDATION: {horizon}d tuning history has "
@@ -1835,9 +1893,7 @@ def _estimated_fold_count(
     first_validation = config.initial_train_periods + horizon
     if first_validation + config.validation_periods > date_count:
         return 0
-    return 1 + (
-        date_count - first_validation - config.validation_periods
-    ) // config.step_periods
+    return 1 + (date_count - first_validation - config.validation_periods) // config.step_periods
 
 
 def run_advanced_research(
@@ -1851,9 +1907,25 @@ def run_advanced_research(
     feature_manifest_hash: str,
     feature_names: tuple[str, ...] = V2_EXTENDED_MANIFEST.feature_names,
     checkpoint_root: Path | None = None,
+    checkpoint_import_plan: Path | None = None,
+    memory_scratch_root: Path | None = None,
+    release_source_frame: bool = False,
+    minimum_fit_headroom_gib: float = 0.0,
+    spill_development_during_tuning: bool = False,
 ) -> AdvancedResearchRun:
     """Run Goal 3 research and preserve partial progress if a later stage fails."""
 
+    if checkpoint_import_plan is not None and checkpoint_root is None:
+        raise ValueError("checkpoint import plan requires a destination checkpoint root")
+    if release_source_frame and len(config.horizons) != 1:
+        raise ValueError("source release requires one horizon and explicit ownership")
+    if spill_development_during_tuning and (
+        not release_source_frame or memory_scratch_root is None
+        or len(config.model_families) != 1 or config.run_ablations
+    ):
+        raise ValueError(
+            "development spill requires owned scratch, source release, one family, no ablations"
+        )
     progress = _AdvancedResearchProgress()
     checkpoint_store = (
         ResearchCheckpointStore(
@@ -1868,24 +1940,28 @@ def run_advanced_research(
                 "config_hash": config.config_hash,
                 "locked_holdout_accessed": False,
             },
+            import_plan=checkpoint_import_plan,
         )
         if checkpoint_root is not None
         else None
     )
     try:
         try:
-            return _run_advanced_research(
-                dataset,
-                data_snapshot_id=data_snapshot_id,
-                created_at=created_at,
-                code_commit=code_commit,
-                config=config,
-                feature_snapshot_id=feature_snapshot_id,
-                feature_manifest_hash=feature_manifest_hash,
-                feature_names=feature_names,
-                progress=progress,
-                checkpoint_store=checkpoint_store,
-            )
+            with array_workspace(memory_scratch_root, minimum_fit_headroom_gib):
+                return _run_advanced_research(
+                    dataset,
+                    data_snapshot_id=data_snapshot_id,
+                    created_at=created_at,
+                    code_commit=code_commit,
+                    config=config,
+                    feature_snapshot_id=feature_snapshot_id,
+                    feature_manifest_hash=feature_manifest_hash,
+                    feature_names=feature_names,
+                    progress=progress,
+                    checkpoint_store=checkpoint_store,
+                    release_source_frame=release_source_frame,
+                    spill_development_during_tuning=spill_development_during_tuning,
+                )
         except Exception as exc:
             if isinstance(exc, AdvancedResearchExecutionError):
                 raise
@@ -1930,6 +2006,8 @@ def _run_advanced_research(
     feature_names: tuple[str, ...],
     progress: _AdvancedResearchProgress,
     checkpoint_store: ResearchCheckpointStore | None,
+    release_source_frame: bool = False,
+    spill_development_during_tuning: bool = False,
 ) -> AdvancedResearchRun:
     """Internal implementation with progress containers owned by the public boundary."""
 
@@ -1944,6 +2022,8 @@ def _run_advanced_research(
     )
     revision_policy, revision_status = _revision_contract(dataset)
     holdout = reserve_locked_final_holdout(dataset, holdout_periods=config.holdout_periods)
+    holdout_start = holdout.holdout_start
+    del holdout
     tuning_results = progress.tuning_results
     oof_parts = progress.oof_parts
     ablation_results: list[FeatureAblationResult] = []
@@ -1959,13 +2039,24 @@ def _run_advanced_research(
         missing = sorted(required - set(dataset.columns))
         if missing:
             raise ValueError(f"production research dataset is missing: {', '.join(missing)}")
-        usable = dataset.loc[
-            dataset[target_column].notna() & dataset[status_column].eq("AVAILABLE")
-        ].copy()
-        development = usable.loc[
-            (pd.to_datetime(usable["trading_date"]) < holdout.holdout_start)
-            & (pd.to_datetime(usable[label_end_column]) < holdout.holdout_start)
-        ].copy()
+        eligible = dataset[target_column].notna() & dataset[status_column].eq("AVAILABLE")
+        positions = np.flatnonzero(eligible.to_numpy(dtype=np.bool_, na_value=False))
+        dates = dataset.loc[eligible, "trading_date"]
+        label_ends = dataset.loc[eligible, label_end_column]
+        eligible_development = (pd.to_datetime(dates) < holdout_start) & (
+            pd.to_datetime(label_ends) < holdout_start
+        )
+        development_values = np.zeros(len(dataset), dtype=np.bool_)
+        development_values[positions] = eligible_development.to_numpy(
+            dtype=np.bool_,
+            na_value=False,
+        )
+        development_mask = pd.Series(development_values, index=dataset.index)
+        development = _select_rows_columnwise(dataset, development_mask)
+        del eligible, positions, dates, label_ends, eligible_development, development_mask
+        del development_values
+        if release_source_frame:
+            dataset.drop(columns=list(dataset.columns), inplace=True)
         if development.empty:
             raise ValueError(f"BLOCKED_BY_VALIDATION: holdout purge removed all {horizon}d labels")
         stages = _split_research_stages(
@@ -1976,10 +2067,7 @@ def _run_advanced_research(
         )
         stage_boundaries.append(stages.boundary)
         estimated_oof_rows += (
-            len(development)
-            * len(config.model_families)
-            * len(_TASKS)
-            * len(config.seeds)
+            len(development) * len(config.model_families) * len(_TASKS) * len(config.seeds)
         )
         if estimated_oof_rows > config.max_materialized_oof_rows:
             raise ValueError(
@@ -1989,9 +2077,7 @@ def _run_advanced_research(
                 "or raise the explicit bound after a measured scale test"
             )
         tuning_folds = _estimated_fold_count(stages.tuning, horizon=horizon, config=config)
-        development_folds = _estimated_fold_count(
-            development, horizon=horizon, config=config
-        )
+        development_folds = _estimated_fold_count(development, horizon=horizon, config=config)
         estimated_model_fits += len(config.model_families) * (
             config.tuning_trials * tuning_folds
             + len(_TASKS) * len(config.seeds) * development_folds
@@ -2009,6 +2095,11 @@ def _run_advanced_research(
                 "run a smaller horizon/model-family batch or raise the explicit bound after "
                 "a measured scale test"
             )
+        development_spill = None
+        if spill_development_during_tuning:
+            development_spill = spill_frame(development)
+            del development
+            gc.collect()
         best_by_family: dict[ModelFamily, Mapping[str, int | float]] = {}
         for family in config.model_families:
             try:
@@ -2037,6 +2128,16 @@ def _run_advanced_research(
                 ) from exc
             tuning_results.append(tuning)
             best_by_family[family] = tuning.best_parameters
+            if len(config.model_families) == 1 and not config.run_ablations:
+                stages = _ResearchStageFrames(
+                    tuning=pd.DataFrame(),
+                    model_evaluation_start=stages.model_evaluation_start,
+                    boundary=stages.boundary,
+                )
+            if development_spill is not None:
+                development = development_spill.restore()
+                development_spill.close()
+                development_spill = None
             for task in _TASKS:
                 for seed in config.seeds:
                     task_target = (
@@ -2059,6 +2160,7 @@ def _run_advanced_research(
                         progress_sink=oof_parts,
                         checkpoint_store=checkpoint_store,
                         checkpoint_scope="outer-model-evaluation",
+                        _collect_parts_only=True,
                     )
         if config.run_ablations:
             ablation_results.extend(
@@ -2090,6 +2192,8 @@ def _run_advanced_research(
                 )
             )
 
+        del development, stages
+
     oof = pd.concat(oof_parts, ignore_index=True)
     metrics = tuple(
         summarize_oof_predictions(
@@ -2106,9 +2210,7 @@ def _run_advanced_research(
         for ensemble in ensembles
     )
     oof_hash = _frame_hash(oof)
-    fold_results = _summarize_fold_results(
-        oof, large_loss_threshold=config.large_loss_threshold
-    )
+    fold_results = _summarize_fold_results(oof, large_loss_threshold=config.large_loss_threshold)
     library_versions = tuple(
         (name, version(name)) for name in ("lightgbm", "xgboost", "catboost", "optuna")
     )
@@ -2136,12 +2238,11 @@ def _run_advanced_research(
         preprocessing_version=V2_EXTENDED_MANIFEST.preprocessing_version,
         feature_manifest_hash=feature_manifest_hash,
         feature_definition_hashes={
-            name: V2_EXTENDED_MANIFEST.feature_definition_hashes[name]
-            for name in feature_names
+            name: V2_EXTENDED_MANIFEST.feature_definition_hashes[name] for name in feature_names
         },
         feature_names=feature_names,
         prediction_semantics=config.target_family,
-        locked_holdout_start=str(holdout.holdout_start.date()),
+        locked_holdout_start=str(holdout_start.date()),
         locked_holdout_accessed=False,
         historical_revision_policy=revision_policy,
         historical_revision_status=revision_status,
@@ -2221,9 +2322,7 @@ def load_advanced_research_run(
 ) -> tuple[AdvancedResearchReport, pd.DataFrame]:
     """Authenticate an advanced report bundle before downstream use."""
 
-    parquet_path, report, parquet_sha256 = _authenticate_advanced_research_bundle(
-        parquet_path
-    )
+    parquet_path, report, parquet_sha256 = _authenticate_advanced_research_bundle(parquet_path)
     frame = pd.read_parquet(parquet_path)
     if _file_sha256(parquet_path) != parquet_sha256:
         raise RuntimeError("advanced research Parquet changed while it was being read")
@@ -2246,9 +2345,7 @@ def load_authenticated_advanced_oof_slice(
 
     if not tasks or len(tasks) != len(set(tasks)) or not set(tasks) <= set(_TASKS):
         raise ValueError("authenticated OOF tasks must be a unique non-empty task subset")
-    parquet_path, report, parquet_sha256 = _authenticate_advanced_research_bundle(
-        parquet_path
-    )
+    parquet_path, report, parquet_sha256 = _authenticate_advanced_research_bundle(parquet_path)
     columns = ("symbol", "trading_date", "target", "label_end", "prediction", "task")
     frame = pd.read_parquet(
         parquet_path,
@@ -2412,8 +2509,7 @@ def _run_ablations(
             prediction=selection_oof["prediction"],
         ).mean_daily_rank_ic
         selected = selection_score is not None and (
-            champion_selection_metric is None
-            or selection_score > champion_selection_metric
+            champion_selection_metric is None or selection_score > champion_selection_metric
         )
         evaluation_oof = generate_oof_predictions(
             development,
@@ -2558,6 +2654,73 @@ def _report_identity(report: AdvancedResearchReport) -> dict[str, object]:
     return payload
 
 
+def _select_rows_columnwise(frame: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
+    """Copy the selected rows without allocating a consolidated wide numeric block.
+
+    Callers supply a boolean mask derived from this exact frame. Array.take preserves
+    each column's dtype and copies its selected values independently; copy=False on
+    construction retains those separate arrays instead of consolidating them again.
+    """
+
+    if not mask.index.equals(frame.index):
+        raise ValueError("row selection mask must have the frame's exact index")
+    positions = np.flatnonzero(mask.to_numpy(dtype=bool, na_value=False))
+    return _take_rows_columnwise(frame, positions)
+
+
+def _take_rows_columnwise(
+    frame: pd.DataFrame,
+    positions: Sequence[int] | np.ndarray[Any, Any],
+) -> pd.DataFrame:
+    """Preserve every selected column without consolidating a wide numeric block."""
+
+    indices = np.asarray(positions, dtype=np.intp)
+    selected = pd.DataFrame(
+        {
+            position: take_column(frame.iloc[:, position], indices)
+            for position in range(len(frame.columns))
+        },
+        index=frame.index.take(indices),
+        copy=False,
+    )
+    selected.columns = frame.columns.copy()
+    selected.attrs = deepcopy(frame.attrs)
+    selected.flags["allows_duplicate_labels"] = frame.flags["allows_duplicate_labels"]
+    return selected
+
+
+def _prepare_fold_rows(
+    frame: pd.DataFrame,
+    positions: Sequence[int],
+    *,
+    target_column: str,
+    validation_not_before: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """Select/filter/stably order on narrow vectors before copying each full column.
+
+    Original positional split indices remain unchanged for checkpoint evidence. Target
+    filtering, date parsing and the stable two-key sort match the previous fold path.
+    """
+
+    indices = np.asarray(positions, dtype=np.intp)
+    available = frame[target_column].iloc[indices].notna().to_numpy(dtype=bool)
+    indices = indices[available]
+    keys = pd.DataFrame(
+        {name: frame[name].array.take(indices) for name in ("trading_date", "symbol")},
+        copy=False,
+    )
+    order = keys.sort_values(["trading_date", "symbol"], kind="stable").index.to_numpy(
+        dtype=np.intp,
+    )
+    indices = indices[order]
+    if validation_not_before is not None:
+        allowed = (
+            pd.to_datetime(frame["trading_date"].iloc[indices]) >= validation_not_before
+        ).to_numpy(dtype=bool, na_value=False)
+        indices = indices[allowed]
+    return _take_rows_columnwise(frame, indices)
+
+
 def _finite_numeric(frame: pd.DataFrame) -> pd.DataFrame:
     """Coerce a wide fold directly into a bounded-memory float32 matrix.
 
@@ -2569,7 +2732,7 @@ def _finite_numeric(frame: pd.DataFrame) -> pd.DataFrame:
     """
 
     columns = list(frame.columns)
-    values = np.empty((len(frame), len(columns)), dtype=np.float32)
+    values = allocate_array((len(frame), len(columns)), dtype=np.float32)
     for position, name in enumerate(columns):
         column = pd.to_numeric(frame[name], errors="coerce").to_numpy(
             dtype=np.float32,
@@ -2580,7 +2743,15 @@ def _finite_numeric(frame: pd.DataFrame) -> pd.DataFrame:
             column = column.copy()
             column[~finite] = np.nan
         values[:, position] = column
-    return pd.DataFrame(values, index=frame.index, columns=columns, copy=False)
+    if isinstance(values.base, np.memmap):
+        values.base.flush()
+    # Keep the same owned C-layout storage, with one pandas block per feature.
+    # Quantile/median/clip then avoid a full-width temporary numeric block.
+    return pd.DataFrame(
+        {name: values[:, position] for position, name in enumerate(columns)},
+        index=frame.index,
+        copy=False,
+    )
 
 
 def _chronological_meta_masks(
@@ -2602,9 +2773,9 @@ def _chronological_meta_masks(
     calibration_dates = set(unique_dates[fit_date_count:calibration_end])
     calibration_start = unique_dates[fit_date_count]
     evaluation_start = unique_dates[calibration_end]
-    fit = (
-        normalized.isin(fit_dates) & (normalized_label_end < calibration_start)
-    ).to_numpy(dtype=bool)
+    fit = (normalized.isin(fit_dates) & (normalized_label_end < calibration_start)).to_numpy(
+        dtype=bool
+    )
     calibration = (
         normalized.isin(calibration_dates) & (normalized_label_end < evaluation_start)
     ).to_numpy(dtype=bool)
@@ -2659,3 +2830,22 @@ def _file_sha256(path: Path) -> str:
 def _stable_hash(payload: object) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def research_input_columns(
+    config: AdvancedResearchConfig,
+    feature_names: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Retain model inputs and contracts after authenticating every original column."""
+    names = [
+        "symbol",
+        "trading_date",
+        "as_of",
+        "historical_revision_policy",
+        "historical_revision_status",
+        *feature_names,
+    ]
+    for horizon in config.horizons:
+        target, status = _target_contract(config.target_family, horizon)
+        names.extend((target, status, f"target_return_{horizon}d", f"label_end_date_{horizon}d"))
+    return tuple(dict.fromkeys(names))

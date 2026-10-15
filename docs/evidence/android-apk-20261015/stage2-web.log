@@ -1,0 +1,46 @@
+
+> stock-ai-decision-support-pwa@0.1.0 typecheck
+> tsc -b --pretty false
+
+
+> stock-ai-decision-support-pwa@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+> stock-ai-decision-support-pwa@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 C:/Users/manat/app/株AI/stock-ai-spec/web
+
+ ❯ mobile-tests/runtime.spec.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  mobile-tests/runtime.spec.ts [ mobile-tests/runtime.spec.ts ]
+Error: Playwright Test did not expect test() to be called here.
+Most common reasons include:
+- You are calling test() in a configuration file.
+- You are calling test() in a file that is imported by the configuration file.
+- You have two different versions of @playwright/test. This usually happens
+  when one of the dependencies in your package.json depends on @playwright/test.
+- You are calling test() from an async test.describe() block. Only sync ones are supported.
+ ❯ _TestTypeImpl._currentSuite node_modules/playwright/lib/common/index.js:2263:13
+ ❯ _TestTypeImpl._createTest node_modules/playwright/lib/common/index.js:2277:24
+ ❯ node_modules/playwright/lib/common/index.js:1209:12
+ ❯ mobile-tests/runtime.spec.ts:4:1
+      2| import { test, expect } from "@playwright/test";
+      3|
+      4| test("offline Python preserves input and matches PC 41/51 features", a…
+       | ^
+      5|   const golden = JSON.parse(readFileSync(new URL("../../.demo-artifact…
+      6|   await context.route("https://**", route => route.abort());
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  18 passed (18)
+   Start at  11:55:33
+   Duration  17.02s (transform 1.69s, setup 3.26s, import 2.23s, tests 6.17s, environment 12.13s)
+

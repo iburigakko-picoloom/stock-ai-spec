@@ -1,0 +1,19 @@
+{
+  "source_commit": "afa9a5fa4212ec7290d7e22f9e808d2fd0e808b9",
+  "receipt_path": "artifacts\\daily-ensemble\\receipts\\6495e0f60c41d57db025c00fe366dd21f2da24e0142402c99b5e7d4ee76f9c4d.json",
+  "results": [
+    {
+      "horizon": 5,
+      "folds": 3,
+      "rank_max_absolute_error": 5.551115123125783e-17,
+      "rank_return_quantile_uncertainty_replay": "PASS"
+    },
+    {
+      "horizon": 20,
+      "folds": 3,
+      "rank_max_absolute_error": 2.220446049250313e-16,
+      "rank_return_quantile_uncertainty_replay": "PASS"
+    }
+  ],
+  "verification_source_sha256": "f4d3549dfe55908b64bdbb1a99e4e79e020b33d9b7c12d050bd2c47358a9fa97"
+}

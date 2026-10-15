@@ -45,6 +45,8 @@ packages = ["src/stock_ai"]
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
+# Historical scientific source snapshots are immutable evidence, not live modules.
+extend-exclude = ["artifacts/runtime", "artifacts/campaign-provenance", "docs/evidence"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "RUF"]
@@ -76,9 +78,12 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["stock_ai"]
+source = ["src/stock_ai"]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
 fail_under = 85
+# Native parity tests import historical source under stock_ai.* aliases.
+# Those fixture lines are not part of the application coverage denominator.
+include = ["src/stock_ai/*"]

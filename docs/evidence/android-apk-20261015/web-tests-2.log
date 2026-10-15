@@ -1,0 +1,13 @@
+
+> stock-ai-decision-support-pwa@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 C:/Users/manat/app/株AI/stock-ai-spec/web
+
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  10:56:24
+   Duration  15.41s (transform 409ms, setup 7.52s, import 4.89s, tests 2.07s, environment 765ms)
+

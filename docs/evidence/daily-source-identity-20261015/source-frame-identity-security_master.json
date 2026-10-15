@@ -1,0 +1,133 @@
+{
+  "started_at": "2026-10-14T23:40:50.795800+00:00",
+  "finished_at": "2026-10-14T23:49:34.538281+00:00",
+  "dataset": "security_master",
+  "dataset_snapshot_id": "3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d",
+  "source_snapshot_as_of": "2026-08-29T23:30:00+09:00",
+  "expected_source_snapshot_id": "4578dbecaa837a8a68a6d47fab3bf97e079c4d1ef931530d4eeeb05700570d0c",
+  "source_snapshot_id": "4578dbecaa837a8a68a6d47fab3bf97e079c4d1ef931530d4eeeb05700570d0c",
+  "rows": 9801708,
+  "schema": [
+    [
+      "effective_date",
+      "datetime64[us]"
+    ],
+    [
+      "provider_code",
+      "object"
+    ],
+    [
+      "symbol",
+      "object"
+    ],
+    [
+      "company_name",
+      "object"
+    ],
+    [
+      "company_name_en",
+      "object"
+    ],
+    [
+      "sector_17_code",
+      "object"
+    ],
+    [
+      "sector_17_name",
+      "object"
+    ],
+    [
+      "sector_33_code",
+      "object"
+    ],
+    [
+      "sector_33_name",
+      "object"
+    ],
+    [
+      "size_category",
+      "object"
+    ],
+    [
+      "market_code",
+      "object"
+    ],
+    [
+      "market_name",
+      "object"
+    ],
+    [
+      "margin_code",
+      "object"
+    ],
+    [
+      "margin_name",
+      "object"
+    ],
+    [
+      "round_lot_size",
+      "Int64"
+    ],
+    [
+      "round_lot_missing_reason",
+      "object"
+    ],
+    [
+      "provider",
+      "object"
+    ],
+    [
+      "source_endpoint",
+      "object"
+    ],
+    [
+      "source_date",
+      "datetime64[us]"
+    ],
+    [
+      "received_at",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "available_at",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "as_of",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "payload_hash",
+      "object"
+    ],
+    [
+      "schema_version",
+      "object"
+    ],
+    [
+      "ingestion_run_id",
+      "object"
+    ],
+    [
+      "source_record_hash",
+      "object"
+    ],
+    [
+      "raw_object_id",
+      "object"
+    ]
+  ],
+  "normalized_objects_verified": 2379,
+  "normalized_path_hash_list_sha256": "67402454a6cb1034bb18152c955139f72e4cb1765574028d43e20ec843569f8a",
+  "file_hashes_before_after_match": true,
+  "status": "PASS",
+  "purpose": "exact saved-source identity only; not historical-vintage, raw-pair or execution proof",
+  "holdout_scored": false,
+  "adoption_eligible": false,
+  "prototype_sha256": "42a33ae9e0d882c9e0978469c1cbff2d2be910377aeaa4ed139d90c6158c91f4",
+  "audit_script_sha256": "f09ed7b597c967a6d29f663c154f665da0fd7c10a73e4fdd66b3ed7f15ba6e04",
+  "metadata_file_sha256": "d2561ba42538d038c0404332aa24cfdf402e5cad859380406d89a65b8e7fcdc9",
+  "dependencies": {
+    "duckdb": "1.5.5"
+  }
+}

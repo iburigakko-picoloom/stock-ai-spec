@@ -72,7 +72,7 @@ $arguments = @(
     '-ValidationPeriods', [string]$ValidationPeriods,
     '-StepPeriods', [string]$StepPeriods,
     '-HoldoutPeriods', [string]$HoldoutPeriods,
-    "-RunDiagnostics:$($RunDiagnostics.ToString().ToLowerInvariant())",
+    '-RunDiagnostics', [string][int]$RunDiagnostics,
     '-MaxMaterializedOofRows', [string]$MaxMaterializedOofRows,
     '-MaxModelFits', [string]$MaxModelFits,
     '-CampaignRoot', (Quote-Argument $campaignPath),

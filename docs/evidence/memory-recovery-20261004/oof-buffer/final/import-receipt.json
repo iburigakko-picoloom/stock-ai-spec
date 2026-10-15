@@ -1,0 +1,219 @@
+{
+  "checked_at_utc": "2026-10-04T07:27:31.774411+00:00",
+  "destination_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad",
+  "code_commit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "config_hash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "verified_units": [
+    {
+      "task": "ranking",
+      "fold": 2,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "59cbfeaa389dc9cefbc8f3c8bfc48cbd34c74de43a434ea953742a498cf43b64",
+      "destination_unit": "34ec9f6d8b4a1abce928a0e4fcaac1bf1e6fb7553bc2718b76a55b25195e41d7",
+      "rows": 225268,
+      "frame_sha256": "71628801dd1c0ded64ed4f4409a95e19c4f009dd8639baa91e397f8ed9523c06",
+      "direct_native_source": true
+    },
+    {
+      "task": "ranking",
+      "fold": 6,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "a68e8327914e265e6594e22e02f24bdbbfee39a5",
+      "source_native_unit": "09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+      "destination_unit": "99d100ae3dedd62f87c4c2cb3c65e1ead9a12483179c34c8cb64431e80a0300e",
+      "rows": 224458,
+      "frame_sha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301",
+      "direct_native_source": true
+    },
+    {
+      "task": "ranking",
+      "fold": 5,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "94136c9104efa6133e2dcebee6fe60f2ff6b1b492d683bcc2a488f8533b93d42",
+      "destination_unit": "2af833cd7bbe5a6183088aef59fb9020c7519d31b45b93daf686336b2f6fc698",
+      "rows": 225055,
+      "frame_sha256": "2aec74035bf119fdd9a7a823922aca8f07ada89b7e26504a689a3da0bdb27584",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 5,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "658e846e8ef8084b6c95bf55676cf960f2da50afd3c01ff6453277329f19ddb5",
+      "destination_unit": "0e62f4611ddb963bbc36cacd9e7db30a9dcd28bf60c70918289182739df8282e",
+      "rows": 225055,
+      "frame_sha256": "bb06acb6423c20d94d51ce8835b7e78adc99ff211fbb87a325ab3f0960666059",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "c323f5f30c1b1025fa06921e7fbfc7901ab2ebe03ffcaf3b72f378ca5892e716",
+      "destination_unit": "5fc349eeda1e51c08b640f2fc9f21aa5e2746d7e65a159572cb5d048287bc772",
+      "rows": 225842,
+      "frame_sha256": "4f5892299958c6311960720e213bbe3e7aba580690c7cff1374e4b0210ababa0",
+      "direct_native_source": true
+    },
+    {
+      "task": "ranking",
+      "fold": 3,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "a11256748f2baf02eb69c596dd29b6415fa0ec9fa58cfa562cd6dfec49220517",
+      "destination_unit": "326d3d67daaf08836cdc2ada1630801e462ac0f109f9666a26f098343194d6b5",
+      "rows": 225731,
+      "frame_sha256": "ec15abb280e8f9b8a7e104d81a9187f3d297ffce4cc488b6495c84e03e60d1d9",
+      "direct_native_source": true
+    },
+    {
+      "task": "ranking",
+      "fold": 1,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "14c817839da37e063283141b225b587028af254f4dae20d2703f5ada4c2f3549",
+      "destination_unit": "40617d56a6fda14295ec6fd7652f1c39360324b4269ca284da7af2cc9e719417",
+      "rows": 202496,
+      "frame_sha256": "beeb758c8e03413ac339d9a9e425ee2de0beab48b9a11fec5b9815982950e0c3",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 1,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "246a8895f4c13fb47bd9f0c519c572bc49f8e5da3cf79f6d93eede901fbf78b4",
+      "destination_unit": "689e4bd5471dbfd62cff4e24d3afa6df4a91d79b6f850402c9884b0fb3085a38",
+      "rows": 202496,
+      "frame_sha256": "2a76fbdac68811a7c93333b675f5f44d01b12071a34ce36106b9d4ff35837ed9",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 3,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "324ac84946755209c94d7999a5306a21631372fbbd127a8a071ec12fc8898443",
+      "destination_unit": "f3b4a8250ca427b818826968ba0af024ae2ede918c9baa1add5c599381f1db44",
+      "rows": 225731,
+      "frame_sha256": "6bd084a30bb5763a2a48d32e9d2618fe9aad28f847c52a28a4cd5cc84d08af9a",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 4,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "0fcb31cc38b05602af5c45628aed19aeb75c9555e396accd52015ba6e9f9b8ef",
+      "destination_unit": "86be271ff4be7c789aa5bd04c947a66517d17938e96978dabfe4856e4f5868a3",
+      "rows": 224522,
+      "frame_sha256": "6e8ee9af2ea8b1f465ee4ef087ec956799e704fa0444a81a42a67ac5ca0c2de3",
+      "direct_native_source": true
+    },
+    {
+      "task": "ranking",
+      "fold": 4,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "24866eb4bac3a4e92a32db97d9d35e76bec3ea351673299c33c7062993e37bbf",
+      "destination_unit": "7c9ad5670f7ae50edf29e4d0d761f87e4be95c1ddf78de56cdc6ef2958978e3d",
+      "rows": 224522,
+      "frame_sha256": "7b870203b3babed4508c13aea1b5a59906f002e991fe2a23ab177af1009ed782",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 6,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "c023074b68bc11d55943826f1e087afcef39ea8f97d8e4176062e4f634277ddb",
+      "destination_unit": "85ee770c7ea5d3e594f5cfbf7983d4f2bcf9518aa607b3942ef836d9b963d093",
+      "rows": 224458,
+      "frame_sha256": "d54468884d548e53ec5573e3e29e844dfad631f6d4258a8e280b7a2462cd9430",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "322eb4eec9cf200c25683cbb6033e51666dcabf509d5ae669cd0753c67f383bd",
+      "destination_unit": "65cae611ece9024f3479811d8cff4037fcba572f750e7b441fa6f54a26f11d3e",
+      "rows": 225842,
+      "frame_sha256": "16b083971fa91aab453bbeb972f51a266edb4a59f59ee4b62ac50379f98b2476",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "1f9ae952ba4077834a28ac91997437f597763eaa725a8b3116f0d0b521fa9445",
+      "destination_unit": "91098bbf464cd55b808257de0423264e216afa7c55b216f73d32b9f3de8351c5",
+      "rows": 225842,
+      "frame_sha256": "5b538fca9339f19e737de302515ed6171349c61b2737e8b2c06a9bb384f47c84",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 0,
+      "scope": "optuna-tuning",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "0ebf39b1e0566a8a831948b851624e610a7d130f81664ae5116ca96cdeb4555b",
+      "destination_unit": "475e2dcceccc1c937f1db4c40fea535e832d79420dfa3d8ecb159845068742e3",
+      "rows": 225842,
+      "frame_sha256": "ca7fe8cd00ac14a0fd39b1cab71da6b48966963f2fafdb5bf804280d9456cce8",
+      "direct_native_source": true
+    },
+    {
+      "task": "regression",
+      "fold": 2,
+      "scope": "outer-model-evaluation",
+      "source_code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "source_native_unit": "437ac896e02ac12d727ea502e3dd6fec1ae13fdff3380318e48ef282ce06b429",
+      "destination_unit": "e54df64edd5125a91b3239a947b2b7b137d047d4ad98b9ae6609cfe5318dddf1",
+      "rows": 225268,
+      "frame_sha256": "aa14a42c753f654a0a3ab83909b85cf7926fa7fa28c8b27378ad912dc9824499",
+      "direct_native_source": true
+    }
+  ],
+  "all16_exact_reloaded": true,
+  "original15_native_source_units": 15,
+  "rank6_native_a68_units": 1,
+  "no_chained_imports": true,
+  "old16_artifact_byte_hashes_unchanged": true,
+  "source_namespace_sha256": {
+    "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-candidates\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\67616cc829bbb148c59aead9d3ea1cea79a8b759e11d02b962abe69de699deda": {
+      "manifest.json": "2905451647ce74b09807faa442aae37230de72a1b3005efdb6b756ebc791638c",
+      "progress.json": "77a062fba0e7c7af9f62e0bb24f2664d9b93ddbf96f233063fbaf8718d7ec623"
+    },
+    "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2": {
+      "manifest.json": "de803ffffc584067c0e307fa594dfedb36831b35e68be8dce30eb1858ac0aaf9",
+      "progress.json": "ec3e58e8607467aa0fe8a731f7d8aa7195666cb37af227524880954b33e5e993"
+    }
+  },
+  "old_source_namespaces_unchanged": true,
+  "optuna_terminal_trials": 4,
+  "optuna_durations_and_budget_preserved": true,
+  "rank6": {
+    "unit_id": "09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+    "task": "ranking",
+    "scope": "outer-model-evaluation",
+    "fold": 6,
+    "rows": 224458,
+    "frame_sha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301",
+    "artifact": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2\\folds\\09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+    "file_sha256": {
+      "manifest.json": "9320bf39575d33ba1bb49a6d51ca0886094b36dab0185af83485a1dfadc6f315",
+      "oof.parquet": "7bb013fb429ea79d3deefdc86691bcf6f72efae120804a05cc93e3e178e3b020"
+    }
+  },
+  "model_or_data_conditions_changed": false,
+  "full_input_authentication_before_fit_still_required": true,
+  "new_model_fits": 0,
+  "training_started": false
+}

@@ -1,0 +1,18 @@
+{
+  "source_commit": "5be26b417e383f918581bfba657e8bbd2e9b6f2f",
+  "full_tests_passed": 688,
+  "warnings": 1259,
+  "elapsed_seconds": 817.92,
+  "coverage_percent": 86.74128961059435,
+  "full_log_path": ".demo-artifacts\\tests-manual-portfolio-full-resume.log",
+  "full_log_sha256": "ef22cc3ec67c902d79b2c3bfc52f7a7981f0bc0703ac9a82aea718093f338d20",
+  "coverage_json_sha256": "9e2dfd83e89fe0c0b05bc2ebbdaa5454f35574a6df1d350289fa9196412c394d",
+  "ruff": "PASS",
+  "mypy_modules": 61,
+  "private_node_tests_passed": 12,
+  "private_lint": "PASS",
+  "private_typescript": "PASS",
+  "private_build": "PASS",
+  "live_receipt_sha256": "18205f6d93a61a74f092205c08eb2bd4409a9d838c4490ff20a7e86c09d224a7",
+  "no_order_sent": true
+}

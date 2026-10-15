@@ -319,7 +319,7 @@ def test_selection_artifact_schema_requires_complete_unique_provenance() -> None
     selection = _selection_fixture(build_id="a" * 64, dataset_id="b" * 64)
     cases: tuple[tuple[dict[str, object], str], ...] = (
         ({"created_at": datetime(2026, 1, 2)}, "timezone-aware"),
-        ({"horizons": selection.horizons[:-1]}, "ordered 1d/5d/20d"),
+        ({"horizons": selection.horizons[:-1]}, "ordered 5d/20d or 1d/5d/20d"),
         ({"seeds": (17, 29)}, "at least three"),
         (
             {"source_report_ids": (selection.source_report_ids[0],) * 2},
@@ -399,7 +399,7 @@ def test_feature_selection_schema_requires_exact_votes_and_shared_seeds() -> Non
     )
     artifact_cases: tuple[tuple[dict[str, object], str], ...] = (
         ({"created_at": datetime(2026, 1, 2)}, "timezone-aware"),
-        ({"horizons": artifact.horizons[:-1]}, "ordered 1d/5d/20d"),
+        ({"horizons": artifact.horizons[:-1]}, "ordered 5d/20d or 1d/5d/20d"),
         ({"seeds": (17, 29)}, "at least three"),
         (
             {"horizons": (different_seed_horizon, *artifact.horizons[1:])},
@@ -415,6 +415,61 @@ def test_feature_selection_schema_requires_exact_votes_and_shared_seeds() -> Non
             DevelopmentFeatureSelectionArtifact.model_validate(
                 {**artifact.model_dump(mode="python"), **updates}
             )
+
+
+def test_excluded_one_day_allows_only_authenticated_five_twenty_selection(
+    tmp_path: Path,
+) -> None:
+    selection = _selection_fixture(build_id="a" * 64, dataset_id="b" * 64)
+    feature_plan = _feature_selection_fixture(selection)
+    decision_path = tmp_path / "one-day-decision.json"
+    decision = {
+        "schema_version": "goal3-one-day-screen-decision-v1",
+        "criteria_version": "D080",
+        "build_id": selection.build_id,
+        "decision": "EXCLUDE_FROM_FULL_ABLATION_AND_FINAL",
+        "screen_report_ids": ["c" * 64],
+        "locked_holdout_accessed": False,
+    }
+    decision_path.write_text(json.dumps(decision), encoding="utf-8")
+    with pytest.raises(ValueError, match="requires one-day exclusion decision"):
+        selection_module._authenticate_one_day_exclusion(
+            None, build_id=selection.build_id, required=True
+        )
+    decision_hash = selection_module._authenticate_one_day_exclusion(
+        decision_path, build_id=selection.build_id, required=True
+    )
+    assert decision_hash == hashlib.sha256(decision_path.read_bytes()).hexdigest()
+    partial = feature_plan.model_copy(
+        update={
+            "horizons": feature_plan.horizons[1:],
+            "one_day_exclusion_decision_hash": decision_hash,
+            "feature_selection_id": "0" * 64,
+        }
+    )
+    partial = partial.model_copy(
+        update={
+            "feature_selection_id": selection_module._stable_hash(
+                selection_module._feature_selection_identity(partial)
+            )
+        }
+    )
+    assert tuple(
+        item.horizon
+        for item in DevelopmentFeatureSelectionArtifact.model_validate(
+            partial.model_dump(mode="python")
+        ).horizons
+    ) == (5, 20)
+    with pytest.raises(ValueError, match="one-day exclusion evidence"):
+        DevelopmentFeatureSelectionArtifact.model_validate(
+            {**partial.model_dump(mode="python"), "one_day_exclusion_decision_hash": None}
+        )
+    decision["decision"] = "KEEP_FOR_FULL_ABLATION"
+    decision_path.write_text(json.dumps(decision), encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match"):
+        selection_module._authenticate_one_day_exclusion(
+            decision_path, build_id=selection.build_id, required=True
+        )
 
 
 def test_holdout_schema_and_registry_rows_preserve_task_specific_metrics() -> None:
@@ -548,7 +603,7 @@ def test_holdout_ledger_and_report_fail_closed_on_incoherent_state(tmp_path: Pat
             component,
             created_at=datetime(2026, 1, 3),
         )
-    with pytest.raises(ValueError, match="ordered 1d/5d/20d"):
+    with pytest.raises(ValueError, match="ordered 5d/20d or 1d/5d/20d"):
         _report_fixture(
             selection,
             ledger,
@@ -1039,6 +1094,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     environment = os.environ.copy()
     environment["JQUANTS_API_KEY"] = "test-placeholder-never-print"
     feature_before = feature_path.read_bytes()
+    campaign_root = tmp_path / "株AI campaigns"
 
     status_command = [
         str(powershell),
@@ -1055,8 +1111,10 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
         str(build_path),
         "-CodeCommit",
         "unused-for-read-only-status",
+        "-RunDiagnostics",
+        "1",
         "-CampaignRoot",
-        str(tmp_path / "campaigns"),
+        str(campaign_root),
     ]
     status = subprocess.run(
         status_command,
@@ -1077,7 +1135,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     ]
     assert "test-placeholder-never-print" not in status.stdout + status.stderr
     assert feature_path.read_bytes() == feature_before
-    assert not (tmp_path / "campaigns").exists()
+    assert not campaign_root.exists()
 
     registration = subprocess.run(
         [
@@ -1104,7 +1162,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     )
     assert registration.returncode == 0, registration.stderr
     assert "-TuningTrials 20" in registration.stdout
-    assert "-RunDiagnostics:true" in registration.stdout
+    assert "-RunDiagnostics 1" in registration.stdout
     assert "holdout_accessed" in registration.stdout
     assert ": False" in registration.stdout
 
@@ -1161,8 +1219,7 @@ def test_candidate_runner_status_and_registration_are_read_only(tmp_path: Path) 
     reused_pid.child_pid = os.getpid()
     reused_pid.started_at = datetime(2000, 1, 1, tzinfo=UTC)
     campaign_path = (
-        tmp_path
-        / "campaigns"
+        campaign_root
         / feature_selection.feature_selection_id
         / "h1.json"
     )

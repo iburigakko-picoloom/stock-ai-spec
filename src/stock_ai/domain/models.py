@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -228,9 +228,12 @@ class MorningPredictionRevision(DomainModel):
 
 
 class Prediction(DomainModel):
+    schema_version: Literal[1, 2] = 1
+    active_horizons: tuple[int, ...] = (1, 5, 20)
+    risk_horizon: Literal[5, 20] | None = None
     symbol: str = Field(min_length=1)
     as_of: datetime
-    expected_return_1d: float
+    expected_return_1d: float | None
     expected_return_5d: float
     expected_return_20d: float
     downside_quantile: float
@@ -251,13 +254,23 @@ class Prediction(DomainModel):
         "large_loss_probability",
     )
     @classmethod
-    def finite_prediction_values(cls, value: float) -> float:
-        if not math.isfinite(value):
+    def finite_prediction_values(cls, value: float | None) -> float | None:
+        if value is not None and not math.isfinite(value):
             raise ValueError("prediction values must be finite")
         return value
 
     @model_validator(mode="after")
     def coherent_morning_revision(self) -> Self:
+        if self.schema_version == 1:
+            if self.active_horizons != (1, 5, 20) or self.expected_return_1d is None:
+                raise ValueError("legacy predictions require all three horizons")
+        elif (
+            self.active_horizons != (5, 20)
+            or self.expected_return_1d is not None
+            or self.risk_horizon != 20
+            or self.morning_revision is not None
+        ):
+            raise ValueError("daily v2 requires 5d/20d, no 1d or morning revision, and 20d risk")
         revision = self.morning_revision
         if revision is None:
             return self
@@ -469,6 +482,22 @@ class MorningDecisionAudit(DomainModel):
         return self
 
 
+class DailyDecisionAudit(DomainModel):
+    """Research lineage for a daily-only proposal, independent of morning data."""
+
+    as_of: datetime
+    forecast_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    market_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    portfolio_content_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    candidate_evidence_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    # A personal snapshot comparison authenticates its original PredictionSnapshot
+    # in the enclosing receipt; it must not invent two development report IDs.
+    source_report_ids: tuple[str, str] | tuple[()]
+    is_research_only: Literal[True] = True
+
+    _aware = field_validator("as_of")(_require_aware)
+
+
 class PortfolioProposal(DomainModel):
     proposal_id: str = Field(min_length=1)
     as_of: datetime
@@ -487,6 +516,7 @@ class PortfolioProposal(DomainModel):
     tax_policy_id: str = Field(min_length=1)
     tax_policy_version: str = Field(min_length=1)
     morning_audit: MorningDecisionAudit | None = None
+    daily_audit: DailyDecisionAudit | None = None
     is_research_only: bool = False
     no_trade_reason: str | None = None
     is_order_instruction: bool = False
@@ -510,8 +540,13 @@ class PortfolioProposal(DomainModel):
             raise ValueError("proposal generated_at cannot precede its as_of")
         if self.net_improvement != self.proposed_utility - self.hold_utility:
             raise ValueError("proposal net improvement must equal proposed minus HOLD utility")
-        if self.morning_audit is None and self.is_research_only:
-            raise ValueError("research-only proposal requires morning Decision audit lineage")
+        if self.morning_audit is not None and self.daily_audit is not None:
+            raise ValueError("daily and morning proposal lineage cannot be mixed")
+        if self.morning_audit is None and self.daily_audit is None and self.is_research_only:
+            raise ValueError("research-only proposal requires Decision audit lineage")
+        if self.daily_audit is not None:
+            if not self.is_research_only or self.daily_audit.as_of != self.as_of:
+                raise ValueError("daily proposal research lineage must match proposal as_of")
         if self.morning_audit is not None:
             if not self.is_research_only or self.morning_audit.as_of != self.as_of:
                 raise ValueError("morning proposal research lineage must match proposal as_of")

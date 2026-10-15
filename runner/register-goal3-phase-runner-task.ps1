@@ -19,7 +19,7 @@ if ($Action -eq 'show') {
         task_name = $TaskName
         executable = $WindowsPowerShell
         arguments = $arguments
-        sequence = 'boundary seed17 -> 1d screen -> 5d/20d screen -> evaluation-ready'
+        sequence = '1d screen -> fixed decision -> 5d full ablation -> 20d full ablation -> optional 1d full ablation -> feature-selection-ready'
         current_worker_action = 'none; waits on existing runner lock'
         progress_command = 'powershell -NoProfile -ExecutionPolicy Bypass -File runner/goal3-phase-runner.ps1 -Action status'
         locked_holdout_accessed = $false
@@ -51,7 +51,7 @@ Register-ScheduledTask `
     -Action $actionDefinition `
     -Trigger @($atLogon, $repeating) `
     -Settings $settings `
-    -Description 'Run precommitted Goal 3 screening phases after the active seed17 reaches its safe boundary; never opens locked holdout.' `
+    -Description 'Run Goal 3 one-day screening, then authenticated full ablation phases after the fixed one-day decision; never opens locked holdout.' `
     -Force | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 "installed=$TaskName current_worker_action=none holdout_accessed=false"

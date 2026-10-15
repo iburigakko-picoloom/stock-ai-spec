@@ -1,0 +1,390 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\manat\app\��AI\stock-ai-spec\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\manat\app\��AI\stock-ai-spec
+configfile: pyproject.toml
+plugins: anyio-4.14.2, cov-7.1.0
+collecting ... collected 4 items
+
+tests/test_mobile_runtime.py::test_shared_api_runs_without_server_and_preserves_no_order_boundary FAILED
+tests/test_mobile_runtime.py::test_unknown_manual_inputs_survive_restart_and_exact_backup FAILED
+tests/test_mobile_runtime.py::test_invalid_input_does_not_publish_revision PASSED
+tests/test_mobile_runtime.py::test_core_views_work_in_embedded_dispatch FAILED
+
+================================== FAILURES ===================================
+_____ test_shared_api_runs_without_server_and_preserves_no_order_boundary _____
+
+device = <module 'mobile.python.runtime' from 'C:\\Users\\manat\\app\\��AI\\stock-ai-spec\\mobile\\python\\runtime.py'>
+
+    def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):
+>       response = run(device, 'GET', '/api/v1/health')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_mobile_runtime.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_mobile_runtime.py:20: in run
+    return asyncio.run(device.request(method, path, json.dumps(body)))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:687: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+mobile\python\runtime.py:110: in request
+    response = await client.request(method, path, content=body if method == 'POST' else None,
+.venv\Lib\site-packages\httpx\_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_transports\asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\stock_ai\operations\api.py:352: in security_headers
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\middleware\base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+.venv\Lib\site-packages\starlette\middleware\base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:2734: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:1281: in handle
+    await super().handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:280: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:65: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:62: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+request = <starlette.requests.Request object at 0x000001FCED0DEAE0>
+
+    async def app(request: Request) -> Response:
+        response: Response | None = None
+        file_stack = request.scope.get("fastapi_middleware_astack")
+        assert isinstance(file_stack, AsyncExitStack), (
+            "fastapi_middleware_astack not found in request scope"
+        )
+    
+        # Extract endpoint context for error messages
+        endpoint_ctx = (
+            _extract_endpoint_context(dependant.call)
+            if dependant.call
+            else EndpointContext()
+        )
+    
+        if dependant.path:
+            # For mounted sub-apps, include the mount path prefix
+            mount_path = request.scope.get("root_path", "").rstrip("/")
+            endpoint_ctx["path"] = f"{request.method} {mount_path}{dependant.path}"
+    
+        # Read body and auto-close files
+        try:
+            body: Any = None
+            if body_field:
+                if is_body_form:
+                    body = await request.form()
+                    file_stack.push_async_callback(body.close)
+                else:
+                    body_bytes = await request.body()
+                    if body_bytes:
+                        json_body: Any = Undefined
+                        content_type_value = request.headers.get("content-type")
+                        if not content_type_value:
+                            if not actual_strict_content_type:
+                                json_body = await request.json()
+                        else:
+                            message = email.message.Message()
+                            message["content-type"] = content_type_value
+                            if message.get_content_maintype() == "application":
+                                subtype = message.get_content_subtype()
+                                if subtype == "json" or subtype.endswith("+json"):
+                                    json_body = await request.json()
+                        if json_body != Undefined:
+                            body = json_body
+                        else:
+                            body = body_bytes
+        except json.JSONDecodeError as e:
+            validation_error = RequestValidationError(
+                [
+                    {
+                        "type": "json_invalid",
+                        "loc": ("body", e.pos),
+                        "msg": "JSON decode error",
+                        "input": {},
+                        "ctx": {"error": e.msg},
+                    }
+                ],
+                body=e.doc,
+                endpoint_ctx=endpoint_ctx,
+            )
+            raise validation_error from e
+        except HTTPException:
+            # If a middleware raises an HTTPException, it should be raised again
+            raise
+        except Exception as e:
+            http_error = HTTPException(
+                status_code=400, detail="There was an error parsing the body"
+            )
+            raise http_error from e
+    
+        # Solve dependencies and run path operation function, auto-closing dependencies
+        errors: list[Any] = []
+        async_exit_stack = request.scope.get("fastapi_inner_astack")
+>       assert isinstance(async_exit_stack, AsyncExitStack), (
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "fastapi_inner_astack not found in request scope"
+        )
+E       AssertionError: fastapi_inner_astack not found in request scope
+
+.venv\Lib\site-packages\fastapi\routing.py:478: AssertionError
+_________ test_unknown_manual_inputs_survive_restart_and_exact_backup _________
+
+device = <module 'mobile.python.runtime' from 'C:\\Users\\manat\\app\\��AI\\stock-ai-spec\\mobile\\python\\runtime.py'>
+
+    def test_unknown_manual_inputs_survive_restart_and_exact_backup(device):
+        value = {'schema_version': 'manual-portfolio-v1', 'holdings_status': 'none',
+                 'investment_budget_yen': None, 'maximum_drawdown_percent': None,
+                 'accounts': [], 'holdings': []}
+        assert run(device, 'POST', '/api/v1/mobile/portfolio', value)['status'] == 200
+        before = run(device, 'GET', '/api/v1/mobile/portfolio')['body']
+        backup = device.export_state()
+>       device.initialize(backup)
+
+tests\test_mobile_runtime.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+encoded = 'UEsDBBQAAAAIANxWT13LyvOlPw4AAAAwAwASAAAAb3BlcmF0aW9ucy5zcWxpdGUz7dtdb9zWmcDxGb3M6F123mgnVUUncaSJpXjHhh10HcErO7RWjSLFY...NxbGl0ZTNQSwECFAAUAAAACADcVk9d1hQy/VkBAAAAIAAADgAAAAAAAAAAAAAAgAFvDgAAbW9iaWxlLnNxbGl0ZTNQSwUGAAAAAAIAAgB8AAAA9A8AAAAA'
+
+    def initialize(encoded: str = '') -> dict:
+        global _app
+        STATE.mkdir(exist_ok=True)
+        if encoded:
+            with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded, validate=True))) as archive:
+                if set(archive.namelist()) - {'operations.sqlite3', 'mobile.sqlite3'}:
+                    raise ValueError('Unexpected backup file')
+                for name in archive.namelist():
+                    info = archive.getinfo(name)
+                    if info.file_size > 256 * 1024 * 1024:
+                        raise ValueError('Backup exceeds mobile storage limit')
+                    content = archive.read(name)
+                    if not content.startswith(b'SQLite format 3\x00'):
+                        raise ValueError('Invalid SQLite backup')
+                    # Verify BEFORE replacing any current state.
+                    probe = sqlite3.connect(':memory:')
+                    probe.deserialize(content)
+>                   if probe.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   sqlite3.OperationalError: unable to open database file
+
+mobile\python\runtime.py:48: OperationalError
+__________________ test_core_views_work_in_embedded_dispatch __________________
+
+device = <module 'mobile.python.runtime' from 'C:\\Users\\manat\\app\\��AI\\stock-ai-spec\\mobile\\python\\runtime.py'>
+
+    def test_core_views_work_in_embedded_dispatch(device):
+        for name in ('status', 'home', 'today', 'settings', 'ranking', 'validation', 'notifications'):
+>           assert run(device, 'GET', '/api/v1/' + name)['status'] == 200, name
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_mobile_runtime.py:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_mobile_runtime.py:20: in run
+    return asyncio.run(device.request(method, path, json.dumps(body)))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:194: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:687: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+mobile\python\runtime.py:110: in request
+    response = await client.request(method, path, content=body if method == 'POST' else None,
+.venv\Lib\site-packages\httpx\_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv\Lib\site-packages\httpx\_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv\Lib\site-packages\httpx\_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\httpx\_transports\asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv\Lib\site-packages\starlette\middleware\base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\stock_ai\operations\api.py:352: in security_headers
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\middleware\base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+.venv\Lib\site-packages\starlette\middleware\base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:2734: in app
+    await route.handle(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:1281: in handle
+    await super().handle(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:280: in handle
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:65: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv\Lib\site-packages\starlette\routing.py:62: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+request = <starlette.requests.Request object at 0x000001FCED70CB60>
+
+    async def app(request: Request) -> Response:
+        response: Response | None = None
+        file_stack = request.scope.get("fastapi_middleware_astack")
+        assert isinstance(file_stack, AsyncExitStack), (
+            "fastapi_middleware_astack not found in request scope"
+        )
+    
+        # Extract endpoint context for error messages
+        endpoint_ctx = (
+            _extract_endpoint_context(dependant.call)
+            if dependant.call
+            else EndpointContext()
+        )
+    
+        if dependant.path:
+            # For mounted sub-apps, include the mount path prefix
+            mount_path = request.scope.get("root_path", "").rstrip("/")
+            endpoint_ctx["path"] = f"{request.method} {mount_path}{dependant.path}"
+    
+        # Read body and auto-close files
+        try:
+            body: Any = None
+            if body_field:
+                if is_body_form:
+                    body = await request.form()
+                    file_stack.push_async_callback(body.close)
+                else:
+                    body_bytes = await request.body()
+                    if body_bytes:
+                        json_body: Any = Undefined
+                        content_type_value = request.headers.get("content-type")
+                        if not content_type_value:
+                            if not actual_strict_content_type:
+                                json_body = await request.json()
+                        else:
+                            message = email.message.Message()
+                            message["content-type"] = content_type_value
+                            if message.get_content_maintype() == "application":
+                                subtype = message.get_content_subtype()
+                                if subtype == "json" or subtype.endswith("+json"):
+                                    json_body = await request.json()
+                        if json_body != Undefined:
+                            body = json_body
+                        else:
+                            body = body_bytes
+        except json.JSONDecodeError as e:
+            validation_error = RequestValidationError(
+                [
+                    {
+                        "type": "json_invalid",
+                        "loc": ("body", e.pos),
+                        "msg": "JSON decode error",
+                        "input": {},
+                        "ctx": {"error": e.msg},
+                    }
+                ],
+                body=e.doc,
+                endpoint_ctx=endpoint_ctx,
+            )
+            raise validation_error from e
+        except HTTPException:
+            # If a middleware raises an HTTPException, it should be raised again
+            raise
+        except Exception as e:
+            http_error = HTTPException(
+                status_code=400, detail="There was an error parsing the body"
+            )
+            raise http_error from e
+    
+        # Solve dependencies and run path operation function, auto-closing dependencies
+        errors: list[Any] = []
+        async_exit_stack = request.scope.get("fastapi_inner_astack")
+>       assert isinstance(async_exit_stack, AsyncExitStack), (
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "fastapi_inner_astack not found in request scope"
+        )
+E       AssertionError: fastapi_inner_astack not found in request scope
+
+.venv\Lib\site-packages\fastapi\routing.py:478: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_mobile_runtime.py::test_shared_api_runs_without_server_and_preserves_no_order_boundary - AssertionError: fastapi_inner_astack not found in request scope
+FAILED tests/test_mobile_runtime.py::test_unknown_manual_inputs_survive_restart_and_exact_backup - sqlite3.OperationalError: unable to open database file
+FAILED tests/test_mobile_runtime.py::test_core_views_work_in_embedded_dispatch - AssertionError: fastapi_inner_astack not found in request scope
+========================= 3 failed, 1 passed in 1.52s =========================

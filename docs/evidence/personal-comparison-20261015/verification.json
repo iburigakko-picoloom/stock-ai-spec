@@ -1,0 +1,36 @@
+{
+  "related_tests_passed": 129,
+  "final_personal_tests_passed": 34,
+  "personal_module_coverage_percent": 92.65536723163842,
+  "targeted_coverage_is_not_full_repository_coverage": true,
+  "ruff": "PASS",
+  "mypy_modules": 63,
+  "full_regression": "PASS",
+  "source_sha256": {
+    "src/stock_ai/operations/personal.py": "6f9d4a39a6ba086b4ddf0bd5bab25f05ed59179e4df7fcd5b47a14ce720f5ffb",
+    "src/stock_ai/operations/api.py": "f411ed27ea1ea0107637887291ea18c62bca84c0692c71d7f05dfa5934bf07f8",
+    "src/stock_ai/cli.py": "6ac1ca8ecc5687169af6823ee9a91ef3693febb35022d3c887a54c722b3d21ef",
+    "src/stock_ai/decision/engine.py": "fb8eada029ba6f42c7002ef00c412452fe418d64e76b0a0cdb880a0065f1197e",
+    "src/stock_ai/domain/models.py": "5cf39880c8264cd0b68629e8e5bbfc10b51aa9c6b0d393f1110257bf9c4c33f3",
+    "tests/test_personal_comparison.py": "4c9c76c35f14b6f1df430bc3b707a3a18bbcd17251b406aa4472e032a2ea8f08"
+  },
+  "evidence_sha256": {
+    ".demo-artifacts\\tests-personal-targeted-4.log": "9ffff7c4c713f4b886a8616960e82218993034bc7822c020d8ae4a674b0c2bc1",
+    ".demo-artifacts\\tests-personal-targeted-6.log": "c61f62928c21bd7edc2b2e9f7a3cbf383fccc3715767ac1242932e23db47e81e",
+    ".demo-artifacts\\personal-ruff-final.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    ".demo-artifacts\\personal-mypy-final.log": "f2c516ba5ce01d3c6f76ca55c2f89cff34c5cbc868b35fbc747e978d235dfa09",
+    ".demo-artifacts\\coverage-personal-targeted-6.json": "d38703f659812aa27ec08ef2685e777fabcd777c180fda645a0583f7bc548476",
+    ".demo-artifacts\\personal-live-release-verification.json": "c3ea41f5809b3eb40f588159f4e94a302436add6935267f777447831998aa565"
+  },
+  "earlier_failures_retained": [
+    "tests-personal-targeted-1.log",
+    "tests-personal-targeted-2.log",
+    "tests-personal-targeted-3.log"
+  ],
+  "research_only": true,
+  "model_adopted": false,
+  "no_order_sent": true,
+  "source_commit": "7eea42a44642ad6ddf520c5359edfb7295c000f8",
+  "full_tests_passed": 747,
+  "full_coverage_percent": 86.95141865686875
+}

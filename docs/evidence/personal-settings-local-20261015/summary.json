@@ -1,0 +1,84 @@
+{
+  "status": "LOCAL_VERIFIED_UNPUBLISHED_USER_PAUSE",
+  "recorded_at": "2026-10-15T01:17:21.510137+00:00",
+  "main_base_commit": "a2c26bd1895098c5014f493962d2988108f53249",
+  "selected_sites_source_base_commit": "0073ca93f1cf2fcc8947f7d15fda86615bc56261",
+  "production_site_version": 3,
+  "deployed": false,
+  "copied_source_sha256": {
+    "private/app/globals.css": "d811ea105f8b58659c709497dededb35b695636f4539670a95a2f8898a283830",
+    "private/app/page.tsx": "1ab9c0889b9f199ddb3937b2239ea0fb6795fd6afa0b01062bf91a6ff611f2f4",
+    "private/app/portfolio/page.tsx": "0f67d338503340691aa55e7c2d2e0e4bfd6da10a4e2fbe211750a855f2e578b5",
+    "private/db/schema.ts": "7285c18bef4cda74971cf9cd9b066c43f0bf17214283adb2deed910902e05e3d",
+    "private/drizzle/meta/_journal.json": "7fe6575d7a731c39c675c955e6a0975cdc958265a9ec210dca6e50a48979c4dd",
+    "private/drizzle/0003_omniscient_tiger_shark.sql": "5c8986537d039b51f9dccc97a82a2eea008203150458ff2c02e397246bf8d87c",
+    "private/drizzle/meta/0003_snapshot.json": "d192874955e0afb3e55e3439cbe172526901a2b7843170926a52b2d7f6d63b35",
+    "private/lib/personal-settings.ts": "cce42a1114569439f2c4554b0bb1a1fa6404437308e1bd2cf667242e173c63da",
+    "private/lib/settings-export.ts": "7bc3c181a8ba2881078c8c7a4668d3212cfd23db9ae8ab817833ad5622eb87cb",
+    "private/lib/settings-store.ts": "88dd42457999c3f2ab8ac1f360b94f59bb3380bec81f179cb11187c73e50db07",
+    "private/app/api/personal-settings/route.ts": "816b70cf658295c4a9b36b6c7be08f970125f198c39581131be9a28d9ff629db",
+    "private/app/api/personal-settings/export/route.ts": "a53ee68d8af0098c6cb6cbfd77383ccf0a895c7640b2071ab1eb7095c94eb8a8",
+    "private/app/settings/page.tsx": "2c8f9871f149cc3e56efc8f592d35d7d97269a87c77dcd477ee206d2920772fe",
+    "private/app/settings/settings-form.tsx": "c6422d829a25d6f1de6ccf3b0ae2c226672ad45bd3f1d1261430c541f31085c2",
+    "private/tests/personal-settings.test.mjs": "98ed28e529cbb87ef160d1c68849533fa688da832219e81f89c4a44a2f6182df"
+  },
+  "logs_sha256": {
+    "personal-settings-typecheck-1.log": "ec05eb76d1f6e71bb66e815469ec441e05edfc0ccab914b3228fa006535864fe",
+    "personal-settings-typecheck-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "personal-settings-lint-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "personal-settings-lint-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "personal-settings-build-1.log": "8cce3cdb2cd9aea9b0ee01c96f920e6059b9a1962d0e9bd032afd2f6c1427206"
+  },
+  "verification": {
+    "node_tests": {
+      "command": "node --experimental-strip-types --test tests/portfolio.test.mjs tests/portfolio-export.test.mjs tests/personal-settings.test.mjs",
+      "passed": 22,
+      "failed": 0,
+      "evidence": "Observed tool output; no persistent test log was captured."
+    },
+    "typecheck": {
+      "command": "node node_modules/typescript/bin/tsc --noEmit",
+      "final_exit_code": 0,
+      "initial_errors": "Three TS18046 unknown JSON response errors; fixed with a type guard; initial log retained."
+    },
+    "eslint": {
+      "full_exit_code": 0,
+      "changed_form_after_type_fix_exit_code": 0
+    },
+    "sites_official_build_exit_code": 0,
+    "local_d1_migrations": "All four migrations applied successfully to local DB only.",
+    "browser": {
+      "url": "http://127.0.0.1:5193/settings",
+      "scope": "Local mock-auth test user only",
+      "confirmed": [
+        "Create no-holdings portfolio, zero accounts, null budget/risk.",
+        "Navigate to supplemental settings.",
+        "Save unknown supplemental values and observe success/saved timestamp/export button."
+      ],
+      "not_yet_verified": [
+        "Populated account UI",
+        "HTTP integration security/concurrency",
+        "Browser export",
+        "Mobile layout"
+      ]
+    },
+    "existing_python_regression": "747 PASS / 86.95141865686875% on 7eea42a; Python source unchanged since then."
+  },
+  "owned_preview": {
+    "session_id": 19454,
+    "stopped_by": "Ctrl-C",
+    "exit_code": 1,
+    "port_5193_listener_after_stop": false
+  },
+  "remaining": [
+    "Complete additional account/API/export/mobile QA before publication.",
+    "Implement supplemental settings PC import and explicit initial ledger reconciliation/confirmation.",
+    "Connect cloud personal comparison results to authenticated PC receipts.",
+    "Complete corporate-action/execution/settlement/cost/tax stateful NAV comparisons.",
+    "Freeze model/config, review holdout access history, perform final evaluation without reselection.",
+    "Resolve J-Quants403, latest refit/inference/sync, and forward-evaluation/adoption evidence."
+  ],
+  "no_order_sent": true,
+  "no_production_personal_input_changed": true,
+  "model_adopted": false
+}

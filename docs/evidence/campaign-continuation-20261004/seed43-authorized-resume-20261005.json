@@ -1,0 +1,176 @@
+{
+  "verified_at_utc": "2026-10-05T10:23:13.315761+00:00",
+  "status": "AUTHORIZED_RESUME_ACTIVE",
+  "worker_pid": 16756,
+  "source_pin": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "config_hash": "b5f608c4b6401a80c451ce7ca479ea62434c6684c38761bfc734ddea237082fc",
+  "preserved_successful_units": 16,
+  "preserved_unit_ids": [
+    "05870aa1a352a9d2c817569f0f9f0f7da31576b7a3ef270998a412b16eddddae",
+    "065f08488395daa647eb9b880a006260dbd38873c01666e69ce904cb4fe432d9",
+    "076d7a7045bdc727fd185ff48cfa75fad904a72b3a38de4529b0e658b15843d1",
+    "1f017185f214b9161e22ac50d8efffb0cb5145b99b183d33537c1a13605a9672",
+    "21619043a794f0293e513b948cf91648571e7415e54720ee7f51b5a53d167303",
+    "2717d166003edc37bb49da52cb48281ce2c611a2bc0d67efcfc546e5bc308bc6",
+    "2c87c66a2cdaf8e85aabea556bce1f5d52a02781fd0d53863989aa354af96149",
+    "3601a105635144a83266add6920d82087524a17abfb868107fbaa48b42979cac",
+    "46bdc5b8aae55dc3957a0edf22ab610f35e1a7a87a804b7b9e5aab3372d57a91",
+    "786ab1d00cda49071b4b4d3c82f9b4d59ea58236034f8cc9c872502fec719ca6",
+    "94c90f414422bc166e6bb60608696274f5afd327ad4731282f4619ea50061687",
+    "a06083e5215c484e2409ece4e41626d25effd8a3cb73a32f41d0ed1a8f1c4e8e",
+    "b3bb57c0c1a6a2af03d2d524171fb37373de9071bfbb15b2db85938751aed799",
+    "d5dd951060075028611a19d9c5ddd665f94c726cdcd74690d19f98355017cfa6",
+    "de7ce98f299523218b6889e95877be9ea6663ed028a45096cd6429cf264824bb",
+    "eec732ccc3d88d0b02f8f567afbdf279497bd360e1a33c7a99c24a1460c9305e"
+  ],
+  "resumed_unit": {
+    "artifact": null,
+    "attempts": 2,
+    "error_code": null,
+    "evidence": {
+      "checkpoint_scope": "outer-model-evaluation",
+      "config_hash": "b5f608c4b6401a80c451ce7ca479ea62434c6684c38761bfc734ddea237082fc",
+      "feature_names": [
+        "price.return_1d",
+        "price.return_5d",
+        "price.return_20d",
+        "price.return_60d",
+        "price.return_120d",
+        "risk.realized_vol_20d",
+        "risk.realized_vol_60d",
+        "volume.ratio_20d",
+        "liquidity.trading_value",
+        "liquidity.trading_value_mean_20d",
+        "price.distance_52w_high",
+        "relative.topix_5d",
+        "relative.topix_20d",
+        "relative.topix_60d",
+        "relative.sector_5d",
+        "relative.sector_20d",
+        "relative.sector_60d",
+        "fundamental.per",
+        "fundamental.pbr",
+        "fundamental.roe",
+        "fundamental.operating_margin",
+        "fundamental.revenue_growth_yoy",
+        "fundamental.operating_profit_growth_yoy",
+        "fundamental.forecast_revision",
+        "macd.value_pct_price",
+        "macd.signal_pct_price",
+        "macd.histogram_pct_price",
+        "macd.golden_cross",
+        "macd.dead_cross",
+        "macd.days_since_golden_cross",
+        "macd.days_since_dead_cross",
+        "candle.body_pct_close",
+        "candle.body_to_range",
+        "candle.upper_wick_ratio",
+        "candle.lower_wick_ratio",
+        "candle.close_location",
+        "candle.gap_pct",
+        "breakout.above_20d_high",
+        "breakout.below_20d_low",
+        "breakout.above_60d_high",
+        "breakout.below_60d_low"
+      ],
+      "fold": 4,
+      "horizon": 5,
+      "label_end_column": "label_end_date_5d",
+      "model_family": "catboost",
+      "parameters": {
+        "depth": 4,
+        "l2": 0.0013063372103949843,
+        "learning_rate": 0.07654198821977654
+      },
+      "seed": 43,
+      "target_column": "target_return_5d",
+      "task": "ranking",
+      "train_end": "2025-04-09T00:00:00",
+      "train_indices_sha256": "6da96aa163f7d5c318d1bbd6ecc0667207d4d644c03ef2416cfacfc9c299a7af",
+      "train_rows": 2751151,
+      "train_start": "2022-04-04T00:00:00",
+      "validation_end": "2025-07-15T00:00:00",
+      "validation_indices_sha256": "68d628beba779d89ac0c72664840e85761bcca8479968986b76ca013aee44596",
+      "validation_not_before": "2024-07-31T00:00:00",
+      "validation_rows": 224522,
+      "validation_start": "2025-04-18T00:00:00"
+    },
+    "status": "RUNNING",
+    "unit_id": "0a4fdce905c9d42909f154c63fb87de9815631b6a9bf19ccde9e473070368245",
+    "updated_at": "2026-10-05T10:21:04.115394+00:00"
+  },
+  "new_fit_guard_checks": [
+    {
+      "checked_at_utc": "2026-10-05T10:22:13.801769+00:00",
+      "available_gib": 4.6907806396484375,
+      "available_gib_before_unused_cleanup": 4.6907806396484375,
+      "arrow_unused_cleanup_attempted": false,
+      "minimum_gib": 3.5,
+      "passed": true
+    }
+  ],
+  "snapshot": {
+    "CheckedAtJst": "2026-10-05T19:22:53.7199833+09:00",
+    "WorkerPid": 16756,
+    "WorkerAlive": true,
+    "LogicalStockWorkers": 1,
+    "CurrentProcessCommandLine": "\"C:\\Users\\manat\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\stock_seed43_resume_worker.py\" --repository \"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\" --campaign \"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h5-continuation.json\" --worker-record \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\runtime\\worker.json\" --scratch-root \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\runtime\\scratch\"",
+    "StockPythonProcesses": [
+      {
+        "ProcessId": 27864,
+        "ParentProcessId": 18428,
+        "CommandLine": "\"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\.venv\\Scripts\\python.exe\" \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\stock_seed43_resume_worker.py\" --repository \"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\" --campaign \"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h5-continuation.json\" --worker-record \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\runtime\\worker.json\" --scratch-root \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\runtime\\scratch\""
+      },
+      {
+        "ProcessId": 16756,
+        "ParentProcessId": 27864,
+        "CommandLine": "\"C:\\Users\\manat\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\stock_seed43_resume_worker.py\" --repository \"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\" --campaign \"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h5-continuation.json\" --worker-record \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\runtime\\worker.json\" --scratch-root \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\runtime\\scratch\""
+      }
+    ],
+    "WorkerPhase": "RESEARCH_PREPARATION",
+    "WorkerError": null,
+    "WorkerUpdatedAt": "2026-10-05T19:20:29.650556+09:00",
+    "CpuTotalSeconds": 351.5625,
+    "AvailablePhysicalGiB": 3.8363113403320312,
+    "WorkingSetGiB": 3.624603271484375,
+    "SucceededUnits": 16,
+    "FailedUnits": 0,
+    "NonSucceededUnits": [
+      {
+        "Task": "ranking",
+        "Fold": 4,
+        "Status": "RUNNING",
+        "Attempts": 2,
+        "UpdatedAt": "2026-10-05T19:21:04.115394+09:00"
+      }
+    ],
+    "CheckpointFileUpdatedAtUtc": "2026-10-05T10:21:04.1164883Z",
+    "FitGuards": [
+      {
+        "checked_at_utc": "2026-10-05T19:22:13.801769+09:00",
+        "available_gib": 4.6907806396484375,
+        "available_gib_before_unused_cleanup": 4.6907806396484375,
+        "arrow_unused_cleanup_attempted": false,
+        "minimum_gib": 3.5,
+        "passed": true
+      }
+    ],
+    "StdoutTail": [
+      "2026-10-05T10:18:03.220168+00:00 AUTHENTICATING_INPUT",
+      "2026-10-05T10:20:29.647575+00:00 INPUT_AUTHENTICATED",
+      "2026-10-05T10:20:29.650556+00:00 RESEARCH_PREPARATION"
+    ],
+    "StderrTail": [],
+    "OneOffReadOnlySnapshot": true
+  },
+  "old_logs_unchanged": true,
+  "ranking4_partial_reuse": false,
+  "native_checkpoint_resume": true,
+  "active_runtime": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\authorized-resume-20261005\\runtime",
+  "active_runtime_pointer": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\active-runtime.json",
+  "no_additional_observer_or_automation": true,
+  "no_auto_restart": true,
+  "human_progress_cadence_hours": 12,
+  "scientific_source_unchanged": true,
+  "real_estimator_fit_completion_unconfirmed": true
+}

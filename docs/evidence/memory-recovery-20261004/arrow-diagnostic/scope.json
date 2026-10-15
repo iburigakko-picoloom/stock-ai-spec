@@ -1,0 +1,11 @@
+{
+  "checked_at_utc": "2026-10-04T07:07:35.184696+00:00",
+  "passing_tests": 93,
+  "max_unused_pool_cleanup_attempts_per_workspace": 1,
+  "cleanup_only_when_current_fit_guard_insufficient": true,
+  "threshold_gib": 3.5,
+  "live_arrow_buffer_bits_and_dtype_preserved": true,
+  "all_model_classes_and_constants_unchanged": true,
+  "actual_allocator_effect_unverified": true,
+  "api_reference": "https://arrow.apache.org/docs/23.0/python/generated/pyarrow.MemoryPool.html#pyarrow.MemoryPool.release_unused"
+}

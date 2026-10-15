@@ -1,0 +1,481 @@
+{
+  "schema_version": 1,
+  "config": {
+    "version": "rebuild-v04",
+    "purpose": "Synthetic evaluation-method calibration; no stock data or holdout",
+    "master_seed": 20261012,
+    "n_days": 504,
+    "outer_repetitions": 600,
+    "bootstrap_repetitions": 399,
+    "confidence": 0.95,
+    "stationary_mean_block_lengths": [
+      20,
+      60
+    ],
+    "null_scenarios": [
+      {
+        "name": "iid_day",
+        "horizon": 1,
+        "rho": 0.0
+      },
+      {
+        "name": "overlap20",
+        "horizon": 20,
+        "rho": 0.0
+      },
+      {
+        "name": "overlap20_slow",
+        "horizon": 20,
+        "rho": 0.98
+      }
+    ],
+    "selection_candidates": 9,
+    "selection_repetitions": 3000,
+    "power_shift": 0.3,
+    "fixture_gates": {
+      "overlap20_iid_positive_false_rate_min": 0.2,
+      "slow_sb60_positive_false_rate_min": 0.075,
+      "oracle_positive_false_rate_max": 0.07,
+      "oracle_coverage_range": [
+        0.915,
+        0.985
+      ]
+    },
+    "warning": "Diagnostic thresholds for this fixture only; not stock-model adoption criteria. Config frozen before first run; no seed or tolerance search."
+  },
+  "environment": {
+    "python": "3.12.3",
+    "numpy": "2.5.2",
+    "scipy": "1.18.1"
+  },
+  "null_results": [
+    {
+      "scenario": "iid_day",
+      "method": "iid_normal",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 12,
+      "positive_false_rate": 0.02,
+      "positive_false_wilson95": [
+        0.011477178627043526,
+        0.03463005434610916
+      ],
+      "coverage_count": 572,
+      "coverage": 0.9533333333333334,
+      "coverage_wilson95": [
+        0.9333806100851985,
+        0.9675181143290463
+      ],
+      "mean_interval_width": 0.1743122415988919,
+      "mean_estimated_variance": 0.001979389179913518,
+      "oracle_mean_variance": 0.001984126984126984,
+      "variance_ratio": 0.9976121466764131
+    },
+    {
+      "scenario": "iid_day",
+      "method": "stationary_L20",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 15,
+      "positive_false_rate": 0.025,
+      "positive_false_wilson95": [
+        0.015207839599852635,
+        0.040835776363163045
+      ],
+      "coverage_count": 563,
+      "coverage": 0.9383333333333334,
+      "coverage_wilson95": [
+        0.9161569372167724,
+        0.9549326382278833
+      ],
+      "mean_interval_width": 0.16368956598530626,
+      "mean_estimated_variance": 0.0018243276219093896,
+      "oracle_mean_variance": 0.001984126984126984,
+      "variance_ratio": 0.9194611214423324
+    },
+    {
+      "scenario": "iid_day",
+      "method": "stationary_L60",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 27,
+      "positive_false_rate": 0.045,
+      "positive_false_wilson95": [
+        0.03110848866772835,
+        0.0646806592547393
+      ],
+      "coverage_count": 540,
+      "coverage": 0.9,
+      "coverage_wilson95": [
+        0.8733923087771034,
+        0.9215183304119361
+      ],
+      "mean_interval_width": 0.1495738653515608,
+      "mean_estimated_variance": 0.001561620239818371,
+      "oracle_mean_variance": 0.001984126984126984,
+      "variance_ratio": 0.7870566008684591
+    },
+    {
+      "scenario": "iid_day",
+      "method": "oracle_gaussian",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 12,
+      "positive_false_rate": 0.02,
+      "positive_false_wilson95": [
+        0.011477178627043526,
+        0.03463005434610916
+      ],
+      "coverage_count": 571,
+      "coverage": 0.9516666666666667,
+      "coverage_wilson95": [
+        0.9314474971378495,
+        0.9661390996131076
+      ],
+      "mean_interval_width": 0.17460746953726616,
+      "mean_estimated_variance": 0.0019841269841269836,
+      "oracle_mean_variance": 0.001984126984126984,
+      "variance_ratio": 0.9999999999999998
+    },
+    {
+      "scenario": "overlap20",
+      "method": "iid_normal",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 205,
+      "positive_false_rate": 0.3416666666666667,
+      "positive_false_wilson95": [
+        0.3048327476564238,
+        0.3805151243312482
+      ],
+      "coverage_count": 189,
+      "coverage": 0.315,
+      "coverage_wilson95": [
+        0.279108313899091,
+        0.3532455154759783
+      ],
+      "mean_interval_width": 0.16942294806292504,
+      "mean_estimated_variance": 0.0018915902114957834,
+      "oracle_mean_variance": 0.03915895061728395,
+      "variance_ratio": 0.048305436731005624
+    },
+    {
+      "scenario": "overlap20",
+      "method": "stationary_L20",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 54,
+      "positive_false_rate": 0.09,
+      "positive_false_wilson95": [
+        0.06963382183008099,
+        0.1155827730011536
+      ],
+      "coverage_count": 499,
+      "coverage": 0.8316666666666667,
+      "coverage_wilson95": [
+        0.7996389415628021,
+        0.8594744634314432
+      ],
+      "mean_interval_width": 0.6046858703621393,
+      "mean_estimated_variance": 0.025252785822424795,
+      "oracle_mean_variance": 0.03915895061728395,
+      "variance_ratio": 0.6448790231697051
+    },
+    {
+      "scenario": "overlap20",
+      "method": "stationary_L60",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 62,
+      "positive_false_rate": 0.10333333333333333,
+      "positive_false_wilson95": [
+        0.08144748881477896,
+        0.1302661273227569
+      ],
+      "coverage_count": 486,
+      "coverage": 0.81,
+      "coverage_wilson95": [
+        0.7766757583686587,
+        0.839379987002847
+      ],
+      "mean_interval_width": 0.6108798832700337,
+      "mean_estimated_variance": 0.026728295101471355,
+      "oracle_mean_variance": 0.03915895061728395,
+      "variance_ratio": 0.6825590236750123
+    },
+    {
+      "scenario": "overlap20",
+      "method": "oracle_gaussian",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 21,
+      "positive_false_rate": 0.035,
+      "positive_false_wilson95": [
+        0.023004350476005058,
+        0.052912031466736606
+      ],
+      "coverage_count": 563,
+      "coverage": 0.9383333333333334,
+      "coverage_wilson95": [
+        0.9161569372167724,
+        0.9549326382278833
+      ],
+      "mean_interval_width": 0.7756996745078374,
+      "mean_estimated_variance": 0.03915895061728396,
+      "oracle_mean_variance": 0.03915895061728395,
+      "variance_ratio": 1.0000000000000002
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "iid_normal",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 263,
+      "positive_false_rate": 0.43833333333333335,
+      "positive_false_wilson95": [
+        0.39914803065478444,
+        0.4783032458035721
+      ],
+      "coverage_count": 74,
+      "coverage": 0.12333333333333334,
+      "coverage_wilson95": [
+        0.09939360586276594,
+        0.15206554223422195
+      ],
+      "mean_interval_width": 0.15153982556617113,
+      "mean_estimated_variance": 0.0015730788556121693,
+      "oracle_mean_variance": 0.2014318797909902,
+      "variance_ratio": 0.007809483073108526
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "stationary_L20",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 125,
+      "positive_false_rate": 0.20833333333333334,
+      "positive_false_wilson95": [
+        0.17774377208292694,
+        0.24263388684173184
+      ],
+      "coverage_count": 353,
+      "coverage": 0.5883333333333334,
+      "coverage_wilson95": [
+        0.5485145097653442,
+        0.6270282563889021
+      ],
+      "mean_interval_width": 0.7678897194981346,
+      "mean_estimated_variance": 0.04244111726554909,
+      "oracle_mean_variance": 0.2014318797909902,
+      "variance_ratio": 0.210697121575725
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "stationary_L60",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 108,
+      "positive_false_rate": 0.18,
+      "positive_false_wilson95": [
+        0.1513253010749538,
+        0.2127461875738147
+      ],
+      "coverage_count": 394,
+      "coverage": 0.6566666666666666,
+      "coverage_wilson95": [
+        0.6177849875650621,
+        0.6935550127839782
+      ],
+      "mean_interval_width": 0.9274540187101326,
+      "mean_estimated_variance": 0.06537407819293069,
+      "oracle_mean_variance": 0.2014318797909902,
+      "variance_ratio": 0.3245468307239358
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "oracle_gaussian",
+      "n_days": 504,
+      "repetitions": 600,
+      "positive_false_count": 22,
+      "positive_false_rate": 0.03666666666666667,
+      "positive_false_wilson95": [
+        0.024336895975690734,
+        0.05489161363033859
+      ],
+      "coverage_count": 568,
+      "coverage": 0.9466666666666667,
+      "coverage_wilson95": [
+        0.9256793173512055,
+        0.9619708964098885
+      ],
+      "mean_interval_width": 1.759309263764729,
+      "mean_estimated_variance": 0.2014318797909902,
+      "oracle_mean_variance": 0.2014318797909902,
+      "variance_ratio": 1.0
+    }
+  ],
+  "power_results": [
+    {
+      "scenario": "iid_day",
+      "method": "iid_normal",
+      "shift": 0.3,
+      "positive_detection_count": 600,
+      "power": 1.0,
+      "power_wilson95": [
+        0.9936382989862994,
+        1.0000000000000002
+      ]
+    },
+    {
+      "scenario": "iid_day",
+      "method": "stationary_L20",
+      "shift": 0.3,
+      "positive_detection_count": 600,
+      "power": 1.0,
+      "power_wilson95": [
+        0.9936382989862994,
+        1.0000000000000002
+      ]
+    },
+    {
+      "scenario": "iid_day",
+      "method": "stationary_L60",
+      "shift": 0.3,
+      "positive_detection_count": 600,
+      "power": 1.0,
+      "power_wilson95": [
+        0.9936382989862994,
+        1.0000000000000002
+      ]
+    },
+    {
+      "scenario": "iid_day",
+      "method": "oracle_gaussian",
+      "shift": 0.3,
+      "positive_detection_count": 600,
+      "power": 1.0,
+      "power_wilson95": [
+        0.9936382989862994,
+        1.0000000000000002
+      ]
+    },
+    {
+      "scenario": "overlap20",
+      "method": "iid_normal",
+      "shift": 0.3,
+      "positive_detection_count": 511,
+      "power": 0.8516666666666667,
+      "power_wilson95": [
+        0.8209921289550214,
+        0.8778668079986759
+      ]
+    },
+    {
+      "scenario": "overlap20",
+      "method": "stationary_L20",
+      "shift": 0.3,
+      "positive_detection_count": 297,
+      "power": 0.495,
+      "power_wilson95": [
+        0.45515365380000694,
+        0.5349099632101302
+      ]
+    },
+    {
+      "scenario": "overlap20",
+      "method": "stationary_L60",
+      "shift": 0.3,
+      "positive_detection_count": 294,
+      "power": 0.49,
+      "power_wilson95": [
+        0.4501914070080844,
+        0.5299358270121897
+      ]
+    },
+    {
+      "scenario": "overlap20",
+      "method": "oracle_gaussian",
+      "shift": 0.3,
+      "positive_detection_count": 203,
+      "power": 0.3383333333333333,
+      "power_wilson95": [
+        0.3016098164666039,
+        0.3771138001944927
+      ]
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "iid_normal",
+      "shift": 0.3,
+      "positive_detection_count": 413,
+      "power": 0.6883333333333334,
+      "power_wilson95": [
+        0.6501728707185476,
+        0.7240975552329586
+      ]
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "stationary_L20",
+      "shift": 0.3,
+      "positive_detection_count": 259,
+      "power": 0.43166666666666664,
+      "power_wilson95": [
+        0.3925930467926714,
+        0.47160971901253446
+      ]
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "stationary_L60",
+      "shift": 0.3,
+      "positive_detection_count": 224,
+      "power": 0.37333333333333335,
+      "power_wilson95": [
+        0.33555152599322907,
+        0.41272677159690857
+      ]
+    },
+    {
+      "scenario": "overlap20_slow",
+      "method": "oracle_gaussian",
+      "shift": 0.3,
+      "positive_detection_count": 59,
+      "power": 0.09833333333333333,
+      "power_wilson95": [
+        0.0770017451951421,
+        0.12477548795253081
+      ]
+    }
+  ],
+  "selection": {
+    "candidates": 9,
+    "repetitions": 3000,
+    "oracle_sd": 0.19788620623298622,
+    "mean_selected_calibration": 0.29660477029097615,
+    "mean_selected_future": 0.0031643040218505324,
+    "mean_optimism": 0.29344046626912557,
+    "naive_positive_false_count": 632,
+    "naive_positive_false_rate": 0.21066666666666667,
+    "naive_wilson95": [
+      0.19644929412654577,
+      0.22562406633584287
+    ],
+    "naive_independent_exact_rate": 0.20376449142929476,
+    "bonferroni_positive_false_count": 77,
+    "bonferroni_positive_false_rate": 0.025666666666666667,
+    "bonferroni_wilson95": [
+      0.020585625283129905,
+      0.031960909207629326
+    ],
+    "bonferroni_independent_exact_rate": 0.024724015152829626,
+    "warning": "Independent Gaussian fixture only. Bonferroni here uses correctly specified oracle marginal tests; correcting invalid dependent p-values cannot repair them."
+  },
+  "fixture_checks": {
+    "overlap_iid_counterexample": true,
+    "slow_sb60_counterexample": true,
+    "oracle_null_controls": true,
+    "selection_optimism": true
+  },
+  "config_sha256": "475df790af219262036a27628e0b55e0686890203001608bfb90377bb717e66c"
+}

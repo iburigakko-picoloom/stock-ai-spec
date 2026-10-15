@@ -1,7 +1,8 @@
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { PageHeader, StatePanel, dateTime, yen } from "../components";
+import { PageHeader, StatePanel, TabBar, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
+import { MobileDevicePanel } from "../mobile/MobileDevicePanel";
 
 interface AccountSetting {
   bucketId: string;
@@ -57,16 +58,17 @@ interface SettingsPayload {
 }
 
 const sections = [
-  { id: "capital", title: "資金", detail: "利用可能現金・予約現金・更新時点" },
-  { id: "broker", title: "証券会社", detail: "表示・CSV mappingのみ" },
-  { id: "accounts", title: "口座・税金", detail: "口座bucketと税・手数料policy" },
-  { id: "trading", title: "取引コスト・制約", detail: "100株単位とversioned policy" },
-  { id: "decision", title: "AI判断", detail: "Decision EngineとMorning採用状態" },
-  { id: "model", title: "モデル", detail: "Champion・学習時点・検証状態" },
+  { id: "capital", title: "資金", category: "account" },
+  { id: "broker", title: "証券会社", category: "account" },
+  { id: "accounts", title: "口座・税金", category: "account" },
+  { id: "trading", title: "取引コスト・制約", category: "ai" },
+  { id: "decision", title: "AI判断", category: "ai" },
+  { id: "model", title: "モデル", category: "ai" },
 ] as const;
 
 export function SettingsPage(): ReactNode {
   const { section } = useParams();
+  const [category, setCategory] = useState("account");
   const { data, error, loading } = useApiData<SettingsPayload>("/api/v1/settings");
   const [notificationState, setNotificationState] = useState<string>(() => (
     typeof window.Notification === "undefined"
@@ -88,10 +90,13 @@ export function SettingsPage(): ReactNode {
   return (
     <div className="page">
       {section && <Link className="back-link" to="/settings">← 設定一覧へ</Link>}
-      <PageHeader eyebrow="秘密情報は表示しません" title={currentSection?.title || "設定"} />
-      {!section && <section className="settings-list">
-        {sections.map((item) => <Link className="settings-row settings-row--link" to={`/settings/${item.id}`} key={item.id}><div><strong>{item.title}</strong><span>{item.detail}</span></div><b>開く →</b></Link>)}
-        <Link className="settings-row settings-row--link" to="/settings/data"><div><strong>データ・運用状態</strong><span>CSV取込、差分確認、job状態</span></div><b>開く →</b></Link>
+      <PageHeader title={currentSection?.title || "設定"} />
+      {!section && <MobileDevicePanel />}
+      {!section && <TabBar label="設定の分類" options={[["account", "口座・資金"], ["ai", "AI・データ"], ["device", "通知"]]} value={category} onChange={setCategory} panelId="settings-panel" />}
+      <div {...(!section ? { id: "settings-panel", role: "tabpanel", "aria-labelledby": `settings-panel-${category}` } : {})}>
+      {!section && category !== "device" && <section className="settings-list">
+        {sections.filter((item) => item.category === category).map((item) => <Link className="settings-row settings-row--link" to={`/settings/${item.id}`} key={item.id}><strong>{item.title}</strong><b aria-hidden="true">→</b></Link>)}
+        {category === "ai" && <Link className="settings-row settings-row--link" to="/settings/data"><strong>データ・運用状態</strong><b aria-hidden="true">→</b></Link>}
       </section>}
 
       {section === "capital" && <section className="section"><dl className="status-list">
@@ -144,22 +149,23 @@ export function SettingsPage(): ReactNode {
         <div><dt>自動model昇格</dt><dd>{data.model.automaticPromotion ? "有効" : "無効"}</dd></div>
       </dl></section>}
 
-      {!section && <><section className="section">
-        <div className="section-title"><div><span>CAPABILITIES</span><h2>運用境界</h2></div></div>
+      {!section && category === "ai" && <details className="section metadata-details">
+        <summary>運用状態の詳細</summary>
         <dl className="status-list">
           <div><dt>Runtime</dt><dd>{data.runtimeMode}</dd></div>
           <div><dt>J-Quants key</dt><dd>{data.data.jQuantsApiKeyConfigured ? "設定済み（値は非表示）" : "未継承"}</dd></div>
           <div><dt>Remote access</dt><dd>{data.runtime.remoteAccess}</dd></div>
           <div><dt>実注文</dt><dd>{data.runtime.orderSubmission}</dd></div>
         </dl>
-      </section>
-      <section className="section">
+      </details>}
+      {!section && category === "device" && <section className="section">
         <div className="section-title"><div><span>NOTIFICATIONS</span><h2>端末通知</h2></div></div>
-        <p className="explain">PWA内通知は利用可能です。外部web push配信はprovider未設定のため停止中です。</p>
+        <p className="explain">アプリ内通知のみ。外部へのプッシュ配信は未設定です。</p>
         <button className="button button--secondary" onClick={() => void requestNotification()}>この端末の通知権限を確認</button>
         <small className="setting-footnote">現在: {notificationState}</small>
-      </section></>}
+      </section>}
       {section && !currentSection && <StatePanel tone="error" title="不明な設定項目です" />}
+      </div>
     </div>
   );
 }

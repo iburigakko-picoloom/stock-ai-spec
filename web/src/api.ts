@@ -1,3 +1,6 @@
+import { isAndroid } from "./mobile/native";
+import { mobileRequest } from "./mobile/runtime";
+
 const MANUAL_HEADERS = {
   "Content-Type": "application/json",
   "X-Stock-AI-Intent": "manual-record",
@@ -27,6 +30,7 @@ async function parse<T>(response: Response): Promise<T> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
+  if (isAndroid()) return mobileRequest<T>("GET", path);
   return parse<T>(
     await fetch(path, {
       headers: { Accept: "application/json" },
@@ -36,6 +40,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  if (isAndroid()) return mobileRequest<T>("POST", path, body);
   return parse<T>(
     await fetch(path, {
       method: "POST",

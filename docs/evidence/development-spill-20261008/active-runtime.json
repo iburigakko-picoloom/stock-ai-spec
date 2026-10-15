@@ -1,0 +1,15 @@
+{
+  "Horizon": 20,
+  "FeatureCount": 51,
+  "Runtime": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-h20-spill-retry-20261008\\runtime",
+  "WorkerRecord": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-h20-spill-retry-20261008\\runtime\\worker.json",
+  "CampaignManifest": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h20-spill-retry-20261008.json",
+  "CheckpointRoot": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d-spill-retry-20261008",
+  "CheckpointPathLocation": "Read current checkpoint_path in WorkerRecord",
+  "ExperimentRegistry": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\experiments\\advanced.jsonl",
+  "ReportRoot": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\reports\\advanced-memory-recovery",
+  "HumanProgressCadenceHours": 12,
+  "NoAdditionalObserver": true,
+  "PriorRuntimePointer": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-h20-spill-retry-20261008\\before\\active-runtime.json",
+  "PriorH5RuntimePointerPreserved": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\active-runtime.json"
+}

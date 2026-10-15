@@ -1,0 +1,321 @@
+"""Authenticate historical master pairs and retain both sides of the daily-price join."""
+from collections import Counter
+from datetime import date, datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+
+import duckdb
+import pandas as pd
+
+from stock_ai.data.contracts import DatasetName, ENDPOINT_SCHEMAS
+from stock_ai.data.production import _ELIGIBLE_MARKETS
+from stock_ai.data.storage import ImmutableParquetStore
+from stock_ai.ml.daily_market import _CATALOG_FIELDS, _META
+from stock_ai.ml.selection import load_development_feature_selection
+
+root = Path(__file__).resolve().parent.parent
+output = root/'artifacts/daily-universe-development-20261015'
+assert not output.exists(), 'Inspect prior process/results; never overwrite or implicitly restart'
+assert _ELIGIBLE_MARKETS == frozenset(('0111', '0112', '0113'))
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8*1024*1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8'))
+
+
+def stable(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False)
+
+
+def save(path, value):
+    with path.open('x', encoding='utf-8', newline='\n') as stream:
+        stream.write(stable(value)+'\n')
+
+
+price_root = root/'artifacts/daily-market-development-20261015'
+price_summary_path = price_root/'summary.json'
+price_summary = read(price_summary_path)
+price_plan_path = price_root/'plan.json'
+price_plan = read(price_plan_path)
+evidence_path = root/'docs/evidence/daily-market-development-20261015/summary.json'
+evidence = read(evidence_path)
+identity_path = root/'docs/evidence/daily-source-identity-20261015/summary.json'
+identities = read(identity_path)
+identity = next(x for x in identities['datasets'] if x['dataset'] == 'security_master')
+assert price_summary['status'] == 'COMPLETE' and price_summary['all_source_files_unchanged']
+assert evidence['audit_result_sha256'] == sha(price_summary_path)
+assert evidence['receipt_hashes_independently_reverified']
+assert price_summary['plan_sha256'] == sha(price_plan_path)
+assert price_plan['source_identity_evidence_sha256'] == sha(identity_path)
+assert identity['status'] == 'PASS' and identities['all_five_source_frames_exact_match']
+feature_id = price_plan['feature_selection_id']
+feature_path = root/f'artifacts/selections/goal3-features/{feature_id}/{feature_id}.json'
+feature = load_development_feature_selection(feature_path)
+start, end = date.fromisoformat(price_plan['start']), date.fromisoformat(price_plan['end'])
+assert end < date.fromisoformat(feature.locked_holdout_start)
+cutoff = datetime.fromisoformat(price_plan['source_snapshot_as_of'])
+assert identity['source_snapshot_as_of'] == price_plan['source_snapshot_as_of']
+expected_dates = set(price_plan['expected_business_dates'])
+assert len(expected_dates) == 386
+script_hash = sha(__file__)
+sources_to_pin = ['src/stock_ai/data/production.py', 'src/stock_ai/data/normalize.py',
+                  'src/stock_ai/data/contracts.py', 'src/stock_ai/data/storage.py',
+                  'src/stock_ai/ml/daily_market.py']
+implementation = {p: sha(root/p) for p in sources_to_pin}
+store = ImmutableParquetStore(root/'data/live')
+query = '''
+SELECT DISTINCT stored.* FROM stored_objects stored
+JOIN ingestion_run_objects link ON link.object_id=stored.object_id
+JOIN ingestion_runs run ON run.ingestion_run_id=link.ingestion_run_id
+LEFT JOIN bulk_file_checkpoints bulk ON bulk.fingerprint=run.bulk_fingerprint
+WHERE stored.dataset='security_master' AND stored.quality_passed
+  AND stored.available_at<=? AND run.status='SUCCEEDED'
+  AND (run.bulk_fingerprint IS NULL OR bulk.status='SUCCEEDED')
+ORDER BY stored.object_id
+'''
+
+
+def catalog_snapshot():
+    with duckdb.connect(str(root/'data/live/catalog.duckdb'), read_only=True,
+                        config={'threads': 1, 'memory_limit': '256MB'}) as con:
+        con.execute('BEGIN TRANSACTION')
+        cursor = con.execute(query, [cutoff])
+        names = [column[0] for column in cursor.description]
+        entries = [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
+    paths = sorted({(x['parquet_path'], x['parquet_hash']) for x in entries if x['kind'] == 'normalized'})
+    digest = hashlib.sha256(json.dumps(paths, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+    assert len(paths) == identity['normalized_objects_verified']
+    assert digest == identity['normalized_path_hash_list_sha256'], 'Frozen master catalog has changed'
+    return {x['object_id']: x for x in entries if start <= x['source_date'] <= end}
+
+
+catalog = catalog_snapshot()
+output.mkdir(parents=True)
+plan = {
+    'schema_version': 'development-master-price-coverage-v1',
+    'started_at': datetime.now(timezone.utc).isoformat(),
+    'start': start.isoformat(), 'end': end.isoformat(), 'source_snapshot_as_of': cutoff.isoformat(),
+    'feature_selection_id': feature_id, 'master_source_snapshot_id': identity['source_snapshot_id'],
+    'source_identity_evidence_sha256': sha(identity_path),
+    'price_summary_sha256': sha(price_summary_path), 'price_plan_sha256': sha(price_plan_path),
+    'price_evidence_sha256': sha(evidence_path), 'script_sha256': script_hash,
+    'implementation_sha256': implementation,
+    'catalog': [{k: (v.isoformat() if isinstance(v, (datetime, date)) else v)
+                 for k, v in entry.items()} for entry in catalog.values()],
+    'expected_dates': sorted(expected_dates),
+    'eligibility_rule': 'exact same-date master; market 0111/0112/0113 and provider-code suffix 0',
+    'revision_policy': 'SINGLE_VINTAGE_AS_REVISED', 'historical_as_known': False,
+    'price_or_master_holdout_rows_read': False, 'holdout_scored': False, 'evaluation_ready': False,
+    'adoption_eligible': False, 'no_order_sent': True,
+}
+save(output/'plan.json', plan)
+
+
+def authenticated_frame(entry):
+    stored = store.verify(Path(entry['parquet_path']).parent)
+    assert stored.provider == 'J-Quants' and stored.source_endpoint == '/equities/master'
+    assert stored.dataset == DatasetName.SECURITY_MASTER
+    for key in _CATALOG_FIELDS:
+        expected, observed = getattr(stored, key), entry[key]
+        if key in ('parquet_path', 'manifest_path'):
+            assert Path(expected).resolve() == Path(observed).resolve(), key
+        else:
+            assert expected == observed, key
+    frame = pd.read_parquet(stored.parquet_path)
+    assert set(_META).issubset(frame.columns)
+    for key in _META:
+        if key == 'source_record_hash':
+            assert frame[key].notna().all()
+            assert frame[key].astype(str).str.fullmatch('[0-9a-f]{64}').all()
+        else:
+            expected = ENDPOINT_SCHEMAS[DatasetName.SECURITY_MASTER].schema_version if key == 'schema_version' else getattr(stored, key)
+            assert frame[key].eq(expected).all(), key
+    return stored, frame
+
+
+mapping = {
+    'company_name': 'CoName', 'company_name_en': 'CoNameEn',
+    'sector_17_code': 'S17', 'sector_17_name': 'S17Nm',
+    'sector_33_code': 'S33', 'sector_33_name': 'S33Nm',
+    'size_category': 'ScaleCat', 'market_code': 'Mkt', 'market_name': 'MktNm',
+    'margin_code': 'Mrgn', 'margin_name': 'MrgnNm',
+}
+checkpoints = []
+daily = {}
+all_verified = set()
+totals = Counter()
+try:
+    for index, entry in enumerate(price_summary['checkpoints'], 1):
+        assert catalog_snapshot() == catalog
+        for path, expected in implementation.items():
+            assert sha(root/path) == expected
+        checkpoint_path = root/entry['path']
+        assert sha(checkpoint_path) == entry['sha256']
+        price_checkpoint = read(checkpoint_path)
+        first, last = date.fromisoformat(price_checkpoint['start']), date.fromisoformat(price_checkpoint['end'])
+        days = {d for d in expected_dates if first.isoformat() <= d <= last.isoformat()}
+        parts, verified = [], {}
+        for object_id, source in catalog.items():
+            if source['kind'] != 'normalized' or not first <= source['source_date'] <= last:
+                continue
+            normalized, frame = authenticated_frame(source)
+            if frame.empty:
+                raw_ids = [key for key, x in catalog.items() if x['kind'] == 'raw'
+                           and x['payload_hash'] == normalized.payload_hash and x['source_date'] == normalized.source_date]
+                assert len(raw_ids) == 1
+                raw_id = raw_ids[0]
+            else:
+                assert frame.raw_object_id.nunique(dropna=False) == 1
+                raw_id = str(frame.raw_object_id.iloc[0])
+            assert raw_id in catalog and catalog[raw_id]['kind'] == 'raw'
+            raw, original = authenticated_frame(catalog[raw_id])
+            assert raw.payload_hash == normalized.payload_hash and raw.source_date == normalized.source_date
+            left, right = frame.copy(), original.copy()
+            left['date'] = pd.to_datetime(left.effective_date).dt.date
+            right['date'] = pd.to_datetime(right.Date).dt.date
+            right['provider_code'] = right.Code.astype('string')
+            for side in (left, right):
+                assert side.date.eq(normalized.source_date).all()
+                assert not side.duplicated(['date', 'provider_code']).any()
+                assert side.provider_code.astype('string').str.fullmatch('[0-9A-Z]{5}').all()
+            assert left.raw_object_id.eq(raw.object_id).all()
+            assert left.symbol.eq(left.provider_code.str[:-1]).all()
+            left = left.set_index(['date', 'provider_code']).sort_index()
+            right = right.set_index(['date', 'provider_code']).sort_index()
+            assert left.index.equals(right.index), 'Master raw/normalized keys differ'
+            for column in _META:
+                assert left[column].eq(right[column]).all(), column
+            for target, origin in mapping.items():
+                a, b = left[target].astype('string'), right[origin].astype('string')
+                assert (a.eq(b) | (a.isna() & b.isna())).fillna(False).all(), target
+            assert left.round_lot_size.isna().all(), 'Master does not provide trading lot sizes'
+            assert left.round_lot_missing_reason.eq('not provided by /v2/equities/master').all()
+            left['master_normalized_object_id'] = object_id
+            left['master_raw_object_id'] = raw_id
+            parts.append(left.reset_index())
+            verified.update({normalized.object_id: normalized, raw.object_id: raw})
+        assert parts, 'Historical master window has no authenticated source'
+        members = pd.concat(parts, ignore_index=True)
+        membership_keys = ['date', 'provider_code']
+        priority = [*membership_keys, 'available_at', 'received_at', 'payload_hash']
+        assert not members.duplicated(priority).any(), 'Ambiguous master revision priority'
+        members = members.sort_values(priority).drop_duplicates(membership_keys, keep='last')
+        members['date'] = members.date.map(date.isoformat)
+        off_calendar_dates = sorted(set(members.date) - days)
+        off_calendar_rows = int((~members.date.isin(days)).sum())
+        members = members.loc[members.date.isin(days)].copy()
+        missing_master_dates = sorted(days - set(members.date))
+        members['eligible'] = members.provider_code.str.endswith('0') & members.market_code.isin(_ELIGIBLE_MARKETS)
+        members['membership_state'] = 'ineligible_market'
+        members.loc[~members.provider_code.str.endswith('0'), 'membership_state'] = 'nonstandard_provider_code'
+        members.loc[members.eligible, 'membership_state'] = 'eligible_member'
+        members.loc[~members.provider_code.str.endswith('0'), 'symbol'] = None
+        price_path = root/price_checkpoint['receipt_path']
+        price_bytes = price_path.read_bytes()
+        assert hashlib.sha256(price_bytes).hexdigest() == price_checkpoint['receipt_sha256']
+        prices = json.loads(price_bytes)
+        assert prices['holdout_rows_read'] is False
+        bars = pd.DataFrame(prices['rows'])[['trading_date', 'provider_code', 'bar_state',
+                                           'normalized_object_id', 'raw_object_id', 'adjustment_requires_event_evidence']]
+        bars = bars.rename(columns={'trading_date': 'date', 'normalized_object_id': 'price_normalized_object_id',
+                                    'raw_object_id': 'price_raw_object_id'})
+        assert set(bars.date) <= days and not bars.duplicated(membership_keys).any()
+        members = members.rename(columns={'available_at': 'revision_available_at'})
+        keep = [*membership_keys, 'symbol', 'market_code', 'sector_33_code', 'eligible', 'membership_state',
+                'round_lot_size', 'revision_available_at', 'master_normalized_object_id', 'master_raw_object_id']
+        joined = members[keep].merge(bars, on=membership_keys, how='outer', validate='one_to_one', indicator=True)
+        joined.loc[joined._merge.eq('right_only'), 'membership_state'] = 'master_row_missing'
+        joined.loc[joined._merge.eq('left_only'), 'bar_state'] = 'price_row_missing'
+        joined = joined.drop(columns='_merge').sort_values(membership_keys).reset_index(drop=True)
+        joined['eligible'] = joined.eligible.astype('boolean')
+        profile = {}
+        for day in sorted(days):
+            rows = joined.loc[joined.date.eq(day)]
+            eligible = rows.eligible.fillna(False)
+            absent_price = rows.bar_state.eq('price_row_missing')
+            values = {
+                'union_rows': len(rows), 'master_rows': int(rows.master_normalized_object_id.notna().sum()),
+                'price_rows': int(rows.price_normalized_object_id.notna().sum()),
+                'eligible_rows': int(eligible.sum()), 'eligible_missing_price': int((eligible & absent_price).sum()),
+                'eligible_reported_trade': int((eligible & rows.bar_state.eq('reported_trade')).sum()),
+                'eligible_reported_no_trade': int((eligible & rows.bar_state.eq('reported_no_trade')).sum()),
+                'eligible_incomplete_bar': int((eligible & rows.bar_state.eq('incomplete_bar')).sum()),
+                'eligible_adjustment_rows': int((eligible & rows.adjustment_requires_event_evidence.fillna(False).astype(bool)).sum()),
+                'price_missing_master': int(rows.membership_state.eq('master_row_missing').sum()),
+                'all_master_missing_price': int(absent_price.sum()),
+                'ineligible_market_rows': int(rows.membership_state.eq('ineligible_market').sum()),
+                'nonstandard_provider_code_rows': int(rows.membership_state.eq('nonstandard_provider_code').sum()),
+            }
+            assert values['eligible_rows'] == sum(values[k] for k in ['eligible_missing_price', 'eligible_reported_trade',
+                    'eligible_reported_no_trade', 'eligible_incomplete_bar'])
+            assert day not in daily
+            profile[day] = values
+            daily[day] = values
+            totals.update(values)
+        union_path = output/f'window-{index:03d}-membership.parquet'
+        joined.to_parquet(union_path, index=False)
+        assert len(pd.read_parquet(union_path, columns=membership_keys)) == len(joined)
+        for stored in verified.values():
+            assert store.verify(stored.parquet_path.parent) == stored
+        assert sha(price_path) == price_checkpoint['receipt_sha256']
+        assert sha(checkpoint_path) == entry['sha256']
+        all_verified.update(verified)
+        result = {
+            'window': index, 'start': first.isoformat(), 'end': last.isoformat(), 'per_day': profile,
+            'missing_master_dates': missing_master_dates, 'off_calendar_master_dates': off_calendar_dates,
+            'off_calendar_master_rows_not_joined': off_calendar_rows,
+            'master_source_objects': [verified[key].model_dump(mode='json') for key in sorted(verified)],
+            'price_receipt_path': str(price_path.relative_to(root)), 'price_receipt_sha256': sha(price_path),
+            'projection_path': str(union_path.relative_to(root)), 'projection_sha256': sha(union_path),
+            'projection_rows': len(joined), 'script_sha256': script_hash, 'implementation_sha256': implementation,
+            'research_only': True, 'historical_as_known': False, 'evaluation_ready': False,
+        }
+        result_path = output/f'window-{index:03d}-checkpoint.json'
+        save(result_path, result)
+        checkpoints.append({'path': str(result_path.relative_to(root)), 'sha256': sha(result_path)})
+        print(f'{index}/42 master/price keys: {len(joined):,} rows; eligible missing price='
+              f'{sum(x["eligible_missing_price"] for x in profile.values())}; price missing master='
+              f'{sum(x["price_missing_master"] for x in profile.values())}', flush=True)
+        del parts, members, joined, bars, prices, price_bytes
+    assert set(daily) == expected_dates
+    assert totals['price_rows'] == price_summary['totals']['rows']
+    assert catalog_snapshot() == catalog
+    for entry in catalog.values():
+        assert sha(entry['parquet_path']) == entry['parquet_hash']
+    for path, expected in implementation.items():
+        assert sha(root/path) == expected
+    assert sha(price_summary_path) == evidence['audit_result_sha256']
+    result = {
+        'status': 'COMPLETE', 'completed_at': datetime.now(timezone.utc).isoformat(),
+        'plan_sha256': sha(output/'plan.json'), 'script_sha256': script_hash,
+        'implementation_sha256': implementation, 'windows': len(checkpoints), 'dates': len(daily),
+        'start': start.isoformat(), 'end': end.isoformat(), 'totals': totals,
+        'master_source_objects_verified': len(all_verified), 'checkpoints': checkpoints, 'daily_profile': daily,
+        'missing_master_dates': sorted({d for e in checkpoints for d in read(root/e['path'])['missing_master_dates']}),
+        'all_source_files_unchanged': True, 'historical_as_known': False,
+        'limitations': ['Single provider vintage; exact-date membership does not reconstruct pre-correction knowledge.',
+            'Observed membership presence/absence is not an authenticated listing or delisting action.',
+            'Master provides no trading lot size; no default is promoted to source evidence.',
+            'Corporate actions, execution, settlement, taxes and realistic costs remain unverified.',
+            'No forecasts, targets, NAV or model adoption are evaluated here.'],
+        'price_or_master_holdout_rows_read': False, 'holdout_scored': False,
+        'evaluation_ready': False, 'adoption_eligible': False, 'no_order_sent': True,
+    }
+    save(output/'summary.json', result)
+    print('DEVELOPMENT MASTER/PRICE COVERAGE COMPLETE', flush=True)
+except Exception as error:
+    save(output/f'failure-after-{len(checkpoints):03d}.json', {
+        'status': 'FAILED', 'error_type': type(error).__name__, 'message': str(error),
+        'finished_at': datetime.now(timezone.utc).isoformat(), 'completed_windows': len(checkpoints),
+        'script_sha256': script_hash, 'plan_sha256': sha(output/'plan.json'),
+    })
+    raise

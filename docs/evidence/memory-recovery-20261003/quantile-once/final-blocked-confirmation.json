@@ -1,0 +1,154 @@
+{
+  "ObservedAtUtc": "2026-10-03T10:10:44.6216664+00:00",
+  "ObservedAtJst": "2026-10-03T19:10:44.6216664+09:00",
+  "ActualStockWorkerProcesses": 0,
+  "WorkerAlive": false,
+  "WorkerPid": 18400,
+  "WorkerPhase": "BLOCKED_BEFORE_FIT",
+  "WorkerError": "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.416 GiB below required headroom 3.500 GiB",
+  "OneAuthorizedLaunchPerformed": true,
+  "AutomaticRestartsPerformed": 0,
+  "AvailablePhysicalGiBAfterExit": 6.199165344238281,
+  "AvailablePhysicalGiBBeforeLaunch": 6.0334014892578125,
+  "FitChecks": [
+    {
+      "checked_at_utc": "2026-10-03T19:08:07.677813+09:00",
+      "available_gib": 3.4163665771484375,
+      "minimum_gib": 3.5,
+      "passed": false
+    }
+  ],
+  "NewNativeFitsStarted": 0,
+  "MinimumFitHeadroomGiB": 3.5,
+  "FitHeadroomShortfallGiB": 0.0836334228515625,
+  "FitHeadroomShortfallMiB": 85.640625,
+  "ObservedPreparationAvailableDecreaseGiB": 2.617034912109375,
+  "ConditionalArithmeticPreparationGiB": 6.117034912109375,
+  "ConditionalArithmeticIsNotSafetyGuarantee": true,
+  "SameCheckpointResume": true,
+  "CheckpointPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c7f55e2118c85e5711f00fba3ff2ed542584cf30b6ccc19b1a15cfc3ed6c89f2",
+  "SuccessfulUnits": 16,
+  "FailedUnits": 1,
+  "RunningUnits": 0,
+  "Rank6Status": "SUCCEEDED",
+  "Rank6Attempts": 1,
+  "Rank6UpdatedAt": "2026-10-03T15:59:08.879006+09:00",
+  "Rank6FileSha256": {
+    "manifest.json": "9320bf39575d33ba1bb49a6d51ca0886094b36dab0185af83485a1dfadc6f315",
+    "oof.parquet": "7bb013fb429ea79d3deefdc86691bcf6f72efae120804a05cc93e3e178e3b020"
+  },
+  "Rank6FrameSha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301",
+  "Rank6ByteHashesUnchanged": true,
+  "Rank6ReusedWithoutRefit": true,
+  "SavedUnitVerification": [
+    {
+      "UnitId": "0894f0c03ecb80681873235ba76352bdc44e8b650d5926ee11028c9c83005566",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "09ca4136c648d9a0bbd2dd7f1cfab04e40a24f094cda4b226686f66f80bea4c7",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "1064668bc759ca77726946bb34834b506cc6b786393cb86e904e5532f79aac7a",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "16dbd161dbecc3528cdbe40c50181183395b1ffc14eac0907c051e4a4659e2d3",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "19ff0b0df3a403d42e69baac8707466f3af04bab6dd9fd4e6b7ae6530012a856",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "4e52463a3734b37d1dbf31c4eac088a05c547f9a9ccd484a08e8e174c05fd4fe",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "4ed2683cb42934601e2407006755e88b9efd10751034b0f87eaf641a4cdc5281",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "524ed8444992cb3bc6bbdea4f95c2a7312dcfb1bbaccc78cf100aee44904d96c",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "59000c098d14ca1f3cf6e820cc234bb1da4dfff9427614d28b36f1aa27e554a6",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "741c8d7dc0e64d1a8712beb925f456a6bb5ec9c09e5881280a7d66010dd86207",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "753be3226c3356dd1a4602cca47c57ab27e2e7ea94072bea9514a5540fbfc7ac",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "760b696fbcf5086962a1c27aebbd9f7201c9afe53d5da35b761319d198112295",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "8e22f2e8b8c128f9bda090c3b6ab1702c24aa04a82cab86bfae8f2d3d4c63cf9",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "a16383537638a0e9e2620b1e7d2f7f8273c528c4f1be967bd960cb404d9d93bf",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "c750854b3fe1ddcb6694671e094efceb17e4366b0d9d2b3195e47ff0bd4ca374",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    },
+    {
+      "UnitId": "df63688e7dfbeee44be789d60fdf260d08f0f42bf57a91a43052a0e5a5d6c765",
+      "Status": "SUCCEEDED",
+      "ByteHashesUnchanged": true
+    }
+  ],
+  "All16SavedUnitsPreserved": true,
+  "FailedEvidence": [
+    {
+      "Task": "quantile",
+      "Fold": 1,
+      "Attempts": 2,
+      "ErrorCode": "RuntimeError",
+      "UpdatedAt": "2026-10-03T19:08:07.678816+09:00"
+    }
+  ],
+  "OriginalCheckpointUnchanged": true,
+  "CodeCommit": "a68e8327914e265e6594e22e02f24bdbbfee39a5",
+  "ConfigHash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "ModelConditionsUnchanged": true,
+  "StdoutLastWriteAt": "2026-10-03T19:08:16.5150622+09:00",
+  "StdoutTail": [
+    "2026-10-03T10:03:48.253448+00:00 AUTHENTICATING_INPUT",
+    "2026-10-03T10:06:24.146863+00:00 INPUT_AUTHENTICATED",
+    "2026-10-03T10:06:24.150978+00:00 RESEARCH_PREPARATION",
+    "2026-10-03T10:08:16.507861+00:00 BLOCKED_BEFORE_FIT",
+    "AdvancedResearchExecutionError: BLOCKED_BY_RESOURCE_CAPABILITY: before fit available physical RAM 3.416 GiB below required headroom 3.500 GiB"
+  ],
+  "StderrBytes": 0,
+  "Diagnosis": "Guard shortfall recurred in a fresh process before any native fit, with ranking6 reused. Previous ranking native-allocation retention alone cannot explain it. Current preparation/inputs/OOF and contemporaneous OS RAM are not separately measured at the guard.",
+  "StoppedAfterGuard": true,
+  "NoThresholdReduction": true,
+  "NoAppOrOsChanges": true,
+  "NoRealOrders": true,
+  "FullRunPeakMemoryUnconfirmed": true
+}

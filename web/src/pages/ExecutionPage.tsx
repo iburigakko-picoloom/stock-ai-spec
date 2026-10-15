@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { apiGet, apiPost } from "../api";
-import { PageHeader, StatePanel, yen } from "../components";
+import { DecisionSteps, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, TodayResponse } from "../types";
 
@@ -138,6 +138,7 @@ export function ExecutionPage(): ReactNode {
   return (
     <div className="page">
       <PageHeader eyebrow="証券会社での手動操作後" title="実行結果を記録" />
+      <DecisionSteps current="execution" />
       <section className="notice-box"><strong>実際の結果だけを入力</strong><span>提案株数ではなく、証券会社で確認した約定株数・単価を記録してください。</span></section>
       {changed.length === 0 ? <StatePanel title="取引しない判断です" /> : changed.map((line) => {
         const target = decisionTargets.get(line.lineId) ?? line.currentShares;

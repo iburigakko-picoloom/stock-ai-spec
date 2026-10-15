@@ -1,0 +1,219 @@
+{
+  "At": "2026-10-11T09:16:44.2088213+09:00",
+  "Computer": "MANATOBOOK",
+  "FreeGiB": 3.158855438232422,
+  "Worker": {
+    "pid": 24892,
+    "started_at_utc": "2026-10-11T09:09:39.535934+09:00",
+    "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+    "campaign_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h20-spill-retry-20261008.json",
+    "campaign_id": "25719080f56a2453a0ebe32e272574925abb143be54add20a2bb439960cbfe63",
+    "feature_count": 51,
+    "minimum_fit_headroom_gib": null,
+    "os_reserve_gib": 1.25,
+    "runtime_policy": "adaptive-input-and-observed-increment-v1",
+    "threads": 1,
+    "research_only": true,
+    "error": null,
+    "completed_batches": [
+      "h20-lightgbm-s17",
+      "h20-lightgbm-s29",
+      "h20-lightgbm-s43",
+      "h20-xgboost-s17",
+      "h20-xgboost-s29",
+      "h20-xgboost-s43"
+    ],
+    "worker_sha256": "e30c4a43e68bb12707a97c22ed4ef819431750b73b52af0681b1340261512396",
+    "authenticated_reused_tuning_successes": 5,
+    "phase": "WAITING_FOR_MEMORY",
+    "updated_at_utc": "2026-10-11T09:16:19.640772+09:00",
+    "batch_id": "h20-catboost-s17",
+    "available_gib": 3.3564529418945312,
+    "required_gib": 3.6252452451735735,
+    "model_family": "catboost",
+    "seed": 17,
+    "checkpoint_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d-spill-retry-20261008\\6c8a75569eae5650750f4730a34d19f0b91ea9d56d093f5d93123335cfd62441",
+    "config_hash": "aa77e2c441df5f3826f80210fbcb5c4a629402da8dba19d1f17921ed1047d287",
+    "before_candidate_available_gib": 5.7010650634765625,
+    "dataset_rows": 4058130,
+    "input_columns": 59,
+    "matrix_bytes": 651989916,
+    "family": "catboost",
+    "task": "quantile",
+    "passed": false,
+    "checkpoint_scope": "outer-model-evaluation",
+    "fold": 5,
+    "horizon": 20,
+    "one_time_override": true,
+    "input_copy_factor": 3.5,
+    "original_input_copy_factor": 5.0,
+    "override_batch_id": "h20-catboost-s17"
+  },
+  "Alive": true,
+  "OldAlive": false,
+  "ProgressUpdated": "2026-10-11T09:13:25.501203+09:00",
+  "Units": [
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 4
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "ranking",
+      "Status": "SUCCEEDED",
+      "Fold": 5
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "quantile",
+      "Status": "SUCCEEDED",
+      "Fold": 3
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "ranking",
+      "Status": "SUCCEEDED",
+      "Fold": 2
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 2
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "quantile",
+      "Status": "RUNNING",
+      "Fold": 5
+    },
+    {
+      "Scope": "optuna-tuning",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 0
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "ranking",
+      "Status": "SUCCEEDED",
+      "Fold": 1
+    },
+    {
+      "Scope": "optuna-tuning",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 0
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 3
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "ranking",
+      "Status": "SUCCEEDED",
+      "Fold": 4
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "ranking",
+      "Status": "SUCCEEDED",
+      "Fold": 3
+    },
+    {
+      "Scope": "optuna-tuning",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 0
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 1
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "quantile",
+      "Status": "SUCCEEDED",
+      "Fold": 4
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "quantile",
+      "Status": "SUCCEEDED",
+      "Fold": 1
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 5
+    },
+    {
+      "Scope": "outer-model-evaluation",
+      "Task": "quantile",
+      "Status": "SUCCEEDED",
+      "Fold": 2
+    },
+    {
+      "Scope": "optuna-tuning",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 0
+    },
+    {
+      "Scope": "optuna-tuning",
+      "Task": "regression",
+      "Status": "SUCCEEDED",
+      "Fold": 0
+    }
+  ],
+  "Batches": [
+    {
+      "batch_id": "h20-lightgbm-s17",
+      "status": "SUCCEEDED"
+    },
+    {
+      "batch_id": "h20-lightgbm-s29",
+      "status": "SUCCEEDED"
+    },
+    {
+      "batch_id": "h20-lightgbm-s43",
+      "status": "SUCCEEDED"
+    },
+    {
+      "batch_id": "h20-xgboost-s17",
+      "status": "SUCCEEDED"
+    },
+    {
+      "batch_id": "h20-xgboost-s29",
+      "status": "SUCCEEDED"
+    },
+    {
+      "batch_id": "h20-xgboost-s43",
+      "status": "SUCCEEDED"
+    },
+    {
+      "batch_id": "h20-catboost-s17",
+      "status": "RUNNING"
+    },
+    {
+      "batch_id": "h20-catboost-s29",
+      "status": "PENDING"
+    },
+    {
+      "batch_id": "h20-catboost-s43",
+      "status": "PENDING"
+    }
+  ],
+  "TestResult": "18 passed",
+  "OriginalBasePolicyUnchanged": true,
+  "SavedFoldFilesVerified": 38,
+  "SavedTuningTrialsUnchanged": 5
+}

@@ -1,0 +1,11 @@
+{
+  "checked_at_utc": "2026-10-03T01:25:34.285099+00:00",
+  "largest_training_rows": 3200734,
+  "training_date_groups": 859,
+  "largest_actual_group": 3822,
+  "smallest_actual_group": 3574,
+  "synthetic_group_size": 5000,
+  "all_actual_groups_within_synthetic_size": true,
+  "training_started": false,
+  "native_hard_upper_bound_proven": false
+}

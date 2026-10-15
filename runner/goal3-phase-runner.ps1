@@ -5,8 +5,12 @@ param(
     [string]$BoundaryManifest = 'artifacts/campaigns/goal3-ablation-v2.json',
     [string]$OneDayScreenManifest = 'artifacts/campaigns/goal3-screen-1d-v1.json',
     [string]$CoreScreenManifest = 'artifacts/campaigns/goal3-screen-5d20d-v1.json',
+    [string]$OneDayDecisionArtifact = 'artifacts/decisions/goal3-one-day-screen-v1.json',
+    [string]$FiveDayAblationManifest = 'artifacts/campaigns/goal3-ablation-5d-v1.json',
+    [string]$TwentyDayAblationManifest = 'artifacts/campaigns/goal3-ablation-20d-v2.json',
+    [string]$OneDayAblationManifest = 'artifacts/campaigns/goal3-ablation-1d-v1.json',
     [string]$BuildManifest = 'data/live/builds/production/2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f/2fc936a7ca9b939d8016ad3c5efea17c53ffd5264d5ece398a8329bf2f2dfe5f.json',
-    [string]$CodeCommit = '000812e09be3ceef5491aab073b47778a757c165',
+    [string]$CodeCommit = 'd40d33c3020af5063b34321cf5444a8ef1a940b1',
     [string]$ExperimentRegistry = 'artifacts/experiments/advanced.jsonl',
     [string]$LogRoot = 'artifacts/logs/goal3-phased'
 )
@@ -64,12 +68,72 @@ function Get-BoundaryBatch($Payload) {
     return $batch
 }
 
+function Get-OneDayDecision($OneDayPayload) {
+    if (-not (Test-Path -LiteralPath $OneDayDecisionPath -PathType Leaf)) {
+        return $null
+    }
+    try {
+        $decision = Get-Content -LiteralPath $OneDayDecisionPath -Raw -Encoding UTF8 |
+            ConvertFrom-Json
+    } catch {
+        throw 'one-day screen decision artifact is missing or invalid'
+    }
+    if ([string]$decision.schema_version -ne 'goal3-one-day-screen-decision-v1') {
+        throw 'one-day screen decision schema mismatch'
+    }
+    if ([string]$decision.criteria_version -ne 'D080') {
+        throw 'one-day screen decision criteria mismatch'
+    }
+    if ([string]$decision.one_day_campaign_id -ne [string]$OneDayPayload.campaign_id) {
+        throw 'one-day screen decision campaign mismatch'
+    }
+    if ([string]$decision.build_id -ne [string]$OneDayPayload.build_id) {
+        throw 'one-day screen decision build mismatch'
+    }
+    if ([string]$decision.code_commit -ne [string]$OneDayPayload.code_commit) {
+        throw 'one-day screen decision code commit mismatch'
+    }
+    if ([bool]$decision.locked_holdout_accessed) {
+        throw 'one-day screen decision must not access locked holdout'
+    }
+    $expectedReportIds = @(
+        $OneDayPayload.batches |
+            ForEach-Object { [string]$_.report_id } |
+            Where-Object { $_ } |
+            Sort-Object
+    )
+    $observedReportIds = @($decision.screen_report_ids | ForEach-Object { [string]$_ } | Sort-Object)
+    if ($expectedReportIds.Count -ne @($OneDayPayload.batches).Count) {
+        throw 'one-day screen decision requires every completed screen report'
+    }
+    if (@(Compare-Object $expectedReportIds $observedReportIds).Count -ne 0) {
+        throw 'one-day screen decision report identity mismatch'
+    }
+    $allGatesPassed = (
+        [bool]$decision.gates.stable_across_seeds_and_folds -and
+        [bool]$decision.gates.non_redundant_with_h5_h20 -and
+        [bool]$decision.gates.improves_development_oof_stack -and
+        [bool]$decision.gates.improves_realistic_cost -and
+        [bool]$decision.gates.non_worsening_turnover_downside_large_loss
+    )
+    $expectedDecision = if ($allGatesPassed) {
+        'KEEP_FOR_FULL_ABLATION'
+    } else {
+        'EXCLUDE_FROM_FULL_ABLATION_AND_FINAL'
+    }
+    if ([string]$decision.decision -ne $expectedDecision) {
+        throw 'one-day screen decision contradicts fixed D080 gates'
+    }
+    return $decision
+}
+
 function Get-PhaseStatus {
     $boundary = Get-ManifestPayload $BoundaryPath
     $boundaryBatch = Get-BoundaryBatch $boundary
     $phase = 'BOUNDARY_BATCH'
     $activeManifest = $BoundaryPath
     $detail = $null
+    $oneDayDecision = $null
     if ([string]$boundaryBatch.status -eq 'SUCCEEDED') {
         $oneDay = Get-ManifestPayload $OneDayPath
         if ($null -eq $oneDay) {
@@ -79,16 +143,43 @@ function Get-PhaseStatus {
             $phase = 'ONE_DAY_SCREEN'
             $activeManifest = $OneDayPath
         } else {
-            $core = Get-ManifestPayload $CorePath
-            if ($null -eq $core) {
-                $phase = 'CORE_SCREEN_QUEUED'
+            $oneDayDecision = Get-OneDayDecision $oneDay
+            if ($null -eq $oneDayDecision) {
+                $phase = 'ONE_DAY_EVALUATION_READY'
                 $activeManifest = $null
-            } elseif (-not (Test-AllSucceeded $core)) {
-                $phase = 'CORE_SCREEN'
-                $activeManifest = $CorePath
             } else {
-                $phase = 'SCREEN_EVALUATION_READY'
-                $activeManifest = $null
+                $fiveDay = Get-ManifestPayload $FiveDayPath
+                if ($null -eq $fiveDay) {
+                    $phase = 'FIVE_DAY_ABLATION_QUEUED'
+                    $activeManifest = $null
+                } elseif (-not (Test-AllSucceeded $fiveDay)) {
+                    $phase = 'FIVE_DAY_ABLATION'
+                    $activeManifest = $FiveDayPath
+                } else {
+                    $twentyDay = Get-ManifestPayload $TwentyDayPath
+                    if ($null -eq $twentyDay) {
+                        $phase = 'TWENTY_DAY_ABLATION_QUEUED'
+                        $activeManifest = $null
+                    } elseif (-not (Test-AllSucceeded $twentyDay)) {
+                        $phase = 'TWENTY_DAY_ABLATION'
+                        $activeManifest = $TwentyDayPath
+                    } elseif ([string]$oneDayDecision.decision -eq 'KEEP_FOR_FULL_ABLATION') {
+                        $oneDayAblation = Get-ManifestPayload $OneDayAblationPath
+                        if ($null -eq $oneDayAblation) {
+                            $phase = 'ONE_DAY_ABLATION_QUEUED'
+                            $activeManifest = $null
+                        } elseif (-not (Test-AllSucceeded $oneDayAblation)) {
+                            $phase = 'ONE_DAY_ABLATION'
+                            $activeManifest = $OneDayAblationPath
+                        } else {
+                            $phase = 'FEATURE_SELECTION_READY'
+                            $activeManifest = $null
+                        }
+                    } else {
+                        $phase = 'FEATURE_SELECTION_READY'
+                        $activeManifest = $null
+                    }
+                }
             }
         }
     }
@@ -108,6 +199,12 @@ function Get-PhaseStatus {
         phase = $phase
         active_manifest = $activeManifest
         campaign = $detail
+        one_day_decision = $oneDayDecision
+        legacy_core_screen_latch = if (Test-Path -LiteralPath $CorePath -PathType Container) {
+            'ARMED'
+        } else {
+            'NOT_ARMED'
+        }
         locked_holdout_accessed = $false
     }
 }
@@ -129,8 +226,13 @@ function Assert-SourceProvenance {
 }
 
 function Invoke-ResearchRunner([string]$ManifestPath) {
+    $runnerAction = if (Test-AllSucceeded (Get-ManifestPayload $ManifestPath)) {
+        'verify-completed'
+    } else {
+        'run'
+    }
     & $WindowsPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass `
-        -File $ResearchRunner -Action run -Manifest $ManifestPath | Out-Host
+        -File $ResearchRunner -Action $runnerAction -Manifest $ManifestPath | Out-Host
     $exitCode = $LASTEXITCODE
     return $exitCode
 }
@@ -186,9 +288,61 @@ function Invoke-ScreenPhase(
     return Invoke-NewScreen $ManifestPath $Horizons $Families $ReportRoot $CheckpointRoot $ChildLogRoot
 }
 
+function Invoke-NewAblation(
+    [string]$ManifestPath,
+    [string]$Horizon,
+    [string]$ReportRoot,
+    [string]$CheckpointRoot,
+    [string]$ChildLogRoot
+) {
+    $env:PYTHONPATH = Join-Path $ProjectRoot 'src'
+    Remove-Item Env:JQUANTS_API_KEY -ErrorAction SilentlyContinue
+    & $Python -m stock_ai research campaign `
+        --build-manifest $BuildPath `
+        --code-commit $CodeCommit `
+        --horizons $Horizon `
+        --model-families 'lightgbm,xgboost,catboost' `
+        --seeds '17,29,43' `
+        --target-family return `
+        --tuning-trials 20 `
+        --tuning-timeout-seconds 900 `
+        --estimator-count 300 `
+        --initial-train-periods 500 `
+        --validation-periods 60 `
+        --step-periods 60 `
+        --holdout-periods 120 `
+        --run-ablations `
+        --run-diagnostics `
+        --max-materialized-oof-rows 20000000 `
+        --max-model-fits 5000 `
+        --campaign-manifest $ManifestPath `
+        --report-root $ReportRoot `
+        --experiment-registry $RegistryPath `
+        --checkpoint-root $CheckpointRoot `
+        --log-root $ChildLogRoot | Out-Host
+    return $LASTEXITCODE
+}
+
+function Invoke-AblationPhase(
+    [string]$ManifestPath,
+    [string]$Horizon,
+    [string]$ReportRoot,
+    [string]$CheckpointRoot,
+    [string]$ChildLogRoot
+) {
+    if (Test-Path -LiteralPath $ManifestPath -PathType Leaf) {
+        return Invoke-ResearchRunner $ManifestPath
+    }
+    return Invoke-NewAblation $ManifestPath $Horizon $ReportRoot $CheckpointRoot $ChildLogRoot
+}
+
 $BoundaryPath = Resolve-ProjectPath $BoundaryManifest
 $OneDayPath = Resolve-ProjectPath $OneDayScreenManifest
 $CorePath = Resolve-ProjectPath $CoreScreenManifest
+$OneDayDecisionPath = Resolve-ProjectPath $OneDayDecisionArtifact
+$FiveDayPath = Resolve-ProjectPath $FiveDayAblationManifest
+$TwentyDayPath = Resolve-ProjectPath $TwentyDayAblationManifest
+$OneDayAblationPath = Resolve-ProjectPath $OneDayAblationManifest
 $BuildPath = Resolve-ProjectPath $BuildManifest
 $RegistryPath = Resolve-ProjectPath $ExperimentRegistry
 $PhaseLogRoot = Resolve-ProjectPath $LogRoot
@@ -196,8 +350,12 @@ $OneDayReportRoot = Resolve-ProjectPath 'artifacts/reports/advanced'
 $OneDayCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-screen-1d-v1'
 $OneDayLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-screen-1d-v1'
 $CoreReportRoot = Resolve-ProjectPath 'artifacts/reports/advanced'
-$CoreCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-screen-5d20d-v1'
-$CoreLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-screen-5d20d-v1'
+$FiveDayCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-ablation-5d-v1'
+$FiveDayLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-ablation-5d-v1'
+$TwentyDayCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-ablation-20d-v2'
+$TwentyDayLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-ablation-20d-v2'
+$OneDayAblationCheckpointRoot = Resolve-ProjectPath 'artifacts/checkpoints/goal3-ablation-1d-v1'
+$OneDayAblationLogRoot = Resolve-ProjectPath 'artifacts/logs/goal3-ablation-1d-v1'
 
 if ($Action -eq 'status') {
     Get-PhaseStatus | ConvertTo-Json -Depth 14
@@ -272,15 +430,38 @@ try {
         exit $oneDayExit
     }
 
-    Write-PhaseEvent $PhaseLogRoot 'START_OR_RESUME_CORE_SCREEN' 'horizons=5,20 families=all seeds=17,29,43'
-    $coreExit = Invoke-ScreenPhase `
-        $CorePath '5,20' 'lightgbm,xgboost,catboost' `
-        $CoreReportRoot $CoreCheckpointRoot $CoreLogRoot
-    if ($coreExit -ne 0) {
-        exit $coreExit
+    $oneDayPayload = Get-ManifestPayload $OneDayPath
+    $oneDayDecision = Get-OneDayDecision $oneDayPayload
+    if ($null -eq $oneDayDecision) {
+        Write-PhaseEvent $PhaseLogRoot 'ONE_DAY_EVALUATION_READY' 'fixed D080 development-only gates; locked holdout untouched'
+        exit 0
     }
 
-    Write-PhaseEvent $PhaseLogRoot 'SCREEN_EVALUATION_READY' 'development OOF only; locked holdout untouched'
+    Write-PhaseEvent $PhaseLogRoot 'START_OR_RESUME_FIVE_DAY_ABLATION' 'all families seeds=17,29,43; no core screen'
+    $fiveDayExit = Invoke-AblationPhase `
+        $FiveDayPath '5' $CoreReportRoot $FiveDayCheckpointRoot $FiveDayLogRoot
+    if ($fiveDayExit -ne 0) {
+        exit $fiveDayExit
+    }
+
+    Write-PhaseEvent $PhaseLogRoot 'START_OR_RESUME_TWENTY_DAY_ABLATION' 'all families seeds=17,29,43; no core screen'
+    $twentyDayExit = Invoke-AblationPhase `
+        $TwentyDayPath '20' $CoreReportRoot $TwentyDayCheckpointRoot $TwentyDayLogRoot
+    if ($twentyDayExit -ne 0) {
+        exit $twentyDayExit
+    }
+
+    if ([string]$oneDayDecision.decision -eq 'KEEP_FOR_FULL_ABLATION') {
+        Write-PhaseEvent $PhaseLogRoot 'START_OR_RESUME_ONE_DAY_ABLATION' 'D080 gates passed; all families seeds=17,29,43'
+        $oneDayAblationExit = Invoke-AblationPhase `
+            $OneDayAblationPath '1' $CoreReportRoot `
+            $OneDayAblationCheckpointRoot $OneDayAblationLogRoot
+        if ($oneDayAblationExit -ne 0) {
+            exit $oneDayAblationExit
+        }
+    }
+
+    Write-PhaseEvent $PhaseLogRoot 'FEATURE_SELECTION_READY' 'full ablation complete; locked holdout untouched'
     exit 0
 } catch {
     Write-PhaseEvent $PhaseLogRoot 'PHASE_RUNNER_FAILED' $_.Exception.GetType().FullName

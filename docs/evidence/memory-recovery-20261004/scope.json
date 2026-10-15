@@ -1,0 +1,14 @@
+{
+  "checked_at_utc": "2026-10-04T06:44:45.307331+00:00",
+  "changed_definition_names": [
+    "_finite_numeric"
+  ],
+  "all_classes_models_and_constants_unchanged": true,
+  "dtype_and_allocated_C_layout_unchanged": true,
+  "pandas_statistics_work_array_width_before": 41,
+  "pandas_statistics_work_array_width_after": 1,
+  "independent_a68_baseline_sha256": "5485d0f65a9f0cdd0890e98496e74c42c182d09cfa0e01742acc5e711b373c98",
+  "passing_tests": 89,
+  "native_oof_input_and_output_exact": true,
+  "actual_fit_headroom_not_yet_verified": true
+}

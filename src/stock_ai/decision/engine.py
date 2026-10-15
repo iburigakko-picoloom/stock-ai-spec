@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import itertools
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -85,9 +86,17 @@ class DecisionEngineConfig(BaseModel):
     def horizon_weights_sum_to_one(
         cls, value: tuple[Decimal, Decimal, Decimal]
     ) -> tuple[Decimal, Decimal, Decimal]:
-        if sum(value) != Decimal("1"):
-            raise ValueError("horizon weights must sum to one")
+        if any(not item.is_finite() or item < 0 for item in value) or sum(value) != Decimal("1"):
+            raise ValueError("horizon weights must be finite, nonnegative and sum to one")
         return value
+
+    @classmethod
+    def daily(cls) -> DecisionEngineConfig:
+        """Daily-only policy: 5d is supplementary; decisions and risk use 20d."""
+        return cls(
+            version="daily-decision-engine-v2",
+            horizon_weights=(Decimal("0"), Decimal("0"), Decimal("1")),
+        )
 
 
 @dataclass(frozen=True)
@@ -141,9 +150,15 @@ class DailyPortfolioDecisionEngine:
         generated_at: datetime,
         model_bundle_version: str,
         morning_audit: MorningDecisionAudit | None = None,
+        maximum_invested_value: Decimal | None = None,
+        purchase_limits: Mapping[str, Decimal] | None = None,
     ) -> PortfolioProposal:
         if generated_at.tzinfo is None or generated_at.utcoffset() is None:
             raise ValueError("generated_at must be timezone-aware")
+        if maximum_invested_value is not None and (
+            not maximum_invested_value.is_finite() or maximum_invested_value < 0
+        ):
+            raise ValueError("maximum invested value must be finite and nonnegative")
         if self.tax_engine.policy.effective_from > portfolio.as_of.date():
             raise ValueError("configured tax policy is not effective at the portfolio as_of")
         ordered_candidates = tuple(sorted(candidates, key=lambda candidate: candidate.key))
@@ -155,9 +170,21 @@ class DailyPortfolioDecisionEngine:
         if missing_holdings:
             raise ValueError(f"all current holdings must be evaluated: {sorted(missing_holdings)}")
         bucket_map = {bucket.bucket_id: bucket for bucket in portfolio.account_buckets}
+        if purchase_limits is not None and (
+            set(purchase_limits) - set(bucket_map)
+            or any(not x.is_finite() or x < 0 for x in purchase_limits.values())
+        ):
+            raise ValueError("purchase limits require known buckets and nonnegative finite amounts")
         if unknown := {candidate.account_bucket_id for candidate in candidates} - set(bucket_map):
             raise ValueError(f"candidates reference unknown account buckets: {sorted(unknown)}")
         for candidate in candidates:
+            prediction = candidate.prediction
+            if prediction.schema_version == 2 and self.config.horizon_weights != (
+                Decimal("0"),
+                Decimal("0"),
+                Decimal("1"),
+            ):
+                raise ValueError("daily predictions require the frozen 20d decision policy")
             bucket = bucket_map[candidate.account_bucket_id]
             if bucket.fee_policy_id != self.cost_engine.policy.policy_id:
                 raise ValueError(
@@ -256,7 +283,7 @@ class DailyPortfolioDecisionEngine:
             raise RuntimeError("the unchanged HOLD scenario must always be evaluable")
 
         option_sets = [
-            self._share_options(candidate, current.get(key), total_wealth)
+            self._share_options(candidate, current.get(key), total_wealth, maximum_invested_value)
             for key, candidate in candidate_map.items()
         ]
         combination_count = math.prod(len(options) for options in option_sets)
@@ -276,6 +303,8 @@ class DailyPortfolioDecisionEngine:
                 buckets=bucket_map,
                 total_wealth=total_wealth,
                 enforce_trade_constraints=True,
+                maximum_invested_value=maximum_invested_value,
+                purchase_limits=purchase_limits,
             )
             if evaluation is not None and evaluation.utility > best.utility:
                 best = evaluation
@@ -305,10 +334,16 @@ class DailyPortfolioDecisionEngine:
         )
 
     def _share_options(
-        self, candidate: DecisionCandidate, position: Position | None, total_wealth: Decimal
+        self,
+        candidate: DecisionCandidate,
+        position: Position | None,
+        total_wealth: Decimal,
+        maximum_invested_value: Decimal | None = None,
     ) -> tuple[int, ...]:
         current_shares = position.shares if position else 0
         symbol_cap = total_wealth * self.config.maximum_symbol_weight
+        if maximum_invested_value is not None:
+            symbol_cap = min(symbol_cap, maximum_invested_value)
         capped_lots = int(symbol_cap // (candidate.price * self.config.lot_size))
         maximum_shares = max(current_shares, capped_lots * self.config.lot_size)
         remainder = current_shares % self.config.lot_size
@@ -322,11 +357,18 @@ class DailyPortfolioDecisionEngine:
     def _signal_utility(self, candidate: DecisionCandidate, shares: int) -> Decimal:
         prediction = candidate.prediction
         weights = self.config.horizon_weights
-        expected_return = (
-            weights[0] * Decimal(str(prediction.expected_return_1d))
-            + weights[1] * Decimal(str(prediction.expected_return_5d))
-            + weights[2] * Decimal(str(prediction.expected_return_20d))
+        values = (
+            prediction.expected_return_1d,
+            prediction.expected_return_5d,
+            prediction.expected_return_20d,
         )
+        expected_return = Decimal("0")
+        for weight, value in zip(weights, values, strict=True):
+            if weight == 0:
+                continue
+            if value is None:
+                raise ValueError("positive decision weight on an unavailable prediction horizon")
+            expected_return += weight * Decimal(str(value))
         downside = Decimal(str(max(0.0, -prediction.downside_quantile)))
         uncertainty = Decimal(str(prediction.uncertainty.combined))
         large_loss_probability = Decimal(str(prediction.large_loss_probability))
@@ -347,6 +389,8 @@ class DailyPortfolioDecisionEngine:
         buckets: dict[str, AccountBucket],
         total_wealth: Decimal,
         enforce_trade_constraints: bool,
+        maximum_invested_value: Decimal | None = None,
+        purchase_limits: Mapping[str, Decimal] | None = None,
     ) -> _Evaluation | None:
         current = portfolio.position_map()
         cash_after = {key: item.deployable_cash for key, item in portfolio.cash_map().items()}
@@ -362,6 +406,7 @@ class DailyPortfolioDecisionEngine:
         target_symbols: set[str] = set()
         current_symbols = {position.symbol for position in current.values() if position.shares > 0}
         tax_states = portfolio.tax_state_map()
+        purchases: dict[str, Decimal] = {}
 
         for key, candidate in candidates.items():
             position = current.get(key)
@@ -408,6 +453,9 @@ class DailyPortfolioDecisionEngine:
                 ):
                     return None
             if difference > 0:
+                purchases[candidate.account_bucket_id] = (
+                    purchases.get(candidate.account_bucket_id, Decimal("0")) + notional
+                )
                 cash_after[candidate.account_bucket_id] -= notional + trade_cost.total
             else:
                 if position is None:
@@ -437,6 +485,18 @@ class DailyPortfolioDecisionEngine:
         if any(value < 0 for value in cash_after.values()):
             return None
         if enforce_trade_constraints:
+            if purchase_limits is not None and any(
+                purchases.get(bucket, Decimal("0")) > limit
+                for bucket, limit in purchase_limits.items()
+            ):
+                return None
+            if maximum_invested_value is not None:
+                target_invested = sum(target_symbol_values.values(), Decimal("0"))
+                current_invested = sum(current_symbol_values.values(), Decimal("0"))
+                # Preserve HOLD as the counterfactual and allow only strict reductions
+                # while existing holdings exceed a newly supplied budget.
+                if target_invested > maximum_invested_value and target_invested >= current_invested:
+                    return None
             if len(target_symbols) > self.config.maximum_positions:
                 moves_toward_limit = target_symbols < current_symbols
                 if not moves_toward_limit:

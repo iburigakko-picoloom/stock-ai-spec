@@ -1,0 +1,12 @@
+
+## 2026-10-11: authorized single CatBoost quantile fold5 admission resume
+
+The user explicitly authorized input-copy factor5 to3.5 only for h20-catboost-s17, outer-model-evaluation, quantile, fold5, horizon20. Original source pin2bf1dc4, scientific configuration,51 features,1 thread and checkpoint identity are unchanged. A separate execution policy inherits the original OS reserve1.25GiB and actual-RAM emergency callback0.5GiB. The allowance is consumed after one successful admission; all other scopes, folds, tasks, seeds and subsequent admissions use the original policy.18 policy/native regression tests pass; Ruff passes.
+
+Before stopping the blocked worker8156,41 checkpoint files (excluding only the live OS writer.lock) were copied and SHA256 verified.19 succeeded units were preserved. After resume,38 saved fold files and5 SQLite tuning trial records remained identical; prior trial durations total954.870708s, so no new900s budget or repeated tuning fit is created. The old runtime and source/configuration were archived under stock-h20-quantile-once-20261011/verified-before. The first backup attempt hit the Windows writer.lock; it caused no worker mutation and its partial backup was retained.
+
+Old native PID8156 was confirmed dead before one launch at09:09:36JST; new native worker24892 started09:09:39. Six completed batches were authenticated and reused. Input authentication finished09:12:49. No automatic launch retry or new Codex resident observer was created.
+
+At09:16:44JST the authorized allowance is correctly active but target native fit has NOT begun: available physical RAM3.158855GiB; required3.625245GiB. Latest admission09:16:19 measured3.356453GiB and remained WAITING_FOR_MEMORY. Completed candidate count remains6/9; Cat17 regression5/5,ranking5/5,quantile4/5. This is a successful one-time process resume with an unresolved memory admission blocker, not evidence of target-fold computation or whole-candidate completion. No further threshold lowering, app closure, pagefile change or process restart was performed. Original policy file is byte-unchanged.
+
+Evidence: docs/evidence/quantile-once-20261011. Runtime pointer now references stock-h20-quantile-once-20261011/runtime. If a genuine failure occurs, preserve logs/unfinished fold and use the archived original policy; no automatic retries. The existing learning-process wait may admit this exact prepared fold once physical RAM becomes sufficient.

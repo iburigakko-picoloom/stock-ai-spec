@@ -1,0 +1,129 @@
+"""Independently recompute saved membership-projection coverage before publication."""
+from collections import Counter
+from pathlib import Path
+import hashlib
+import json
+
+import pandas as pd
+
+root = Path(__file__).resolve().parent.parent
+output = root/'artifacts/daily-universe-development-20261015-attempt2'
+folder = root/'docs/evidence/daily-universe-development-20261015'
+assert not folder.exists()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8*1024*1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+summary = read(output/'summary.json')
+plan = read(output/'plan.json')
+runtime = read(root/'.demo-artifacts/development-universe-audit-2-result.json')
+assert summary['status'] == 'COMPLETE' and runtime['exit_code'] == 0
+assert not summary['evaluation_ready'] and not summary['holdout_scored']
+assert summary['all_source_files_unchanged']
+assert sha(output/'plan.json') == summary['plan_sha256']
+executed = root/'.demo-artifacts/audit_development_universe-executed-2.py'
+assert sha(executed) == summary['script_sha256'] == runtime['script_sha256']
+for path, expected in summary['implementation_sha256'].items():
+    assert sha(root/path) == expected
+assert sha(root/'docs/evidence/daily-source-identity-20261015/summary.json') == plan['source_identity_evidence_sha256']
+assert sha(root/'docs/evidence/daily-market-development-20261015/summary.json') == plan['price_evidence_sha256']
+prices = read(root/'artifacts/daily-market-development-20261015/summary.json')
+daily, projections, source_ids = {}, [], set()
+totals = Counter()
+for entry, price_entry in zip(summary['checkpoints'], prices['checkpoints'], strict=True):
+    checkpoint = root/entry['path']
+    assert sha(checkpoint) == entry['sha256']
+    window = read(checkpoint)
+    price_window = read(root/price_entry['path'])
+    assert sha(root/price_entry['path']) == price_entry['sha256']
+    assert window['price_receipt_path'] == price_window['receipt_path']
+    assert window['price_receipt_sha256'] == price_window['receipt_sha256']
+    projection = root/window['projection_path']
+    assert sha(projection) == window['projection_sha256']
+    frame = pd.read_parquet(projection)
+    assert len(frame) == window['projection_rows']
+    assert not frame.duplicated(['date', 'provider_code']).any()
+    assert frame.provider_code.str.fullmatch('[0-9A-Z]{5}').all()
+    has_master = frame.master_normalized_object_id.notna()
+    assert frame.eligible.isna().equals(~has_master)
+    expected_eligible = has_master & frame.provider_code.str.endswith('0') & frame.market_code.isin(['0111','0112','0113'])
+    assert frame.eligible.fillna(False).astype(bool).equals(expected_eligible)
+    assert frame.loc[has_master & ~frame.provider_code.str.endswith('0'), 'symbol'].isna().all()
+    assert frame.round_lot_size.isna().all()
+    source_ids.update(x['object_id'] for x in window['master_source_objects'])
+    for day, f in frame.groupby('date', sort=True):
+        assert day not in daily and day in plan['expected_dates']
+        eligible = f.eligible.fillna(False)
+        missing_price = f.price_normalized_object_id.isna()
+        missing_master = f.master_normalized_object_id.isna()
+        assert f.bar_state.eq('price_row_missing').equals(missing_price)
+        assert f.membership_state.eq('master_row_missing').equals(missing_master)
+        values = {
+            'union_rows': len(f), 'master_rows': int((~missing_master).sum()),
+            'price_rows': int((~missing_price).sum()), 'eligible_rows': int(eligible.sum()),
+            'eligible_missing_price': int((eligible & missing_price).sum()),
+            'eligible_reported_trade': int((eligible & f.bar_state.eq('reported_trade')).sum()),
+            'eligible_reported_no_trade': int((eligible & f.bar_state.eq('reported_no_trade')).sum()),
+            'eligible_incomplete_bar': int((eligible & f.bar_state.eq('incomplete_bar')).sum()),
+            'eligible_adjustment_rows': int((eligible & f.adjustment_requires_event_evidence.fillna(False).astype(bool)).sum()),
+            'price_missing_master': int(missing_master.sum()), 'all_master_missing_price': int(missing_price.sum()),
+            'ineligible_market_rows': int(f.membership_state.eq('ineligible_market').sum()),
+            'nonstandard_provider_code_rows': int(f.membership_state.eq('nonstandard_provider_code').sum()),
+        }
+        assert values == window['per_day'][day] == summary['daily_profile'][day]
+        assert values['price_rows'] == price_window['per_day'][day]['rows']
+        totals.update(values)
+        daily[day] = values
+    projections.append({k: window[k] for k in ['window', 'start', 'end', 'projection_path', 'projection_sha256', 'projection_rows']})
+assert dict(totals) == summary['totals']
+assert len(daily) == summary['dates'] and set(daily) == set(plan['expected_dates'])
+assert len(source_ids) == summary['master_source_objects_verified']
+first_failure = read(root/'artifacts/daily-universe-development-20261015/failure-after-000.json')
+first_script = root/'.demo-artifacts/audit_development_universe-executed-1.py'
+assert first_failure['script_sha256'] == sha(first_script) and first_failure['completed_windows'] == 0
+folder.mkdir(parents=True)
+result = {
+    **summary, 'audit_result_sha256': sha(output/'summary.json'), 'runtime': runtime,
+    'saved_projection_hashes_keys_dates_counts_reverified': True, 'projections': projections,
+    'documentation_script_sha256': sha(__file__),
+    'initial_failure': {
+        **first_failure, 'cause': 'Different pandas code-column dtypes made MultiIndex.equals reject identical key tuples.',
+        'diagnostic': 'All 4,386 normalized/raw key tuples in the first pair matched exactly.',
+        'repair': 'Normalize both code columns to the same string storage dtype before exact index comparison.',
+        'key_values_or_missing_rows_changed': False, 'original_sources_changed': False,
+        'previous_output_and_failure_preserved': True,
+    },
+}
+(folder/'summary.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
+for script in (executed, first_script, Path(__file__)):
+    (folder/(script.name+'.txt')).write_bytes(script.read_bytes())
+lines = [
+    '# 開発期間の当日銘柄一覧と日足キーの照合', '',
+    '2024-07-31〜2026-03-03の42区間・386営業日で、当日の日付を持つ銘柄一覧のraw/normalizedペアと価格キーを照合した。',
+    '銘柄一覧は772 object・1,702,477行。前段で認証済みの価格も1,702,477行で、日付と5桁provider codeのキー集合が一致。全対象営業日のmasterが存在し、対象銘柄の価格欠落、価格だけが存在する銘柄、全masterの価格欠落はいずれも0。', '',
+    '| 状態 | 行数（日付×銘柄） |', '| --- | ---: |',
+]
+for key, label in [('eligible_rows','既存投資対象ルールに一致'), ('eligible_reported_trade','対象銘柄・取引あり'),
+                   ('eligible_reported_no_trade','対象銘柄・無約定'), ('eligible_incomplete_bar','対象銘柄・不完全日足'),
+                   ('eligible_adjustment_rows','対象銘柄・企業行動要確認'),
+                   ('ineligible_market_rows','対象外の市場区分'), ('nonstandard_provider_code_rows','特殊provider code')]:
+    lines.append(f'| {label} | {totals[key]:,} |')
+lines += ['',
+    '適格性は既存学習sourceと同じ「市場0111/0112/0113かつprovider code末尾0」。その日付のmasterだけを使い、現在の銘柄一覧や後日初出の銘柄を過去へ埋めない。特殊codeは元の5桁を保持し、4文字symbolへ誤結合しない。全master/価格の外部結合をローカルParquetへ保存し、不明・無約定・対象外を削除しない。単元株数は提供されていないためnullのまま。',
+    'catalog/manifest/byte hash/行metadata、キー、会社・市場・業種等のraw/normalized値を認証。全master catalogのpath/hash一覧は、学習時source-frame IDと一致した既存証拠に結び付けた。処理前後の元ファイル不変と、保存projectionのhash・キー・日付・集計を独立に再確認した。元master/価格行はローカルartifactに保持し、この文書へ再配布しない。', '',
+    '初回照合は、値が同じでもobjectとpandas StringDtypeのMultiIndexが不一致となり0区間で停止した。最初の4,386キーが一致することを別に確認し、両側を同じ文字列dtypeへ揃えて第2試行を実施。キー検査を省略せず、初回script・失敗・元データは保持した。', '',
+    '固定vintageは2026-08-29であり、訂正前に知られていた値の証明ではない。日付別の在籍と価格が揃うことを確認した範囲に限定する。在籍の消失を上場廃止・現金交付イベントと推測せず、359行の対象銘柄の調整係数も企業行動の未確認として残す。',
+    '全期間のcatalog metadataは識別値の結び付けに使うが、2026-03-04以降のmaster/価格行、予測、target、成績は読まない。企業行動・約定能力・呼値・決済・実用費用/税・NAV・最終選択/holdout・採用は別途必要。evaluation_ready=false、adoption_eligible=false。実注文なし。',
+]
+(folder/'README.md').write_text('\n'.join(lines)+'\n',encoding='utf-8',newline='\n')
+print('Saved projection verification PASS:',dict(totals))

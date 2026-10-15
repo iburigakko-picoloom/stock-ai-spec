@@ -1,0 +1,4280 @@
+{
+  "cost_source_sha256": "3240c5ba462e5f3fdca303b5b5e2e19cc949da3f742e2b37ab31e7b3e6486dfe",
+  "daily_nav_difference": [
+    "0",
+    "100",
+    "300",
+    "600",
+    "1000",
+    "1500",
+    "2100",
+    "2800",
+    "3600",
+    "4500",
+    "5500",
+    "6600",
+    "7800",
+    "9100",
+    "10500",
+    "12000",
+    "13600",
+    "15300",
+    "17100",
+    "19000",
+    "21000",
+    "23000",
+    "24900",
+    "26700",
+    "28400",
+    "30000",
+    "31500",
+    "32900",
+    "34200",
+    "35400",
+    "36500",
+    "37500",
+    "38400",
+    "39200",
+    "39900",
+    "40500",
+    "41000",
+    "41400",
+    "41700",
+    "41900",
+    "42000"
+  ],
+  "decimal_precision": 28,
+  "domain_source_sha256": "9346d3c1fd9f9fe4ccd9da9f159c82b96154903fba992d051e115b727393506a",
+  "evaluator_source_sha256": "91f7435153bfa2ffcbb542814361be27159f38434ad0131370040664dfc6ebfd",
+  "hold": {
+    "adoption_eligible": false,
+    "days": [
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-05T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-06T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-06"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-07T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-07"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-08T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-08"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-09T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-09"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-12T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-12"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-13T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-13"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-14T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-14"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-15T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-15"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-16T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-16"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-19T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-19"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-20T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-20"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-21T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-21"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-22T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-22"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-23T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-23"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-26T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-26"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-27T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-27"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-28T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-28"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-29T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-29"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-30T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-01-30"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-02T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-02"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-03T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-03"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-04T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-04"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-05T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-05"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-06T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-06"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-09T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-09"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-10T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-10"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-11T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-11"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-12T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-12"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-13T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-13"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-16T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-16"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-17T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-17"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-18T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-18"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-19T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-19"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-20T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-20"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-23T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-23"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-24T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-24"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-25T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-25"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-26T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-26"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-27T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-02-27"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-03-02T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "0",
+        "trading_cost": "0",
+        "trading_date": "2026-03-02"
+      }
+    ],
+    "execution_semantics": "observed_execution_window",
+    "initial_nav": "1000000",
+    "input_sha256": "99388d08fc0e739fed3e3def49920822e762ff2d57e9c3a055266175f282e475",
+    "maximum_drawdown": "0",
+    "research_only": true,
+    "schema_version": "daily-nav-result-v1",
+    "tax_mode": "pre_tax",
+    "total_return": "0",
+    "total_trading_cost": "0",
+    "valuation_complete": true
+  },
+  "input": {
+    "actions": [],
+    "calendar_dates": [
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07",
+      "2026-01-08",
+      "2026-01-09",
+      "2026-01-12",
+      "2026-01-13",
+      "2026-01-14",
+      "2026-01-15",
+      "2026-01-16",
+      "2026-01-19",
+      "2026-01-20",
+      "2026-01-21",
+      "2026-01-22",
+      "2026-01-23",
+      "2026-01-26",
+      "2026-01-27",
+      "2026-01-28",
+      "2026-01-29",
+      "2026-01-30",
+      "2026-02-02",
+      "2026-02-03",
+      "2026-02-04",
+      "2026-02-05",
+      "2026-02-06",
+      "2026-02-09",
+      "2026-02-10",
+      "2026-02-11",
+      "2026-02-12",
+      "2026-02-13",
+      "2026-02-16",
+      "2026-02-17",
+      "2026-02-18",
+      "2026-02-19",
+      "2026-02-20",
+      "2026-02-23",
+      "2026-02-24",
+      "2026-02-25",
+      "2026-02-26",
+      "2026-02-27",
+      "2026-03-02"
+    ],
+    "calendar_id": "synthetic-weekday-calendar-not-JPX",
+    "cash": [
+      {
+        "amount": "1000000",
+        "bucket": "cash",
+        "reserved": "0"
+      }
+    ],
+    "cost_policy": {
+      "commission_bps": "0",
+      "commission_fixed": "0",
+      "full_spread_bps": "0",
+      "impact_bps_at_full_adv": "0",
+      "minimum_commission": "0",
+      "policy_id": "research-all-in-0-bps",
+      "slippage_bps": "0",
+      "version": "research-one-way-v1",
+      "zero_commission_confirmed": true
+    },
+    "data_mode": "fixture",
+    "execution_semantics": "observed_execution_window",
+    "fill_fraction": "1",
+    "initial_as_of": "2026-01-02T16:00:00+09:00",
+    "lot_size": 100,
+    "orders": [
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-05T11:00:00+09:00",
+        "order_id": "BUY-0-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-06T11:00:00+09:00",
+        "order_id": "BUY-1-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-06"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-07T11:00:00+09:00",
+        "order_id": "BUY-2-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-07"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-08T11:00:00+09:00",
+        "order_id": "BUY-3-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-08"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-09T11:00:00+09:00",
+        "order_id": "BUY-4-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-09"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-12T11:00:00+09:00",
+        "order_id": "BUY-5-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-12"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-13T11:00:00+09:00",
+        "order_id": "BUY-6-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-13"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-14T11:00:00+09:00",
+        "order_id": "BUY-7-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-14"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-15T11:00:00+09:00",
+        "order_id": "BUY-8-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-15"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-16T11:00:00+09:00",
+        "order_id": "BUY-9-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-16"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-19T11:00:00+09:00",
+        "order_id": "BUY-10-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-19"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-20T11:00:00+09:00",
+        "order_id": "BUY-11-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-20"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-21T11:00:00+09:00",
+        "order_id": "BUY-12-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-21"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-22T11:00:00+09:00",
+        "order_id": "BUY-13-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-22"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-23T11:00:00+09:00",
+        "order_id": "BUY-14-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-23"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-26T11:00:00+09:00",
+        "order_id": "BUY-15-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-26"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-27T11:00:00+09:00",
+        "order_id": "BUY-16-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-27"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-28T11:00:00+09:00",
+        "order_id": "BUY-17-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-28"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-29T11:00:00+09:00",
+        "order_id": "BUY-18-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-29"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-01-30T11:00:00+09:00",
+        "order_id": "BUY-19-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-01-30"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-02T11:00:00+09:00",
+        "order_id": "BUY-20-A-cash",
+        "shares": 100,
+        "side": "BUY",
+        "symbol": "A",
+        "trading_date": "2026-02-02"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-02T11:00:00+09:00",
+        "order_id": "SELL-20-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-02"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-03T11:00:00+09:00",
+        "order_id": "SELL-21-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-03"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-04T11:00:00+09:00",
+        "order_id": "SELL-22-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-04"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-05T11:00:00+09:00",
+        "order_id": "SELL-23-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-05"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-06T11:00:00+09:00",
+        "order_id": "SELL-24-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-06"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-09T11:00:00+09:00",
+        "order_id": "SELL-25-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-09"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-10T11:00:00+09:00",
+        "order_id": "SELL-26-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-10"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-11T11:00:00+09:00",
+        "order_id": "SELL-27-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-11"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-12T11:00:00+09:00",
+        "order_id": "SELL-28-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-12"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-13T11:00:00+09:00",
+        "order_id": "SELL-29-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-13"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-16T11:00:00+09:00",
+        "order_id": "SELL-30-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-16"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-17T11:00:00+09:00",
+        "order_id": "SELL-31-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-17"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-18T11:00:00+09:00",
+        "order_id": "SELL-32-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-18"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-19T11:00:00+09:00",
+        "order_id": "SELL-33-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-19"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-20T11:00:00+09:00",
+        "order_id": "SELL-34-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-20"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-23T11:00:00+09:00",
+        "order_id": "SELL-35-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-23"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-24T11:00:00+09:00",
+        "order_id": "SELL-36-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-24"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-25T11:00:00+09:00",
+        "order_id": "SELL-37-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-25"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-26T11:00:00+09:00",
+        "order_id": "SELL-38-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-26"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-02-27T11:00:00+09:00",
+        "order_id": "SELL-39-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-02-27"
+      },
+      {
+        "bucket": "cash",
+        "decided_at": "2026-03-02T11:00:00+09:00",
+        "order_id": "SELL-40-A-cash",
+        "shares": 100,
+        "side": "SELL",
+        "symbol": "A",
+        "trading_date": "2026-03-02"
+      }
+    ],
+    "positions": [],
+    "price_basis": "unadjusted",
+    "schema_version": "daily-nav-input-v1",
+    "sessions": [
+      {
+        "close_at": "2026-01-05T16:00:00+09:00",
+        "execution_at": "2026-01-05T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "100",
+            "execution_price": "100",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-05T12:00:00+09:00",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "close_at": "2026-01-06T16:00:00+09:00",
+        "execution_at": "2026-01-06T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "101",
+            "execution_price": "101",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-06T12:00:00+09:00",
+        "trading_date": "2026-01-06"
+      },
+      {
+        "close_at": "2026-01-07T16:00:00+09:00",
+        "execution_at": "2026-01-07T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "102",
+            "execution_price": "102",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-07T12:00:00+09:00",
+        "trading_date": "2026-01-07"
+      },
+      {
+        "close_at": "2026-01-08T16:00:00+09:00",
+        "execution_at": "2026-01-08T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "103",
+            "execution_price": "103",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-08T12:00:00+09:00",
+        "trading_date": "2026-01-08"
+      },
+      {
+        "close_at": "2026-01-09T16:00:00+09:00",
+        "execution_at": "2026-01-09T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "104",
+            "execution_price": "104",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-09T12:00:00+09:00",
+        "trading_date": "2026-01-09"
+      },
+      {
+        "close_at": "2026-01-12T16:00:00+09:00",
+        "execution_at": "2026-01-12T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "105",
+            "execution_price": "105",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-12T12:00:00+09:00",
+        "trading_date": "2026-01-12"
+      },
+      {
+        "close_at": "2026-01-13T16:00:00+09:00",
+        "execution_at": "2026-01-13T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "106",
+            "execution_price": "106",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-13T12:00:00+09:00",
+        "trading_date": "2026-01-13"
+      },
+      {
+        "close_at": "2026-01-14T16:00:00+09:00",
+        "execution_at": "2026-01-14T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "107",
+            "execution_price": "107",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-14T12:00:00+09:00",
+        "trading_date": "2026-01-14"
+      },
+      {
+        "close_at": "2026-01-15T16:00:00+09:00",
+        "execution_at": "2026-01-15T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "108",
+            "execution_price": "108",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-15T12:00:00+09:00",
+        "trading_date": "2026-01-15"
+      },
+      {
+        "close_at": "2026-01-16T16:00:00+09:00",
+        "execution_at": "2026-01-16T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "109",
+            "execution_price": "109",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-16T12:00:00+09:00",
+        "trading_date": "2026-01-16"
+      },
+      {
+        "close_at": "2026-01-19T16:00:00+09:00",
+        "execution_at": "2026-01-19T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "110",
+            "execution_price": "110",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-19T12:00:00+09:00",
+        "trading_date": "2026-01-19"
+      },
+      {
+        "close_at": "2026-01-20T16:00:00+09:00",
+        "execution_at": "2026-01-20T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "111",
+            "execution_price": "111",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-20T12:00:00+09:00",
+        "trading_date": "2026-01-20"
+      },
+      {
+        "close_at": "2026-01-21T16:00:00+09:00",
+        "execution_at": "2026-01-21T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "112",
+            "execution_price": "112",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-21T12:00:00+09:00",
+        "trading_date": "2026-01-21"
+      },
+      {
+        "close_at": "2026-01-22T16:00:00+09:00",
+        "execution_at": "2026-01-22T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "113",
+            "execution_price": "113",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-22T12:00:00+09:00",
+        "trading_date": "2026-01-22"
+      },
+      {
+        "close_at": "2026-01-23T16:00:00+09:00",
+        "execution_at": "2026-01-23T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "114",
+            "execution_price": "114",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-23T12:00:00+09:00",
+        "trading_date": "2026-01-23"
+      },
+      {
+        "close_at": "2026-01-26T16:00:00+09:00",
+        "execution_at": "2026-01-26T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "115",
+            "execution_price": "115",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-26T12:00:00+09:00",
+        "trading_date": "2026-01-26"
+      },
+      {
+        "close_at": "2026-01-27T16:00:00+09:00",
+        "execution_at": "2026-01-27T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "116",
+            "execution_price": "116",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-27T12:00:00+09:00",
+        "trading_date": "2026-01-27"
+      },
+      {
+        "close_at": "2026-01-28T16:00:00+09:00",
+        "execution_at": "2026-01-28T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "117",
+            "execution_price": "117",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-28T12:00:00+09:00",
+        "trading_date": "2026-01-28"
+      },
+      {
+        "close_at": "2026-01-29T16:00:00+09:00",
+        "execution_at": "2026-01-29T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "118",
+            "execution_price": "118",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-29T12:00:00+09:00",
+        "trading_date": "2026-01-29"
+      },
+      {
+        "close_at": "2026-01-30T16:00:00+09:00",
+        "execution_at": "2026-01-30T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "119",
+            "execution_price": "119",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-01-30T12:00:00+09:00",
+        "trading_date": "2026-01-30"
+      },
+      {
+        "close_at": "2026-02-02T16:00:00+09:00",
+        "execution_at": "2026-02-02T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "120",
+            "execution_price": "120",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-02T12:00:00+09:00",
+        "trading_date": "2026-02-02"
+      },
+      {
+        "close_at": "2026-02-03T16:00:00+09:00",
+        "execution_at": "2026-02-03T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "121",
+            "execution_price": "121",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-03T12:00:00+09:00",
+        "trading_date": "2026-02-03"
+      },
+      {
+        "close_at": "2026-02-04T16:00:00+09:00",
+        "execution_at": "2026-02-04T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "122",
+            "execution_price": "122",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-04T12:00:00+09:00",
+        "trading_date": "2026-02-04"
+      },
+      {
+        "close_at": "2026-02-05T16:00:00+09:00",
+        "execution_at": "2026-02-05T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "123",
+            "execution_price": "123",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-05T12:00:00+09:00",
+        "trading_date": "2026-02-05"
+      },
+      {
+        "close_at": "2026-02-06T16:00:00+09:00",
+        "execution_at": "2026-02-06T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "124",
+            "execution_price": "124",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-06T12:00:00+09:00",
+        "trading_date": "2026-02-06"
+      },
+      {
+        "close_at": "2026-02-09T16:00:00+09:00",
+        "execution_at": "2026-02-09T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "125",
+            "execution_price": "125",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-09T12:00:00+09:00",
+        "trading_date": "2026-02-09"
+      },
+      {
+        "close_at": "2026-02-10T16:00:00+09:00",
+        "execution_at": "2026-02-10T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "126",
+            "execution_price": "126",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-10T12:00:00+09:00",
+        "trading_date": "2026-02-10"
+      },
+      {
+        "close_at": "2026-02-11T16:00:00+09:00",
+        "execution_at": "2026-02-11T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "127",
+            "execution_price": "127",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-11T12:00:00+09:00",
+        "trading_date": "2026-02-11"
+      },
+      {
+        "close_at": "2026-02-12T16:00:00+09:00",
+        "execution_at": "2026-02-12T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "128",
+            "execution_price": "128",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-12T12:00:00+09:00",
+        "trading_date": "2026-02-12"
+      },
+      {
+        "close_at": "2026-02-13T16:00:00+09:00",
+        "execution_at": "2026-02-13T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "129",
+            "execution_price": "129",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-13T12:00:00+09:00",
+        "trading_date": "2026-02-13"
+      },
+      {
+        "close_at": "2026-02-16T16:00:00+09:00",
+        "execution_at": "2026-02-16T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "130",
+            "execution_price": "130",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-16T12:00:00+09:00",
+        "trading_date": "2026-02-16"
+      },
+      {
+        "close_at": "2026-02-17T16:00:00+09:00",
+        "execution_at": "2026-02-17T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "131",
+            "execution_price": "131",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-17T12:00:00+09:00",
+        "trading_date": "2026-02-17"
+      },
+      {
+        "close_at": "2026-02-18T16:00:00+09:00",
+        "execution_at": "2026-02-18T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "132",
+            "execution_price": "132",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-18T12:00:00+09:00",
+        "trading_date": "2026-02-18"
+      },
+      {
+        "close_at": "2026-02-19T16:00:00+09:00",
+        "execution_at": "2026-02-19T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "133",
+            "execution_price": "133",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-19T12:00:00+09:00",
+        "trading_date": "2026-02-19"
+      },
+      {
+        "close_at": "2026-02-20T16:00:00+09:00",
+        "execution_at": "2026-02-20T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "134",
+            "execution_price": "134",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-20T12:00:00+09:00",
+        "trading_date": "2026-02-20"
+      },
+      {
+        "close_at": "2026-02-23T16:00:00+09:00",
+        "execution_at": "2026-02-23T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "135",
+            "execution_price": "135",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-23T12:00:00+09:00",
+        "trading_date": "2026-02-23"
+      },
+      {
+        "close_at": "2026-02-24T16:00:00+09:00",
+        "execution_at": "2026-02-24T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "136",
+            "execution_price": "136",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-24T12:00:00+09:00",
+        "trading_date": "2026-02-24"
+      },
+      {
+        "close_at": "2026-02-25T16:00:00+09:00",
+        "execution_at": "2026-02-25T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "137",
+            "execution_price": "137",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-25T12:00:00+09:00",
+        "trading_date": "2026-02-25"
+      },
+      {
+        "close_at": "2026-02-26T16:00:00+09:00",
+        "execution_at": "2026-02-26T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "138",
+            "execution_price": "138",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-26T12:00:00+09:00",
+        "trading_date": "2026-02-26"
+      },
+      {
+        "close_at": "2026-02-27T16:00:00+09:00",
+        "execution_at": "2026-02-27T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "139",
+            "execution_price": "139",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-02-27T12:00:00+09:00",
+        "trading_date": "2026-02-27"
+      },
+      {
+        "close_at": "2026-03-02T16:00:00+09:00",
+        "execution_at": "2026-03-02T12:00:00+09:00",
+        "prices": [
+          {
+            "average_daily_trading_value": null,
+            "buy_status": "tradable",
+            "capacity_shares": 100000,
+            "close_price": "140",
+            "execution_price": "140",
+            "sell_status": "tradable",
+            "source_id": "test-only-raw-price",
+            "symbol": "A",
+            "tick_size": "1"
+          }
+        ],
+        "sale_cash_available_at": "2026-03-02T12:00:00+09:00",
+        "trading_date": "2026-03-02"
+      }
+    ],
+    "source_snapshot_id": "synthetic-accounting-only",
+    "tax_mode": "pre_tax"
+  },
+  "limitations": [
+    "pre-tax research, no model adoption",
+    "source IDs are supplied declarations",
+    "requires authenticated market/corporate-action adapter before real-data use"
+  ],
+  "pydantic_version": "2.13.4",
+  "strategy": {
+    "adoption_eligible": false,
+    "days": [
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-05T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "990000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10000",
+            "order_id": "BUY-0-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1000000",
+        "missing_mark_haircut_100_nav": "1000000",
+        "missing_mark_haircut_50_nav": "1000000",
+        "missing_marks": [],
+        "nav": "1000000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "100",
+            "last_price_at": "2026-01-05T16:00:00+09:00",
+            "shares": 100,
+            "symbol": "A",
+            "unit_cost": "100"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10000",
+        "trading_cost": "0",
+        "trading_date": "2026-01-05"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-06T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "979900",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.0001",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10100",
+            "order_id": "BUY-1-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1000100",
+        "missing_mark_haircut_100_nav": "1000100",
+        "missing_mark_haircut_50_nav": "1000100",
+        "missing_marks": [],
+        "nav": "1000100",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "101",
+            "last_price_at": "2026-01-06T16:00:00+09:00",
+            "shares": 200,
+            "symbol": "A",
+            "unit_cost": "100.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10100",
+        "trading_cost": "0",
+        "trading_date": "2026-01-06"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-07T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "969700",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000199980001999800019998000",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10200",
+            "order_id": "BUY-2-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1000300",
+        "missing_mark_haircut_100_nav": "1000300",
+        "missing_mark_haircut_50_nav": "1000300",
+        "missing_marks": [],
+        "nav": "1000300",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "102",
+            "last_price_at": "2026-01-07T16:00:00+09:00",
+            "shares": 300,
+            "symbol": "A",
+            "unit_cost": "101.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10200",
+        "trading_cost": "0",
+        "trading_date": "2026-01-07"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-08T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "959400",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000299910026991902429271219",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10300",
+            "order_id": "BUY-3-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1000600",
+        "missing_mark_haircut_100_nav": "1000600",
+        "missing_mark_haircut_50_nav": "1000600",
+        "missing_marks": [],
+        "nav": "1000600",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "103",
+            "last_price_at": "2026-01-08T16:00:00+09:00",
+            "shares": 400,
+            "symbol": "A",
+            "unit_cost": "101.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10300",
+        "trading_cost": "0",
+        "trading_date": "2026-01-08"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-09T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "949000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000399760143913651808914651",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10400",
+            "order_id": "BUY-4-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1001000",
+        "missing_mark_haircut_100_nav": "1001000",
+        "missing_mark_haircut_50_nav": "1001000",
+        "missing_marks": [],
+        "nav": "1001000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "104",
+            "last_price_at": "2026-01-09T16:00:00+09:00",
+            "shares": 500,
+            "symbol": "A",
+            "unit_cost": "102.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10400",
+        "trading_cost": "0",
+        "trading_date": "2026-01-09"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-12T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "938500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000499500499500499500499500",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10500",
+            "order_id": "BUY-5-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1001500",
+        "missing_mark_haircut_100_nav": "1001500",
+        "missing_mark_haircut_50_nav": "1001500",
+        "missing_marks": [],
+        "nav": "1001500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "105",
+            "last_price_at": "2026-01-12T16:00:00+09:00",
+            "shares": 600,
+            "symbol": "A",
+            "unit_cost": "102.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10500",
+        "trading_cost": "0",
+        "trading_date": "2026-01-12"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-13T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "927900",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000599101347978032950574139",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10600",
+            "order_id": "BUY-6-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1002100",
+        "missing_mark_haircut_100_nav": "1002100",
+        "missing_mark_haircut_50_nav": "1002100",
+        "missing_marks": [],
+        "nav": "1002100",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "106",
+            "last_price_at": "2026-01-13T16:00:00+09:00",
+            "shares": 700,
+            "symbol": "A",
+            "unit_cost": "103.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10600",
+        "trading_cost": "0",
+        "trading_date": "2026-01-13"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-14T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "917200",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000698533080530885141203473",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10700",
+            "order_id": "BUY-7-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1002800",
+        "missing_mark_haircut_100_nav": "1002800",
+        "missing_mark_haircut_50_nav": "1002800",
+        "missing_marks": [],
+        "nav": "1002800",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "107",
+            "last_price_at": "2026-01-14T16:00:00+09:00",
+            "shares": 800,
+            "symbol": "A",
+            "unit_cost": "103.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10700",
+        "trading_cost": "0",
+        "trading_date": "2026-01-14"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-15T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "906400",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000797766254487435181491823",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10800",
+            "order_id": "BUY-8-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1003600",
+        "missing_mark_haircut_100_nav": "1003600",
+        "missing_mark_haircut_50_nav": "1003600",
+        "missing_marks": [],
+        "nav": "1003600",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "108",
+            "last_price_at": "2026-01-15T16:00:00+09:00",
+            "shares": 900,
+            "symbol": "A",
+            "unit_cost": "104.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10800",
+        "trading_cost": "0",
+        "trading_date": "2026-01-15"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-16T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "895500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000896771622160223196492627",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "10900",
+            "order_id": "BUY-9-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1004500",
+        "missing_mark_haircut_100_nav": "1004500",
+        "missing_mark_haircut_50_nav": "1004500",
+        "missing_marks": [],
+        "nav": "1004500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "109",
+            "last_price_at": "2026-01-16T16:00:00+09:00",
+            "shares": 1000,
+            "symbol": "A",
+            "unit_cost": "104.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "10900",
+        "trading_cost": "0",
+        "trading_date": "2026-01-16"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-19T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "884500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000995520159283225485316078",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11000",
+            "order_id": "BUY-10-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1005500",
+        "missing_mark_haircut_100_nav": "1005500",
+        "missing_mark_haircut_50_nav": "1005500",
+        "missing_marks": [],
+        "nav": "1005500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "110",
+            "last_price_at": "2026-01-19T16:00:00+09:00",
+            "shares": 1100,
+            "symbol": "A",
+            "unit_cost": "105.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11000",
+        "trading_cost": "0",
+        "trading_date": "2026-01-19"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-20T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "873400",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001093983092988562904027847",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11100",
+            "order_id": "BUY-11-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1006600",
+        "missing_mark_haircut_100_nav": "1006600",
+        "missing_mark_haircut_50_nav": "1006600",
+        "missing_marks": [],
+        "nav": "1006600",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "111",
+            "last_price_at": "2026-01-20T16:00:00+09:00",
+            "shares": 1200,
+            "symbol": "A",
+            "unit_cost": "105.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11100",
+        "trading_cost": "0",
+        "trading_date": "2026-01-20"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-21T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "862200",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001192131929266838863500894",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11200",
+            "order_id": "BUY-12-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1007800",
+        "missing_mark_haircut_100_nav": "1007800",
+        "missing_mark_haircut_50_nav": "1007800",
+        "missing_marks": [],
+        "nav": "1007800",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "112",
+            "last_price_at": "2026-01-21T16:00:00+09:00",
+            "shares": 1300,
+            "symbol": "A",
+            "unit_cost": "106.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11200",
+        "trading_cost": "0",
+        "trading_date": "2026-01-21"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-22T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "850900",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001289938479857114506846597",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11300",
+            "order_id": "BUY-13-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1009100",
+        "missing_mark_haircut_100_nav": "1009100",
+        "missing_mark_haircut_50_nav": "1009100",
+        "missing_marks": [],
+        "nav": "1009100",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "113",
+            "last_price_at": "2026-01-22T16:00:00+09:00",
+            "shares": 1400,
+            "symbol": "A",
+            "unit_cost": "106.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11300",
+        "trading_cost": "0",
+        "trading_date": "2026-01-22"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-23T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "839500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001387374888514517887226241",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11400",
+            "order_id": "BUY-14-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1010500",
+        "missing_mark_haircut_100_nav": "1010500",
+        "missing_mark_haircut_50_nav": "1010500",
+        "missing_marks": [],
+        "nav": "1010500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "114",
+            "last_price_at": "2026-01-23T16:00:00+09:00",
+            "shares": 1500,
+            "symbol": "A",
+            "unit_cost": "107.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11400",
+        "trading_cost": "0",
+        "trading_date": "2026-01-23"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-26T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "828000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001484413656605640771895101",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11500",
+            "order_id": "BUY-15-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1012000",
+        "missing_mark_haircut_100_nav": "1012000",
+        "missing_mark_haircut_50_nav": "1012000",
+        "missing_marks": [],
+        "nav": "1012000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "115",
+            "last_price_at": "2026-01-26T16:00:00+09:00",
+            "shares": 1600,
+            "symbol": "A",
+            "unit_cost": "107.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11500",
+        "trading_cost": "0",
+        "trading_date": "2026-01-26"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-27T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "816400",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001581027667984189723320158",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11600",
+            "order_id": "BUY-16-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1013600",
+        "missing_mark_haircut_100_nav": "1013600",
+        "missing_mark_haircut_50_nav": "1013600",
+        "missing_marks": [],
+        "nav": "1013600",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "116",
+            "last_price_at": "2026-01-27T16:00:00+09:00",
+            "shares": 1700,
+            "symbol": "A",
+            "unit_cost": "108.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11600",
+        "trading_cost": "0",
+        "trading_date": "2026-01-27"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-28T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "804700",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001677190213101815311760063",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11700",
+            "order_id": "BUY-17-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1015300",
+        "missing_mark_haircut_100_nav": "1015300",
+        "missing_mark_haircut_50_nav": "1015300",
+        "missing_marks": [],
+        "nav": "1015300",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "117",
+            "last_price_at": "2026-01-28T16:00:00+09:00",
+            "shares": 1800,
+            "symbol": "A",
+            "unit_cost": "108.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11700",
+        "trading_cost": "0",
+        "trading_date": "2026-01-28"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-29T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "792900",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001772875012311632029941889",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11800",
+            "order_id": "BUY-18-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1017100",
+        "missing_mark_haircut_100_nav": "1017100",
+        "missing_mark_haircut_50_nav": "1017100",
+        "missing_marks": [],
+        "nav": "1017100",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "118",
+            "last_price_at": "2026-01-29T16:00:00+09:00",
+            "shares": 1900,
+            "symbol": "A",
+            "unit_cost": "109.0"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11800",
+        "trading_cost": "0",
+        "trading_date": "2026-01-29"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-01-30T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "781000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001868056238324648510470947",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "11900",
+            "order_id": "BUY-19-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1019000",
+        "missing_mark_haircut_100_nav": "1019000",
+        "missing_mark_haircut_50_nav": "1019000",
+        "missing_marks": [],
+        "nav": "1019000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "119",
+            "last_price_at": "2026-01-30T16:00:00+09:00",
+            "shares": 2000,
+            "symbol": "A",
+            "unit_cost": "109.5"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "11900",
+        "trading_cost": "0",
+        "trading_date": "2026-01-30"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-02T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "781000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001962708537782139352306183",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12000",
+            "order_id": "SELL-20-A-cash",
+            "reason": "FILLED"
+          },
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12000",
+            "order_id": "BUY-20-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1021000",
+        "missing_mark_haircut_100_nav": "1021000",
+        "missing_mark_haircut_50_nav": "1021000",
+        "missing_marks": [],
+        "nav": "1021000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "120",
+            "last_price_at": "2026-02-02T16:00:00+09:00",
+            "shares": 2000,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "24000",
+        "trading_cost": "0",
+        "trading_date": "2026-02-02"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-03T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "793100",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001958863858961802154750245",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12100",
+            "order_id": "SELL-21-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1023000",
+        "missing_mark_haircut_100_nav": "1023000",
+        "missing_mark_haircut_50_nav": "1023000",
+        "missing_marks": [],
+        "nav": "1023000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "121",
+            "last_price_at": "2026-02-03T16:00:00+09:00",
+            "shares": 1900,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12100",
+        "trading_cost": "0",
+        "trading_date": "2026-02-03"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-04T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "805300",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001857282502443792766373412",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12200",
+            "order_id": "SELL-22-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1024900",
+        "missing_mark_haircut_100_nav": "1024900",
+        "missing_mark_haircut_50_nav": "1024900",
+        "missing_marks": [],
+        "nav": "1024900",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "122",
+            "last_price_at": "2026-02-04T16:00:00+09:00",
+            "shares": 1800,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12200",
+        "trading_cost": "0",
+        "trading_date": "2026-02-04"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-05T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "817600",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001756268904283344716557713",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12300",
+            "order_id": "SELL-23-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1026700",
+        "missing_mark_haircut_100_nav": "1026700",
+        "missing_mark_haircut_50_nav": "1026700",
+        "missing_marks": [],
+        "nav": "1026700",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "123",
+            "last_price_at": "2026-02-05T16:00:00+09:00",
+            "shares": 1700,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12300",
+        "trading_cost": "0",
+        "trading_date": "2026-02-05"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-06T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "830000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001655790396415700788935424",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12400",
+            "order_id": "SELL-24-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1028400",
+        "missing_mark_haircut_100_nav": "1028400",
+        "missing_mark_haircut_50_nav": "1028400",
+        "missing_marks": [],
+        "nav": "1028400",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "124",
+            "last_price_at": "2026-02-06T16:00:00+09:00",
+            "shares": 1600,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12400",
+        "trading_cost": "0",
+        "trading_date": "2026-02-06"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-09T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "842500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001555814858031894204589654",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12500",
+            "order_id": "SELL-25-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1030000",
+        "missing_mark_haircut_100_nav": "1030000",
+        "missing_mark_haircut_50_nav": "1030000",
+        "missing_marks": [],
+        "nav": "1030000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "125",
+            "last_price_at": "2026-02-09T16:00:00+09:00",
+            "shares": 1500,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12500",
+        "trading_cost": "0",
+        "trading_date": "2026-02-09"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-10T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "855100",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001456310679611650485436893",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12600",
+            "order_id": "SELL-26-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1031500",
+        "missing_mark_haircut_100_nav": "1031500",
+        "missing_mark_haircut_50_nav": "1031500",
+        "missing_marks": [],
+        "nav": "1031500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "126",
+            "last_price_at": "2026-02-10T16:00:00+09:00",
+            "shares": 1400,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12600",
+        "trading_cost": "0",
+        "trading_date": "2026-02-10"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-11T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "867800",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001357246728065923412506059",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12700",
+            "order_id": "SELL-27-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1032900",
+        "missing_mark_haircut_100_nav": "1032900",
+        "missing_mark_haircut_50_nav": "1032900",
+        "missing_marks": [],
+        "nav": "1032900",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "127",
+            "last_price_at": "2026-02-11T16:00:00+09:00",
+            "shares": 1300,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12700",
+        "trading_cost": "0",
+        "trading_date": "2026-02-11"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-12T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "880600",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001258592312905411946945493",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12800",
+            "order_id": "SELL-28-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1034200",
+        "missing_mark_haircut_100_nav": "1034200",
+        "missing_mark_haircut_50_nav": "1034200",
+        "missing_marks": [],
+        "nav": "1034200",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "128",
+            "last_price_at": "2026-02-12T16:00:00+09:00",
+            "shares": 1200,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12800",
+        "trading_cost": "0",
+        "trading_date": "2026-02-12"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-13T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "893500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001160317153355250435118933",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "12900",
+            "order_id": "SELL-29-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1035400",
+        "missing_mark_haircut_100_nav": "1035400",
+        "missing_mark_haircut_50_nav": "1035400",
+        "missing_marks": [],
+        "nav": "1035400",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "129",
+            "last_price_at": "2026-02-13T16:00:00+09:00",
+            "shares": 1100,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "12900",
+        "trading_cost": "0",
+        "trading_date": "2026-02-13"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-16T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "906500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.001062391346339578906702724",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13000",
+            "order_id": "SELL-30-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1036500",
+        "missing_mark_haircut_100_nav": "1036500",
+        "missing_mark_haircut_50_nav": "1036500",
+        "missing_marks": [],
+        "nav": "1036500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "130",
+            "last_price_at": "2026-02-16T16:00:00+09:00",
+            "shares": 1000,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13000",
+        "trading_cost": "0",
+        "trading_date": "2026-02-16"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-17T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "919600",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000964785335262904003859141",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13100",
+            "order_id": "SELL-31-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1037500",
+        "missing_mark_haircut_100_nav": "1037500",
+        "missing_mark_haircut_50_nav": "1037500",
+        "missing_marks": [],
+        "nav": "1037500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "131",
+            "last_price_at": "2026-02-17T16:00:00+09:00",
+            "shares": 900,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13100",
+        "trading_cost": "0",
+        "trading_date": "2026-02-17"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-18T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "932800",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000867469879518072289156627",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13200",
+            "order_id": "SELL-32-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1038400",
+        "missing_mark_haircut_100_nav": "1038400",
+        "missing_mark_haircut_50_nav": "1038400",
+        "missing_marks": [],
+        "nav": "1038400",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "132",
+            "last_price_at": "2026-02-18T16:00:00+09:00",
+            "shares": 800,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13200",
+        "trading_cost": "0",
+        "trading_date": "2026-02-18"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-19T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "946100",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000770416024653312788906009",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13300",
+            "order_id": "SELL-33-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1039200",
+        "missing_mark_haircut_100_nav": "1039200",
+        "missing_mark_haircut_50_nav": "1039200",
+        "missing_marks": [],
+        "nav": "1039200",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "133",
+            "last_price_at": "2026-02-19T16:00:00+09:00",
+            "shares": 700,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13300",
+        "trading_cost": "0",
+        "trading_date": "2026-02-19"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-20T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "959500",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000673595073133179368745189",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13400",
+            "order_id": "SELL-34-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1039900",
+        "missing_mark_haircut_100_nav": "1039900",
+        "missing_mark_haircut_50_nav": "1039900",
+        "missing_marks": [],
+        "nav": "1039900",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "134",
+            "last_price_at": "2026-02-20T16:00:00+09:00",
+            "shares": 600,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13400",
+        "trading_cost": "0",
+        "trading_date": "2026-02-20"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-23T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "973000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000576978555630349072026156",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13500",
+            "order_id": "SELL-35-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1040500",
+        "missing_mark_haircut_100_nav": "1040500",
+        "missing_mark_haircut_50_nav": "1040500",
+        "missing_marks": [],
+        "nav": "1040500",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "135",
+            "last_price_at": "2026-02-23T16:00:00+09:00",
+            "shares": 500,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13500",
+        "trading_cost": "0",
+        "trading_date": "2026-02-23"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-24T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "986600",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000480538202787121576165305",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13600",
+            "order_id": "SELL-36-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1041000",
+        "missing_mark_haircut_100_nav": "1041000",
+        "missing_mark_haircut_50_nav": "1041000",
+        "missing_marks": [],
+        "nav": "1041000",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "136",
+            "last_price_at": "2026-02-24T16:00:00+09:00",
+            "shares": 400,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13600",
+        "trading_cost": "0",
+        "trading_date": "2026-02-24"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-25T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1000300",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000384245917387127761767531",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13700",
+            "order_id": "SELL-37-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1041400",
+        "missing_mark_haircut_100_nav": "1041400",
+        "missing_mark_haircut_50_nav": "1041400",
+        "missing_marks": [],
+        "nav": "1041400",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "137",
+            "last_price_at": "2026-02-25T16:00:00+09:00",
+            "shares": 300,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13700",
+        "trading_cost": "0",
+        "trading_date": "2026-02-25"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-26T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1014100",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000288073746879201075475322",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13800",
+            "order_id": "SELL-38-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1041700",
+        "missing_mark_haircut_100_nav": "1041700",
+        "missing_mark_haircut_50_nav": "1041700",
+        "missing_marks": [],
+        "nav": "1041700",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "138",
+            "last_price_at": "2026-02-26T16:00:00+09:00",
+            "shares": 200,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13800",
+        "trading_cost": "0",
+        "trading_date": "2026-02-26"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-02-27T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1028000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000191993856196601708745320",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "13900",
+            "order_id": "SELL-39-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1041900",
+        "missing_mark_haircut_100_nav": "1041900",
+        "missing_mark_haircut_50_nav": "1041900",
+        "missing_marks": [],
+        "nav": "1041900",
+        "positions": [
+          {
+            "bucket": "cash",
+            "last_price": "139",
+            "last_price_at": "2026-02-27T16:00:00+09:00",
+            "shares": 100,
+            "symbol": "A",
+            "unit_cost": "110.025"
+          }
+        ],
+        "receivables": [],
+        "traded_notional": "13900",
+        "trading_cost": "0",
+        "trading_date": "2026-02-27"
+      },
+      {
+        "applied_event_ids": [],
+        "as_of": "2026-03-02T16:00:00+09:00",
+        "cash": [
+          {
+            "amount": "1042000",
+            "bucket": "cash",
+            "reserved": "0"
+          }
+        ],
+        "daily_return": "0.000095978500815817256934447",
+        "fills": [
+          {
+            "cost": {
+              "assumptions": [
+                "market impact uses conservative 100% ADV participation"
+              ],
+              "commission": "0",
+              "market_impact": "0",
+              "policy_version": "research-one-way-v1",
+              "slippage": "0",
+              "spread": "0"
+            },
+            "filled_shares": 100,
+            "notional": "14000",
+            "order_id": "SELL-40-A-cash",
+            "reason": "FILLED"
+          }
+        ],
+        "missing_mark_haircut_0_nav": "1042000",
+        "missing_mark_haircut_100_nav": "1042000",
+        "missing_mark_haircut_50_nav": "1042000",
+        "missing_marks": [],
+        "nav": "1042000",
+        "positions": [],
+        "receivables": [],
+        "traded_notional": "14000",
+        "trading_cost": "0",
+        "trading_date": "2026-03-02"
+      }
+    ],
+    "execution_semantics": "observed_execution_window",
+    "initial_nav": "1000000",
+    "input_sha256": "ab9978dc122124ea14662ed2e82783fa7b5f08d70d45ebfd6a9dcad3f7498032",
+    "maximum_drawdown": "0",
+    "research_only": true,
+    "schema_version": "daily-nav-result-v1",
+    "tax_mode": "pre_tax",
+    "total_return": "0.042",
+    "total_trading_cost": "0",
+    "valuation_complete": true
+  }
+}

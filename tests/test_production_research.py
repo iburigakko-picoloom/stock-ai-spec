@@ -83,9 +83,9 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
     assert adjusted["research_close"].tolist() == pytest.approx([400.0, 384.0, 400.0, 410.0])
     assert adjusted["research_volume"].tolist() == pytest.approx([200.0, 200.0, 300.0, 400.0])
     assert set(adjusted["adjustment_source"]) == {"official_file_adjfactor_formula_v1"}
-    assert adjusted["adjustment_version"].str.startswith(
-        "jquants-file-cumulative-adjfactor-v1:"
-    ).all()
+    assert (
+        adjusted["adjustment_version"].str.startswith("jquants-file-cumulative-adjfactor-v1:").all()
+    )
     changed_input = frame.copy()
     changed_input.loc[0, "raw_high"] += 1
     changed = production_module._reconstruct_bulk_adjusted_prices(changed_input)
@@ -94,9 +94,7 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
 
 def test_production_coverage_starts_at_first_eligible_market_snapshot() -> None:
     dates = pd.bdate_range("2022-03-31", periods=4)
-    calendar = pd.DataFrame(
-        {"trading_date": dates, "is_equity_business_day": True}
-    )
+    calendar = pd.DataFrame({"trading_date": dates, "is_equity_business_day": True})
     master = pd.DataFrame(
         {
             "effective_date": dates,
@@ -177,6 +175,41 @@ class ContextFrameCatalog(FrameCatalog):
 
     def __exit__(self, *_args: object) -> None:
         return None
+
+
+def test_mobile_latest_features_require_authenticated_next_session_and_closed_cutoff() -> None:
+    frames, dates = _source_frames(periods=8)
+    cutoff = datetime.combine((dates[-1] + pd.offsets.BDay()).date(), datetime.min.time(), JST)
+    cutoff = cutoff.replace(hour=11, minute=30)
+    received = cutoff - timedelta(hours=1)
+    for frame in frames.values():
+        frame["available_at"] = pd.Timestamp(received)
+    calendar = frames[DatasetName.TRADING_CALENDAR]
+    next_day = calendar.iloc[[-1]].copy()
+    next_day["trading_date"] = pd.Timestamp(cutoff.date())
+    frames[DatasetName.TRADING_CALENDAR] = pd.concat([calendar, next_day], ignore_index=True)
+    catalog = FrameCatalog(frames)
+    bundle = build_production_data(
+        catalog,
+        source_snapshot_as_of=received,
+        minimum_market_coverage=0.60,
+        proposal_as_of=cutoff,
+    )
+    latest = bundle.daily.loc[bundle.daily.trading_date == dates[-1]]
+    assert len(latest) == 2
+    assert (latest.available_at == pd.Timestamp(cutoff)).all()
+    with pytest.raises(ValueError, match="closed 11:30"):
+        build_production_data(
+            catalog, source_snapshot_as_of=cutoff + timedelta(seconds=1), proposal_as_of=cutoff
+        )
+    with pytest.raises(ValueError, match="closed 11:30"):
+        build_production_data(
+            catalog, source_snapshot_as_of=received, proposal_as_of=cutoff.replace(minute=29)
+        )
+    with pytest.raises(ValueError, match="not authenticated"):
+        build_production_data(
+            catalog, source_snapshot_as_of=received, proposal_as_of=cutoff + timedelta(days=1)
+        )
 
 
 def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
@@ -361,9 +394,7 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
         write_production_build_manifest(
             v0_snapshot,
             feature_snapshot,
-            v2_snapshot.model_copy(
-                update={"historical_revision_policy": "STRICT_AS_KNOWN"}
-            ),
+            v2_snapshot.model_copy(update={"historical_revision_policy": "STRICT_AS_KNOWN"}),
             snapshot,
             tmp_path / "revision-mismatch-builds",
             created_at=datetime(2026, 8, 25, 0, 2, tzinfo=UTC),
@@ -483,8 +514,7 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert failed_result.exit_code == 2
     records = [
-        json.loads(line)
-        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["decision"] == "rejected"
     assert "advanced research code_commit must be explicit" in records[-1]["rejection_reason"]
@@ -506,8 +536,7 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert invalid_config_result.exit_code == 2
     records = [
-        json.loads(line)
-        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["decision"] == "rejected"
     assert records[-1]["code_commit"] == "UNSET"
@@ -550,8 +579,7 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert all_failed_result.exit_code == 2
     records = [
-        json.loads(line)
-        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["trial_results"][0]["state"] == "FAIL"
     assert "forced CLI trial failure" in records[-1]["trial_results"][0]["failure_reason"]
@@ -591,21 +619,13 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert artifact_failure_result.exit_code == 2
     records = [
-        json.loads(line)
-        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     artifact_failure_record = records[-1]
-    assert len(artifact_failure_record["trial_results"]) == len(
-        success_record["trial_results"]
-    )
-    assert len(artifact_failure_record["fold_results"]) == len(
-        success_record["fold_results"]
-    )
+    assert len(artifact_failure_record["trial_results"]) == len(success_record["trial_results"])
+    assert len(artifact_failure_record["fold_results"]) == len(success_record["fold_results"])
     assert artifact_failure_record["parameters"]["build_id"] == build_manifest.build_id
-    assert (
-        artifact_failure_record["parameters"]["feature_snapshot_id"]
-        == v2_snapshot.snapshot_id
-    )
+    assert artifact_failure_record["parameters"]["feature_snapshot_id"] == v2_snapshot.snapshot_id
     assert artifact_failure_record["parameters"]["report_id"] == completed_report.report_id
 
     monkeypatch.undo()
@@ -619,9 +639,7 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
             raise RuntimeError("forced CLI post-tuning failure")
         return original_generate(*args, **kwargs)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(
-        advanced_module, "generate_oof_predictions", forced_post_tuning_failure
-    )
+    monkeypatch.setattr(advanced_module, "generate_oof_predictions", forced_post_tuning_failure)
     partial_failure_result = CliRunner().invoke(
         app,
         [
@@ -655,8 +673,7 @@ def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     )
     assert partial_failure_result.exit_code == 2
     records = [
-        json.loads(line)
-        for line in experiment_registry.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in experiment_registry.read_text(encoding="utf-8").splitlines()
     ]
     assert records[-1]["trial_results"][0]["state"] == "COMPLETE"
     assert {item["task"] for item in records[-1]["fold_results"]} == {"regression"}
@@ -689,20 +706,84 @@ def test_future_price_mutation_does_not_change_prior_production_features() -> No
         source_snapshot_as_of=datetime(2026, 8, 24, tzinfo=UTC),
         minimum_market_coverage=0.60,
     )
-    original = build_production_feature_sets(bundle).v1_core
+    original_sets = build_production_feature_sets(bundle)
     changed_daily = bundle.daily.copy()
     final_date = changed_daily["trading_date"].max()
     changed_daily.loc[changed_daily["trading_date"] == final_date, "adjusted_close"] *= 10
-    changed = build_production_feature_sets(replace(bundle, daily=changed_daily)).v1_core
-    prior_columns = ["symbol", "trading_date", *V1_CORE_MANIFEST.feature_names]
-    original_prior = original.loc[original["trading_date"] < final_date, prior_columns].reset_index(
-        drop=True
-    )
-    changed_prior = changed.loc[changed["trading_date"] < final_date, prior_columns].reset_index(
-        drop=True
-    )
-    pdt.assert_frame_equal(original_prior, changed_prior)
+    changed_sets = build_production_feature_sets(replace(bundle, daily=changed_daily))
+    for attribute, manifest in (
+        ("v0", V0_MANIFEST),
+        ("v1_core", V1_CORE_MANIFEST),
+        ("v2_extended", V2_EXTENDED_MANIFEST),
+    ):
+        original, changed = getattr(original_sets, attribute), getattr(changed_sets, attribute)
+        assert original is not None and changed is not None
+        prior_columns = ["symbol", "trading_date", *manifest.feature_names]
+        original_prior = original.loc[
+            original["trading_date"] < final_date, prior_columns
+        ].reset_index(drop=True)
+        changed_prior = changed.loc[
+            changed["trading_date"] < final_date, prior_columns
+        ].reset_index(drop=True)
+        pdt.assert_frame_equal(original_prior, changed_prior, check_exact=True)
     assert dates[-1] > final_date
+
+
+@pytest.mark.parametrize("missing_entry", [False, True])
+def test_jpx_holiday_labels_keep_session_endpoints_when_a_price_is_missing(
+    missing_entry: bool,
+) -> None:
+    # JPX 2026 equity holidays: https://www.jpx.co.jp/corporate/about-jpx/calendar/
+    # This fixture exercises the Jan 9 -> Jan 13 boundary, not a weekday offset.
+    frames, _ = _source_frames(periods=320)
+    holidays = pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-12", "2026-02-11"])
+    calendar = frames[DatasetName.TRADING_CALENDAR]
+    calendar.loc[calendar.trading_date.isin(holidays), "is_equity_business_day"] = False
+    for name, date_column in (
+        (DatasetName.SECURITY_MASTER, "effective_date"),
+        (DatasetName.DAILY_PRICES, "trading_date"),
+        (DatasetName.TOPIX, "trading_date"),
+    ):
+        frames[name] = frames[name].loc[~frames[name][date_column].isin(holidays)].copy()
+    if missing_entry:
+        prices = frames[DatasetName.DAILY_PRICES]
+        frames[DatasetName.DAILY_PRICES] = prices.loc[
+            ~((prices.symbol == "B") & (prices.trading_date == pd.Timestamp("2026-01-13")))
+        ].copy()
+    bundle = build_production_data(  # type: ignore[arg-type]
+        FrameCatalog(frames),
+        source_snapshot_as_of=datetime(2026, 8, 24, tzinfo=UTC),
+        minimum_market_coverage=0.60,
+    )
+    features = build_production_feature_sets(bundle).v2_extended
+    assert features is not None
+    dataset, _ = build_production_supervised_dataset(
+        features,
+        bundle,
+        plan=SubscriptionPlan.STANDARD,
+    )
+    row = dataset.loc[
+        (dataset.symbol == "B") & (dataset.trading_date == pd.Timestamp("2026-01-09"))
+    ].iloc[0]
+    assert row.label_entry_date == pd.Timestamp("2026-01-13")
+    assert row.label_end_date_1d == pd.Timestamp("2026-01-14")
+    assert row.label_end_date_5d == pd.Timestamp("2026-01-20")
+    assert row.label_end_date_20d == pd.Timestamp("2026-02-10")
+    assert pd.Timestamp("2026-01-12") not in set(bundle.universe.effective_date)
+    for horizon in (1, 5, 20):
+        if missing_entry:
+            assert row[f"label_status_{horizon}d"] == "SUSPENDED_NO_ENTRY_PRICE"
+            assert pd.isna(row[f"target_return_{horizon}d"])
+        else:
+            assert row[f"label_status_{horizon}d"] == "AVAILABLE"
+            endpoint = row[f"label_end_date_{horizon}d"]
+            prices = bundle.daily.loc[bundle.daily.symbol == "B"].set_index("trading_date")
+            expected = (
+                prices.loc[endpoint, "adjusted_close"]
+                / prices.loc[pd.Timestamp("2026-01-13"), "adjusted_close"]
+                - 1
+            )
+            assert row[f"target_return_{horizon}d"] == pytest.approx(expected)
 
 
 def test_production_momentum_and_ridge_walk_forward_keep_holdout_locked(
@@ -1019,8 +1100,8 @@ def test_production_build_orchestration_publishes_one_verifiable_batch(
     assert "feature_snapshots=3 dataset_snapshots=1 builds=1 status=OK" in verified.stdout
 
 
-def _source_frames() -> tuple[dict[DatasetName, pd.DataFrame], pd.DatetimeIndex]:
-    dates = pd.bdate_range("2025-01-06", periods=280)
+def _source_frames(periods: int = 280) -> tuple[dict[DatasetName, pd.DataFrame], pd.DatetimeIndex]:
+    dates = pd.bdate_range("2025-01-06", periods=periods)
     revision_at = pd.Timestamp("2026-08-24T00:00:00Z")
     master_rows: list[dict[str, object]] = []
     price_rows: list[dict[str, object]] = []
@@ -1120,7 +1201,7 @@ def _source_frames() -> tuple[dict[DatasetName, pd.DataFrame], pd.DatetimeIndex]
         DatasetName.TOPIX: pd.DataFrame(topix_rows),
         DatasetName.FINANCIAL_SUMMARY: pd.DataFrame(financial_rows),
     }
-    frames[DatasetName.FINANCIAL_SUMMARY]["announced_at"] = frames[
-        DatasetName.FINANCIAL_SUMMARY
-    ]["announced_at"].astype("datetime64[us, UTC]")
+    frames[DatasetName.FINANCIAL_SUMMARY]["announced_at"] = frames[DatasetName.FINANCIAL_SUMMARY][
+        "announced_at"
+    ].astype("datetime64[us, UTC]")
     return frames, dates

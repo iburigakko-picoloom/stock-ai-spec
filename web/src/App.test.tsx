@@ -2,12 +2,15 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AppShell } from "./components";
+import { AppShell, dateTime, yen } from "./components";
 import { DecisionReviewPage } from "./pages/DecisionReviewPage";
 import { ExecutionPage } from "./pages/ExecutionPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { StockDetailPage } from "./pages/StockDetailPage";
 import { TodayPage } from "./pages/TodayPage";
+import { HomePage } from "./pages/HomePage";
+import { RankingPage } from "./pages/RankingPage";
+import { ValidationPage } from "./pages/ValidationPage";
 import type { TodayResponse } from "./types";
 
 const proposal = {
@@ -144,6 +147,96 @@ afterEach(() => {
 });
 
 describe("Goal 5 PWA", () => {
+  it("keeps missing amounts distinct from a real zero", () => {
+    for (const value of [undefined, null, "", " ", "invalid"]) expect(yen(value)).toBe("—");
+    expect(yen("0")).toBe("0円");
+    expect(yen("125000")).toBe("125,000円");
+  });
+
+  it("formats times in Japan rather than the browser time zone", () => {
+    expect(dateTime("2026-08-24T02:30:00Z")).toBe("8/24 11:30");
+    expect(dateTime("not-a-date")).toBe("—");
+  });
+
+  it("hides a stale proposal and does not offer review", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, isStale: true })));
+    render(<MemoryRouter><TodayPage /></MemoryRouter>);
+    await screen.findByText("今日は提案を表示できません");
+    expect(screen.queryByText("購入会社")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "判断を確認" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings/data");
+  });
+
+  it("also blocks a stale proposal on the direct review route without posting", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ ...today, isStale: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<MemoryRouter><DecisionReviewPage /></MemoryRouter>);
+    await screen.findByText("有効な当日提案がありません");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "判断を保存" })).not.toBeInTheDocument();
+  });
+
+  it("shows cash from each account without exposing model details by default", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter: { taxable: "100000", nisa: "25000" }, netImprovement: "-200" } })));
+    render(<MemoryRouter><TodayPage /></MemoryRouter>);
+    await screen.findByText("125,000円");
+    expect(screen.getByText("fixture-model").closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(screen.getByText("口座別の現金・推定改善を確認"));
+    expect(screen.getByText("25,000円")).toBeVisible();
+    expect(screen.getByText("-200円")).toHaveClass("text-negative");
+  });
+
+  it("does not display a zero return before the first Paper observation", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ observations: 0, proposal_return: 0 })));
+    render(<MemoryRouter><ValidationPage /></MemoryRouter>);
+    await screen.findByText("Paperの観測はまだありません");
+    expect(screen.queryByText("0.00%")).not.toBeInTheDocument();
+  });
+
+  it.each([{}, { bucket: " " }, { bucket: "invalid" }])("does not turn unknown cash into a zero balance: %j", async (estimatedCashAfter) => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter } })));
+    render(<MemoryRouter><TodayPage /></MemoryRouter>);
+    const label = await screen.findByText("取引後の推定現金（合計）");
+    expect(label.parentElement?.querySelector("strong")?.textContent).toBe("—");
+  });
+
+  it("offers settings when no actual portfolio is registered", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ portfolio: null, holdings: [], runtimeMode: "LIVE" })));
+    render(<MemoryRouter><HomePage /></MemoryRouter>);
+    await screen.findByText("資産データが未登録です");
+    expect(screen.getByRole("link", { name: "登録・口座の設定を確認" })).toHaveAttribute("href", "/settings");
+    expect(screen.queryByText("0円")).not.toBeInTheDocument();
+  });
+
+  it("distinguishes no search matches and switches ranking tabs with the keyboard", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse([{ ranking_id: "rank-1", symbol: "9432", company_name: "NTT", rank: 1, total_universe: 3000, candidate_status: "候補", portfolio_action: null }]));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<MemoryRouter><RankingPage /></MemoryRouter>);
+    await screen.findByText("NTT");
+    await userEvent.type(screen.getByRole("searchbox"), "NOT_FOUND");
+    expect(screen.getByText("検索に一致する銘柄がありません")).toBeInTheDocument();
+    expect(screen.queryByText("このランキングはまだありません")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "総合" }));
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: "5日" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "5日" })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/ranking?rankType=5d&limit=50", expect.anything()));
+  });
+
+  it("organizes settings by tabs and keeps operational detail collapsed", async () => {
+    vi.stubGlobal("Notification", undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ runtimeMode: "LIVE", runtime: { remoteAccess: "LOCALHOST_ONLY", orderSubmission: "OUT_OF_SCOPE" }, data: { jQuantsApiKeyConfigured: true } })));
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    await screen.findByRole("tab", { name: "口座・資金" });
+    expect(screen.getByRole("link", { name: "資金" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "モデル" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "AI・データ" }));
+    expect(screen.getByRole("link", { name: "モデル" })).toBeVisible();
+    expect(screen.getByText("運用状態の詳細").closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(screen.getByRole("tab", { name: "通知" }));
+    expect(screen.getByRole("button", { name: "この端末の通知権限を確認" })).toBeVisible();
+  });
+
   it("renders five fixed navigation items", () => {
     render(<MemoryRouter><AppShell /></MemoryRouter>);
     const nav = screen.getByRole("navigation", { name: "メインナビゲーション" });

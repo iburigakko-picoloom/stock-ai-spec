@@ -808,3 +808,303 @@ phase runnerはAPI keyを研究childへ渡さず、locked holdout評価を呼ば
 ユーザーが「進捗」と求めた場合は`goal3-phase-runner.ps1 -Action status`を一度だけ実行し、現在phaseとactive campaignの
 horizon / family / seed / foldをread-only表示できる状態を維持する。screen完了後は`SCREEN_EVALUATION_READY`で、
 D077 / D078の事前固定ruleによるdevelopment-only判定へ引き渡す。
+
+### D081 — 20日研究のcausal期間不足修正と新campaignへの安全移行（2026-09-20）
+
+20日Full Ablation v1は学習前にtuning期間579日／必要580日の検証で停止し、同一条件の再試行を10回行っていた。
+性能結果を見る前に、従来の境界（60%または最小学習長の大きい方）を下限として、実際のtrading_dateとlabel_endだけから
+必要なdistinct tuning日数を確保できる最初の境界まで進める、と固定する。label_end < outer開始を厳守し、
+outerにも最低60日を要求する。不足なら引き続きBLOCKED_BY_VALIDATION。target値・モデル成績で境界を選ばない。
+500日initial train、60日validation/step、120日holdout、3 family × seed17/29/43、20 trial/900秒、300 estimatorを変更しない。
+
+完了済み1日・5日は元commit/config/report/OOFの認証だけ行い再学習しない。修正版20日はv2の別manifest/checkpoint/logを使い、
+修正commitを固定する。旧v1失敗記録、全既存成果物とRegistryを保持し、古いcheckpointを新commitへ付け替えない。
+異commitのhorizon成果物は同一条件のseed比較へ混ぜない。将来のfeature freeze/Final Candidateで必要なprovenance対応は
+別途監査し、現行の不一致拒否を緩めない。
+
+新workerの決定的BLOCKED_BY_VALIDATIONは固定markerを保存し、同じcampaignを自動再学習しない。
+Windows再起動後の通常resumeと、ユーザー要求時1回のread-only status入口は維持する。
+locked holdoutの評価・特徴量/ラベル定義・採否基準・実注文機能には触れない。
+
+### D080 — 実測時間を踏まえ5日・20日はscreenを省略してFull Ablationへ直行する
+
+1日lightweight screenの実測が1 batchあたり数時間となり、5日・20日は既存seed 17 development OOFで
+LightGBM / XGBoost / CatBoostの各familyに少なくとも一つの役割上の有用性が確認されているため、D078 / D079のうち
+5日・20日を事前screenへ通す部分を廃止する。これは結果を見ながらmodelを削る変更ではなく、重複計算を除きながら
+3 family × seed 17 / 29 / 43のFull F1〜F12 Ablationを維持する変更である。
+
+現在進行中の1日XGBoost / CatBoost × seed 17 / 29 / 43 screenは停止・再起動せず完走する。1日の判定にはD077で
+事前固定済みの全gateをそのまま使用し、欠損・評価不能をpassへ補完しない。判定artifactはscreen campaign ID、
+Production Build ID、code commit、全screen report ID、各gateの真偽、`locked_holdout_accessed=false`を固定し、
+全gate成立時だけ`KEEP_FOR_FULL_ABLATION`、それ以外は`EXCLUDE_FROM_FULL_ABLATION_AND_FINAL`とする。
+
+判定後は5日Full Ablation、20日Full Ablationの順で全3 family × 3 seedを実行する。1日を残した場合の1日Full Ablationは
+この2 horizon完了後、特徴量固定前に実行する。Full Ablation後にだけ、複数seed / foldの一貫した劣位、ensemble追加価値なし、
+regression / ranking / quantile / large-lossの全役割で価値なし、realistic cost / turnover / downsideでも追加価値なし、の
+全条件が確認できたfamilyをFinal Candidateから除外できる。一条件でも不明なら保持し、削減数目標は置かない。
+
+旧phase runnerがprocess内に保持するD079遷移は、現在の1日workerを変更せず、旧5日・20日screen manifest pathを
+directory型fail-closed latchにすることで1日完了境界後の新規core-screenだけを阻止する。更新runnerは1日判定artifactが
+存在しない間`ONE_DAY_EVALUATION_READY`で正常終了し、認証済み判定後だけ5日・20日Full Ablationへ進む。
+locked holdoutは全選択固定まで開かず、認証可能なreport / OOF / fold / Optuna trial / checkpointを再利用する。
+
+### D082 — 学習と独立したPWAの簡素化・タブ整理（2026-09-24）
+
+ユーザーの「今のうちにUIだけ」「タブで整理」「細かい説明を減らしてシンプルに」に従い、
+実操作画面である`web/`だけを改善する。`hosted/`の公開readiness companionの改修・配信は今回の対象外。
+研究source、runner、worker、seed、採否基準、checkpoint、Experiment Registry、locked holdoutには触れず、
+学習statusの監視・再起動も行わない。
+
+- 固定5ナビは維持。設定は「口座・資金 / AI・データ / 通知」に分ける。ランキング・検証も同じタブ部品を使い、矢印/Home/Endキーと関連panelのARIAを揃える。
+- Todayでは株数の変更とAPI由来の推定現金を主役にする。口座別現金・推定改善・モデル版は折りたたみ、情報そのものは失わない。
+- 「提案を見る → 判断を保存 → 結果を記録」は現在ページの案内であり、未確認の保存済み状態を意味しない。
+- UI_SPECに沿って白・薄灰・青を基調とし、グラデーション・過剰な影を除去。数値は等幅数字、主要操作は44px以上、360〜430pxとPC幅で確認する。
+- 詳細説明は必要時に開く。fixture・未設定・stale・未観測・自動発注なし等の安全上の区別は省略しない。
+- APIがstaleと明示した提案はTodayと直接review URLの両方で遮断する。Paper観測0件は成績0%に見せず未観測とする。時刻表示はJST固定。
+- 既存API・100株判断・実約定記録の契約は変更しない。見た目のテストには既存の一時fixture DBのみを使い、実台帳・実データを補完しない。
+
+### D083 — 更新したUIを既存の公開Sites companionへ反映（2026-09-24）
+
+ユーザーの「sitesに公開して」を受け、D082のUI整理を`hosted/`へ移植し、既存の同一Sites projectへ公開する。
+D067のpublic閲覧範囲、本人別の安全確認のみを保存する認証・D1、および既存のsocial previewは維持する。
+ローカルPWA/FastAPIを公開・proxy化したり、口座台帳・実提案・model・J-Quants dataをアップロードしたりしない。
+ホーム / 今日 / ランキング / 検証 / 設定を切り替えられるが、実データ接続がない欄は未接続、金額は`—`、
+提案は`NO PROPOSAL`とする。古い固定の履歴取得期間や進捗表示を撤去し、現在の研究statusを取得・推測しない。
+
+### D084 — 5日・20日のFeature voteを固定し、model familyは保留（2026-09-27）
+
+D080の1日screen判定`EXCLUDE_FROM_FULL_ABLATION_AND_FINAL`を維持する。完了した5日・20日の
+LightGBM / XGBoost / CatBoost × seed 17 / 29 / 43、計18件の認証済みFull Ablationだけで、
+D075のstrictly-earlier tuning vote（各seedでmodel family過半数、3 seed中2以上）を適用する。
+1日のFull Ablationを要求せずにfeature selectionを固定できるよう、5日・20日のみのartifactを認め、
+除外判定の内容hashをartifactへ含める。従来の1日・5日・20日を含む完全matrixも引き続き認める。
+
+- 5日: F2 MACD（3/3 seed）、F12 Candle / breakout（2/3 seed）を採用し、V0との和集合41特徴を固定。
+- 20日: F6 Volatility / downside（3/3）、F7 Volume / money flow（3/3）、F10 Relative / market context（2/3）、F12 Candle / breakout（2/3）を採用し、V0との和集合51特徴を固定。
+- 各feature familyの採否はtuning-period voteだけで決め、後続outer OOF・importance単独・locked holdoutでは変更しない。
+- Model family削減はD080の全棄却条件を満たした場合だけ行う。今回の18件はrealistic cost評価がすべて`BLOCKED_BY_DATA_CAPABILITY`で、ensemble追加価値・各objective・turnover / downsideも全条件を満たす棄却証拠がない。このため5日・20日とも3 familyを`ABLATION_HOLD`とし、Final Candidateで比較する。削減数を目標にしない。
+- Feature selection artifact `13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d`は18 source report、2 source commit、1日除外判定hash、Build / Dataset / Feature ID、holdout境界を固定し、`locked_holdout_accessed=false`である。これは特徴量の決定であり、Champion・ensemble weight・実運用採用の決定ではない。
+
+### D085 — Final CandidateのWindows独立runner起動を修正（2026-09-27）
+
+Task Schedulerの`powershell.exe -File`から`[bool]`parameterへ文字列`-RunDiagnostics:true`を渡すと、
+Windows PowerShell 5.1がparameter bindingで終了コード1を返した。Task用CLI境界では値を`0 / 1`の
+`[int]`として渡し、runner内で真偽へ解釈する。候補statusのPython JSONに日本語を含む絶対pathがあるため、
+Windows PowerShellへ渡す前にASCII escapeして文字化けを避ける。Git実行ファイルはTaskのPATHにない場合、
+既定のGit for Windows pathへfallbackし、source preflight失敗時は例外型だけをrunner logへ記録する。
+model source、研究条件、seed、選択済み特徴量、locked holdoutは変更せず、既存workerを停止・再起動しない。
+
+
+### D086 — Final Candidateのcopy ownershipを省メモリ化し、失敗時の自動再試行を一時保留（2026-10-02）
+
+ユーザー承認の復旧作業で、candidate runnerの子Pythonだけにpandas 2.3.3の
+`PANDAS_COPY_ON_WRITE=1`を設定する。既存snapshot認証のsort/reset-indexによる冗長な全件copyを
+減らすためのruntime memory modeであり、float32化・特徴数削減・評価条件変更ではない。
+RESOURCE_RUNTIME eventへ実際の設定を残す。OS環境や他アプリには設定しない。
+
+- モデルsource/dependency、固定source pin、dataset/feature/config/checkpoint identityを保持する。
+- 新copy modeでcheckpoint/advanced対象11 testとproduction対象4 testをpass。3種類のframeで
+  production content hashが従来modeと一致し、保存済み11 outer foldも元の認証境界をpassした。
+- これはcopy削減の検証であり、全campaignの収束・完了や十分なメモリの保証ではない。
+  実データのattempt20は後続準備の2.64 GiB allocationに失敗したので復旧は未完了と記録する。
+- 通常ブラウザなど他作業のprocessを勝手に終了せず、pagefile/OS設定や有料resourceも変更しない。
+  元の失敗16:39 JSTと今回Solver再開19:07 JSTの時系列から、今回再開を元の失敗原因とはしない。
+- 候補の自動再試行taskは一時Disabledとし、共有メモリ問題を解消してから単発resumeを確認する。
+  完了artifact/checkpointは削除せず、モデルsourceや研究条件を変える案は別途比較・判断する。
+
+
+### D087 — 前処理copyの局所パッチを隔離検証し、正式checkpoint互換を偽装しない（2026-10-03）
+
+ユーザー承認の追加復旧調査で、同条件再起動を中止したまま初期3行フィルタの
+`loc[mask].copy()`を列ごとのdtype-preserving array.takeへ置き換える未適用patchを作成する。
+float64の低精度化、列削減、行/label/split/parameter変更を行わず、合成fixtureで値・hash・
+OOF・評価指標・境界一致を検証する。大きな連続blockを分割しても総データ量と後続copyは残り、
+実データ復旧・安全RAM・速度倍率・残日数を保証しない。
+
+本体への適用でML source commitが変わるため、既存固定pinを名乗らせてcheckpointを流用しない。
+今回本体src/runner/依存/campaign/checkpointは変更せず、検証overlayはworkspaceに保存する。
+適用・11完了foldの新namespace再利用は、旧証拠を読み取り認証し、新split/入力/evidenceを照合した
+import bridgeと旧新code・hashのreceiptを明示する別段階とする。元metadata/hashを編集して迂回しない。
+
+外部CPU移行はdocs/CLOUD_CPU_PILOT.mdのdevelopment-only export manifest・path map・
+import provenance・Linux/数値照合・J-Quants本人利用許諾を先に整える。多thread/GPUは別experiment。
+公式価格は参考であり、外部upload、VM/契約/課金、holdout転送、学習起動の許可ではない。
+
+### D088 — 値を保持する列単位fold copyと異なるcode_commit間の明示的import（2026-10-03）
+
+承認済みの最小復旧に限定し、D087の初期行copyに加えてOOF/diagnosticsのfold copyを列単位へ変更した。
+狭いtarget/date/symbol列で選択と安定sortを決めてから、全列を元dtypeで独立copyする。
+データ、特徴量、精度、seed、モデルparameter、iterations、評価とholdoutは変更しない。
+独立した旧実装との小規模OOF完全一致と、値/index/attrs/nullable/並び順/保存hashのparityで検証した。
+
+ML source commitが変わるため、旧pinの偽装やmetadata/hash書換えによるresumeは認めない。
+--checkpoint-import-planで指定した同一データ/config/特徴量順・CPU CatBoostの復旧だけを新namespaceへ受け入れる。
+旧namespace/progress/foldは読取専用にし、split位置hash・日付境界・raw/effective parameter・byte/content hashを照合する。
+新fold metadataは元foldの完全metadata、旧新identity、依存/runtime、passing fixture証拠、検証hashをlineageとしてatomic publishする。
+Optunaの元DBはread-only backupを介し、trial内容/number/date/durationを再現して残りtrial/time budgetを維持する。
+自動importは指定planがある時だけ動作し、不一致や改ざん、異なるdata/feature/thread/GPU、chained importを拒否する。
+これは同一ローカルデータの復旧であり、development export/異OS/cloud pilotの互換性は別途必要である。
+
+実データ15保存unitのevidence/OOF認証は01:39 JSTに成功したが、新namespaceへの実import・学習再開は未実施。
+01:34 JSTの空き物理6.309 GiBに対し、初期数値buffer下限7.771 GiB、後段8.802 + 0.523 GiBで安全条件を満たさない。
+下限には非float列/index/CatBoost内部などを含まない。必要RAMの確定や完了/残り時間は主張しない。
+旧taskはDisabledを維持し、十分な資源と真正な新source pin/planを整えるまで起動しない。
+旧h5 campaignの完成済み7 batchを新commitの結果へ黙って統合せず、採用は別途来歴付きで検証する。
+外部転送、VM、課金、注文、プロセス終了、OS/pagefile変更、他アプリ変更は行わない。
+
+
+### D089 — 全列認証後の入力投影と同値のファイル配列（2026-10-03）
+
+承認済みの株式だけのローカル復旧として、全Parquetの物理hash・元logical IDとfeature/dataset整合を認証した後で必要列だけを露出する。元の90 float64列を常時保持しないが、除外列の内容も認証から除外しない。dtype・行・特徴量順・前処理・モデル条件・split・holdoutは保持する。
+
+--memory-scratch-rootを明示した単独horizonのCLIに限り、所有する入力を独立development配列へ写した後に解放する。数値作業配列は同dtype/C-layoutのファイル配列へ置き、row-copyの書き込みをflushする。常駐しているmapped pageはRAMを消費する。拡張dtype/object/空配列は従来処理を保持し、生存viewを強制closeしない。失敗時の残存scratchはreceiptで識別する。
+
+元94aab78系と新commitの同値比較、変更範囲のAST guard、同一lock/runtime、補助source hashをlineageへ結び、元namespace・FAILED記録・Optuna duration/budgetを保持する。実際の新namespace import/reloadと学習進捗は別の実測で報告する。保存済み7 batchのcommit/hashを書き換えたり、新しい結果へ混ぜて採用したりしない。
+
+詳細・66/76/2件のpassing evidence・実全データ認証・合成native測定と制約はLOCAL_MEMORY_RECOVERY.mdに記録した。最大実foldのnative memory上限はまだ実証されていない。必要RAMの安全余裕を示せるまで大規模なOOM試行はせず、4 taskの一括再有効化はしない。Classic以外のアプリ、pagefile/OS、外部upload/VM/課金、holdout評価、注文は変更しない。
+
+### D090 — モデル行列作成後の元配列解放とfit直前RAM条件（2026-10-03）
+
+旧進捗15単位の真正なimport/reloadは09:59 JSTに成功した。新規学習完了とは区別する。元namespaceとcampaignは不変。続くsource変更は別の真正commit/namespaceで元94aab78成果から受け入れ、chained importや旧pinの偽装はしない。
+
+予測に渡す前処理行列は変えず、作成後に不要な所有foldの元特徴量配列を解放する。--memory-scratch-rootと--minimum-fit-headroom-gib 3.5を明示する単独workerでは、native fit直前の実際の空きRAMが条件未満なら停止する。合成40k/80k/160k測定から既知fixture配列を引いた大きい増分を最大実foldへ換算し、固定0.1 GiBを足して2倍にしたnative保守推計約2.1 GiBに対し約1.4 GiBの余裕を残す。推計とhard上限保証は混同しない。
+
+確認はfit境界の一回だけで、継続PID/CPU監視やOS/process hard capではない。設定不足の時はnative fitを始めず記録して停止し、無理なOOM試行や自動retryはしない。学習条件・CPU1・300反復・seed・評価・元成果を保持し、実起動/guard/最初のcheckpointを別に確認する。元task4本の一括再有効化、追加アプリ終了、新規認証/課金/外部送信/注文は行わない。
+
+
+### D091 — one pandas feature block per owned numeric array view (2026-10-04)
+
+For the explicitly authorized stock continuation, expose `_finite_numeric`'s unchanged float32 C-layout storage through separate column views. Preserve the FoldPreprocessor class and all model/split/evaluation definitions; independently verify statistics, feature retention, matrix values, OOF and report identity against archived a68 code. Require real code provenance and direct native-source imports for the original 15 units and newly completed ranking6. Do not chain previously imported folds, lower the 3.5 GiB fit guard, alter scientific parameters or infer fit safety from exit-time RAM. Production continuation remains conditional on the actual fit guard; never create an automatic restart loop or modify other apps/OS/provider/order state.
+
+
+### D092 — one pressure-triggered unused Arrow pool diagnostic (2026-10-04)
+
+For an explicitly guarded owned recovery run only, request one best-effort release_unused after gc/reap when fit headroom is insufficient. Record backend/live bytes and actual physical availability before/after; preserve live buffer bits/dtype and the 3.5 GiB guard. Cleanup error or insufficient after-RAM remains a pre-fit stop. No repeated trimming, automatic restart, other-app/OS action or guarantee from exit-time RAM. This is bounded resource debugging; verify unchanged native OOF and real live buffer preservation before use.
+
+
+### D093 ? avoid ignored full OOF return with explicit part ownership (2026-10-04)
+
+The recovery research caller may request parts-only collection when it already owns all emitted parts and does not consume the full return. Preserve prediction/identity validation, default return behavior, final research concat and every scientific definition. Verify against the independent archived native baseline; bind genuine source commit and native-source import proofs. Retain the 3.5 GiB guard. This is the final bounded attempt for the present continuation; insufficient actual guard headroom ends the attempt without automatic retries or further unrelated actions.
+
+
+### D094 - adopt recovery through genuine pin-separated continuation campaigns (2026-10-04)
+
+The user authorized verified seed29 research registration and only the unstarted seed43 of the same frozen plan. Preserve the original campaign bytes and failed history. The original94 manifest cannot truthfully authenticate the genuine8d recovery report. Existing development selection already accepts multiple strict v2 manifests and records their real source pins, so use a seven-success legacy94 view and a two-batch8d continuation with a hash-bound link to the original nine-batch plan. Reauthenticate all eight full report/OOF bundles, exact per-batch config/features/build, original16 bytes and native94-to-8d equivalence evidence before registration. Append a research_only linking experiment; never change old report pins or label the old7/9 manifest complete. No scientific source/schema/authentication changes are required.
+
+The generic campaign checkpoint helper derives feature_manifest_hash from the current catalog (e7ac592d...), while the frozen production feature snapshot/report use83859eb6.... Derive actual recovery and fresh seed43 checkpoint IDs from the authenticated frozen snapshot provenance; record the actual paths explicitly. Do not modify either hash or claim the helper's nonexistent namespace is actual progress. The existing full report and selection authentication remain strict.
+
+Fresh seed43 uses genuine8d, identical original config hash b5f608c4..., ordered41features, dtype, CPU1/300 iterations and3.5GiB fit guard. Its worker orchestration is separately hash-bound and archived, source/lock must match8d, single-attempt intent is exclusive, legacy tasks remain Disabled, and no seed29 learned units are imported. Verify actual firstfit before claiming native execution. Observe completion or safe stop without restarts, additional horizon/app/OS/account/billing/order actions. Registration is research evidence only; historical-vintage and locked-holdout/live-approval blockers remain.
+
+### D095 — daily-first research and owner-private results (2026-10-15)
+
+The user approved implementing the proposed Drive-informed plan: daily first, morning later; fixed seven-criterion manual research without new paid providers; PC computation and owner-private cloud results readable while the PC is off; manual owner adoption after authenticated holdout evidence, with no fixed sixty-day automatic promotion rule. Daily Prediction v2 retains only 5d/20d (1d is null); the daily decision policy is 0/0/1 with 20d risk. Original predictions and separate research are immutable, content-addressed records. JSON is canonical; CSV/Markdown use the same snapshot identity. Top20 plus all holdings are reviewed.
+
+A separate private Sites project appgprj_6acfaa58a14c81919863e7e62f8a939c and private/ source were created. Existing hosted/ audience and implementation are unchanged. Only a bounded result projection is synced; raw data, model weights, account details and provider credentials stay local. Private deployment, idempotent insertion and exact-byte readback are required. No public fallback. Original campaign cost settings remain unchanged; new evaluation-policy scenarios are 10/20/30/50 bps. V04 SB20/SB60 confidence intervals reproduced miscalibration, so they are diagnostic only. Stateful daily NAV must precede economic adoption; overlapping forward20 labels cannot be added as daily returns.
+
+This implementation does not complete all research gates: final selection, actual holdout evaluation, daily refit/live inference and authenticated adoption evidence remain unconnected. Store rejects adopt reviews until the actual evaluation evidence and personal execution settings are connected; record IDs alone are insufficient. See docs/DAILY_RUNBOOK.md and docs/evidence/daily-readiness-20261015.
+
+### D096 — owner enters accounts and holdings in the private app (2026-10-15)
+
+The user states they currently hold no shares and explicitly asks to enter account types and current holdings in the app. Add /portfolio to the existing owner-private Site. This updates D095's account-details-local-only scope: account labels/types, manually entered holdings and optional budget/risk preferences may now be stored in that owner's private cloud database. No account numbers, brokerage credentials, provider raw data or learned weights are collected. No holdings does not imply zero capital; missing amounts remain null. Do not seed production with fixture financial records.
+
+Use preview-before-save, strict validation, owner-isolated append-only revisions and atomic stale-write rejection. The app input is available while the PC is off. Python portfolio import, execution settings and personalized comparison remain separate pending work; manual input alone cannot authorize model adoption or an order.
+
+### D097 — research daily NAV accounting contract (2026-10-15)
+
+Implement Drive v01 V18–V23 as a separate research ledger using explicit unadjusted prices, fixed session calendar and order decisions strictly before execution. No forward label aggregation, no writes to the manual execution ledger, no order submission. Daily-close proxy executions require the close time/price and remain labelled research proxies. Sells precede buys; same-side order IDs define priority; unknown tradability/capacity, invalid lots/ticks and unaffordable orders do not fill. Preserve account-isolated reserved cash, shared symbol capacity and explicit sale-buying-power release times. Unfilled day quantities expire; holdings persist.
+
+Corporate actions require dated source declarations: split and fractional cash, dividend entitlement/receivable/payment, verified cash conversion. Unsupported fractional rights fail closed. Missing marks keep the holding, return null observed NAV and separate 0/50/100% haircut hypotheses. They never imply liquidation or zero return. Primary accounting is explicitly pre-tax; personal tax scenarios and authenticated market/action adapters are still required. Cash/HOLD comparison uses the identical initial portfolio. Fixed bps sensitivity is one-way all-in, charged once; it is not evidence of realistic costs. Details: docs/DAILY_NAV_EVALUATOR.md. No change to historical candidate configuration, source pins or holdout access.
+
+### D098 — versioned development metric diagnostics (2026-10-15)
+
+Fix the remaining V10/V11/V17 numerical conventions in daily-development-metrics-v1, separately from immutable historical reports. Ranking ties use symbol-ascending priority, IC requires at least three finite nonconstant rows, missing sections remain null and exclusions are counted. Preserve grade-based NDCG and top-K set-overlap Precision, explicitly not a positive-return hit rate. Probability Brier/ECE use original in-range probabilities; only log loss clips float64 at epsilon 1e-8. Retain historical clipped Brier reports unchanged. Quantiles preserve crossed predictions, report strict/inclusive coverage separately, and mark a single alpha as insufficient to check crossing. Diagnostics include source hashes and dependency versions.
+
+The existing authenticated candidate audit gains an explicit --score-development option and a new v2 receipt. Authenticate original artifacts and frozen feature lineage before scoring development OOF; keep original report metrics alongside the new definitions. This does not select a model, open holdout, infer calibrated significance, adopt a model, or create an order. See docs/DAILY_EVALUATION_METRICS.md.
+
+### D099 — causal daily OOF bridge to portfolio comparison (2026-10-15)
+
+Add a separate 5d/20d research adapter with 1d null and 20d decision risk; preserve the legacy adapter and original reports. Authenticate the full dataset identity by logical hashing, then project only matching development label timestamps. Hashing protected source rows is source authentication, not holdout scoring. Rewritten file/metadata hashes must not bypass the frozen dataset identity.
+
+Use one explicitly named family/seed pair for wiring verification, not as a selected winner. Risk scale is expanding 20d residual RMSE from strictly prior receipts and completed endpoint dates. Default minimum20 eligible feature dates is a versioned, configurable research cold-start guard, not evidence of calibrated uncertainty; the existing standard_error field carries an explicit RMSE warning. Keep missing horizons/history as named blocks. A missing held-symbol forecast stops the comparison. Compare explicit candidates plus every holding with known marks and the daily0/0/1 engine policy, preserving the input portfolio. No execution ledger writes, latest forecast claim, automatic selection or adoption. Stateful NAV integration and personal settings remain pending. See docs/DAILY_OOF_ADAPTER.md.
+
+### D100 — stateful daily decisions over simulated fills (2026-10-15)
+
+Connect daily0/0/1 research decisions to the existing NAV ledger. At each11:30 cutoff, apply only effective corporate actions and due settlements, then expose cash/positions/receivables to the decision callback without future execution/closing quotes. All current holdings join the explicit candidates. Missing forecasts, market/security/liquidity evidence, stale or pre-split unit prices, or the exact-search cap produce named blocked days, no orders and continued holdings. Any blocked decision marks the comparison incomplete. Actual simulated fills, not targets, drive the next day; retain all generated orders for fixed-order replay parity.
+
+Receivables remain in NAV but outside deployable decision wealth until paid. Preserve account-bucket cash isolation. Initial integration uses explicitly synthetic pre-tax/no-withholding research account metadata, not the owner's account classification or NISA/tax settings. The same cost policy is estimated for decisions and charged once on actual fills. HOLD starts from the identical initial cash and holdings. Add DailyDecisionAudit and require research-only on daily proposals, correcting the generic engine's prior false default without weakening the morning lineage gate. No manual execution ledger writes or actual orders. Market/action authentication, realistic execution capability, personal tax, full baseline comparison and final selection/holdout remain necessary. See docs/DAILY_STATEFUL_STRATEGY.md.
+
+
+### D101 — authenticated development daily-market projection (2026-10-15)
+
+Read the bounded daily-price window through a read-only catalog transaction after authenticating the frozen feature selection and rejecting holdout dates. Reconcile successful eligible ingestion, catalog/manifest metadata, Parquet bytes, row lineage, raw/normalized keys and unadjusted values; reverify after reading. Preserve no-trade rows, unknown flags and empty partitions. Recover UL/LL from raw without inferring closing tradability. Preserve nonstandard five-character provider codes with null ordinary-stock symbol, avoiding collisions from dropping the final character. Original normalized/training artifacts stay unchanged.
+
+The receipt is explicitly single-vintage research evidence. It does not prove historical availability, frozen dataset source-frame equality, universe/calendar completeness, corporate-action coverage or execution capability. Keep unknown capacity/ticks/settlement and evaluation_ready=false until separate evidence connects them. Do not manufacture NAV performance from this projection. Actual verification currently covers four development dates. See docs/DAILY_MARKET_PROJECTION.md.
+
+
+### D102 — identical-fold regression baseline comparison (2026-10-15)
+
+Compare all frozen 5d/20d family/seed candidates with zero-return, unscaled trailing20d momentum and V0 Ridge(alpha5), using the original candidate development folds, clipped first evaluation interval and exact symbol/date/as_of/target/label-end/fold keys. Preserve existing reports. Authenticate the full source dataset identity and candidate OOF, but never score holdout. Check training label receipts strictly before fitting and feature availability; fail rather than silently alter training or intersect away missing validation rows.
+
+Use exact per-column training medians, centered block covariance merging, standardized Ridge with missing indicators and intercept. This bounds linear-model matrix memory without stochastic optimization or row sampling; full candidate OOF authentication still materializes one candidate at a time. Verify equivalence to the existing imputer/scaler/Ridge implementation. Save coefficients, split audit and immutable OOF. The all-candidate equal mean is a fixed diagnostic, not selected stacking. Zero prediction is not a cash NAV policy. Keep probability/quantile baselines, economic comparisons and final adoption as separate unfinished gates. See docs/DAILY_BASELINE_COMPARISON.md.
+
+
+### D103 — same-fold probability and downside baselines (2026-10-15)
+
+Extend daily baseline comparison with training-only empirical large-loss probability and quantile, plus V0 logistic regression. Use the candidates' exact threshold and alpha, and require risk task keys including as_of to match regression. Preserve v1 receipts and original candidate artifacts. Reuse authenticated expanding folds and training availability checks; no holdout scoring or model adoption.
+
+The logistic objective is mean binary log loss plus squared L2 weights/(2*C*n), C=1, unpenalized intercept, no class weighting or tuning. Reuse train-only median/indicator/standardization, cache standardized features on temporary disk, and scan all rows in bounded blocks per L-BFGS-B evaluation. Require optimizer success and max absolute gradient <=1e-6. Single-class training returns an explicitly audited empirical constant. Empirical quantiles use linear interpolation. Fixed candidate means remain uncalibrated diagnostics, not learned ensembles. Record fold models, event counts, convergence and daily-development-metrics-v1 Brier/log loss/ECE/pinball/coverage. A single lower quantile does not establish prediction-interval coverage or absence of crossings. See docs/DAILY_BASELINE_COMPARISON.md.
+
+
+### D104 — multiple forward ensemble/calibration evaluations (2026-10-15)
+
+Add daily-forward-crossfit-v1 as a separate development diagnostic, preserving the existing selection pipeline and original candidate reports. Freeze three evaluation date blocks with boundaries 1/2, 2/3, 5/6 and 1 before the actual run. Each uses the preceding 1/5 of OOF dates for calibration and the earlier prefix for weight fitting; purge endpoints/receipt times and embargo at least the horizon's observed dates at both boundaries. Require 20 eligible dates in each fit/calibration block. All candidates and variants use the same later-half evaluation cohort; no evaluation row is scored twice.
+
+Learn row-equal simplex weights for raw-return MSE, cross-sectional rank MSE and large-loss Brier. Accumulate exact block quadratic statistics and verify optimizer feasibility and convex dual gap. Unreceived peers cannot enter training target ranks. Calibrate rank to return with nonnegative OLS, probability with monotone isotonic and fixed-mean quantile with a calibration residual offset. Do not learn quantile weights in this version. Save models, splits, hashes, complete evaluated source predictions and per-block/pooled metrics. Rank score MSE against raw returns is omitted; uncertainty scales remain in return units and are not standard errors. Calibration is allowed to worsen future scores. No automatic component pruning, selection, holdout access, adoption or economic claim follows. See docs/DAILY_ENSEMBLE.md.
+
+
+### D105 — owner-private manual portfolio import and per-revision receipts (2026-10-15)
+
+Allow the user's accounts and holdings to be entered in the app, including no holdings and unknown budget/risk. Export only the pinned per-Site owner using the Site access boundary plus a service-token-derived scoped proof whose digest is stored as a runtime secret. Verify exact original revision bytes and strict schemas in Python. Pin the first imported owner, reject rollback/conflicting revisions and retain immutable local inputs in operational backups. Commit locally before acknowledging the exact cloud revision; repeat imports retain the first receipt timestamp. A later cloud edit returns to import-pending.
+
+An import receipt is not application to the live execution/cash/tax ledger or personal recommendation readiness. Do not infer missing balances, tax state, drawdown guarantees or current forecasts. Preserve all holding symbols for a later explicit reconciliation/comparison adapter and keep historical original forecasts unchanged. No scheduler is installed by this milestone. See docs/MANUAL_PORTFOLIO_IMPORT.md.
+
+
+### D106 — fixed exploratory Elastic Net and rule diagnostics (2026-10-15)
+
+Extend the authenticated same-fold baseline comparison with fixed V0 Elastic Net (alpha0.001, l1_ratio0.5, unchanged target units, train-only imputation/scaling), and two dimensionless equal-weight rank rules. Momentum+revision uses trailing20d return and forecast revision; the four-factor rule adds sector-relative20d return and ROE. All directions are positive, within-date midranks are centered to [-1,1], and missing/constant/singleton components contribute neutral zero at their original weight. Rank all source feature peers at the common daily as_of before joining any future labels; reject unavailable peers and mixed cutoffs. Report ranking metrics only for rule scores, never raw-return MSE or order actions.
+
+Elastic Net uses full-data Gram statistics and cyclic coordinate descent, not stochastic fitting or sampling. Require maximum minimum-norm subgradient <=1e-9, positive L2, finite objective and recorded objective-gap bound; max50,000 iterations, fail on nonconvergence. No parameter search or result-driven modifications. This is an exploratory diagnostic introduced after earlier candidate results, not a confirmatory adoption gate. Freeze the exact policy before new real-data scores, preserve v1/v2 artifacts, authenticate all18 candidates and compare exact development rows. See docs/DAILY_BASELINE_COMPARISON.md and docs/evidence/daily-simple-baselines-20261015/precomparison-design.json.
+
+
+### D107 — read-only personal input reconciliation and research comparison (2026-10-15)
+
+Connect latest verified app input to the existing portfolio and immutable daily snapshot without replacing execution/cash/tax records. Explicit one-to-one manual-account/bucket mapping must cover both sets; reconcile classification, cash basis, every holding/quantity/acquisition price and required explicit tax amounts. Preserve odd lots, unknowns and every held symbol. Known unapplied/open fills, missing applied-event evidence, stale/future input and non-current/non11:30 forecasts block comparison. Read all authoritative inputs again after computation and reject concurrent change.
+
+Use explicit versioned cost/tax/daily20d policies and authenticated snapshot lineage. Interpret investment budget only with the declared maximum-total-equity-market-value basis, across all buckets; preserve HOLD and permit strict risk reduction when existing holdings already exceed it, exposing residual breach. Require explicit remaining NISA purchase-notional semantics; share the minimum annual/lifetime remainder across same-bucket buys without same-day restoration from sales. Do not substitute the budget for cash/wealth or guess drawdown-to-risk weights. Reviewed drawdown preference is retained without any drawdown guarantee. Supplemental settings and risk/execution evidence still need the app and adoption connection.
+
+Return a content-addressed research receipt including inputs/settings/source hashes and named blocks or the cost/tax/HOLD result. Original PredictionSnapshot is the forecast authority; do not invent development report IDs for it. Local API uses server time and the existing origin/manual-intent boundary. No live ledger/proposal writes, automatic adoption, real orders or claim of market execution capability. See docs/PERSONAL_COMPARISON.md.
+
+
+### D108 — optional supplemental settings tied to exact manual portfolio revision (2026-10-15)
+
+Add manual-personal-settings-v1 as a separate append-only owner-scoped record referencing the exact saved portfolio revision and account IDs. Preserve unknown amounts and assumptions as null; require explicit zero and explicit acknowledgement for zero commission. Accept incomplete drafts and show named gaps. Do not infer legal tax rates, NISA limits, account balances or drawdown guarantees. Validate decimal cash comparisons without floating-point rounding and reject mismatched account types or stale portfolio linkage.
+
+Keep supplemental settings, cost/tax assumptions and daily-decision-engine-v2 review separate from live execution/cash/tax ledgers. Saving or exporting a setting is not a PC import acknowledgement, initial-ledger application, model adoption or recommendation readiness. Require the existing authenticated owner boundary, same-origin/manual-intent writes and optimistic parent concurrency checks. Preserve exact export payload bytes and owner/parent identity. The local implementation is checkpointed unpublished at the user's explicit pause request; broader integration QA and all downstream application remain pending.
+
+
+### D109 — Android APK with offline shared Python computation (2026-10-15)
+
+The user's latest instruction supersedes the PC-required compute assumption: package the existing React UI with Capacitor and run acquisition, feature calculation, inference and portfolio comparison on Android; large retraining remains on PC. Preserve 5b7aa4d and all unpublished work before syncing the renamed public GitHub repository.
+
+Bundle a hash-pinned Pyodide runtime and explicit shared Python source allowlist as offline APK assets. Execute the unchanged concrete feature/decision/ledger/API modules in a dedicated worker, adapting synchronous ASGI calls for threadless WASM. Exclude desktop ingestion facades and fixture bootstraps. Require PC/WASM golden parity and physical Android validation, independently. Keep API credentials in native Keystore-protected storage, commit encrypted local state before acknowledging mutations, and preserve app identity/signing identity across upgrades.
+
+Automate signed main-branch Releases only after test/build gates, with increasing versionCode, hash and changelog. Pin update origin/package/signature and require Android installation confirmation. Do not publish market data, account state, credentials, signing keys or unreviewed learned models. No model is currently adopted; research-only display and explicit missing-model/data/403 blocks remain. Real orders remain out of scope.
+
+
+### D110 — reviewed portable model import and staged Android verification (2026-10-15)
+
+Export fitted scalar numeric LightGBM, XGBoost and symmetric CatBoost trees into a data-only format with the frozen fold preprocessor; never deserialize executable model files on Android or retrain there. Preserve float32 preprocessing and XGBoost cut precision. Require native-PC and WASM parity independently from final model adoption and physical-device evidence. Only an APK-pinned model hash with adoption/parity evidence, the exact frozen feature-selection identity and reviewed distribution scope may be imported. The approval list remains empty until those real prerequisites are met.
+
+J-Quants source data, user state and private learned weights remain excluded from the public source/APK. Missing history, unauthenticated next-session calendars or unclosed 11:30 cutoffs block feature readiness. Public research APK distribution may proceed after automated gates, while physical Xiaomi 14T Pro tests remain explicitly pending the owner's later USB connection. Report this distinction; do not represent browser checks as physical verification or research model outputs as adopted predictions.
+
+Keep one appId and signing identity. Store the encrypted signing key locally with owner-only ACL and DPAPI credentials and send secrets via exact stdin without printing them. GitHub Secrets cannot be read back and do not replace an owner-controlled, independently recoverable offline backup; document that remaining owner action.

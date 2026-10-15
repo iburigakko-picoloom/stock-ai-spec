@@ -1,0 +1,161 @@
+{
+  "started_at": "2026-10-14T23:51:11.877715+00:00",
+  "finished_at": "2026-10-15T00:00:21.544787+00:00",
+  "dataset": "daily_prices",
+  "dataset_snapshot_id": "3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d",
+  "source_snapshot_as_of": "2026-08-29T23:30:00+09:00",
+  "expected_source_snapshot_id": "f934da5f5d58bd9b6b52084f0d6f2fd0096f88cd319b99f941c3b44be35bb5dd",
+  "source_snapshot_id": "f934da5f5d58bd9b6b52084f0d6f2fd0096f88cd319b99f941c3b44be35bb5dd",
+  "rows": 9801708,
+  "schema": [
+    [
+      "trading_date",
+      "datetime64[us]"
+    ],
+    [
+      "provider_code",
+      "object"
+    ],
+    [
+      "symbol",
+      "object"
+    ],
+    [
+      "raw_open",
+      "float64"
+    ],
+    [
+      "raw_high",
+      "float64"
+    ],
+    [
+      "raw_low",
+      "float64"
+    ],
+    [
+      "raw_close",
+      "float64"
+    ],
+    [
+      "raw_volume",
+      "float64"
+    ],
+    [
+      "trading_value",
+      "float64"
+    ],
+    [
+      "adjustment_factor",
+      "float64"
+    ],
+    [
+      "research_open",
+      "float64"
+    ],
+    [
+      "research_high",
+      "float64"
+    ],
+    [
+      "research_low",
+      "float64"
+    ],
+    [
+      "research_close",
+      "float64"
+    ],
+    [
+      "research_volume",
+      "float64"
+    ],
+    [
+      "market_cap_million_yen",
+      "float64"
+    ],
+    [
+      "ex_rights_type",
+      "object"
+    ],
+    [
+      "adjustment_source",
+      "object"
+    ],
+    [
+      "morning_close",
+      "float64"
+    ],
+    [
+      "research_morning_close",
+      "float64"
+    ],
+    [
+      "afternoon_open",
+      "float64"
+    ],
+    [
+      "research_afternoon_open",
+      "float64"
+    ],
+    [
+      "adjustment_version",
+      "object"
+    ],
+    [
+      "provider",
+      "object"
+    ],
+    [
+      "source_endpoint",
+      "object"
+    ],
+    [
+      "source_date",
+      "datetime64[us]"
+    ],
+    [
+      "received_at",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "available_at",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "as_of",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "payload_hash",
+      "object"
+    ],
+    [
+      "schema_version",
+      "object"
+    ],
+    [
+      "ingestion_run_id",
+      "object"
+    ],
+    [
+      "source_record_hash",
+      "object"
+    ],
+    [
+      "raw_object_id",
+      "object"
+    ]
+  ],
+  "normalized_objects_verified": 2360,
+  "normalized_path_hash_list_sha256": "10ea0a77c0790bbc34d4d5615a1c7546f239ba05ba17e741946d4b98e39002e6",
+  "file_hashes_before_after_match": true,
+  "status": "PASS",
+  "purpose": "exact saved-source identity only; not historical-vintage, raw-pair or execution proof",
+  "holdout_scored": false,
+  "adoption_eligible": false,
+  "prototype_sha256": "42a33ae9e0d882c9e0978469c1cbff2d2be910377aeaa4ed139d90c6158c91f4",
+  "audit_script_sha256": "f09ed7b597c967a6d29f663c154f665da0fd7c10a73e4fdd66b3ed7f15ba6e04",
+  "metadata_file_sha256": "d2561ba42538d038c0404332aa24cfdf402e5cad859380406d89a65b8e7fcdc9",
+  "dependencies": {
+    "duckdb": "1.5.5"
+  }
+}

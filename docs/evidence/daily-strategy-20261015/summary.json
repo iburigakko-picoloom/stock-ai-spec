@@ -1,0 +1,38 @@
+{
+  "schema_version": "daily-strategy-evidence-summary-v1",
+  "source_commit": "9d39864c010a4d1fbacdacbf2e2e1182b4710f2a",
+  "mode": "TEST_FIXTURE_ONLY_NOT_REAL_MARKET_OR_PERSONAL_CAPITAL",
+  "receipt": "0d5beb6efa0a99ac02b0da419fefd7baf49dab6a14e9053dedcb3da9b755b43e.json",
+  "file_sha256": "82937e7df9544fc5aedb47c877f88551128c3d97717c497a9ba48deaa633a752",
+  "source_sha256": {
+    "decision/costs.py": "3240c5ba462e5f3fdca303b5b5e2e19cc949da3f742e2b37ab31e7b3e6486dfe",
+    "decision/engine.py": "97311e3f18af940f2c2421a9f689c2bf6097fa6cd695293d4629bd648c6fb11f",
+    "decision/tax.py": "32d91527ab8b3756e408ce60ed27bc754eb221c04f28a85710f3465debbf5345",
+    "domain/models.py": "499371e5a5be0ba4d6d3f93752f8bbb6c97e0df24cde4031e701b0755c83f831",
+    "ml/daily_oof.py": "676cbdebacd33d894a25b896e78c9f96dbe48757b4b432f30acd3d19a4c88b52",
+    "ml/daily_strategy.py": "b5695b25814bd7697bc85082e3dfb26f77dfb722f5a70de47bb7aa8ba9d12b73",
+    "ml/nav.py": "98a29fbced82a70c239d8d8a990fb42fb27322f112dfbc16493935b45c86fab4"
+  },
+  "planned_buy_shares": [
+    300,
+    200,
+    100
+  ],
+  "actual_simulated_shares": [
+    100,
+    200,
+    300
+  ],
+  "cash": [
+    "200000.0000000000000000000000",
+    "100000.0000000000000000000000",
+    "0E-29"
+  ],
+  "daily_nav_difference": [
+    "0E-22",
+    "0E-22",
+    "30000.0000000000000000000000"
+  ],
+  "decisions_complete": true,
+  "adoption_eligible": false
+}

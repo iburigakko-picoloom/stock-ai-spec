@@ -1,0 +1,18 @@
+{
+  "finished_at": "2026-10-14T23:53:00.8731484Z",
+  "exit_code": 0,
+  "started_at": "2026-10-14T23:28:14.5546955Z",
+  "source_commit": "7fccbe1ea3bb491362e3bfd0ad19cb8de327184b",
+  "tests_passed": 713,
+  "coverage_percent": 86.80975203167327,
+  "coverage_required_percent": 85,
+  "ruff": "PASS",
+  "mypy_modules": 62,
+  "corrected_targeted_tests": 25,
+  "actual_comparison_completion": "Not implied by this regression receipt; separate actual/replay evidence required.",
+  "evidence_sha256": {
+    ".demo-artifacts\\tests-daily-simple-full-2-result.json": "fe9f4cc36d13a21ed5def36e68df5e8bc48e2ba2da473edff130865da4d4a43e",
+    ".demo-artifacts\\tests-daily-simple-full-2.log": "ee33cb0cc5f2d6eb57d28207ee4deede05b7f2e734d39ff31352270fa23376c3",
+    ".demo-artifacts\\coverage-daily-simple-full-2.json": "009294c486858e1e5972c8ee0e5eb3068cbd6c839fd242511aa070bcb542436c"
+  }
+}

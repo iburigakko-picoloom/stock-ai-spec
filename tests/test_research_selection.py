@@ -153,6 +153,66 @@ def test_selection_metadata_tamper_is_rejected(tmp_path: Path) -> None:
         load_development_selection(path)
 
 
+def test_excluded_one_day_freezes_five_twenty_through_final_selection(
+    tmp_path: Path,
+) -> None:
+    build_id, build_path = _build_marker(tmp_path)
+    full_features = V2_EXTENDED_MANIFEST.feature_names
+    selected_features = tuple(
+        name
+        for name in full_features
+        if name in {*V0_MANIFEST.feature_names, *_family_features("F1")}
+    )
+    ablation = _campaign(
+        tmp_path,
+        name="partial-ablation",
+        build_id=build_id,
+        build_path=build_path,
+        families=("lightgbm", "xgboost", "catboost"),
+        features=full_features,
+        run_ablations=True,
+        horizons=(5, 20),
+    )
+    candidate = _campaign(
+        tmp_path,
+        name="partial-candidate",
+        build_id=build_id,
+        build_path=build_path,
+        families=("lightgbm", "xgboost", "catboost"),
+        features=selected_features,
+        run_ablations=False,
+        horizons=(5, 20),
+    )
+    decision_path = tmp_path / "one-day-decision.json"
+    decision_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "goal3-one-day-screen-decision-v1",
+                "criteria_version": "D080",
+                "build_id": build_id,
+                "decision": "EXCLUDE_FROM_FULL_ABLATION_AND_FINAL",
+                "screen_report_ids": ["d" * 64],
+                "locked_holdout_accessed": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    features = freeze_development_features(
+        ablation_campaign_paths=(ablation,), one_day_decision_path=decision_path
+    )
+    assert tuple(item.horizon for item in features.horizons) == (5, 20)
+    assert features.one_day_exclusion_decision_hash == hashlib.sha256(
+        decision_path.read_bytes()
+    ).hexdigest()
+    feature_path = write_development_feature_selection(features, tmp_path / "features")
+    final = freeze_development_selection_from_features(
+        feature_selection_path=feature_path, candidate_campaign_paths=(candidate,)
+    )
+    assert tuple(item.horizon for item in final.horizons) == (5, 20)
+    assert final.one_day_exclusion_decision_hash == features.one_day_exclusion_decision_hash
+    assert final.locked_holdout_accessed is False
+
+
 def _campaign_fixtures(tmp_path: Path) -> tuple[Path, Path]:
     build_id, build_path = _build_marker(tmp_path)
     full_features = V2_EXTENDED_MANIFEST.feature_names
@@ -191,6 +251,7 @@ def _campaign(
     families: tuple[str, ...],
     features: tuple[str, ...],
     run_ablations: bool,
+    horizons: tuple[int, ...] = (1, 5, 20),
 ) -> Path:
     root = tmp_path / name
     common = {
@@ -215,7 +276,7 @@ def _campaign(
         code_commit=f"{name}-commit",
         report_root=root / "reports",
         experiment_registry=root / "experiments.jsonl",
-        horizons=(1, 5, 20),
+        horizons=horizons,
         model_families=families,
         common_config=common,
         checkpoint_root=root / "checkpoints",

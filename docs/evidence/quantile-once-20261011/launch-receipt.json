@@ -1,0 +1,13 @@
+{
+  "LaunchedAtUtc": "2026-10-11T00:09:36.7190268+00:00",
+  "OldPid": 8156,
+  "OldNativeConfirmedStopped": true,
+  "Threads": 1,
+  "OSReserveGiB": 1.25,
+  "EmergencyPhysicalGiB": 0.5,
+  "NoAutoRetry": true,
+  "worker_sha256": "e30c4a43e68bb12707a97c22ed4ef819431750b73b52af0681b1340261512396",
+  "plan_receipt_sha256": "8c3e5b66e5698804151acdb700113e90aed16ffd5d354875db3c33633c5bb252",
+  "runtime_policy_sha256": "fd18c85e816767a627a66b687e5d076431b70255bbe7f11a3c138ac51660dab9",
+  "LauncherPid": 20828
+}

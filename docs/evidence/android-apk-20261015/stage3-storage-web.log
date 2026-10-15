@@ -1,0 +1,19 @@
+
+> stock-ai-decision-support-pwa@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+> stock-ai-decision-support-pwa@0.1.0 build
+> tsc -b && vite build
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 41 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                           0.69 kB │ gzip:  0.44 kB
+dist/assets/compute-worker-CG6GrIlu.js    1.58 kB
+dist/assets/index-BKFPJJZL.css           20.46 kB │ gzip:  4.84 kB
+dist/assets/index-p8UQhrWy.js           307.55 kB │ gzip: 94.19 kB
+
+✓ built in 198ms

@@ -1,0 +1,25 @@
+{
+  "CheckedAtUtc": "2026-10-04T07:33:25.3309684+00:00",
+  "CheckedAtJst": "2026-10-04T16:33:25.3330170+09:00",
+  "ActualStockWorkerProcesses": 0,
+  "AvailablePhysicalGiB": 6.160285949707031,
+  "LegacyTasks": [
+    {
+      "TaskName": "StockAI-Goal3-Ablation",
+      "State": "Disabled"
+    },
+    {
+      "TaskName": "StockAI-Goal3-Candidates",
+      "State": "Disabled"
+    },
+    {
+      "TaskName": "StockAI-Goal3-Phased",
+      "State": "Disabled"
+    },
+    {
+      "TaskName": "StockAI-Goal3-Research",
+      "State": "Disabled"
+    }
+  ],
+  "NoWorkerActionsTaken": true
+}

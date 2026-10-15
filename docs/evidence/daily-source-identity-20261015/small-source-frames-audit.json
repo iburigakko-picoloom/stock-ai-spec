@@ -1,0 +1,158 @@
+{
+  "created_at": "2026-10-14T23:36:49.493752+00:00",
+  "dataset_snapshot_id": "3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d",
+  "source_snapshot_as_of": "2026-08-29T23:30:00+09:00",
+  "purpose": "exact saved-source identity only; not historical-vintage or execution proof",
+  "holdout_scored": false,
+  "adoption_eligible": false,
+  "datasets": [
+    {
+      "source_snapshot_id": "212522faad73bd4fda69e598a09fbd40c49cb002e9bdfa8c66b690565568871a",
+      "rows": 3527,
+      "schema": [
+        [
+          "trading_date",
+          "datetime64[us]"
+        ],
+        [
+          "holiday_division",
+          "int8"
+        ],
+        [
+          "is_equity_business_day",
+          "bool"
+        ],
+        [
+          "provider",
+          "object"
+        ],
+        [
+          "source_endpoint",
+          "object"
+        ],
+        [
+          "source_date",
+          "datetime64[us]"
+        ],
+        [
+          "received_at",
+          "datetime64[us, Asia/Tokyo]"
+        ],
+        [
+          "available_at",
+          "datetime64[us, Asia/Tokyo]"
+        ],
+        [
+          "as_of",
+          "datetime64[us, Asia/Tokyo]"
+        ],
+        [
+          "payload_hash",
+          "object"
+        ],
+        [
+          "schema_version",
+          "object"
+        ],
+        [
+          "ingestion_run_id",
+          "object"
+        ],
+        [
+          "source_record_hash",
+          "object"
+        ],
+        [
+          "raw_object_id",
+          "object"
+        ]
+      ],
+      "dataset": "trading_calendar",
+      "expected_source_snapshot_id": "212522faad73bd4fda69e598a09fbd40c49cb002e9bdfa8c66b690565568871a",
+      "normalized_objects_verified": 3528,
+      "date_min": "2017-01-01 00:00:00",
+      "date_max": "2026-08-28 00:00:00",
+      "original_full_frame_hash_match": true,
+      "file_hashes_before_after_match": true
+    },
+    {
+      "source_snapshot_id": "52bdf1a12ca24748198f62272a383a1f5de50785f17f1193cc58645347eff944",
+      "rows": 2359,
+      "schema": [
+        [
+          "trading_date",
+          "datetime64[us]"
+        ],
+        [
+          "open",
+          "float64"
+        ],
+        [
+          "high",
+          "float64"
+        ],
+        [
+          "low",
+          "float64"
+        ],
+        [
+          "close",
+          "float64"
+        ],
+        [
+          "provider",
+          "object"
+        ],
+        [
+          "source_endpoint",
+          "object"
+        ],
+        [
+          "source_date",
+          "datetime64[us]"
+        ],
+        [
+          "received_at",
+          "datetime64[us, Asia/Tokyo]"
+        ],
+        [
+          "available_at",
+          "datetime64[us, Asia/Tokyo]"
+        ],
+        [
+          "as_of",
+          "datetime64[us, Asia/Tokyo]"
+        ],
+        [
+          "payload_hash",
+          "object"
+        ],
+        [
+          "schema_version",
+          "object"
+        ],
+        [
+          "ingestion_run_id",
+          "object"
+        ],
+        [
+          "source_record_hash",
+          "object"
+        ],
+        [
+          "raw_object_id",
+          "object"
+        ]
+      ],
+      "dataset": "topix",
+      "expected_source_snapshot_id": "52bdf1a12ca24748198f62272a383a1f5de50785f17f1193cc58645347eff944",
+      "normalized_objects_verified": 2360,
+      "date_min": "2017-01-04 00:00:00",
+      "date_max": "2026-08-28 00:00:00",
+      "original_full_frame_hash_match": true,
+      "file_hashes_before_after_match": true
+    }
+  ],
+  "prototype_sha256": "42a33ae9e0d882c9e0978469c1cbff2d2be910377aeaa4ed139d90c6158c91f4",
+  "audit_script_sha256": "e636bfb9ef0caef7972ab55c153d66d54f72a0426cb2924d7e37408024cc7d39"
+}

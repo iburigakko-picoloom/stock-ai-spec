@@ -174,7 +174,7 @@
 - stability reports across folds and seeds
 - no model or feature adopted solely on in-sample score or importance
 - library implementation/version is recorded and numerical regression tests pass
-- 5日・20日は全3 familyを比較可能な3 seed development-only軽量screenへ先に通し、複数seed/fold、paired uncertainty、全objective、ensemble追加価値、cost / turnover / downsideの全条件で明確に劣位なfamilyだけ追加探索を停止する。通過・保留したhorizon × familyはfull F1〜F12 ablationを行う。1日は事前固定した安定性・非重複性・増分OOF・cost・turnover・downside gateをすべて通過した場合だけfull ablationへ戻す
+- 1日は3 seed development-only軽量screenを完走し、事前固定した安定性・非重複性・増分OOF・cost・turnover・downside gateをすべて通過した場合だけfull ablationへ戻す。5日・20日は事前screenを省略し、全3 family × 3 seedを直接full F1〜F12 ablationへ進める。family pruningはFull Ablation完走後に複数seed/fold、paired uncertainty、全objective、ensemble追加価値、cost / turnover / downsideの全条件で明確に劣位なfamilyだけに限定する
 
 ## M7 — Multi-horizon and Downside
 
@@ -228,7 +228,7 @@
 
 - stacking trained only on OOF
 - stable against seed and period changes
-- family数の削減目標は置かず、軽量screenで明確に棄却できない候補はFinal Candidate比較まで保持する
+- family数の削減目標は置かず、5日・20日はFull Ablationで明確に棄却できない候補をFinal Candidate比較まで保持する
 
 ## M10 — Neural and TDnet Challengers
 
@@ -485,6 +485,17 @@ FeatureSet V2 / V3、特徴量群Ablation、高度なモデルを追加し、Dec
 M16〜M20。
 
 自動提案、PWA、実取引入力、フォワード検証、運用強化。
+
+## Android APK配布の追加段階（D109/D110、2026-10-15）
+
+1. 保存地点5b7aa4dとremote mainを比較・保全：完了。remote-only 0、local-only 69。未commit研究差分を保持。
+2. 既存React/CapacitorとオフラインPython、PC 41/51特徴量・3種類推論の一致：ローカル/CI成功。
+3. Keystore、確定保存、差分取得、口座入力、暗号化backup、未採用block：実装済み。大容量分割保存とAndroidエミュレーター試験を追加検証中。
+4. 関連main変更の検証→同一鍵署名→Release/APK/hash/履歴、起動時更新確認：workflow実装。初回CI 38675174542成功。最終修正後のCIとRelease公開は後続。
+5. Xiaomi 14T Proで初回導入/更新/再起動/保存復元/通信失敗/PC一致/性能：本人の後日のUSB接続待ち。
+6. 初回台帳・補足設定・個人比較の完全接続、採用モデルと配布条件の確定：未完。研究用表示を維持する。
+
+Android化は研究完了・モデル採用・実注文対応を意味しない。公開範囲と鍵バックアップ、操作手順はANDROID_RUNBOOK.mdを参照する。
 
 ## プロジェクト完了の定義
 

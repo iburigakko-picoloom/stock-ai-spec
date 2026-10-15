@@ -1,0 +1,10 @@
+{
+  "snapshot_id": "3dcf663ed19a92cecf29153c57310a4d42756d97106680a03855fb436e2c30a9",
+  "received_at": "2026-10-14T17:07:20.615Z",
+  "unauthenticated_status": 401,
+  "url": "https://stock-ai-private-daily.manato0618.chatgpt.site",
+  "original_forecasts_uploaded": 0,
+  "readback_verified": true,
+  "idempotence_verified": true,
+  "synced_at": "2026-10-14T17:07:14.682587+00:00"
+}

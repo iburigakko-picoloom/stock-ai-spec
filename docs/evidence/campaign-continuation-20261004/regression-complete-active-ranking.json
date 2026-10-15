@@ -1,0 +1,42 @@
+{
+  "recorded_at_utc": "2026-10-04T13:00:05.720464+00:00",
+  "checkpoint_path": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927",
+  "regression_successful_outer_folds": 6,
+  "tuning_successful_units": 7,
+  "checkpoint_succeeded_units": 13,
+  "checkpoint_failed_units": 0,
+  "active_units": [
+    {
+      "task": "ranking",
+      "fold": 1,
+      "updated_at": "2026-10-04T12:43:07.156398+00:00",
+      "parameters": {
+        "depth": 4,
+        "l2": 0.0013063372103949843,
+        "learning_rate": 0.07654198821977654
+      }
+    }
+  ],
+  "actual_fit_guard_count": 14,
+  "fit_guard_failed_count": 0,
+  "last_fit_guard_available_gib": 4.863506317138672,
+  "guard_gib": 3.5,
+  "cpu_threads": 1,
+  "iterations": 300,
+  "source_pin": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "historical_seed29_max_ranking_fold_reference": {
+    "fit_guard_at_utc": "2026-10-03T01:33:55.289249+00:00",
+    "saved_at_utc": "2026-10-03T06:59:08.879006+00:00",
+    "guard_to_saved_seconds": 19513.589757,
+    "parameters": {
+      "depth": 3,
+      "l2": 0.001963475797335144,
+      "learning_rate": 0.11399161322684961
+    },
+    "train_rows": 3200734,
+    "is_current_seed43_eta": false
+  },
+  "current_whole_run_completion_time_unconfirmed": true,
+  "same_single_worker_continues": true,
+  "no_new_fit_or_restart_requested": true
+}

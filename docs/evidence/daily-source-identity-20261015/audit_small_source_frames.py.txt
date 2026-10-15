@@ -1,0 +1,70 @@
+"""Read-only prototype audit for frozen calendar and TOPIX source identities."""
+from datetime import datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+
+import duckdb
+
+from prototype_source_frame_hash import streamed_source_identity
+from stock_ai.data.contracts import DatasetName
+from stock_ai.data.production import _source_frame_id
+from stock_ai.ml.production import _metadata_hash
+
+root = Path(__file__).resolve().parent.parent
+snapshot_id = '3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d'
+metadata_path = root / 'data/live/datasets/production' / snapshot_id / (snapshot_id + '.json')
+metadata = json.loads(metadata_path.read_text(encoding='utf-8'))
+assert metadata['snapshot_id'] == snapshot_id and _metadata_hash(metadata) == metadata['metadata_hash']
+source_cutoff = datetime.fromisoformat(metadata['source_snapshot_as_of'])
+expected = dict(metadata['source_snapshot_ids'])
+destination = root / '.demo-artifacts/small-source-frames-audit.json'
+assert not destination.exists(), 'Do not overwrite earlier audit'
+result = {'created_at': datetime.now(timezone.utc).isoformat(),
+          'dataset_snapshot_id': snapshot_id, 'source_snapshot_as_of': source_cutoff.isoformat(),
+          'purpose': 'exact saved-source identity only; not historical-vintage or execution proof',
+          'holdout_scored': False, 'adoption_eligible': False, 'datasets': []}
+with duckdb.connect(str(root / 'data/live/catalog.duckdb'), read_only=True,
+                    config={'threads': 1, 'memory_limit': '256MB'}) as connection:
+    connection.execute('BEGIN TRANSACTION')
+    for dataset in ('trading_calendar', 'topix'):
+        stored = connection.execute('''
+            SELECT DISTINCT stored.parquet_path, stored.parquet_hash
+            FROM stored_objects stored
+            JOIN ingestion_run_objects link ON link.object_id=stored.object_id
+            JOIN ingestion_runs run ON run.ingestion_run_id=link.ingestion_run_id
+            LEFT JOIN bulk_file_checkpoints bulk ON bulk.fingerprint=run.bulk_fingerprint
+            WHERE stored.dataset=? AND stored.kind='normalized' AND stored.quality_passed
+              AND stored.available_at<=? AND run.status='SUCCEEDED'
+              AND (run.bulk_fingerprint IS NULL OR bulk.status='SUCCEEDED')
+            ORDER BY stored.parquet_path
+        ''', [dataset, source_cutoff]).fetchall()
+        for path, sha in stored:
+            assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == sha, path
+        paths = [str(path) for path, _ in stored]
+        assert paths
+        frame = connection.execute('''
+            SELECT * FROM read_parquet(?, union_by_name=true) WHERE available_at<=?
+            QUALIFY row_number() OVER (PARTITION BY trading_date
+              ORDER BY available_at DESC,received_at DESC,payload_hash DESC)=1
+            ORDER BY trading_date
+        ''', [paths, source_cutoff]).df()
+        connection.register('small_source_frame', frame)
+        connection.execute('CREATE OR REPLACE TEMP TABLE current_source AS SELECT * FROM small_source_frame')
+        streamed = streamed_source_identity(connection, 'current_source', dataset, ['trading_date'], vector_chunks=1)
+        original = _source_frame_id(DatasetName(dataset), frame)
+        assert streamed['source_snapshot_id'] == original == expected[dataset], (dataset, streamed, original, expected[dataset])
+        for path, sha in stored:
+            assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == sha, path
+        result['datasets'].append({**streamed, 'dataset': dataset,
+                                   'expected_source_snapshot_id': expected[dataset],
+                                   'normalized_objects_verified': len(paths),
+                                   'date_min': str(frame.trading_date.min()),
+                                   'date_max': str(frame.trading_date.max()),
+                                   'original_full_frame_hash_match': True,
+                                   'file_hashes_before_after_match': True})
+        print(dataset, 'PASS', len(frame), 'rows,', len(paths), 'objects', flush=True)
+result['prototype_sha256'] = hashlib.sha256((root / '.demo-artifacts/prototype_source_frame_hash.py').read_bytes()).hexdigest()
+result['audit_script_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+destination.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
+print('saved', destination, flush=True)

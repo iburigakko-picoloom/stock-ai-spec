@@ -1,0 +1,11 @@
+{
+  "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-active-runtime.json": true,
+  "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\campaigns\\goal3-continuation\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\h20.json": true,
+  "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-h20-final-candidates-20261006\\runtime\\worker.json": true,
+  "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-h20-final-candidates-20261006\\runtime\\worker.stdout.log": true,
+  "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-h20-final-candidates-20261006\\runtime\\worker.stderr.log": true,
+  "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\761a2da7c6acad09a2716dbdff7187cd9ad98fd36fe2eae1e7d2f0a674833a37\\manifest.json": true,
+  "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\761a2da7c6acad09a2716dbdff7187cd9ad98fd36fe2eae1e7d2f0a674833a37\\progress.json": true,
+  "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\761a2da7c6acad09a2716dbdff7187cd9ad98fd36fe2eae1e7d2f0a674833a37\\optuna.sqlite3": true,
+  "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\experiments\\advanced.jsonl": true
+}

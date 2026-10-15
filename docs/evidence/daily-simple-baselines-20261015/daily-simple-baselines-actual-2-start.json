@@ -1,0 +1,23 @@
+{
+  "arguments": [
+    "-m",
+    "stock_ai",
+    "research",
+    "compare-daily-baselines",
+    "--feature-selection",
+    "artifacts/selections/goal3-features/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d.json",
+    "--candidate-campaign",
+    "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h5-legacy-successes.json",
+    "--candidate-campaign",
+    "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h5-continuation.json",
+    "--candidate-campaign",
+    "artifacts/campaigns/goal3-continuation/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/h20-spill-retry-20261008.json",
+    "--dataset",
+    "data/live/datasets/production/3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d/3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d.parquet",
+    "--output-root",
+    "artifacts/daily-simple-baselines"
+  ],
+  "controller_pid": 18472,
+  "started_at": "2026-10-14T23:28:14.6932811Z",
+  "source_commit": "7fccbe1ea3bb491362e3bfd0ad19cb8de327184b"
+}

@@ -1,0 +1,210 @@
+def run_production_walk_forward_baselines(
+    dataset: pd.DataFrame,
+    *,
+    data_snapshot_id: str,
+    created_at: datetime,
+    code_commit: str,
+    feature_names: tuple[str, ...] = V1_CORE_MANIFEST.feature_names,
+    feature_set_version: str = V1_CORE_MANIFEST.feature_set_version,
+    target_column: str = "target_return_5d",
+    initial_train_periods: int = 500,
+    validation_periods: int = 60,
+    step_periods: int = 60,
+    holdout_periods: int = 120,
+) -> ProductionBaselineReport:
+    """Evaluate CASH, Momentum, and Ridge without exposing the locked holdout rows."""
+
+    if created_at.tzinfo is None or created_at.utcoffset() is None:
+        raise ValueError("baseline created_at must be timezone-aware")
+    if not code_commit.strip() or code_commit == "UNSET":
+        raise ValueError("baseline code_commit must be explicit")
+    revision_policy, revision_status = _revision_contract(dataset)
+    label_horizon, label_status_column = _target_contract(target_column)
+    label_end_column = f"label_end_date_{label_horizon}d"
+    required = {
+        "trading_date",
+        target_column,
+        label_end_column,
+        label_status_column,
+        *feature_names,
+    }
+    _require_columns(dataset, required, "production baseline dataset")
+    label_status_counts = tuple(
+        (str(status), int(count))
+        for status, count in dataset[label_status_column]
+        .fillna("MISSING_STATUS")
+        .value_counts()
+        .sort_index()
+        .items()
+    )
+    usable = dataset.loc[
+        dataset[target_column].notna() & dataset[label_status_column].eq("AVAILABLE")
+    ].copy()
+    if usable.empty:
+        raise ValueError("BLOCKED_BY_VALIDATION: production target has no available rows")
+    holdout = reserve_locked_final_holdout(usable, holdout_periods=holdout_periods)
+    development = usable.iloc[list(holdout.development_indices)].copy()
+    development = development.loc[
+        pd.to_datetime(development[label_end_column]) < holdout.holdout_start
+    ].copy()
+    if development.empty:
+        raise ValueError("BLOCKED_BY_VALIDATION: holdout purge removed all development labels")
+    splitter = PurgedExpandingWindowSplitter(
+        initial_train_periods=initial_train_periods,
+        validation_periods=validation_periods,
+        step_periods=step_periods,
+        purge_periods=0,
+        embargo_periods=label_horizon,
+        label_horizon_periods=label_horizon,
+    )
+    factories: tuple[tuple[str, Callable[[], Regressor]], ...] = (
+        ("CASH", lambda: _ZeroRegressor()),
+        ("Momentum", lambda: MomentumRegressor()),
+        ("Ridge", lambda: RidgeRegressor(alpha=5.0)),
+    )
+    summaries = tuple(
+        _evaluate_baseline(
+            development,
+            model_name=name,
+            model_factory=factory,
+            feature_names=feature_names,
+            target_column=target_column,
+            label_end_column=label_end_column,
+            splitter=splitter,
+        )
+        for name, factory in factories
+    )
+    config = {
+        "data_snapshot_id": data_snapshot_id,
+        "feature_set_version": feature_set_version,
+        "feature_names": feature_names,
+        "target_column": target_column,
+        "initial_train_periods": initial_train_periods,
+        "validation_periods": validation_periods,
+        "step_periods": step_periods,
+        "holdout_periods": holdout_periods,
+        "embargo_periods": label_horizon,
+        "ridge_alpha": 5.0,
+        "cost_scenarios_bps": (10, 20, 30, 50),
+        "historical_revision_policy": revision_policy,
+        "historical_revision_status": revision_status.value,
+    }
+    config_hash = hashlib.sha256(
+        json.dumps(config, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    identity = {
+        "config_hash": config_hash,
+        "code_commit": code_commit,
+        "locked_holdout_start": str(holdout.holdout_start.date()),
+        "models": [summary.model_dump(mode="json") for summary in summaries],
+        "label_status_counts": label_status_counts,
+    }
+    report_id = hashlib.sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return ProductionBaselineReport(
+        report_id=report_id,
+        created_at=created_at,
+        code_commit=code_commit,
+        config_hash=config_hash,
+        data_snapshot_id=data_snapshot_id,
+        feature_set_version=feature_set_version,
+        target_column=target_column,
+        locked_holdout_start=str(holdout.holdout_start.date()),
+        historical_revision_policy=revision_policy,
+        historical_revision_status=revision_status,
+        adoption_eligible=revision_status is CapabilityStatus.AVAILABLE,
+        adoption_blocking_reason=(
+            None
+            if revision_status is CapabilityStatus.AVAILABLE
+            else "historical provider revision vintages are incomplete; research-only result"
+        ),
+        label_status_counts=label_status_counts,
+        models=summaries,
+    )
+
+def _evaluate_baseline(
+    frame: pd.DataFrame,
+    *,
+    model_name: str,
+    model_factory: Callable[[], Regressor],
+    feature_names: tuple[str, ...],
+    target_column: str,
+    label_end_column: str,
+    splitter: PurgedExpandingWindowSplitter,
+) -> BaselineModelSummary:
+    squared_errors: list[float] = []
+    daily_rank_ics: list[float] = []
+    selected_returns: list[float] = []
+    validation_rows = 0
+    fold_count = 0
+    for fold in splitter.split(frame, label_end_column=label_end_column):
+        train = frame.iloc[list(fold.train_indices)]
+        validation = frame.iloc[list(fold.validation_indices)]
+        if train.empty or validation.empty:
+            continue
+        model = model_factory().fit(train[list(feature_names)], train[target_column])
+        prediction = model.predict(validation[list(feature_names)])
+        target = validation[target_column].to_numpy(dtype=float)
+        squared_errors.extend(np.square(target - prediction).tolist())
+        validation_rows += len(validation)
+        fold_count += 1
+        ranked = pd.DataFrame(
+            {
+                "trading_date": pd.to_datetime(validation["trading_date"]).to_numpy(),
+                "prediction": prediction,
+                "target": target,
+            }
+        )
+        for _, group in ranked.groupby("trading_date", sort=True):
+            if (
+                len(group) >= 2
+                and group["prediction"].nunique() >= 2
+                and group["target"].nunique() >= 2
+            ):
+                rank_ic = group["prediction"].corr(group["target"], method="spearman")
+                if pd.notna(rank_ic):
+                    daily_rank_ics.append(float(rank_ic))
+            if model_name == "CASH":
+                selected_returns.append(0.0)
+                continue
+            selected_count = max(1, int(np.ceil(len(group) * 0.10)))
+            selected_returns.extend(
+                group.nlargest(selected_count, "prediction")["target"].astype(float).tolist()
+            )
+    if fold_count == 0 or not squared_errors or not selected_returns:
+        raise ValueError(f"BLOCKED_BY_VALIDATION: no usable {model_name} walk-forward folds")
+    gross = float(np.mean(selected_returns))
+    cost_scenarios = tuple(
+        (bps, 0.0 if model_name == "CASH" else gross - bps / 10_000) for bps in (10, 20, 30, 50)
+    )
+    return BaselineModelSummary(
+        model_name=model_name,
+        folds=fold_count,
+        validation_rows=validation_rows,
+        mean_squared_error=float(np.mean(squared_errors)),
+        mean_daily_rank_ic=float(np.mean(daily_rank_ics)) if daily_rank_ics else None,
+        rank_ic_dates=len(daily_rank_ics),
+        top_decile_mean_target=gross,
+        cost_scenarios=cost_scenarios,
+    )
+
+def reserve_locked_final_holdout(
+    frame: pd.DataFrame,
+    *,
+    holdout_periods: int,
+    date_column: str = "trading_date",
+) -> LockedFinalHoldout:
+    """Reserve final dates without returning their row indices to validation callers."""
+    if holdout_periods < 1:
+        raise ValueError("holdout periods must be positive")
+    dates = pd.DatetimeIndex(pd.to_datetime(frame[date_column]).sort_values().unique())
+    if len(dates) <= holdout_periods:
+        raise ValueError("locked holdout must leave at least one development period")
+    holdout_start = dates[-holdout_periods]
+    development = pd.to_datetime(frame[date_column]) < holdout_start
+    return LockedFinalHoldout(
+        development_indices=tuple(int(value) for value in np.flatnonzero(development.to_numpy())),
+        holdout_start=holdout_start,
+        holdout_periods=holdout_periods,
+    )

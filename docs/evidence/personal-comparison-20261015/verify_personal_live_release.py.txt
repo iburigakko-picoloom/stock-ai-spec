@@ -1,0 +1,53 @@
+from pathlib import Path
+from datetime import datetime, timezone
+import hashlib
+import json
+import sqlite3
+
+from stock_ai.operations.personal import PersonalComparisonRequest, compare_stored_personal
+from stock_ai.operations.store import OperationalStore
+
+root = Path(__file__).resolve().parent.parent
+database = root / 'data/operations/stock-ai.sqlite3'
+assert database.exists()
+destination = root / '.demo-artifacts/personal-live-release-verification.json'
+assert not destination.exists(), 'Preserve earlier evidence'
+
+
+def database_digest():
+    with sqlite3.connect(database.as_uri() + '?mode=ro', uri=True) as connection:
+        digest = hashlib.sha256()
+        for statement in connection.iterdump():
+            digest.update(statement.encode('utf-8'))
+            digest.update(b'\n')
+        return digest.hexdigest()
+
+
+before = database_digest()
+store = OperationalStore(database)
+counts_before = store.verify_integrity()
+manual = store.latest_manual_portfolio()
+assert manual is not None
+request = PersonalComparisonRequest(checked_at=datetime.now(timezone.utc), maximum_input_age_hours=72)
+result = compare_stored_personal(store, request)
+assert result.proposal is None and result.blocking_reasons
+assert result.investment_budget_yen is None and result.holding_symbols == ()
+assert manual.portfolio.holdings_status == 'none' and not manual.portfolio.accounts
+after = database_digest()
+assert before == after
+assert store.verify_integrity() == counts_before
+receipt = root / '.demo-artifacts/personal-live-release-readiness.json'
+assert not receipt.exists()
+receipt.write_text(result.model_dump_json(indent=2) + '\n', encoding='utf-8', newline='\n')
+evidence = {
+    'checked_at': result.checked_at.isoformat(), 'holdings_status': 'none',
+    'holdings_count': 0, 'accounts_count': 0, 'budget_remains_null': True,
+    'risk_remains_null': manual.portfolio.maximum_drawdown_percent is None,
+    'proposal_created': False, 'blocking_reasons': [x.code for x in result.blocking_reasons],
+    'all_database_records_unchanged': True, 'database_logical_sha256_before': before,
+    'database_logical_sha256_after': after, 'receipt_sha256': hashlib.sha256(receipt.read_bytes()).hexdigest(),
+    'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    'model_adopted': False, 'no_order_sent': True,
+}
+destination.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
+print(json.dumps(evidence, ensure_ascii=False))

@@ -1,0 +1,15 @@
+{
+  "source_commit": "afa9a5fa4212ec7290d7e22f9e808d2fd0e808b9",
+  "ruff_all": "PASS",
+  "mypy_modules": 60,
+  "mypy": "PASS",
+  "targeted_passed": 24,
+  "full_passed": 650,
+  "full_coverage_percent": 86.58061763294042,
+  "ensemble_coverage_percent": 93.22916666666667,
+  "full_log": ".demo-artifacts\\tests-daily-ensemble-full-1.log",
+  "full_log_sha256": "935eba3cc83c759e01074df43dd553fefff980da85020beb87c389c1c2387e01",
+  "coverage_json": ".demo-artifacts\\coverage-daily-ensemble-full.json",
+  "coverage_sha256": "71b2d40d0917bd1178ae516e63490ab72225481925746fd0c1db173906361161",
+  "limitations": "No UI code changed; prior private app deployment remains unchanged. Tests use synthetic fixtures, not economic evidence."
+}

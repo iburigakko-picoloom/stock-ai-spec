@@ -1,5 +1,165 @@
 # Project Status
 
+
+## 2026-10-06 20:18 JST - D084 h20 51-feature final candidates started
+
+- The user explicitly authorized the full h20 candidate scope on manatobook. D084 and authenticated feature-selection artifact13c8676f... fix51 features (V0 plusF6/F7/F10/F12), distinct from the previous77-feature Full Ablation. Same frozen Build/Dataset/V2 feature snapshot and holdout2026-03-04; existing h20 references have tuning end2024-08-13 and OOF start2024-09-12. All12 old h20 research reports use77 features; none is a same51-feature completed candidate, so none was relabeled/recomputed as an already-matching result.
+- Created a strict native v2 campaign with exactly LightGBM/XGBoost/CatBoost x seeds17/29/43 (9),300iterations,tuning20trials/900s,500/60/60 walk-forward,120holdout,diagnostics on,ablations off, like h5 final candidates. Scientific source/lock stays genuine 8d82fa67a7f64186f42208f0632b799e13381c0d; all52 pinned source hashes verified. Separate native checkpoints bind actual frozen feature manifest83859e...; old77-feature and h5 history remain unchanged.
+- Single sequential workerPID15736 started2026-10-06T11:15:37.715576+00:00; first h20-lightgbm-s17 RUNNING. Physical RAM before candidate6.639172GiB passed3.5GiB. Same3.5GiB guard is also enforced before every native fit. Source fixes each model to1 thread. No additional monitor/scheduler, automatic retry, external compute or OS/app/account changes. Failure/low-memory stop persists registry/campaign/worker state and leaves later candidates pending. Current launch evidence confirms process/input preparation; estimator-fit completion and whole9-candidate ETA are not yet measured.
+- Research_only; locked final holdout remains unopened, realistic-cost/historical-vintage/live-adoption blockers unchanged. Future human checks remain morning/evening. Workspace stock-active-runtime.json points to current h20 runtime; each candidate checkpoint path is read from worker.json. Evidence: docs/evidence/h20-final-candidates-20261006/.
+
+
+
+## 2026-10-05 19:23 JST - authorized seed43 resume, ranking fold4
+
+- User explicitly authorized resuming the stopped seed43. Authenticated and preserved all16 native units (tuning7/regression6/ranking3); the interrupted ranking4 had no published artifact or resumable estimator state. Same checkpoint/provenance and unchanged scientific pin 8d82fa67a7f64186f42208f0632b799e13381c0d, config/41features/CPU1/300iterations/evaluation; native ResearchCheckpointStore resume reuses successful folds and restarts ranking4 at attempt2. Original single-attempt lock and original logs remain intact; pre-resume state backed up.
+- Active workerPID16756, single logical worker, ranking4 RUNNING/attempt2 with unchanged evidence. First resumed pre-fit3.5GiB guard passed (4.690781GiB). Input authentication and checkpoint updated; actual estimator fit completion remains unconfirmed. No additional observer, scheduler or automatic restart; human checks remain morning/evening. Current runtime pointer: workspace stock-campaign-continuation/active-runtime.json.
+- Research results remain8/9 and historical original7/9 until complete report/OOF/registry authentication. No holdout/live adoption, new horizon, feature or paid compute changes. Evidence: docs/evidence/campaign-continuation-20261004/seed43-authorized-resume-20261005.json.
+
+
+## 2026-10-05 08:54 JST - seed43 first three native ranking folds completed
+
+- Existing seed43 checkpoint records tuning7 + regression6 + ranking3 = 16 successful units, zero failed. Ranking fold4 is active. Native ranking scope-to-publication measurements: fold 1: 3.321h, fold 2: 3.923h, fold 3: 3.857h. These include preparation and publication; they are not pure estimator-fit benchmarks or a whole-run ETA. Full OOF authentication remains scheduled for terminal verification.
+- All 17 recorded pre-fit guards passed at3.5GiB; latest measured headroom 4.484951GiB. Same original CPU1/300iterations/41features/input/config and single attempt; no restarts, new learning range or external compute. Scientific pin 8d82fa67a7f64186f42208f0632b799e13381c0d remains unchanged.
+- Original planned research results remain8/9 until seed43 report/checkpoint/registry authentication completes. Historical manifest remains7/9; original failures and pins are preserved. Evidence: docs/evidence/campaign-continuation-20261004/ranking-1-3-complete-active-ranking-4.json, actual checkpoint and existing observer log.
+
+
+## 2026-10-04 21:57 JST - seed43 regression complete; long ranking wait remains
+
+- The same single seed43 attempt completed all six regression outer folds at21:43:03 JST. Tuning7 plus regression6 =13 successful checkpoint units, zero failed. Ranking fold1 started21:43:07; its guard passed with4.863506 GiB. CPU1,300iterations,original frozen input/config,3.5GiB guard and no restarts remain unchanged.
+- Ranking is still computational work, not additional implementation. Prior genuine seed29 ranking6 on this PC took about5h25 from fit-preparation guard2026-10-03 10:33:55 JST to artifact publication15:59:08 JST. That reference used depth3/seed29/3,200,734 train rows; current ranking1 uses depth4/seed43/2,074,895 train rows. Do not apply the old time as current ETA or infer the whole remainder from regression speed. Current ranking completion, later six quantile/six large-loss folds and diagnostics remain unconfirmed.
+- Existing observer continues metadata checks and15min process/RAM reads. Completion/stop verification is prepared; no new job, learner, paid computation, source/dtype/parameter/guard change or other app/OS/order action. Source evidence: docs/evidence/campaign-continuation-20261004/regression-complete-active-ranking.json plus the original first-fit-headroom and native checkpoint logs. Actual guard counts come from raw scratch records, not the observer's wrapped-array count.
+
+
+## 2026-10-04 21:08 JST - seed43 real native fit confirmed
+
+- First fit-preparation boundary passed at21:03:50.407 JST with3.867611 GiB available, guard3.5 GiB. Exact estimator.fit entry time was not instrumented. The first genuinely new CatBoost regression tuning unit completed at21:05:45.928 JST, proving actual native fit. Reauthenticated225,842 OOF rows, native provenance/no import, config b5f608c4..., split/seed43/ordered41features, Parquet and logical hashes.
+- At21:08:27 JST checkpoint2e231ef0... had two SUCCEEDED tuning units, zero FAILED; both recorded fit guards passed (3.867611/4.332184 GiB), no Arrow cleanup requested. At21:08:23 JST nativePID19968 alive, availableRAM4.695229 GiB, working set2.807789 GiB, observed cumulative peak4.804001 GiB. This is not the exact full-run/native-only peak or a whole-campaign time estimate.
+- Seed29 research registration is complete; combined authenticated original-plan results8/9. Historical original7/9/failure ledger remains preserved. Single seed43 attempt and existing observer continue with no restart. Current blockers: none observed for the active fit; final publication/all outer folds/diagnostics and remaining time unconfirmed. Research/live-adoption blockers remain unchanged.
+- Evidence: docs/evidence/campaign-continuation-20261004/{first-native-fit-confirmed.json,first-native-current-snapshot.json}. The Windows observer serializes fit checks through an array wrapper, so its summary PassedFitGuards count is not a total; use the raw scratch *.fit-headroom.json for actual guard count/details, as done by this authenticated milestone. Process/RAM reads remain every15min plus boundaries; no second observer or learning worker.
+
+
+## 2026-10-04 21:00 JST - seed29 research registration and single fresh seed43 attempt
+
+- Seed29 recovery completed at 19:29:47 JST. At 20:57 JST, reauthenticated all seven legacy reports and the recovery report (5,310,120 OOF rows each), exact original per-batch config/41 ordered features/build lineage, full bundle identities and hashes. Recomputed the native94-to-8d equivalence proof against genuine frozen source; it is identical. Original16 artifact bytes remain unchanged.
+- Register the recovery as research_only in the append-only canonical experiment registry. Preserve original h5.json bytes, twenty failed attempts, legacy seven report pins and recovery pin 8d82fa6. Create strict v2 h5-legacy-successes.json (seven genuine94 reports) and h5-continuation.json (seed29/43 genuine8d) under artifacts/campaigns/goal3-continuation/13c8676f...; continuation-link.json binds them to the original nine-batch plan. Authenticated research results: 8/9. The historical original manifest remains 7/9; do not report that old manifest itself as completed.
+- Existing development-selection loading accepts multiple strict v2 campaign manifests with different genuine report pins. After seed43 succeeds, use both listed 5d manifests; retain the existing20d requirements separately. Do not open locked holdout, select/deploy a live model, or claim operational adoption.
+- Seed43 launched once at 21:00:28 JST; preparation available RAM7.529 GiB, scratch disk208.354 GiB, zero stock workers before launch, all four old tasks Disabled. Native workerPID19968, launcherPID13936 represent one logical learner. Source/dependency lock still matches genuine8d. Original CPU1/300 iterations/seed43/41features/500-60-60 split/120holdout/20trials-900s/diagnostics retained. Fresh namespace2e231ef0...; no seed29 fold/prediction reuse.
+- First real fit is not yet verified at this milestone. Guard stays3.5 GiB, no automatic restart. Observer reads progress metadata every30s and process/RAM at15min or first guard/terminal boundaries; it performs no worker actions. Completion time remains unestimated until native measurements exist.
+- D094 records the strict pin-separated adoption route and checkpoint-helper mismatch. Evidence: docs/evidence/campaign-continuation-20261004; active records: workspace stock-campaign-continuation/runtime. Scientific src, training methods and dtype unchanged. Solver remains stopped; no20d expansion, other-app termination, new authorization/billing, OS change or order.
+
+
+## 2026-10-03 10:40 JST — 株式の単独worker再開を実確認
+
+- 10:29 JSTに起動。起動前空きRAM6.015 GiB。旧4 taskはDisabledのまま。genuine source pinはa68e8327914e265e6594e22e02f24bdbbfee39a5、新namespaceはc7f55e21...。元15単位を元94aab78から直接引き継ぎ、設定・データ・41特徴量・精度・seed29・CPU1・300反復を保持。
+- 全入力を10:31:56 JSTに再認証。ranking fold6は10:32:32 JSTにRUNNINGへ更新。fit直前10:33:55 JSTの空きRAM3.668 GiBが3.5 GiB条件に合格。10:40:52 JSTに実PID11120生存と同fold実行中を一回確認。
+- 確認時working set3.838 GiB、ここまでのpeak5.641 GiB、private commit3.646 GiB、OS空き2.753 GiB。実学習全体のpeak保証ではない。継続PID/CPU監視はしていない。
+- 新しい完了foldはまだ0。元checkpoint/campaign hashは不変、h5元campaign7/9、seed43/h20 Final Candidate未起動。ranking6のみ旧ログから条件付き概算9〜12時間、全体完了日数は根拠不足で出さない。復旧実装は完了、残り計算と正式campaign統合は分ける。
+- 根拠: docs/evidence/memory-recovery-20261003/active-resume-confirmation.json、first-fit-headroom.json、guarded-checkpoint-import.json。元コード同値72 pass、統合80 pass、本番認証2 pass、Ruff/strict mypy50 source pass。Classic以外のアプリ終了、OS変更、外部upload/課金/注文なし。
+
+## 2026-10-03 — 保存進捗移行とfit直前RAM条件
+
+- 09:59 JSTに旧11 outer fold + 4 tuning unitを新namespaceへimport/reloadし完全一致。Optuna4 terminal trialとduration/budgetを保持。元checkpoint/campaign hashは不変。新しいfitは0件。復旧peak working set1.444 GiB、private commit2.171 GiB。
+- モデル行列構築後に不要な元特徴量配列を解放し、各fit直前に空き物理RAMを一度確認するopt-inを追加。不足ならnative fit前に止まる。連続PID/CPU監視やOS設定変更はしない。3.5 GiB条件の根拠は合成測定の保守的推計で、native上限の数学的保証ではない。
+- 10:01 JST空きRAM6.085 GiB。guard付きで単独workerのみ再開する手順を検証中。実起動・新規完了は別の実測で報告する。D090、LOCAL_MEMORY_RECOVERY.md、capacity-budget.json参照。
+
+## 2026-10-03 — 同値のファイル配列と全列認証によるメモリ削減
+
+- 必要列のみの入力でも元の全列 byte/content hash を照合し、全 Build/V0/V1/V2/Dataset ID が09:25 JSTに一致した。認証 peak working set は1.134 GiB。元checkpointは未変更。
+- 同じdtypeの作業配列をローカルファイルに保持し、不要なsource/tuning/fold/diagnostic配列を早く解放するopt-inを追加。元コードとの独立比較66 pass、変更後統合76 pass、本番PIT/build2 pass、Ruff/strict mypy50 source pass。数値・特徴量・split・seed・300 iterations・CPU1・評価・holdoutは不変。
+- Classicのみ通常終了済み。09:36 JSTの空き物理RAMは5.572 GiB、ディスク約212 GiB。小規模合成測定は実データ最大foldのメモリ上限や残り時間の保証ではない。実学習はまだ起動しておらず、4 taskはDisabled。D089とLOCAL_MEMORY_RECOVERY.md参照。
+
+## 2026-10-03 — メモリ局所修正と明示的checkpoint importを実装、RAM不足で起動保留
+
+- 前処理3箇所とOOF/diagnosticsのfold選択を列単位のdtype-preserving copyへ変更。対象行、並び順、値、特徴量、モデルparameter、300 iterations、CPU 1 thread、holdout境界を変更していない。usableはdevelopment構築後に解放。
+- 新しいcode_commit専用namespaceへの明示的import bridgeを追加。旧namespaceを読み取り認証し、データ/config/特徴量順/split/有効parameter/OOF hash一致と旧新code・依存lock・passing fixture証拠をlineageに保存。Optunaは元SQLiteを読み取りbackupし、trial内容・日時・duration・残りbudgetを継承。旧commit/hashを名乗らず、旧成果物・FAILED履歴を書き換えない。CLI --checkpoint-import-planは指定時だけ有効。
+- 旧実装との独立した小規模parity 54 pass、bridge 16 pass、本体追加テスト66 pass、既存checkpoint/stage/provenance対象14 pass。Ruffとstrict mypy 49 source pass。巨大実データの学習peakや残り所要時間は未測定。
+- 01:39 JSTの狭い実データ確認で、11 outer foldと4 tuning unit全15件のsplit位置hash/日付/特徴量/config/parameter evidenceを再導出して完全一致。保存OOFのbyte/content hashも認証し、旧manifest/progress hashは不変。Dataset bundle byte hashを確認したが、全列のlogical content IDは今回再計算していない。
+- 01:34 JSTの単発メモリ確認は物理15.666 GiB、空き6.309 GiB。実列/行数から初期float64配列だけで最低7.771 GiB、後段8.802 GiB + float32 model input 0.523 GiB。非float列/index/CatBoost内部/認証一時領域は含まない。安全条件を満たさないため実データimport・resumeは行わず、StockAI-Goal3-CandidatesはDisabledのまま。
+- 保存進捗はh5 Final Candidate 7/9、CatBoost29 regression1–6/ranking1–5保存、ranking6 FAILED、seed43 PENDING、h20 Final Candidate未初期化のまま。新source pinと明示的plan、十分なメモリを整えてから単発resumeを検証する。旧campaignの7件を新commitへ無断で混合しない。
+- 検証根拠: workspace stock-memory-review/{thin-data-preflight.json,memory-preflight.json,parity-results.xml,bridge-results.xml,main-results.xml,main-regression-results.xml}。外部upload/VM/課金/注文/OS変更/他アプリ変更は行っていない。D088参照。
+
+## 2026-10-03 — 前処理の列単位copyパッチを合成fixtureで検証、外部CPU移行は設計のみ
+
+- 調査記録時刻: 2026-10-03 00:31 東京 (標準時)。同条件の再起動を行わず、候補taskの一時Disabledを維持。
+- 初期usable / development / tuningの行選択を、値・列・dtypeを変えない列単位copyに置き換える未適用patchをworkspaceのstock-memory-reviewへ保存。本体src/runner/依存/研究条件/checkpointは今回未変更。
+- 合成fixture38 pass（9.46秒）。89 float64列の行選択、欠損・extension dtype・index・hash・独立性を確認。LightGBM/CatBoostの小規模OOF・report ID・指標・境界・parameterは旧版と完全一致。既存checkpoint/stage対象13 pass（3.62秒）、overlay Ruffとstrict mypy 48 source pass。
+- 一番大きいfloat64 blockを89列分から1列分へ分割できるが、総データ量は不変。後続fold/diagnosticsの深いcopyと実peakは未検証であり、実データ復旧を宣言しない。
+- code_commitを含むnamespaceに対する未検証の互換変更を避け、本体適用・11foldの新namespace import/reload・resumeは保留。旧保存成果を削除/改変しない。
+- docs/CLOUD_CPU_PILOT.mdをD087のexport manifest/path map/import bridge/許諾事項で更新。DO64/128 GiB・RunPod GPUの公式価格参考を記録し、起動許可や速度/残日数の見積もりとは扱わない。外部upload/VM/課金/他アプリ終了/OS変更/注文なし。
+
+## 2026-10-03 00:06 JST — Final Candidateメモリ対策・復旧は未完了
+
+- h5 Final Candidateは7/9 SUCCEEDED。CatBoost seed29はranking fold5まで保存済み、fold6はFAILED、seed43はPENDING。h20 Final Candidate campaignはまだ作成されていない。Full Ablation完了と混同しない。
+- 元の失敗は2026-10-02 16:39 JSTまでに発生し、今回のSolver再開19:07 JSTより前。今回のSolver再開が元の失敗を起こしたとは判定しない。現在の大きなEdge割り当てと過去の失敗の因果も未確定。
+- 完了11 outer foldのメタデータ・Parquet・内容hashを、既存認証関数でread-only検証した。Optuna 4 unitを含む15 SUCCEEDED unitを保持。モデルsource/dependencyは固定commit `94aab783dce5d01cf5ee153297891a42cfdfe53e`と同一、41/51特徴、seed、300 iterations、1 thread、tuning/validation/diagnostics条件とlocked holdoutは変更していない。
+- 候補専用の自動再試行タスクを一時無効化し、子workerがない孤立candidate PowerShell wrapper1個だけを終了。独立の単発attempt19はデータ認証のreset-index copyで248 MiB allocationに失敗した。自動再試行や他アプリの終了は行っていない。
+- D086に従い、candidate runnerの子プロセスだけに`PANDAS_COPY_ON_WRITE=1`を設定。対象テスト15 pass、sorted/unsorted/non-default-indexのhash parity 3 case pass、既存11 foldは新copy modeでも認証pass。全件float64/object blockの冗長copyを抑える。モデルsourceや入力の精度・特徴数を変更したものではない。
+- 新設定の単発attempt20はデータ認証の従来エラー箇所を越えたが、後続準備で`Unable to allocate 2.64 GiB ... (89, 3985623) float64`となり23:59 JSTにFAILED。ranking fold6のattempt/statusは以前の2/FAILEDのままで、学習再開の検証は未達。失敗attempt19/20のログとcheckpointを保存した。
+- メモリの単発確認は物理15.67 GiB/空き4.88 GiB、commit limit63.62 GiB/空き19.12 GiB。Edge utility process1個はprivate約13.96 GiBで、通常ブラウザ配下（headless/一時自動化profileではない）。ブラウザやその他のアプリは終了していない。実際の学習peak未測定なので安全に必要なRAM量は未確定。
+- 復旧の残りは共有メモリの解放または明示的な追加対策判断後の単発resumeとcheckpoint進行確認。通常ブラウザの終了・OS/pagefile設定・有料resourceは今回実施しない。`StockAI-Goal3-Candidates`は一時Disabledのまま。失敗の再試行ループを再開しない。
+
+## 2026-09-27 — Goal 3 Feature Selection固定
+
+- 5日・20日のFull Ablationは各9/9、計18/18 batch `SUCCEEDED`。同一horizon内はLightGBM / XGBoost / CatBoost × seed 17 / 29 / 43。1日はD080判定どおりFinal Candidateから除外し、1日除外判定を変更していない。
+- 認証済み18 report / OOFと既存1日判定だけを入力に、D075のstrictly-earlier tuning-period seed voteを実行。feature selection artifact `artifacts/selections/goal3-features/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d/13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d.json`を不変保存し、Experiment Registryへidempotent追記。再読込認証で18 source report、horizon 5 / 20、`locked_holdout_accessed=false`を確認。
+- 5日はF2 MACD 3/3 seedとF12 Candle / breakout 2/3 seedを採用し、V0を含む41特徴を固定。20日はF6 Volatility / downside 3/3、F7 Volume / money flow 3/3、F10 Relative / market context 2/3、F12 Candle / breakout 2/3を採用し、51特徴を固定。exact列と全F1〜F12 voteはartifactを正本とする。
+- 18 reportのrealistic cost評価はすべて`BLOCKED_BY_DATA_CAPABILITY`。D080のmodel-family棄却全条件を満たせないため、5日・20日とも3 familyを`ABLATION_HOLD`としてFinal Candidate比較へ残す。これはChampion採用の判定ではない。
+- D084に沿い、1日除外証拠hash付きの5日・20日選択を研究schema / CLI / 後続選択・holdout reportで受け入れる。従来の1 / 5 / 20日構成も維持する。研究workerの停止・再起動・重複実行はなく、locked holdoutは未開封。
+- 選択source / artifact checkpointは`9f0f5a8ce04fd578822bf4b8b2f912a761f61a58`。`.venv`でRuff、strict mypy（48 source）、Python通常260 pass、coverage付き260 pass / 85.34%、web ESLint / TypeScript / Vitest 18 pass / build / Edge E2E 6 pass。既存Starlette deprecation warning 1件のみ。
+- 固定artifactを使い、5日・20日の各3 family × 3 seedのFinal Candidate campaignを独立runnerへ委譲した。全候補完了までmodel / ensemble / hyperparameterを確定済みと扱わない。
+- Final Candidate source pinは`94aab783dce5d01cf5ee153297891a42cfdfe53e`。最初のTask Scheduler起動は終了コード1で、引数`-RunDiagnostics:true`のWindows PowerShell 5.1 bool binding失敗を再現。手動の同等runner入口で`h5-lightgbm-s17`を一度だけ開始し、停止・再起動なしで継続中。
+- D085のTask境界修正後、`StockAI-Goal3-Candidates`を同じsource pinとselectionで再登録。タスクの直近結果は`0`で、実行中runnerのexclusive lockを`LOCKED`として認識し重複workerを起動しなかった。Windows再起動後も同taskから同じmanifest / checkpointをresumeする。WinPS 5.1の日本語path入りSTARTED status・数値bool引数のread-only回帰test pass。今後の進捗確認はユーザー要求時だけ`runner/candidate-runner.ps1 -Action status`を1回実行し、継続監視しない。
+
+## 2026-09-24 — Sites公開版のUI更新完了
+
+- ユーザーの公開指示を受け、D083に従い既存Sites companionへUIを移植。同一URL `https://stock-ai-decision-support.manato0618.chatgpt.site`、public閲覧のままversion 3を公開。Sites deployment `appgdep_6ab3fbefd368819185dc93b0ae2650e0`は`succeeded`（2026-09-24 01:19 JST）。
+- 公開source commit `e9d53ca44fdf978b42b2feb0f5d1dc9c64c82483`、保存version `appgprj_6a8db03cc2148191ab25ed902dd2b950~appgver_1912e3b101688191b5eadbf71cf40908`。同一commitのWorker/client成果物だけをarchive化して保存・公開した。
+- ホーム / 今日 / ランキング / 検証 / 設定を切替可能。設定の分類タブ、折りたたみ説明、白・薄灰・青のUIを反映。公開版は実台帳と未接続のまま、金額は`—`、提案は`NO PROPOSAL`。古い取得期間・固定の進捗表示は撤去した。
+- `hosted`のESLint、TypeScript noEmit、production buildをpass。ローカルHTTP 200・初期HTMLを確認。Edgeで360pxの5画面、設定タブ、直接hash遷移、横はみ出しなし、page error 0を確認。Sites本番の成功はnative deployment結果で確認した。
+- Windowsの公式公開helperのnpm shim解決とGNU tarのdrive-letter解釈に失敗したため、既存npm CLIの直接入口と一時`TAR_OPTIONS=--force-local`で再実行。依存・lockfile・認証・DB schemaは変更せず、成功した検証とbuildを再利用した。
+- 認証済み本人の安全確認だけを保存する仕組み、D1、既存OG画像は維持。APIキー、実口座・提案・約定台帳、J-Quants data、研究成果物をアップロードしていない。localhost APIへのproxy / tunnelなし。
+- 研究コード・runner・worker・locked holdoutは未変更、進捗statusの取得や学習監視も行っていない。Registryの既存未commit追記は引き続き保持し、公開用checkpointには含めない。
+
+## 2026-09-24 — PWAのUI整理（研究とは独立）
+
+- ユーザーの追加要望に沿って`web/`だけを改善。下部5ナビをアイコン付きで統一し、設定を「口座・資金 / AI・データ / 通知」のタブで整理。ランキング・検証も共通タブへ統一した。
+- 白・薄灰・青の簡素な画面へ変更。Todayは株数・変更量・取引後の推定現金を優先し、説明文・口座別の詳細・モデル情報は折りたたむ。Homeの金額表示と保有一覧も整理。D082に方針を記録。
+- stale提案をTodayと直接review URLで遮断。Paper観測0件は未観測表示。空欄金額を0円へ変換せず、更新時刻はJST固定。実注文・採用モデル・提案計算の仕様は変更していない。
+- `web`で`npm run lint` / `npm run typecheck` / `npm run test`（18 pass）/ `npm run build` / `npm run test:e2e`（Edge 6 pass）。既存の判断変更→保存→一部約定→翌日保有へのE2Eも維持。360 / 390 / 430 / 1280pxの5主要画面で横はみ出しなし。キーボードのタブ操作・stale遮断をブラウザでも確認。
+- `web/test-results/ui-layout-UI-routes-stay-readable-at-*/`にfixture画面の確認用スクリーンショットを生成し、目視確認済み。表示用fixtureはテスト用一時DBのみで、実台帳へ入力していない。
+- Python source、`pyproject.toml`、`uv.lock`はrunner固定source `d40d33c`との差分なし。runner・workerの停止／再起動／重複起動／監視は行っていない。Registryの既存未commit追記は保持し、UI checkpointへ含めない。Python全suiteは今回のfrontend-only変更では再実行していない。
+- ローカルPWAをbuild済み。`hosted/`と公開サイトは今回更新・配信していない。実データ受入・研究・前場データ等の既存BLOCKED条件は未変更、locked holdout未評価、実注文なし。
+- 研究の再開地点・手順は下の2026-09-20記録を参照。最新研究進捗はこのUI作業では取得していない。引き続きユーザーが進捗を要求した時だけread-only statusを1回実行する。
+
+## 2026-09-20 02:09 JST — 20日Full Ablationの検証停止修正・独立runner再開
+
+- 5日Full Ablationは9/9完了。20日v1は最初のh20-lightgbm-s17が学習前の期間検証（579日／必要580日）で10回失敗。遅い学習とは区別する。
+- 正常なPython workerが存在しない安全境界でStockAI-Goal3-PhasedをDisable。workerの停止・重複起動はしていない。
+- D081を結果前に固定。必要日数・seed数・研究条件を緩めずcausal timestampで境界を補正する。旧成果物を保持し20日v2へ移行する。
+- 修正source commitは`d40d33c3020af5063b34321cf5444a8ef1a940b1`。20日v2 manifest/checkpoint/logを別namespaceで使用する。5日v1全9 report/OOFの内容hash認証は成功し、再学習しない。
+- 実Datasetのdate / label_end / status列だけで構造preflightを実施。20日development 936日、修正後tuning 580日（2,151,856行、末尾2024-08-13）、outer境界2024-09-12（候補1,253,466行）。holdout境界2026-03-04は不変、target値・成績は参照していない。
+- `.venv\\Scripts\\python.exe -m ruff check .` / `mypy src`（48 file）pass、`pytest -q` 258 pass、`pytest --cov -q` 258 pass / branch込み85.36%。runner隔離test 17 pass。未完了campaignをhistorical-completedとしてskipする試みも拒否。
+- `web`のnpm lint / typecheck / test（6 pass）/ build / test:e2e（Microsoft Edge 1 pass）を全pass。既存Starlette deprecation warning 1件のみ。uvはこのshellのPATHにないため既存固定`.venv`を直接使用し依存更新なし。
+- 同じStockAI-Goal3-PhasedをEnable/Start。起動確認でTask `Running`、新campaign `4b9ec00d4b844320480e4b865f9cce58e265f8e19de139d586d91b695777c6d8`、h20-lightgbm-s17 `RUNNING` / attempt 1 / 02:09:36 JST開始、後続8 batch `PENDING`を確認。開始直後のためデータ認証を含むbatch起動の確認であり、fold学習完了の確認ではない。
+- source checkpoint `d40d33c`、全gate後のrunner pin checkpoint `d643a6e`。Registryの既存未commit追記は保持し今回のcode commitへ混ぜていない。
+- 今後の進捗入口は`powershell -NoProfile -ExecutionPolicy Bypass -File runner/goal3-phase-runner.ps1 -Action status`をユーザー要求時に1回だけ実行。長時間処理はrunnerへ委譲し、継続監視なし。holdout未評価、実注文なし。
+
+## 2026-09-09 — CPU cloud試運転の事前調査
+
+- `docs/CLOUD_CPU_PILOT.md`に1台の試運転案、起動前gate、費用・終了条件を記録。クラウド作成・課金・転送・学習起動は未実施。
+- SSH関連CLIは利用可能。固定Dataset Parquet単体は1,858,772,624 bytes。BuildのWindows絶対パス参照を確認し、Linuxへ単純コピーして実行可能とは扱わない。
+- 次はユーザー所有アカウント・予算の確認と、隔離したdevelopment-only export/import・Linux互換検証。J-Quantsの本人専用cloud利用範囲も転送前に確認する。
+- 今回は文書のみ変更。研究source / lock / local worker / campaign / checkpoint / Registryには書き込まず、holdout未開封。継続監視は行っていない。
+
+## 2026-09-08 14:56 JST — 5日Full Ablation再開
+
+- 1日screen全6 reportのmetadata/report identity、Parquet byte hash、OOF全内容hashを認証。XGBoost回帰は3 seedでRank IC 0.01023 / 0.01578 / 0.01190、各5/6 foldが正。CatBoost rankingは0.04193 / 0.04129 / 0.04463、正foldは5/6・5/6・6/6。
+- 全reportのrealistic-cost評価がBLOCKED_BY_DATA_CAPABILITYのため、D077/D080の評価不能時除外ルールを適用。1日は今回のFull Ablation / Final Candidateから除外。追加価値なしを実証したのではなく必須証拠不足。他の増分gateは未評価をnullで保存し、測定失敗と混同しない。
+- 判定はartifacts/decisions/goal3-one-day-screen-v1.json、監査入口はrunner/audit-one-day-screen.pyに保存。
+- 既存StockAI-Goal3-Phasedを起動。開始確認1回でFIVE_DAY_ABLATION、h5-lightgbm-s17 RUNNING / ALIVE、campaign 3247a20775984f2676f63d1d3e8c86e64c036edda1060efb78965fcafe0c1843を確認。5日9 batch → 20日9 batchへ独立runnerが進む。
+- 研究source/seed/特徴定義は不変、holdout未開封。進捗要求時のみread-only statusを1回実行し、継続監視しない。
+
 更新日: 2026-09-05
 状態: `GOAL3_INDEPENDENT_RESEARCH_RUNNING`
 
@@ -608,3 +768,285 @@ read-only specialist reviewを5系統（PIT/leakage、quant、portfolio、tax/co
 - screen configはV2全列、3 trial / 900秒、50 estimator、500 / 60 / 60 session、holdout境界120、Ablation / diagnosticsなしで結果前に固定した。full Ablationはscreen判定後の通過・保留候補だけへ限定する
 - read-only進捗入口は`powershell -NoProfile -ExecutionPolicy Bypass -File runner/goal3-phase-runner.ps1 -Action status`。今後もユーザーが「進捗」と求めた時だけ1回実行し、継続監視しない
 - PowerShell 5.1 parser、Ruff、境界・status・Task登録の隔離testをpass。API key、locked holdout、model source、既存manifest / checkpoint / report / Registryは変更していない
+
+## 2026-09-06 Goal 3 core horizonのFull Ablation直行へ変更
+
+- D080として、1日screenの実測が1 batch数時間であることと、既存seed 17 OOFで5日・20日の全3 familyに役割別の有用性があることを踏まえ、5日・20日のlightweight screenを廃止した。現在実行中の1日screenは停止・再起動せず6 batchを完走する
+- 1日はD077の固定gateを変更せず、全screen reportを結び付けたdevelopment-only判定artifactで残留・除外を決める。判定artifactがない間、更新phase runnerは`ONE_DAY_EVALUATION_READY`で停止する
+- 判定後の長時間処理は5日Full Ablation → 20日Full Ablationの順とし、各horizonでLightGBM / XGBoost / CatBoost × seed 17 / 29 / 43、20 trial / 900秒、300 estimator、F1〜F12 Ablation、OOS diagnosticsを維持する。1日を残す場合だけ、両core horizon完了後かつ特徴量固定前に1日Full Ablationを実行する
+- 稼働中processが保持する旧D079遷移だけを安全境界で止めるため、未作成だった`goal3-screen-5d20d-v1.json` pathへdirectory型fail-closed latchを設置した。現在の1日worker、screen manifest、checkpoint、report、Experiment Registry、model sourceには触れていない
+- model-family pruningはFull Ablation後だけ行い、複数seed/fold、全objective、ensemble、realistic cost、turnover、downsideの全棄却条件を満たすfamilyに限定する。削減数目標は置かず、locked holdoutは未開封を維持する
+
+
+## 2026-10-03 19:10 JST: one explicitly authorized quantile continuation remains blocked
+
+- ranking fold6 was saved at 15:59 JST. All 16 successful units were authenticated, including its 224,458 rows; each saved manifest/Parquet byte hash is unchanged after the continuation. The same `c7f55e2...` namespace was resumed: code/data/config were unchanged, so no new identity or chained import was fabricated. ranking6 remains attempt 1 and was reused without a new fit.
+- The old worker exited after the 16:00 quantile1 pre-fit guard: 3.423523 GiB available versus the unchanged 3.5 GiB requirement. Previous progress, failure registry, logs, array receipt and ranking6 bundle were archived before the explicitly permitted single continuation.
+- At 19:03 JST, actual stock workers were 0, all four legacy tasks Disabled, preparation RAM 6.033401 GiB (required 5.5), and the same genuine `a68e8327914e265e6594e22e02f24bdbbfee39a5` model/worker source and exact config were verified. One hidden worker was launched; full input authentication completed at 19:06.
+- At 19:08:07 JST, quantile1 attempt 2 again failed BEFORE FIT: available 3.416367 GiB, shortfall 0.083633 GiB / 85.64 MiB. No native fit started. At 19:10:44 JST, worker count was 0; exit-time free RAM 6.199165 GiB is not fit-time headroom. No further retry was performed or scheduled.
+- Previous ranking input matrices/preprocessor are explicitly deleted, and the fit guard runs gc/reap. The exit receipt has no ranking6-sized mapping. A fresh process that skips all ranking fits reproduced the shortfall, so old ranking native allocations alone cannot explain it. Current preparation, loaded OOF/model inputs and contemporaneous OS RAM are not separately measured at the guard.
+- The observed preparation reduction was 2.617035 GiB. Under identical conditions, 6.117035 GiB preparation availability would only mathematically reach the 3.5 GiB boundary; this is not a safe retry threshold or a capacity guarantee. No threshold, dtype/precision, feature, seed, split/evaluation, CPU1 or 300-iteration change was made. No app exit, OS setting, authentication, billing, holdout opening or real order occurred.
+- Verification: 16 saved fold bundles authenticated; all 16 byte hashes preserved; original checkpoint unchanged; prior failed registry is an unchanged prefix of the current registry. No code edit or new benchmark/test fit. Evidence: `docs/evidence/memory-recovery-20261003/quantile-once/` and the local one-attempt archive. Continuation is BLOCKED; full-run peak RAM and remaining runtime are unconfirmed.
+
+
+## 2026-10-04: bounded preprocessing work buffers; production restart pending
+
+The explicitly requested stock continuation found worker0 and 5.758 GiB available at 15:25 JST. Previous fresh-process quantile1 failed before fit with 3.416 GiB against the unchanged 3.5 GiB guard; starting availability alone is not proof of fit-time headroom. All 16 saved units were reauthenticated and archived before source edits, including the original ranking6 Parquet SHA256 `7bb013fb429ea79d3deefdc86691bcf6f72efae120804a05cc93e3e178e3b020`.
+
+Only `_finite_numeric`'s final DataFrame construction changes: the exact same owned float32 C-layout array is exposed as one pandas block per feature. FoldPreprocessor, model constructors, parameters, loss functions, split/evaluation logic and constants are byte-equivalent AST definitions. Existing quantile/median/clip operations avoid a whole-width temporary block. Independent a68 statistics, retained features, inputs/hashes and native CatBoost OOF/report outputs match exactly under both Copy-on-Write modes. The measured quantile work array shrinks from 41 columns to one. Wall-clock tuning durations are independently measured and excluded from semantic equality; no research result is excluded. 89 relevant tests pass; Ruff and strict mypy pass. This is not a measured production RAM saving or native peak guarantee.
+
+A genuine new code commit and namespace are required. The planned 16-unit continuation imports the original 15 native units directly from 94aab78 and ranking6 directly from a68/c7f55e2's native artifact, with separate authenticated equivalence proofs. It does not import the already-imported c7 copies or relax chained-import checks. Existing source namespaces, failure history and Optuna duration/budget remain untouched. CPU1, iterations300, data/features/dtype/seed/config, guard3.5 and locked holdout remain unchanged. The next milestone must verify actual preparation/guard/fit state and follow completion or safe stop. Evidence: `docs/evidence/memory-recovery-20261004/`.
+
+
+## 2026-10-04 15:55 JST: actual guard stop and bounded Arrow allocator diagnosis
+
+The ae1a531 block-layout continuation started at 15:50 with preparation RAM 5.738335 GiB. Input authentication completed at 15:53. quantile1 stopped BEFORE FIT at 15:54:58: available 3.215996 GiB against unchanged required 3.5 GiB (290.82 MiB short), native fits0, succeeded16, failed1. Worker0 was confirmed at 15:59. The verified smaller quantile work array did not establish adequate production headroom. Preserve this failed attempt and all previous results.
+
+Installed Arrow23.0.1 uses mimalloc. Its release_unused API is best-effort, potentially expensive, and documented for benchmarking/debugging. Add exactly one pressure-triggered resource diagnostic per owned recovery workspace: after gc/reap, only if actual headroom is insufficient, request unused default-pool memory release; log backend/live bytes and physical availability before/after; then apply the UNCHANGED 3.5 GiB guard to the actual after-value. Live buffers stay owned. Cleanup error/ineffectiveness remains a guard stop. Later pressure cannot cause repeated cleanup or restart. No working-set cap, other-process action or OS setting is used.
+
+93 tests pass, including independent old statistics/native OOF parity, sufficient-headroom no-op, at-most-one cleanup, exception/low-headroom refusal, and real live Arrow buffer bit/dtype preservation. Ruff and strict mypy pass. Model/data/features/dtype/seed/CPU1/iterations300/split/evaluation/holdout stay unchanged. Bind genuine new code provenance and directly import native original15 and a68 ranking6; never chain imported folds. Actual recovered RAM and fit entry remain unverified until the next observation. API: https://arrow.apache.org/docs/23.0/python/generated/pyarrow.MemoryPool.html#pyarrow.MemoryPool.release_unused
+
+
+## 2026-10-04 16:13 JST: second guard stop; final bounded OOF buffer improvement
+
+The e410185 allocator attempt started at 16:08 with preparation RAM 5.880241 GiB. Full input authentication completed at 16:11. quantile1 again stopped BEFORE FIT at 16:13:02: available 3.288280 GiB before and 3.343269 GiB after one unused-pool release, against unchanged required 3.5 GiB. The gain was 56.31 MiB; the remaining shortfall was 160.49 MiB. Live Arrow bytes stayed 191165696. Native fits0, succeeded16, failed1, worker0 confirmed at 16:13:32. Exit-time RAM 6.077 GiB is not fit-time headroom.
+
+The research caller already owns OOF parts and ignores generate_oof_predictions' full return. Skip only that unused complete concat/sort in an explicit private collection mode. Preserve default API, per-part predictions, duplicate identity and nonfinite validation, and the final research/report concat. No model constructor, parameter, feature, dtype, seed, split, evaluation or holdout changes. Four new tests verify exact part/hash equality and rejection paths; all 97 relevant tests, Ruff and strict mypy pass. Actual production RAM benefit remains unverified. Use genuine code provenance and direct native imports of original15 plus a68 ranking6. This is the final bounded continuation for the present authorization: if the same 3.5 GiB guard remains insufficient, preserve the failed history and stop without another fix/restart loop.
+
+
+## 2026-10-04 16:32 JST: final bounded continuation safely stopped; no native quantile fit
+
+The 8d82fa6 OOF-buffer continuation started once at 16:27:56 JST, with preparation RAM 5.912430 GiB, stock workers0 and all four legacy tasks Disabled. All16 units were imported directly from native original15 plus a68 ranking6 into c424b0f8; each authenticated reload matched, and no chained import or source-pin rewrite was used. Full data authentication completed at 16:30:32. quantile1 reached the guard at 16:32:06: actual available 3.373367 GiB before and 3.433807 GiB after one unused-pool release, below the unchanged 3.5 GiB requirement by 67.78 MiB. Live Arrow bytes stayed 191165696. The worker recorded BLOCKED_BEFORE_FIT at 16:32:12 and had exited at the 16:32:20 observation. Native fits0, succeeded16, failed1, running0. Exit-time free RAM 6.140 GiB is not fit-time capacity.
+
+The final one-time process snapshot confirms workers0 and legacy tasks Disabled. After exit, every old saved fold's manifest/Parquet byte hash is unchanged; all16 new saved folds were reauthenticated and their row counts/logical hashes match the original receipt. ranking6 remains the original 224458-row native a68 result. Original source namespace manifest/progress hashes are unchanged. All prior failure registry bytes are an unchanged prefix; five entries are retained. Model/worker/lock/config source remains exactly the genuine 8d82fa6 pin. Data,41 features,dtype,seed29,CPU1,300 iterations,split/evaluation,holdout and guard3.5 are unchanged. The 97 relevant tests,Ruff and strict mypy passed before launch.
+
+The present authorization ends at this safe stop: no further fix/restart loop, automatic restart or learner schedule was created. The observed fit-time headroom increased relative to the preceding attempt, but differing OS availability means this is not a controlled causal RAM benchmark or a native peak guarantee. Quantile remains incomplete and no new native fit started today. Overall remaining calculation time, full-run peak memory and seed43/20-day completion time remain unconfirmed; do not invent completion percentages or days. Evidence: docs/evidence/memory-recovery-20261004/oof-buffer/final/ and the local runtime audit.
+
+
+## 2026-10-04 18:26 JST: authorized normal Edge close; first native quantile fold completed
+
+The user explicitly approved normal Edge closure and one stock continuation. UI Automation confirmed readonly email fields, empty editable password fields and no existing dialog; no input value was recorded. A normal window-close request at 18:16:54 closed all visible Edge windows without confirmation acceptance or force kill. Six background processes remained and were not killed. Actual available physical RAM rose from5.848602 to7.284618 GiB at the18:16:58 observation; this contemporaneous change is not an isolated causal memory benchmark. No other app,OS setting,history or data was changed.
+
+All16 original results were reauthenticated before launch, each old byte hash unchanged, with source namespace manifest/progress unchanged. Resume the exact existing c424b0f8 checkpoint and genuine 8d82fa6 model pin, preserving the previous failed quantile1 attempt. No new namespace/import or scientific source change was needed. The preparation-only launch gate is7.0 GiB, a practical extra margin based on the preceding observed2.478622 GiB preparation-to-guard reduction; it is not a validated capacity requirement. The native fit guard remains3.5 GiB. Stock workers0 and all four old tasks Disabled were confirmed before one launch at18:20:40, with7.463245 GiB available. CPU1,300 iterations,41 features,data,dtype,seed29,split/evaluation and holdout remain unchanged. No recurring task was enabled or automatic restart created.
+
+Full input authentication completed18:23:08. The first actual fit guard at18:24:35 passed with5.005829 GiB available, after the one permitted pressure-triggered unused Arrow release (before3.498837 GiB,live Arrow bytes unchanged191165696). Quantile fold1 completed and persisted at18:26:23: training2074895 rows,validation/OOF202496 rows,attempt2,SUCCEEDED,no import lineage. Its Parquet SHA256 ad9bcca5104742560e170c34a2ded062259ecaddff56c9a9e309b776366dbee8 matches the native manifest; logical frame hash6bc00d61927a736f80654fca108e34751ea2c002663c1750829a6eb43b0fca72. This proves a newly completed native fit; total saved units16 to17. The once-only2-second CPU sample at18:26:38 was after first-fold completion and showed the continued worker alive,CatBoost native module loaded,2.25 CPU seconds,WS3.586449 GiB,peak WS5.273209 GiB,private commit2.193943 GiB,system available4.125542 GiB. Commit is not physical RAM. Do not infer live fit solely from stale worker phase/training_started fields.
+
+This is an active-run milestone, not full completion. Subsequent fold guards and checkpoint completion/safe stop remain to be observed at low frequency. No restart loop is authorized. The full native peak and overall quantile/large-loss/diagnostic/seed43/20-day ETA remain unconfirmed. The97 relevant tests,Ruff and strict mypy passed for the unchanged scientific source before the prior attempt; no new model benchmark or code change was performed here. Evidence: docs/evidence/memory-recovery-20261004/edge-resume/ and the local runtime audit.
+
+
+## 2026-10-04 18:44 JST: all six native quantile folds saved
+
+The same authorized single worker38000 completed quantile folds1-6; the last saved update is 2026-10-04T18:44:39.847454+09:00. Native quantile OOF totals 1,327,530.0 rows. Each of the six Parquet byte hashes matches its native manifest; no import lineage is present, and seed29/config/41-feature identities match. Total succeeded units22,failed0. The existing plan automatically proceeded into large_loss fold1; no new model configuration, extra worker or observer was created. All six quantile fit guards passed the unchanged3.5 GiB threshold; the sixth guard had4.505730 GiB available. The same genuine8d82fa6 model/worker/lock source remains unchanged. This is quantile phase completion, not full seed/campaign completion. Large-loss and fixed diagnostics/report verification remain. Continue the existing low-frequency observer until current execution completion/safe stop, with no automatic retry or additional task enablement. Evidence: docs/evidence/memory-recovery-20261004/edge-resume/quantile-phase/.
+
+## 2026-10-15 — 日次版の監査・記録・本人専用閲覧の実装
+
+5日9/9・20日9/9、計18候補の研究学習が完了。全report/OOFを再認証し、成功checkpoint503unit、保存ラベルの13分割境界を照合した。再開proofは当時のraw sourceを使用し、科学source pin・成功成果物・失敗履歴を変更していない。Drive v04は21単体試験と全calibrationを再実行し、配布結果と一致。SB20/SB60の誤較正も再現したため採用条件には使わない。
+
+Prediction v2（5日/20日・1日はnull）、日次0/0/1 decision policy、原予測/7項目手動調査/本人レビューの分離保存、preview-confirm import、JSON/CSV/Markdown export、backup/integrity対応、daily-only workflow順序、本人専用Sitesへの最小結果同期を実装。画面は学習完了と採用準備を区別する。未検証のadoptは明示的にブロックする。
+
+日次live inference・定期sync・状態付きNAV・企業行動会計の統合は未完。26項目全部の合格、最終モデル確定、holdout評価、現在の推奨株数、実用採用は未達。single-vintage/実用費用/個人設定の不足も残る。元学習データの時点は8月であり現在予測とは表示しない。工程と終了条件は docs/DAILY_RUNBOOK.md、実測証拠と26試験票の対応は docs/evidence/daily-readiness-20261015。
+
+実注文は送信していない。最終検証結果は同証拠ディレクトリの verification.md に記録する。
+
+## 2026-10-15 — アプリ内の口座・保有入力
+
+ユーザーの「現在は何もない」「口座区分とか現在の所有株はアプリ内で入力」へ対応。private/portfolioで保有なし、口座区分、銘柄・株数・取得単価、任意の資金・最大下落率を入力・確認・保存・再読込できる。本人専用D1へ履歴保存、古い画面の更新は409拒否。空欄金額はnull。ローカル検証で保有なし→再表示、NISA/1株/小数取得単価、2画面競合と再読込を確認。本番に検証用口座・保有を登録していない。個別推奨への接続は未完。
+
+Python最終全体試験408 PASS、coverage85.26%（基準85%維持）。private/はschema/DB migrationテスト12 PASS、TypeScript/eslint/build PASS。学習18/18の完了と、未完の最終評価・holdout・日次推論は区別する。
+
+本番反映も完了。source847864637a69cfb9e970550a45cca71dc8495bc5、deployment appgdep_6acfbd154be08191a17329c2767a639b、本人のみのprivateを再確認。通常サインイン後、本人申告の「保有なし」を02:36:51 JSTに保存。口座0件・資金/リスクは未入力。ローカルpreview停止後も本番再表示を確認。匿名の口座API/同期APIはいずれも401。検証用銘柄や金額は本番へ送っていない。
+
+## 2026-10-15 — 日次NAVの会計評価器
+
+前回Goal turnは口座入力の本番反映・読戻しでprogress。今回はDrive v01 V18〜V23に対応する研究用日次NAVを実装。口座別現金/予約・保有・未収金を引き継ぎ、時刻・単元・呼値・共有capacity・資金・決済待ちを満たす分だけ仮想約定する。費用の二重控除、終値を見た同時刻約定、価格欠損による保有消去を拒否。分割/端数、配当権利と受取、確認済み現金交付を処理し、同じ初期状態のHOLDとの差を出す。CLI research evaluate-navで明示入力からimmutable receiptを保存できる。
+
+新規45 tests、既存cost/tax/simulator/domain/CLI/daily系を含む105 PASS。新規module coverage92%、ruff全体PASS、mypy54 modules PASS。証拠はdocs/evidence/daily-nav-20261015。最初の制限環境のPermissionErrorは記録し、workspace内basetempと許可された実行で再検証した。実市場adapter、Decision Engineの連続実行、個人税シナリオ、全候補比較、holdoutはまだ未完。Goalはactiveのまま。実注文なし。
+
+## 2026-10-15 — 開発評価指標の手計算検証と認証OOFへの接続
+
+日次NAV source checkpoint55e2878の全体回帰は453 PASS、coverage85.48%。追加の順位・確率・分位点の手計算試験40 PASS、初期moduleはbranch込み100%。同点の行順不変、負return・K超過、等日付/銘柄数加重の差、確率端点・base rate・過信、pinball/coverage・交差を確認した。旧学習reportは保持し、新版を別の診断として固定。CLIおよび27候補fixtureの認証→全task採点→receipt保存を含む53 PASS。
+
+research audit-candidates --score-developmentから新しい診断を実行できる。元report/OOF/source・feature・key/target・holdout境界の認証が先。単一alphaは交差確認不可、元の確率/予測を修復しない。計算規則はdocs/DAILY_EVALUATION_METRICS.md。実18候補の新版診断、全baseline/NAV比較、最終selection/holdout、日次推論・個人保有接続は引き続き未完。実注文なし。
+
+## 2026-10-15 — JPX休日境界と全特徴量の因果性検証
+
+公式JPX休業日一覧に基づく2026-01-12の休日fixtureを追加。01-09 featureから01-13入口、1日01-14・5日01-20・20日02-10の出口を独立した日付と照合した。入口価格欠損時は日付をずらさずSUSPENDED_NO_ENTRY_PRICEとtarget欠損を保持する。productionの未来価格変更試験はV0/V1/V2全列へ拡張し、過去値がexact一致。関連3試験PASS。新評価指標の統合は53 PASS、新moduleのbranch込みcoverage100%、Ruff/mypy55modules PASS。実18候補の診断を継続中。証拠: docs/evidence/daily-metrics-20261015。
+
+## 2026-10-15 — 実18候補の新版診断と全体回帰の完了
+
+実18候補のreport/OOF/source・feature・key/target・holdout境界を認証し、daily-development-metrics-v1を全4taskへ適用。全18 PASS、非有限値の除外0、5日各task1,327,530行・20日1,044,317行。元report metricsも同じreceiptに保持し、指標source hashとlibrary版、日別IC・確率binを保存した。receipt ID06aa2b94c2dcd90ef0faa850c1924c93ea7080f4a0a37f998750927e273cf65c、検証証拠docs/evidence/daily-metrics-20261015。再学習・最終selection・holdout評価・採用は行っていない。
+
+全Python回帰はsource checkpoint ac0fa41で497 PASS、coverage85.68%、Ruff全体とmypy55modules PASS。元の5監査receiptはbyte hash不変。既存baseline report47afb247…はholdout境界2026-02-24で今回の2026-03-04と異なるため、そのsummaryを直接比較しない。次は同一開発期間のbaseline・日次5/20日adapter・実価格/企業行動/費用を通したNAV比較。現在の保有入力画面は公開済みで、個別推奨への接続は未完。実注文なし。
+
+
+## 2026-10-15 — 日次5/20日OOFと保有比較の接続検証
+
+日次専用adapterを追加。原campaign/report/OOF/固定特徴量とdataset全体のlogical identityを認証後、開発期間に一致するlabel時点列だけを取得する。受信時刻の厳密な過去条件とlabel終了日の翌日条件で20日残差RMSEを計算し、5/20日Prediction v2・1日null・risk20日へ接続。horizon不足/履歴不足は理由付きblock、保有予測の欠落は比較全体を停止。単日のDecision Engineへ新候補＋全保有を渡し、元portfolioは変更しない。
+
+明示LightGBM seed17ペアを2025-11-06 11:30 JSTで検証。3,717銘柄の予測、horizon不足30銘柄、較正962,235行/257日。最良モデル選択ではない。source checkpoint2cd7167、実データreceipt99bb487396e9ddecb4ff14ee907f8cfae94235d954aa290876bb0bc558d081d6。証拠はdocs/evidence/daily-oof-20261015。全sourceのhash認証とholdout成果の評価を区別し、後者は行っていない。
+
+新規34試験、関連合計97 PASS、新module coverage94%。全体531 PASS、coverage85.86%。Ruff全体/mypy56modules PASS。元dataset・学習成果の変更なし。個別module指定のcoverage起動2回はNumPy初期化失敗、標準のsource-directory指定で回復し失敗log保持。状態を引き継ぐ戦略→日次NAV、実市場/企業行動adapter、全baseline比較、selection/holdout/最新推論、個人設定との接続は未完。Goalはactive。実注文なし。
+
+
+## 2026-10-15 — Decision Engineから日次会計への連続接続
+
+判断時点の保有・現金・未収金を受けるstateful NAV callbackと、固定5/20日予測から毎日Decision Engineを実行するresearch evaluate-daily-strategyを追加。実際の仮想約定/未約定、企業行動、支払だけを翌日の状態へ反映する。全保有を候補へ追加し、必要情報の欠落/古い単位の価格/探索上限は停止理由と保有持越しを記録する。停止を含む比較はdecisions_complete=false。未収金はNAVには含め、支払までは買付余力に使わない。
+
+税前の研究用口座metadataを明示し、本人の口座区分・NISA・税シナリオとは分離。日次提案のis_research_onlyが汎用engineの既定falseになっていた点を、独立したDailyDecisionAuditと必須trueで是正。原予測・市場・現在portfolio・candidate根拠のhashを提案へ束ねた。固定注文の既存APIと同じ会計経路を使い、生成注文の再実行で全結果が一致する。
+
+追加29試験、関連112 PASS、新module coverage99%。source checkpoint9d39864で全体560 PASS、coverage86.10%、Ruff全体/mypy57modules PASS。手計算のpartial-fill、資金・取得単価・費用、決済待ち、停止株、配当・分割、未来価格変更、欠損時の保有維持を確認。証拠docs/evidence/daily-strategy-20261015。市場成績はまだ計算しておらず、保存した戦略receiptは合成テスト専用。
+
+実sourceの最新raw/normalized各5種、計10objectのschema/byte hashをread-only検査。raw株価のUL/LLはnormalized schemaに未接続、raw財務配当列だけでは権利/支払イベントにならない。公式V2仕様でULは終値ではなく高値到達、特別気配・実際の利用可能時刻・訂正前データは非提供と確認。元学習dataset/履歴は変更なし。次はrawの認証と執行用projection、企業行動/約定能力、全baseline比較。個人税、selection/holdout/最新予測も未完。Goalはactive、実注文なし。
+
+
+## 2026-10-15 — 保存日足の認証と執行用projectionの前段
+
+research project-daily-marketを追加。固定feature selectionとholdout境界を確認後、指定開発期間のraw/normalizedとcatalog/manifest/byte hash/行metadata/値をread-onlyで照合する。無約定行、UL/LL欠損、空partitionを保持。末尾0以外のprovider codeは普通株へ短縮結合せず、元codeとsymbol nullで残す。元dataset/保存sourceは変更しない。
+
+実4日間2025-11-04〜11-07、8object・17,669行の認証に成功。取引あり16,899、無約定770、特殊code20、調整要確認1行。初回は特殊codeを拒否し、保存方法を修正して再検証した。追加30試験、関連115 PASS、新module coverage94%、Ruff全体/mypy58modules PASS。全体回帰はsource checkpoint da999e1で590 PASS、coverage86.28%。証拠docs/evidence/daily-market-20261015へ記録した。
+
+投資対象ユニバース/営業日完全性、元dataset source-frame一致、企業行動/約定能力/実用費用は未確認。実市場NAV、全baseline比較、個人税、selection/holdout/最新推論も未完。Goal active、実注文なし。
+
+
+## 2026-10-15 — 同一開発foldの回帰baseline比較実装
+
+research compare-daily-baselinesを追加。固定datasetと全18候補のidentityを認証し、元のpurge/embargo/初回評価開始と同じfoldを再現する。評価key・target・as_of・foldは完全一致必須。ゼロ予測、20日momentum、V0 Ridge(alpha5)、固定候補平均の指標とOOFを保存。CLIは開始・成功・失敗を別receiptに残す。
+
+Ridgeは正確なtrain内中央値とblock単位の中心化共分散を使い、通常実装と一致する線形方程式を解く。新規23試験PASS、module coverage89%、Ruff全体/mypy59modules PASS。初期のfixture Path型、dataset認証に必要なsymbol列、DuckDB/Pandas時刻単位の差を修正し、失敗logも保持。実18候補とbaselineを5日1,327,530行/6fold、20日1,044,317行/5foldで比較し完了。元の18候補の順位auditと全一致。source checkpoint304d3e8で全体613 PASS、coverage86.35%。証拠docs/evidence/daily-baselines-20261015。
+
+予測指標の比較でありcash/HOLDのNAV成績ではない。全baselineの確率/分位点、cross-fitted learned ensemble、企業行動/約定能力/費用/個人税、最終selection/holdout/最新推論は未完。Goal active、実注文なし。
+
+
+## 2026-10-15 — 同一foldの確率・下側分位点baseline
+
+compare-daily-baselines v2で、全18候補の大幅下落確率・分位点と、train内発生率・経験分位点・V0 Logistic(C1)を同じ行で比較する。候補の閾値/alphaとtask間as_ofも照合。全学習行を維持し、補完/標準化後の一時ファイルをblock読みで最適化する。単一classは明示constant、未収束は拒否。元学習成果とv1 receiptは保持。
+
+関連36試験PASS（追加13）、module coverage91.08%、Ruff全体/mypy59 modules PASS。独立sklearn pipelineとの数値一致、閾値の等号、単一class、未収束拒否、未来の正解変更に対する過去fit/予測不変を確認。初回はテスト側の固定閾値と分位点の完全浮動小数一致で2失敗、修正してログ保持。実18候補とbaselineを5日1,327,530行/6fold・20日1,044,317行/5foldで比較し完了。元候補のリスク指標18件と全一致。source a0be507で全体626 PASS、coverage86.42%。証拠docs/evidence/daily-risk-baselines-20261015。
+
+残りのrule/Elastic Net、cross-fitted ensemble、企業行動/約定能力/費用/個人税を通した状態付きNAV、最終selection/holdout、最新予測、本人入力の比較接続は継続。Goal active、実注文なし。
+
+
+## 2026-10-15 — 最終評価アクセスのローカルmetadata調査
+
+reports/selections/campaigns/experimentsの73 JSON/JSONL、161レコードをread-onlyで調査。アクセス宣言148件はboolean false147件と文字列false1件、trueなし。artifacts全体でholdout/ledger名JSONなし。旧baseline47afb247のreport identityを再計算し、宣言commit86c958d0fd60c91c2941420a58a0dcfe7bcea764のproduction/validation関数が2026-02-24以降とlabel跨ぎを評価から除外することを確認した。現最終評価境界2026-03-04より前である。
+
+ファイル一覧/byte SHA、宣言の位置・型、固定関数本文/位置/SHAをdocs/evidence/holdout-access-inventory-20261015へ保存。元の記録・データ・学習成果は変更なし。未記録/外部アクセスを除外できる証跡ではなく、旧reportも署名実行証跡や行別key receiptを持たないため、履歴完全性はNOT_PROVEN。この調査をholdout開封/採用gateのpassに置き換えない。新しい成績の採点や実注文なし。Goal active。
+
+
+## 2026-10-15 — 複数時点のアンサンブル・確率調整の開発評価
+
+research crossfit-daily-ensembleを追加。元18候補と固定datasetを認証し、3つの後続評価期間ごとに重み学習・調整・評価を分離する。両境界にhorizon以上の観測日embargoとlabel終点/受取時刻のpurgeを適用。未受領の同日他銘柄targetも順位正解に混ぜない。回帰/順位/確率の非負・合計1重み、順位からリターンへの較正、isotonic確率較正、固定平均分位点の残差補正を保存する。
+
+追加24試験PASS、module coverage93.23%、Ruff全体/mypy60modules PASS。独立数値解との一致、過去モデル/予測の未来変更不変、入力/時刻/キー拒否、全18候補の認証とCLI成功/失敗記録を確認。初回は合成fixtureの20日調整期間不足で19PASS/1FAIL。必要日数を弱めずfixtureを延長し、誤ったcoverage指定も修正して再試験した。失敗ログも保持。source afa9a5fで全体650試験PASS、coverage86.58%。実18候補の比較も完了し、5日662,791行/177日・20日523,258行/140日を各3時点で評価した。18回の重み最適化は全収束。元baselineの同じ評価行と完全一致し、単純平均との差は最大2.23e-16。保存した全重み/較正から予測を再現し、原成果は保持。証拠docs/evidence/daily-ensemble-20261015。
+
+順位ICは単純平均0.0682/0.0992から学習重み0.0855/0.1064へ改善（5日/20日）。ただし回帰MSE改善は小さく、5日の生リターン平均/学習重みはゼロ予測より悪い。確率較正はECEを下げても両horizonでBrier/log lossを悪化させ、分位点補正もpinballを悪化させた。期間別の悪化も記録し、較正成功や採用の判定はしない。
+
+個別候補/単純平均/学習ensembleを同じ後半期間で比較し、順位スコアとリターン単位を区別する。成績改善や較正成功は前提にしない。残りのbaseline・実市場状態付きNAV・個人設定/費用/税・最終selection/holdout・最新推論は継続。Goal active、実注文なし。詳細docs/DAILY_ENSEMBLE.md。
+
+
+## 2026-10-15 — アプリ入力の本人専用PC取込
+
+口座/保有/資金/最大下落率の手入力を、本人専用SiteからPCへ取り込む経路を追加。保存版とexportのSHA256、厳密schema、owner固定、版/時刻rollback拒否を行い、SQLiteへ確定してから同じ版の受領記録を返す。アプリはPC取込待ち/取込済みを保存版ごとに表示する。再取得は冪等で受領時刻を保持し、旧版ACKで新しい入力を取込済みにしない。移行は追加tableのみで、元予測/入力を保持する。
+
+関連Python56試験、CLI認証情報非表示追加後の取込38試験、Node12試験、Ruff全体/mypy61modules、private lint/TypeScript/build PASS。source checkpoint c0f6a81/5be26b4。本人専用公開成功、実際の保有なし/口座0/資金・リスクnullを改変せず取込・冪等再取得・backup検証、画面のPC取込済みまで確認。認証不足/外部Originの4種類はHTTP401。明示再開後に前回Pythonプロセス0件を確認して全回帰を再実行し、688 PASS、coverage86.74%を確認。旧実行はhandle消失/利用上限によるreview不能で19%までの未完ログとして保持する。公開・実入力取込・認証拒否・全体試験の証拠はdocs/evidence/manual-portfolio-import-20261015に保存。入力取込と約定台帳/税/費用/最新予測を使った個人比較は別段階であり、後者は未完了。手順はdocs/MANUAL_PORTFOLIO_IMPORT.md。Goal active、実注文なし。
+
+
+## 2026-10-15 — Elastic Net・固定ルールの同一期間比較
+
+compare-daily-baselines v3へ固定Elastic Netとmomentum+revision/4特徴等重みの順位スコアを追加。全候補の認証と同一fold/評価keyを維持する。ルールの同日母集団は未来label結合前のsource特徴全行で決め、正解未受領peerも含める。順位スコアをreturn/確率とせず順位指標だけを保存。Elastic Netはtrain統計と全行Gramでfitし、KKT残差1e-9以下・有限目的値を要求、未収束は失敗を残す。
+
+関連61試験PASS（追加25）、新module coverage97.10%、Ruff全体/mypy62 modules PASS。独立sklearnとの予測/目的値一致、batch変更、欠損/定数/同順位、未来target不変、未受領peerの参加、時点不整合拒否を確認。試作段階も数値20/接続3試験PASS。実18候補比較と全体回帰はsource checkpoint後に実施。条件は実スコア計算前に固定したが、以前の候補成績を見た後の探索診断であり採否用の事前登録とはみなさない。費用/税/実市場NAV、最終selection/holdout、最新推論と個人比較は未完。Goal active、実注文なし。
+
+
+実行中の点検で共有順位audit内にリターン単位MSEが残る出力不整合を発見。入れ子mean_squared_errorの不在を検証する試験で1 FAILを再現し、ルール出力からだけ除去して25 PASS、Ruff/mypy PASS。元候補・回帰baselineの指標は変更しない。実比較attempt1と全回帰attempt1は新規スコア計算前に停止し、logと中断理由を保存。条件や予測値を調整したものではない。修正checkpointから再実行する。
+
+
+修正checkpoint7fccbe1で全713試験PASS、coverage86.81%（基準85%）を確認。1482.05秒、2031 warnings。full-regression.jsonへsource・実行日時・log/coverage SHAを保存した。追加モデルの実データ比較は別途継続中であり、この全回帰成功を実評価・採用の完了とみなさない。runbookのPC取込未実装という古い記述と、試験票のDecision Engine未接続という古い記述を、既に検証済みの実装範囲に合わせた。
+
+
+## 2026-10-15 — 学習時の元データ5種類との一致と新規取得の接続確認
+
+固定feature selection→production buildのcontent identity→dataset metadata→全5種類のsource frameを読み取り専用で照合し、全識別値の一致を確認した。normalized 13,015 objectのbyte hashを処理前後で検証。PIT選択後は株価/銘柄一覧が各9,801,708行、財務185,307行、営業日3,527行、TOPIX2,359行。512MBのDuckDB処理と型をそろえた行hashで、元の全件計算と同じ識別値を再現した。証拠docs/evidence/daily-source-identity-20261015。
+
+これは入力の同一性監査。元データの全暦日にはholdout日付も含むが、予測/target/成績を計算していない。訂正前vintage、全期間raw/normalized行ペア、PITユニバース/営業日完全性、企業行動/執行能力の保証には置き換えず、projectionはevaluation_ready=falseを維持する。catalog・元データ・dataset・学習成果は不変。
+
+同日の公式V2への読み取り確認では、株価Bulk一覧とFree対応の銘柄一覧がいずれもHTTP403。配当APIは未要求で、原因や本人の契約プランは未確定。認証値・応答本文は記録せず、契約/資格情報/production dataも変更していない。契約プランとキー有効状態を本人へ確認依頼済み。最新取得・最新推論は接続復旧が必要だが、保存データの追加比較・残実装は継続する。証拠docs/evidence/live-data-access-20261015。Goal active、実注文なし。
+
+
+## 2026-10-15 — 追加Elastic Net・固定ルールの実比較と全行再現完了
+
+source7fccbe1で5日1,327,530行/354日/6fold、20日1,044,317行/279日/5foldの比較を08:28〜09:07 JSTに正常完了。receipt acc6ee1190f496ebce794281bb7927269b6b4e77ec46da027c9138dd0a51c5de。全18候補の元指標・key/target/foldはv2と完全一致、既存baseline予測の差も0。全11foldの保存係数と別実装scipy順位計算から全採点行を再現し、いずれも差0。KKT残差1e-9以下を確認した。正解未受領等のpeerを5日14,027行/20日13,385行含め、未来labelによる順位母集団選択を行っていない。証拠docs/evidence/daily-simple-baselines-20261015。
+
+Elastic Netの平均Rank ICは5日0.010408/20日0.017013で、全18候補が上回った。ただしMSEで上回るのは5日8/9、20日5/9。2種類の固定ルールは両期間で平均ICが負だが、5日の等重みルールのNDCG@20は0.381223で個別候補最大0.381083より高い。指標ごとの混在結果と全fold/全候補を保持し、勝者選択や有意差・実用収益の断定は行わない。別のensemble診断は評価日数が異なる。
+
+全713試験PASS/coverage86.81%と実比較の正常終了は別証拠として保存。初回中断・出力単位の修正履歴も保持した。元成果を変更せず、holdout採点・実注文なし。実市場の企業行動/約定能力/費用/個人税を通す状態付きNAV、本人入力の比較接続、最終selection/holdout、最新refit/推論/同期は残る。最新データAPI403の解消も必要。Goal active。
+
+
+## 2026-10-15 — アプリ入力と既存台帳の個人研究比較
+
+ops compare-personalとローカルAPIを追加。本人の最新手入力版・全口座/全保有・現金/取得単価・明示税状態・未反映約定・現在日の11:30原予測を照合し、設定/市場が揃う場合に既存の費用/税/HOLD比較へ接続する。全口座共通の目標株式時価上限とNISA残余購入枠を適用。単元未満保有を保持し、売却で同日NISA枠を復元しない。原入力・約定・現金・税・予測台帳を変更せず、途中変更は拒否する。研究専用/採用不可を維持し、最大下落率を保証へ変換しない。
+
+関連129試験、最終個人比較34試験、Ruff全体/mypy63 modules PASS。合成試験の各1,000円費用・2,000円推定税・残現金196,000円・HOLD比26,000円を独立手計算と照合。本人の実入力は保有なし・口座0・資金/リスクnullを保持し、提案なし/不足理由を返すことと全DB記録hash不変を確認。証拠docs/evidence/personal-comparison-20261015。全体回帰はこのsource checkpoint後に実行する。
+
+初回台帳の明示照合/確定、クラウドの補足設定と比較表示、実市場NAV・企業行動/約定能力/費用/税/リスク実証、最終selection/holdout・採用、最新推論/同期は残る。API403も未解消。Goal active、実注文なし。
+
+
+## 2026-10-15 — 個人比較の全回帰と開発期間の市場照合完了
+
+source 7eea42a44642ad6ddf520c5359edfb7295c000f8で全747試験PASS、coverage86.9514%（基準85%）。09:44 JSTに正常終了した。原入力不変・口座別照合・費用/税/HOLD計算を含むコードの回帰成功であり、実市場NAV・本人向け推奨や採用の完了とは区別する。証拠docs/evidence/personal-comparison-20261015/full-regression.json。
+
+開発評価期間2024-07-31〜2026-03-03の日足を42区間で認証。386営業日、raw/normalized 772 object、1,702,477行。全営業日の欠落・予定外日付・四本値の大小関係違反は0。取引あり1,629,008行、無約定73,469行、特殊code1,675行、調整要確認394行を保持。全receiptのcontent identity/byte hash、区間集計を独立に再確認した。元データは不変、最終評価の価格行・成績は未読/未採点。証拠docs/evidence/daily-market-development-20261015。
+
+独立集計scriptの初回はWindows既定cp932による日本語path誤読でidentity照合が失敗。元receiptの不変と正しいidentityを確認し、UTF-8を明示して再確認した。元audit・学習・全回帰は再実行せず、失敗scriptも保存した。次は当時の銘柄一覧とのキー照合。個別銘柄網羅、訂正前vintage、企業行動/約定能力/決済/費用/税、実市場NAV、初回台帳・クラウド補足設定/比較表示、最終selection/holdout・最新予測は残る。API403未解消。Goal active、実注文なし。
+
+
+## 2026-10-15 — 開発期間の当日銘柄一覧と全価格キーを照合
+
+固定vintageの当日master raw/normalized 772 objectを認証し、2024-07-31〜2026-03-03の386営業日・全1,702,477キーを価格と外部結合した。全営業日のmasterが存在し、対象銘柄の価格欠落・価格だけが存在する銘柄・全masterの価格欠落は0。既存対象ルールに一致する1,471,945行のうち、取引あり1,461,907、無約定10,038、不完全日足0、企業行動要確認359。対象外市場228,857行・特殊provider code1,675行も保持。単元株数は提供されないためnullを保つ。
+
+元sourceのcatalog/manifest/byte hash/行metadata/キー/会社・市場・業種等の値を照合。全master catalogのpath/hash一覧は既存の学習時source-frame ID一致証拠に結び付け、終了後の元ファイル不変を確認した。42件の保存Parquetのhash・キー・日付・集計も独立再計算で一致。初回は同じキー値に対するpandas object/StringDtypeの差で0区間で停止。最初の4,386キーが一致することを別に確認し、両側の文字列dtypeを合わせた第2試行が09:55 JSTに正常終了。元データ・失敗記録は保持した。証拠docs/evidence/daily-universe-development-20261015。
+
+これは当日銘柄一覧と価格の網羅確認であり、訂正前vintageや上場廃止イベントの復元ではない。最終評価期間のmaster/価格行・予測・target・NAVを読まず、採用へ昇格しない。企業行動/約定能力/呼値/決済/費用/税を通すNAV、本人設定/初回台帳/クラウド比較表示、最終selection/holdout・最新予測は未完。ライブラリsourceは7eea42aから不変で全747試験PASS証拠を保持し、同じ全回帰を再実行しない。Goal active、実注文なし。
+
+
+## 2026-10-15 — 補足設定画面のローカル検証完了・本人依頼で一時停止
+
+公開済みの口座・保有・資金・リスク入力に続き、補足設定 /settings を実装した。口座ごとの拘束現金、未反映取引、年内損益・繰越損失・NISA残余枠、費用・税の仮定と研究条件の確認を、保有入力の正確な版に結び付けて追記保存する。未入力はnullを保ち、0や法定税率を自動補完しない。本人限定API、競合拒否、古い保有版の検出、書き出し、追加DB migrationを含む。PC取込・初回台帳確定・比較結果のクラウド表示への接続は未実装で、画面にも準備中と明示する。
+
+既存を含むNode 22試験PASS、TypeScript型検査PASS、ESLint全体/修正箇所PASS、Sites build PASS。初回型検査のunknown JSON応答3件を型ガードで修正し、失敗logも保持した。ローカルDBへmigrationを適用し、ブラウザーで保有なし・口座0・資金/リスク未定のテスト入力から、補足項目を未定のまま保存する流れを確認。実口座やproductionデータを変更していない。入力済み口座・HTTP境界/競合・エクスポート・モバイルを含む追加結合確認は残る。証拠docs/evidence/personal-settings-local-20261015。
+
+本人の「きりいいところで停止して進捗とどれくらいかかりそうか教えて」により、このローカル検証済み・未公開の境界で停止する。確認用サーバーsession19454はCtrl-Cで終了、port5193の待受なしを確認。学習・監査・全回帰も終了済み。公開サイトはv3/source0073ca93のまま。選択されたSites checkoutの変更15ファイルをprivate/へ同一byteで保存し、Sites側のcommit/push/deployは行わない。Goalは本人依頼によるpausedへ移す。
+
+全747試験PASS/coverage86.9514%のPython sourceは7eea42aから不変。18候補の学習・開発比較と386営業日の価格/当日銘柄網羅監査は完了。実市場の企業行動/執行/決済/費用/税を通す資産推移比較、最終モデル固定/holdout、最新予測・同期は未完。J-Quants API403も未解消。再開後の概算はアプリ残接続/結合確認が数時間〜1日、実市場評価/最終検証が追加数日以上。データアクセスと必要な企業行動情報が揃うことを前提とする粗い作業見積もりで、稼働日や採用を保証しない。実注文なし。
+
+
+## 2026-10-15 — Android化の初期基盤とオフライン計算一致
+
+本人のAPK配布・端末内計算の新指示に従い開始。PC main5b7aa4dはGitHub main0c9f88cより69commit先で、remote-onlyは0。Git bundleと未commit差分を保存し、fetchだけで照合した。移転先iburigakko-picoloom/stock-ai-specはPUBLIC、既存Release/Actions signing secretsなし。未公開設定・既存研究成果・本人の未commit変更を保全する。
+
+既存React UIへCapacitor8.5.3/Android基盤を追加。PCの特徴量・保有比較・台帳/APIの具体module23本を同一byteでAPKへ同梱し、公式Pyodide0.29.3と依存21packageのhashを固定する。Web Worker上の端末内ASGI adapterを通し、ネットワークのPC/serverを立てない。desktop ingestionとfixture bootstrapのpackage facadeだけをmobile namespaceへ置換し、元計算moduleは変更しない。APIキーのKeystore暗号化・端末保存・更新確認のnative基盤も追加したが、Androidコンパイル/署名/配布・backup UI・差分取得・モデル取込は後続検証中。
+
+端末内API4試験、既存React18試験、型検査/lint/Web build成功。外部HTTPSを遮断したEdgeの実WASMで、保有なし/nullの保存とPC版41/51特徴量の4合成銘柄に対する小数7桁一致を確認。初回の不足namespace、試験path、WAL backup/新FastAPI ASGI互換を修正し失敗logも保存。Windows制限環境のrename EPERMは許可された実行で再検証。Android実機は未接続で確認待ち。採用モデルは依然なし、公開APKへ私有モデル/市場データ/口座/APIキーを入れず研究表示を維持。証拠docs/evidence/android-apk-20261015/stage1.json。実注文なし。
+
+
+## 2026-10-15 — Android端末内処理と署名配布のローカル検証
+
+PCと同じ26具体moduleを同梱。Keystore暗号化SQLiteの確定保存、競合拒否、端末口座入力、J-Quants V2の5dataset差分取得/検証/訂正時点保持、41/51特徴量、data-onlyの3種類GBDT adapter、確認済みhashのみのモデル取込、暗号化backup/明示復元を追加。元PC production loaderは読出しProtocolと11:30当日計算の明示引数を追加し、既存研究pathは維持した。履歴不足・403・未採用を最新予測へ見せない。現在approved_modelsは空で私有model/dataを同梱しない。
+
+Python39件中37成功、XGBoost2件のfloat32 cutとJSON decimalの境界差を発見・修正。3種類×2taskの6件と追加締切1件が成功し、重複を除く40ケースを確認。全体ruff、mypy63module、React18件、TypeScript/lint/build成功。外部HTTPS遮断WASMで41/51特徴量の小数7桁一致と6合成model vectorのPC一致、保存後のworker再起動/復元、短い履歴の422拒否を確認。VitestがPlaywright試験を拾う設定不備とpackage auditのroot-relative path判定も修正し、失敗logを保全した。
+
+main関連変更→PR検証→main署名build→immutable Release/APK/hash/変更履歴のworkflow、署名証明書照合、増加versionCode、更新先/署名/サイズ/hash検査を実装。署名鍵は暗号化p12とWindows本人DPAPIで保全し、4Secretsへ改行なしstdinで登録済み。オフPCバックアップ手順とOSS表示を追加。AndroidコンパイルとReleaseはまだ未実行。本人端末はXiaomi 14T Proで、USB接続は後ほどとの回答。実機試験/Android版は未確認。
+
+初回台帳・補足設定と保有比較の完全接続、最終model採用/配布条件、実API403と大量履歴の実機能力、本人による鍵のオフPC保管は残る。実注文なし。証拠docs/evidence/android-apk-20261015/stage2.json。
+
+
+## 2026-10-15 — 公開前履歴検査とLinux CIの型検査対応
+
+未公開履歴781 blobで秘密鍵/生市場ファイル/token形式を検査し該当なし。本人の指示に従い検証branchを公開し、draft PR #1を作成。初回CI 38674562787は既存PC用memory/checkpoint/holdoutのWindows分岐をLinux型検査が判別できず停止し、Androidコンパイル前。sys.platformの明示分岐へ変更し、計算や保存方針は変更しない。Linux/Windows指定のmypyは各63module PASS、Windowsの排他保存/holdout再開/メモリー保護6件PASS。CIへ両OSの型検査と関連試験を追加し再実行する。実データ再学習・実holdout評価は行っていない。実注文なし。
+
+
+## 2026-10-15 — 初回Android CI成功・大容量保存の追加検証
+
+CI 38674953724はfresh checkoutの試験親directory不在で停止し、mkdirを追加。続く38675174542でPython40件/関連6件、両OS型検査、React18件、通信遮断WASM一致、公開範囲検査、Android debugコンパイル/backup暗号化test/lintがすべて成功した。まだmainへmergeせずReleaseは未作成。
+
+公開前のコード点検でnative SQLiteの単一blob読出し上限が大きな保存内容の障害になると判断し、256Ki文字ずつのGCM暗号化と世代/分割番号の認証、全体hash/長さ/分割数、transaction rollbackへ修正。初期の小さな状態だけでなく、3MiB合成状態の再読込・古い書込拒否・途中障害rollback・欠落/改変拒否をAndroid instrumentationへ追加した。debugアプリは別applicationIdへ隔離し、release状態を試験で変更しない。エミュレーター試験はCIの追加gateでありXiaomi実機試験の代替ではない。保存失敗/worker異常時には未確定メモリー状態を破棄し、確定保存から再起動する。画面lint/型検査/build成功、native修正とinstrumentationはCI待ち。128Mi文字state/150万行dataset制限と全市場長期履歴の実機能力未確認をrunbookへ明記。実注文なし。

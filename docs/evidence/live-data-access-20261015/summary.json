@@ -1,0 +1,23 @@
+{
+  "status": "LIVE_ACCESS_NOT_CONFIRMED",
+  "api_key_present_in_process": true,
+  "requests": [
+    "/bulk/list?endpoint=/equities/bars/daily&from=2025-11-04&to=2025-11-07",
+    "/equities/master?date=2025-11-06"
+  ],
+  "http_statuses": [
+    403,
+    403
+  ],
+  "inferred_subscription": null,
+  "dividend_endpoint_requested": false,
+  "subscription_or_credentials_changed": false,
+  "production_data_changed": false,
+  "client_sha256": "bac819c95672a9027130d686af62951a92f6d2e10bc45e5fa824b87ad4c60ab2",
+  "evidence_sha256": {
+    "dividend-capability-probe.json": "7832ed866e4c90c4a350191c05cfd1f82213f4c98b235a0e69420bf92b217e5e",
+    "jquants-basic-access-probe.json": "ed8ab4d9333a89fa87f1d74c618820f95df240bb5d4257ff0030982a2b6ecb71",
+    "probe_dividend_capability.py.txt": "8d87f980c2ff3a834f5a088098e65e3e6fbc5aeec0627f3b67e9f6da9ffb9fd2",
+    "probe_jquants_basic_access.py.txt": "e3c0871978efc075733489542b53d5cc9483da3a7515b3530b502fab3be7bce8"
+  }
+}

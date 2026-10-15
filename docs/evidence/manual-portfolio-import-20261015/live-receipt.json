@@ -1,0 +1,24 @@
+{
+  "verified_at": "2026-10-14T21:57:16.730497+00:00",
+  "revision_id": "7a7cb5889f9ceffd18c66403b8bc571121b533957b723f45a0986c84176d557d",
+  "export_sha256": "0d29e8800e29712c5350bdc17af99391673aef2caac3624ac5dfb2dcc6e2f51c",
+  "revision_sequence": 1,
+  "saved_at": "2026-10-14T17:36:51.725000+00:00",
+  "first_received_at": "2026-10-14T21:57:15.997709+00:00",
+  "holding_count": 0,
+  "account_count": 0,
+  "holdings_status": "none",
+  "budget_is_null": true,
+  "risk_is_null": true,
+  "replay_exact": true,
+  "security_http_status": {
+    "anonymous": 401,
+    "platform_token_only": 401,
+    "scoped_proof_only": 401,
+    "foreign_origin": 401
+  },
+  "original_ledger_counts_unchanged": true,
+  "manual_import_count": 1,
+  "no_order_sent": true,
+  "backup_verified": true
+}

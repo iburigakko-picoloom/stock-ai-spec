@@ -1,0 +1,101 @@
+{
+  "verified_at_utc": "2026-10-04T09:19:24.090370+00:00",
+  "all16_authenticated_reloaded": [
+    {
+      "unit_id": "34ec9f6d8b4a1abce928a0e4fcaac1bf1e6fb7553bc2718b76a55b25195e41d7",
+      "rows": 225268,
+      "frame_sha256": "71628801dd1c0ded64ed4f4409a95e19c4f009dd8639baa91e397f8ed9523c06"
+    },
+    {
+      "unit_id": "99d100ae3dedd62f87c4c2cb3c65e1ead9a12483179c34c8cb64431e80a0300e",
+      "rows": 224458,
+      "frame_sha256": "8a59a8e81e3b67803c92332ecafe6a8f36fccc8a130a973c42d0ec1b666e6301"
+    },
+    {
+      "unit_id": "2af833cd7bbe5a6183088aef59fb9020c7519d31b45b93daf686336b2f6fc698",
+      "rows": 225055,
+      "frame_sha256": "2aec74035bf119fdd9a7a823922aca8f07ada89b7e26504a689a3da0bdb27584"
+    },
+    {
+      "unit_id": "0e62f4611ddb963bbc36cacd9e7db30a9dcd28bf60c70918289182739df8282e",
+      "rows": 225055,
+      "frame_sha256": "bb06acb6423c20d94d51ce8835b7e78adc99ff211fbb87a325ab3f0960666059"
+    },
+    {
+      "unit_id": "5fc349eeda1e51c08b640f2fc9f21aa5e2746d7e65a159572cb5d048287bc772",
+      "rows": 225842,
+      "frame_sha256": "4f5892299958c6311960720e213bbe3e7aba580690c7cff1374e4b0210ababa0"
+    },
+    {
+      "unit_id": "326d3d67daaf08836cdc2ada1630801e462ac0f109f9666a26f098343194d6b5",
+      "rows": 225731,
+      "frame_sha256": "ec15abb280e8f9b8a7e104d81a9187f3d297ffce4cc488b6495c84e03e60d1d9"
+    },
+    {
+      "unit_id": "40617d56a6fda14295ec6fd7652f1c39360324b4269ca284da7af2cc9e719417",
+      "rows": 202496,
+      "frame_sha256": "beeb758c8e03413ac339d9a9e425ee2de0beab48b9a11fec5b9815982950e0c3"
+    },
+    {
+      "unit_id": "689e4bd5471dbfd62cff4e24d3afa6df4a91d79b6f850402c9884b0fb3085a38",
+      "rows": 202496,
+      "frame_sha256": "2a76fbdac68811a7c93333b675f5f44d01b12071a34ce36106b9d4ff35837ed9"
+    },
+    {
+      "unit_id": "f3b4a8250ca427b818826968ba0af024ae2ede918c9baa1add5c599381f1db44",
+      "rows": 225731,
+      "frame_sha256": "6bd084a30bb5763a2a48d32e9d2618fe9aad28f847c52a28a4cd5cc84d08af9a"
+    },
+    {
+      "unit_id": "86be271ff4be7c789aa5bd04c947a66517d17938e96978dabfe4856e4f5868a3",
+      "rows": 224522,
+      "frame_sha256": "6e8ee9af2ea8b1f465ee4ef087ec956799e704fa0444a81a42a67ac5ca0c2de3"
+    },
+    {
+      "unit_id": "7c9ad5670f7ae50edf29e4d0d761f87e4be95c1ddf78de56cdc6ef2958978e3d",
+      "rows": 224522,
+      "frame_sha256": "7b870203b3babed4508c13aea1b5a59906f002e991fe2a23ab177af1009ed782"
+    },
+    {
+      "unit_id": "85ee770c7ea5d3e594f5cfbf7983d4f2bcf9518aa607b3942ef836d9b963d093",
+      "rows": 224458,
+      "frame_sha256": "d54468884d548e53ec5573e3e29e844dfad631f6d4258a8e280b7a2462cd9430"
+    },
+    {
+      "unit_id": "65cae611ece9024f3479811d8cff4037fcba572f750e7b441fa6f54a26f11d3e",
+      "rows": 225842,
+      "frame_sha256": "16b083971fa91aab453bbeb972f51a266edb4a59f59ee4b62ac50379f98b2476"
+    },
+    {
+      "unit_id": "91098bbf464cd55b808257de0423264e216afa7c55b216f73d32b9f3de8351c5",
+      "rows": 225842,
+      "frame_sha256": "5b538fca9339f19e737de302515ed6171349c61b2737e8b2c06a9bb384f47c84"
+    },
+    {
+      "unit_id": "475e2dcceccc1c937f1db4c40fea535e832d79420dfa3d8ecb159845068742e3",
+      "rows": 225842,
+      "frame_sha256": "ca7fe8cd00ac14a0fd39b1cab71da6b48966963f2fafdb5bf804280d9456cce8"
+    },
+    {
+      "unit_id": "e54df64edd5125a91b3239a947b2b7b137d047d4ad98b9ae6609cfe5318dddf1",
+      "rows": 225268,
+      "frame_sha256": "aa14a42c753f654a0a3ab83909b85cf7926fa7fa28c8b27378ad912dc9824499"
+    }
+  ],
+  "old16_byte_hashes_unchanged": true,
+  "source_namespaces_unchanged": true,
+  "same_checkpoint_path": "C:\\Users\\manat\\app\\\u682aAI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad",
+  "same_model_code_commit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+  "config_hash": "7e228cd135e0d5d29ddb4e821d5769c7e5ed97f6c3feaaee32d1fd23a8ad7c3c",
+  "previous_quantile1_failed_attempts": 1,
+  "previous_success_count": 16,
+  "previous_running_count": 0,
+  "existing_failures_preserved": true,
+  "new_namespace_or_import_created": false,
+  "new_test_or_native_fit_started": false,
+  "last_observed_preparation_to_guard_drop_gib": 2.4786224365234375,
+  "preparation_launch_gate_gib": 7.0,
+  "unchanged_native_fit_guard_gib": 3.5,
+  "preparation_gate_is_only_an_extra_margin_not_a_capacity_guarantee": true,
+  "single_authorized_attempt_only": true
+}

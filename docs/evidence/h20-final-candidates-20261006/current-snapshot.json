@@ -1,0 +1,26 @@
+{
+  "AtJst": "2026-10-06T20:17:51.4780988+09:00",
+  "WorkerAlive": true,
+  "LogicalStockWorkers": 1,
+  "WorkerPid": 15736,
+  "WorkerPhase": "AUTHENTICATING_INPUT",
+  "WorkerUpdatedAt": "2026-10-06T20:15:37.724574+09:00",
+  "AvailablePhysicalGiB": 3.7476730346679688,
+  "Processes": [
+    {
+      "ProcessId": 27424,
+      "ParentProcessId": 10804,
+      "CommandLine": "\"C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\.venv\\Scripts\\python.exe\" \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock_h20_worker.py\""
+    },
+    {
+      "ProcessId": 15736,
+      "ParentProcessId": 27424,
+      "CommandLine": "\"C:\\Users\\manat\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" \"C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock_h20_worker.py\""
+    }
+  ],
+  "StdoutTail": [
+    "2026-10-06T11:15:37.715576+00:00 STARTED ",
+    "2026-10-06T11:15:37.724574+00:00 AUTHENTICATING_INPUT h20-lightgbm-s17"
+  ],
+  "StderrTail": []
+}

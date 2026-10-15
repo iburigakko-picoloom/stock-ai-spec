@@ -1,0 +1,17 @@
+{
+  "LaunchedAtUtc": "2026-10-07T23:55:32.9820388+00:00",
+  "AvailablePhysicalGiB": 5.691448211669922,
+  "StockWorkersBeforeLaunch": 0,
+  "OSReserveGiB": 1.25,
+  "EmergencyPhysicalGiB": 0.5,
+  "ExecutionPolicy": "adaptive-input-and-observed-increment-v1",
+  "AuthenticatedReusedTuning": 7,
+  "NewTuningBudget": false,
+  "Threads": 1,
+  "worker_sha256": "5c5ba972deb1d4f20e046248694ed849a93f5392f9b24b2b053ce30415915168",
+  "plan_receipt_sha256": "57de7fcf53b055cf398aa0842717fb11c293b7e085f29f2b3384d8b57a9e8704",
+  "runtime_policy_sha256": "62b51e50ddf9a5c8c7ec4e941335b8932fe25dccea71e0dcc124ff5136b0781e",
+  "NoAdditionalObserver": true,
+  "NoAutoRetry": true,
+  "LauncherPid": 43292
+}

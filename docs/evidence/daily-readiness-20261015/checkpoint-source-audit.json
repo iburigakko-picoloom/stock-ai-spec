@@ -1,0 +1,288 @@
+{
+  "schema_version": "daily-source-checkpoint-audit-v1",
+  "checkpoint_results": [
+    {
+      "batch_id": "h5-lightgbm-s17",
+      "checkpoint_id": "4c044474c645ab67d3214bf24832e960bcfd00ee63595d32ee386d58b99bc01d",
+      "code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "verified_successful_units": 32,
+      "unit_counts": {
+        "SUCCEEDED": 32
+      }
+    },
+    {
+      "batch_id": "h5-lightgbm-s29",
+      "checkpoint_id": "22389c40acd98c90eb38e726a48249b79c37195956965365681f1b189ed8df3b",
+      "code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "verified_successful_units": 30,
+      "unit_counts": {
+        "SUCCEEDED": 30
+      }
+    },
+    {
+      "batch_id": "h5-lightgbm-s43",
+      "checkpoint_id": "f08d0ae0bbffeb28f56618443905f9ad604f49b52c0916327b089e5f3e96020c",
+      "code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "verified_successful_units": 30,
+      "unit_counts": {
+        "SUCCEEDED": 30
+      }
+    },
+    {
+      "batch_id": "h5-xgboost-s17",
+      "checkpoint_id": "e9e22ac39bd0d066e2fab12649b1d243ab777f54b009caeee59366224169cca8",
+      "code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "verified_successful_units": 29,
+      "unit_counts": {
+        "SUCCEEDED": 29
+      }
+    },
+    {
+      "batch_id": "h5-xgboost-s29",
+      "checkpoint_id": "1ffa9eaf8290141c9f232696854aa94b5d610fd1319e259126f98fe742357643",
+      "code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "verified_successful_units": 29,
+      "unit_counts": {
+        "SUCCEEDED": 29
+      }
+    },
+    {
+      "batch_id": "h5-xgboost-s43",
+      "checkpoint_id": "3ce1263f400403fa8ba9ff177a67248c4d1f90415e96a7cda32ecc3647f0394e",
+      "code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "verified_successful_units": 29,
+      "unit_counts": {
+        "SUCCEEDED": 29
+      }
+    },
+    {
+      "batch_id": "h5-catboost-s17",
+      "checkpoint_id": "4679248001e40a9d3131d34da93b7c05f28ae094f0d69f237b6622a83289148a",
+      "code_commit": "94aab783dce5d01cf5ee153297891a42cfdfe53e",
+      "verified_successful_units": 28,
+      "unit_counts": {
+        "SUCCEEDED": 28
+      }
+    },
+    {
+      "batch_id": "h5-catboost-s29",
+      "checkpoint_id": "c424b0f8b84825621ea78b625e856bae2dffbc43773a7f945574ad8fb37209ad",
+      "code_commit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+      "verified_successful_units": 28,
+      "unit_counts": {
+        "SUCCEEDED": 28
+      }
+    },
+    {
+      "batch_id": "h5-catboost-s43",
+      "checkpoint_id": "2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927",
+      "code_commit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+      "verified_successful_units": 31,
+      "unit_counts": {
+        "SUCCEEDED": 31
+      }
+    },
+    {
+      "batch_id": "h20-lightgbm-s17",
+      "checkpoint_id": "aa19b9a05483990346873d85846b5f1854ba701c72b0f8cf1b536f058f5020d8",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 27,
+      "unit_counts": {
+        "SUCCEEDED": 27
+      }
+    },
+    {
+      "batch_id": "h20-lightgbm-s29",
+      "checkpoint_id": "a20ed97469f8d7cec0bff895dd1dd6706c1d539f4f91d26dc2ec7ec607b83229",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 27,
+      "unit_counts": {
+        "SUCCEEDED": 27
+      }
+    },
+    {
+      "batch_id": "h20-lightgbm-s43",
+      "checkpoint_id": "839fae8a6c8eaa0c72aec56f478d871d2a7e8b8ec9c2a5d1971597d1ac458817",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 27,
+      "unit_counts": {
+        "SUCCEEDED": 27
+      }
+    },
+    {
+      "batch_id": "h20-xgboost-s17",
+      "checkpoint_id": "711c5be931de0f4707da77b6f7803e48fc61d25f874c974c59bc59ddbb4b1edf",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 26,
+      "unit_counts": {
+        "SUCCEEDED": 26
+      }
+    },
+    {
+      "batch_id": "h20-xgboost-s29",
+      "checkpoint_id": "73caddd481fa62d8bfbb323523c82e94d5a91f5eafc627d8af2e5798c7e37aa8",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 27,
+      "unit_counts": {
+        "SUCCEEDED": 27
+      }
+    },
+    {
+      "batch_id": "h20-xgboost-s43",
+      "checkpoint_id": "0204679ae6e47cf085965e883a3afb2906b18a1729c69c88d3cb03c98e49b398",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 27,
+      "unit_counts": {
+        "SUCCEEDED": 27
+      }
+    },
+    {
+      "batch_id": "h20-catboost-s17",
+      "checkpoint_id": "6c8a75569eae5650750f4730a34d19f0b91ea9d56d093f5d93123335cfd62441",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 25,
+      "unit_counts": {
+        "SUCCEEDED": 25
+      }
+    },
+    {
+      "batch_id": "h20-catboost-s29",
+      "checkpoint_id": "02dfa6ba88ca98c46c9e1a15852facf57c6653022124f78660da37c089456a00",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 25,
+      "unit_counts": {
+        "SUCCEEDED": 25
+      }
+    },
+    {
+      "batch_id": "h20-catboost-s43",
+      "checkpoint_id": "ca5c22b000a0dfc2f9ba766b237e4e792cb603d5defbf61b5a3ddc0def102abe",
+      "code_commit": "2bf1dc43a7175f161d9492788bb74dbc48a4f95a",
+      "verified_successful_units": 26,
+      "unit_counts": {
+        "SUCCEEDED": 26
+      }
+    }
+  ],
+  "label_results": [
+    {
+      "horizon": 5,
+      "fold": 0,
+      "training_rows": 1849104,
+      "validation_rows": 225842,
+      "cutoff": "2024-04-25T02:30:00+00:00",
+      "latest_training_label_available": "2024-04-24T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 5,
+      "fold": 1,
+      "training_rows": 2074895,
+      "validation_rows": 225104,
+      "cutoff": "2024-07-24T02:30:00+00:00",
+      "latest_training_label_available": "2024-07-23T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 5,
+      "fold": 2,
+      "training_rows": 2300221,
+      "validation_rows": 225268,
+      "cutoff": "2024-10-22T02:30:00+00:00",
+      "latest_training_label_available": "2024-10-21T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 5,
+      "fold": 3,
+      "training_rows": 2525324,
+      "validation_rows": 225731,
+      "cutoff": "2025-01-22T02:30:00+00:00",
+      "latest_training_label_available": "2025-01-21T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 5,
+      "fold": 4,
+      "training_rows": 2751151,
+      "validation_rows": 224522,
+      "cutoff": "2025-04-21T02:30:00+00:00",
+      "latest_training_label_available": "2025-04-18T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 5,
+      "fold": 5,
+      "training_rows": 2975633,
+      "validation_rows": 225055,
+      "cutoff": "2025-07-17T02:30:00+00:00",
+      "latest_training_label_available": "2025-07-16T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 5,
+      "fold": 6,
+      "training_rows": 3200734,
+      "validation_rows": 224458,
+      "cutoff": "2025-10-16T02:30:00+00:00",
+      "latest_training_label_available": "2025-10-15T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 20,
+      "fold": 0,
+      "training_rows": 1847171,
+      "validation_rows": 225779,
+      "cutoff": "2024-05-21T02:30:00+00:00",
+      "latest_training_label_available": "2024-05-20T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 20,
+      "fold": 1,
+      "training_rows": 2072727,
+      "validation_rows": 223889,
+      "cutoff": "2024-08-15T02:30:00+00:00",
+      "latest_training_label_available": "2024-08-14T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 20,
+      "fold": 2,
+      "training_rows": 2297434,
+      "validation_rows": 225308,
+      "cutoff": "2024-11-13T02:30:00+00:00",
+      "latest_training_label_available": "2024-11-12T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 20,
+      "fold": 3,
+      "training_rows": 2522278,
+      "validation_rows": 225150,
+      "cutoff": "2025-02-13T02:30:00+00:00",
+      "latest_training_label_available": "2025-02-12T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 20,
+      "fold": 4,
+      "training_rows": 2747692,
+      "validation_rows": 224266,
+      "cutoff": "2025-05-15T02:30:00+00:00",
+      "latest_training_label_available": "2025-05-14T02:30:00+00:00",
+      "status": "PASS"
+    },
+    {
+      "horizon": 20,
+      "fold": 5,
+      "training_rows": 2971792,
+      "validation_rows": 224237,
+      "cutoff": "2025-08-08T02:30:00+00:00",
+      "latest_training_label_available": "2025-08-07T02:30:00+00:00",
+      "status": "PASS"
+    }
+  ],
+  "holdout_outcomes_evaluated": false,
+  "limitation": "Availability uses preserved single-vintage source declarations; historical receipt vintages remain incomplete."
+}

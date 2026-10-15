@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "finished_at": "2026-10-15T00:44:40.3028784Z",
+  "started_at": "2026-10-15T00:28:57.4324583Z",
+  "source_commit": "7eea42a44642ad6ddf520c5359edfb7295c000f8",
+  "tests_passed": 747,
+  "coverage_percent": 86.95141865686875,
+  "minimum_coverage_percent": 85,
+  "evidence_sha256": {
+    ".demo-artifacts\\tests-personal-full-1-result.json": "ec049b03277ba6a772fddc4a6bb82a86025ee6c8b9ab27c911ac335b79cdaf44",
+    ".demo-artifacts\\tests-personal-full-1.log": "e2b43c2296a7e6a930d91413d26278b8fc9560403bfe59e2e7279c03ec3ba95d",
+    ".demo-artifacts\\coverage-personal-full-1.json": "06af6ae7441b2b62fff13aed19e4f7407036f38bb2b5724f652de4352d39fe18"
+  },
+  "research_only": true,
+  "model_adopted": false,
+  "no_order_sent": true
+}

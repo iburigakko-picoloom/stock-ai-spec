@@ -201,25 +201,26 @@ XGBoost / CatBoostだけseed 29 / 43を追加する軽量screenを先に行う�
 一つでも満たさなければ1日はFinal Candidateから除外し、以後の計算資源を5日・20日に集中する。screenを通過した場合も
 1日は原則として主alphaへ昇格させず、追加情報と短期リスク補助としてensemble weightとDecision Engine寄与を評価する。
 
-### Multi-seed lightweight screen
+### 1日Multi-seed lightweight screenと5日・20日Full Ablation
 
-1日・5日・20日の重いFeature Ablation前に、同じDataset / feature列 / split / preprocessing / objective / estimator設定を使い、
-seedだけを変えた比較可能なdevelopment OOF screenを行う。最低3 seedと全walk-forward foldは削らないが、screen段階では
-F1〜F12 ablation、大規模追加Optuna、SHAP全量計算を行わない。認証済み既存report / OOF / fold / Optuna trialは、これらの
-identityが一致する範囲で再利用する。code、split、parameter等が異なる既存結果は監査・補助根拠として保持するが、seedだけの
-安定性比較へ混ぜない。比較可能なseedが不足する場合は、重い探索ではなく同じ軽量screen設定の不足seedだけを実行する。
+1日は同じDataset / feature列 / split / preprocessing / objective / estimator設定を使い、XGBoost / CatBoostをseed 17 / 29 / 43で
+比較するdevelopment OOF lightweight screenを完走する。screen段階ではF1〜F12 ablation、大規模追加Optuna、SHAP全量計算を
+行わない。認証済み既存report / OOF / fold / Optuna trialはidentityが一致する範囲だけ再利用し、code、split、parameter等が
+異なる既存結果は監査・補助根拠として保持するがseed安定性比較へ混ぜない。1日の採否は上記D077相当の全gateで固定し、
+結果確認後にthresholdを変更しない。
 
-5日・20日のLightGBM / XGBoost / CatBoostは、seed 17の順位だけで削除しない。familyの追加探索を打ち切れるのは、
-development OOF上で次をすべて満たす場合だけとする。
+5日・20日はlightweight screenを行わず、LightGBM / XGBoost / CatBoost × seed 17 / 29 / 43を直接Full F1〜F12 Ablationへ
+進める。minimum 3 seed、全walk-forward fold、strictly-earlier tuning、cost / turnover / downside評価は削らない。
+familyをFinal Candidateから除外できるのはFull Ablation完走後、development OOF上で次をすべて満たす場合だけとする。
 
 - 対象objectiveで他候補との差のpaired block-bootstrap 95%信頼区間が劣位側にあり、seed × fold単位の80%以上でも劣位
 - cross-fitted非負ensembleへ追加しても未接触meta-evaluation scoreが改善せず、weightが全splitで0
 - regression / ranking / quantile / large-lossのどの役割でも、対応するprimary metricまたはcalibrationを改善しない
 - realistic cost後のDecision Engine objectiveを改善せず、turnover / downside / large-lossの少なくとも一つも改善しない
 
-全条件を満たしたfamilyだけを`SCREEN_REJECTED`として以後のfull ablation / Final Candidateから除外する。信頼区間が0を跨ぐ、
-seed間で方向が揺れる、一つでも役割・ensemble・risk面の追加価値がある場合は`SCREEN_HOLD`として残す。削減数目標を置かず、
-0 family削減も許容する。screen判定と根拠はExperiment Registryへ保存し、判定後にthresholdを変更しない。
+全条件を満たしたfamilyだけを`ABLATION_REJECTED`としてFinal Candidateから除外する。信頼区間が0を跨ぐ、seed間で方向が揺れる、
+一つでも役割・ensemble・risk面の追加価値がある場合は`ABLATION_HOLD`として残す。削減数目標を置かず、0 family削減も許容する。
+判定と根拠はExperiment Registryへ保存し、判定後にthresholdを変更しない。
 
 ### Morning model
 

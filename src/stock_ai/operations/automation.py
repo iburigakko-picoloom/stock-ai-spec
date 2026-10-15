@@ -73,6 +73,15 @@ DAILY_STAGES: tuple[AutomationStage, ...] = (
     AutomationStage.EOD_UPDATE,
 )
 
+DAILY_ONLY_STAGES: tuple[AutomationStage, ...] = (
+    AutomationStage.DATA_SYNC,
+    AutomationStage.CANDIDATE_SELECTION,
+    AutomationStage.PREDICTION,
+    AutomationStage.PROPOSAL,
+    AutomationStage.NOTIFICATION,
+    AutomationStage.EOD_UPDATE,
+)
+
 
 def _job_run_id(idempotency_key: str) -> str:
     return "job-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:24]
@@ -81,9 +90,16 @@ def _job_run_id(idempotency_key: str) -> str:
 class DailyAutomation:
     """Run explicitly configured stages without any broker or order integration."""
 
-    def __init__(self, store: OperationalStore, *, workflow_version: str = "goal5-v1") -> None:
+    def __init__(
+        self,
+        store: OperationalStore,
+        *,
+        workflow_version: str = "goal5-v1",
+        daily_only: bool = False,
+    ) -> None:
         self.store = store
-        self.workflow_version = workflow_version
+        self.workflow_version = workflow_version + (":daily-only-v1" if daily_only else "")
+        self.stage_order = DAILY_ONLY_STAGES if daily_only else DAILY_STAGES
 
     def run(
         self,
@@ -91,12 +107,18 @@ class DailyAutomation:
         business_date: date,
         now: datetime,
         handlers: Mapping[AutomationStage, StageHandler],
-        stages: Sequence[AutomationStage] = DAILY_STAGES,
+        stages: Sequence[AutomationStage] | None = None,
         owner: str | None = None,
         require_upstream: bool = True,
     ) -> tuple[AutomationJobRecord, ...]:
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("automation time must be timezone-aware")
+        stages = self.stage_order if stages is None else stages
+        if len(stages) != len(set(stages)) or any(
+            stage not in (*self.stage_order, AutomationStage.CHALLENGER_TRAINING)
+            for stage in stages
+        ):
+            raise ValueError("stages do not belong to this workflow")
         process_owner = owner or f"process-{uuid4()}"
         lock_name = f"daily:{business_date.isoformat()}"
         if not self.store.acquire_lock(lock_name, owner=process_owner, now=now):
@@ -276,10 +298,10 @@ class DailyAutomation:
     def _upstream_succeeded(self, business_date: date, stage: AutomationStage) -> bool:
         if stage in {AutomationStage.DATA_SYNC, AutomationStage.CHALLENGER_TRAINING}:
             return True
-        if stage not in DAILY_STAGES:
+        if stage not in self.stage_order:
             return False
-        index = DAILY_STAGES.index(stage)
-        return self._successful_job(business_date, DAILY_STAGES[index - 1]) is not None
+        index = self.stage_order.index(stage)
+        return self._successful_job(business_date, self.stage_order[index - 1]) is not None
 
     @staticmethod
     def _terminal_job(

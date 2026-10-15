@@ -1,0 +1,23 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\manat\app\��AI\stock-ai-spec\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\manat\app\��AI\stock-ai-spec
+configfile: pyproject.toml
+plugins: anyio-4.14.2, cov-7.1.0
+collecting ... collected 20 items / 13 deselected / 7 selected
+
+tests/test_mobile_models.py::test_native_pc_prediction_matches_data_only_mobile_trees[regression-lightgbm] PASSED [ 14%]
+tests/test_mobile_models.py::test_native_pc_prediction_matches_data_only_mobile_trees[regression-xgboost] PASSED [ 28%]
+tests/test_mobile_models.py::test_native_pc_prediction_matches_data_only_mobile_trees[regression-catboost] PASSED [ 42%]
+tests/test_mobile_models.py::test_native_pc_prediction_matches_data_only_mobile_trees[large_loss-lightgbm] PASSED [ 57%]
+tests/test_mobile_models.py::test_native_pc_prediction_matches_data_only_mobile_trees[large_loss-xgboost] PASSED [ 71%]
+tests/test_mobile_models.py::test_native_pc_prediction_matches_data_only_mobile_trees[large_loss-catboost] PASSED [ 85%]
+tests/test_production_research.py::test_mobile_latest_features_require_authenticated_next_session_and_closed_cutoff PASSED [100%]
+
+============================== warnings summary ===============================
+tests/test_production_research.py::test_mobile_latest_features_require_authenticated_next_session_and_closed_cutoff
+  C:\Users\manat\app\��AI\stock-ai-spec\.venv\Lib\site-packages\pandas\core\internals\concat.py:510: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+    return dtype.type("NaT")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 7 passed, 13 deselected, 1 warning in 4.19s =================

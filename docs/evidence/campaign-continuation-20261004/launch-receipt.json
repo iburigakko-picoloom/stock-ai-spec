@@ -1,0 +1,41 @@
+{
+  "LaunchedAtUtc": "2026-10-04T12:00:28.7153040+00:00",
+  "LauncherPid": 13936,
+  "Preparation": {
+    "CheckedAtUtc": "2026-10-04T12:00:28.6714078+00:00",
+    "AvailablePhysicalGiB": 7.529182434082031,
+    "ScratchDiskFreeGiB": 208.35354614257812,
+    "RequiredPreparationGiB": 7.0,
+    "RequiredFitGiB": 3.5,
+    "StockWorkersBeforeLaunch": 0,
+    "NoAutoRestart": true,
+    "ModelCodeCommit": "8d82fa67a7f64186f42208f0632b799e13381c0d",
+    "ConfigHash": "b5f608c4b6401a80c451ce7ca479ea62434c6684c38761bfc734ddea237082fc",
+    "WorkerSha256": "2c2184f9fe6d075fb77892342d860205adcc674a0f2d4743e890dec4e818a6da"
+  },
+  "CheckpointPath": "C:\\Users\\manat\\app\\株AI\\stock-ai-spec\\artifacts\\checkpoints\\advanced-memory-recovery\\13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d\\2e231ef08d6dc10a0e41ae7e9aba13f20776318b0ee5bcde961a92c5afdb2927",
+  "WorkerRecord": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\runtime\\worker.json",
+  "Stdout": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\runtime\\worker.stdout.log",
+  "Stderr": "C:\\Users\\manat\\Documents\\Codex\\2026-10-01\\task\\stock-campaign-continuation\\runtime\\worker.stderr.log",
+  "LegacyTasks": [
+    {
+      "TaskName": "StockAI-Goal3-Ablation",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Candidates",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Phased",
+      "State": 1
+    },
+    {
+      "TaskName": "StockAI-Goal3-Research",
+      "State": 1
+    }
+  ],
+  "WorkerLaunched": true,
+  "FitStartedVerified": false,
+  "NoAutoRestart": true
+}

@@ -1,0 +1,17 @@
+{
+  "LaunchedAtUtc": "2026-10-07T16:46:33.5804698+00:00",
+  "AvailablePhysicalGiB": 5.9552459716796875,
+  "StockWorkersBeforeLaunch": 0,
+  "RequiredBeforeCandidateGiB": 3.5,
+  "RequiredBeforeFitGiB": 3.5,
+  "MeasuredPreparationMarginGiB": 5.4648895263671875,
+  "PreparationProbeFitAvailableGiB": 3.5767593383789062,
+  "worker_sha256": "cca3c2377aceb7d9732f30e09a64263b75bd79294ac60573fd55af66f49c393a",
+  "plan_receipt_sha256": "3fe00a1df81bbdc728c4dfc4d54fdf89ee11deaf3f24e339d7405eefa41db87f",
+  "NoAdditionalObserver": true,
+  "NoAutoRetry": true,
+  "Threads": 1,
+  "SpillDevelopmentDuringTuning": true,
+  "LoadedInterpreterAvailableGiB": 5.766567230224609,
+  "LauncherPid": 41028
+}

@@ -1,0 +1,13 @@
+{
+  "source_commit": "a0be50799821ac762f8926dfaa79ec0f380be932",
+  "tests_passed": 626,
+  "warnings": 776,
+  "elapsed_seconds": 793.95,
+  "coverage_percent": 86.42035856356601,
+  "targeted_tests": 36,
+  "additional_tests": 13,
+  "ruff": "PASS",
+  "mypy_modules": 59,
+  "full_test_log_sha256": "6edbb2dc8c43df3dd4753ee8802ab16176085591cfdf3f58007f83badef74e79",
+  "coverage_json_sha256": "0eefc881e1da5f5ceff54170471c1302503be9b93dca60a15c5ddd80bef64dd2"
+}

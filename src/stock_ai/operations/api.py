@@ -7,6 +7,7 @@ endpoint.
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import date, datetime
@@ -21,7 +22,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from stock_ai.domain import (
     ExecutionRecord,
@@ -30,11 +31,20 @@ from stock_ai.domain import (
     UserDecision,
     UserDecisionLine,
 )
+from stock_ai.operations.daily import (
+    CompanyResearchRecord,
+    OwnerAdoptionReview,
+    PredictionSnapshot,
+    content_id,
+    export_prediction_snapshot,
+    validate_research_link,
+)
 from stock_ai.operations.models import (
     DailyOperationStatus,
     PaperReadoutPeriod,
     PipelineState,
 )
+from stock_ai.operations.personal import PersonalComparisonRequest, compare_stored_personal
 from stock_ai.operations.store import (
     OperationalConflictError,
     OperationalIntegrityError,
@@ -123,6 +133,29 @@ class ConfirmImportInput(ApiModel):
 class ConfirmPositionReconciliationInput(ApiModel):
     next_portfolio_id: str = Field(min_length=1)
     confirm_all_differences: bool = False
+
+
+class DailyImportInput(ApiModel):
+    json_text: str = Field(min_length=1, max_length=2_000_000)
+    confirmation_hash: str | None = None
+
+
+def _daily_import(
+    body: DailyImportInput,
+) -> PredictionSnapshot | CompanyResearchRecord | OwnerAdoptionReview:
+    try:
+        raw = json.loads(body.json_text)
+        if not isinstance(raw, dict):
+            raise ValueError("JSON object required")
+        if raw.get("schema_version") == "daily-prediction-snapshot-v1":
+            return PredictionSnapshot.model_validate(raw)
+        if raw.get("schema_version") == "company-research-v1":
+            return CompanyResearchRecord.model_validate(raw)
+        if raw.get("schema_version") == "owner-adoption-review-v1":
+            return OwnerAdoptionReview.model_validate(raw)
+        raise ValueError("unsupported daily import schema")
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail="invalid daily import: " + str(exc)) from exc
 
 
 def _require_manual_intent(
@@ -373,6 +406,78 @@ def create_app(
             "blockingReason": payload["blockingReason"],
             "orderSubmissionAvailable": False,
         }
+
+    @app.get("/api/v1/daily/latest")
+    def daily_latest() -> dict[str, object]:
+        snapshot = store.latest_prediction_snapshot()
+        if snapshot is None:
+            return {"snapshot": None, "research": [], "is_stale": True}
+        return {
+            "snapshot": snapshot.model_dump(mode="json"),
+            "research": [
+                item.model_dump(mode="json")
+                for item in store.company_research(snapshot.snapshot_id)
+            ],
+            "is_stale": snapshot.as_of.astimezone(JST).date() != current_time().date(),
+            "research_symbols": snapshot.research_symbols(),
+        }
+
+    @app.get("/api/v1/personal/readiness")
+    def personal_readiness() -> object:
+        request = PersonalComparisonRequest(checked_at=current_time(), maximum_input_age_hours=72)
+        return compare_stored_personal(store, request, now=current_time()).model_dump(mode="json")
+
+    @app.post("/api/v1/personal/compare")
+    def personal_compare(
+        body: PersonalComparisonRequest,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        return compare_stored_personal(store, body, now=current_time()).model_dump(mode="json")
+
+    @app.get("/api/v1/daily/{snapshot_id}/export")
+    def export_daily(snapshot_id: str, format: str = "json") -> Response:
+        try:
+            snapshot = store.prediction_snapshot(snapshot_id)
+            data = export_prediction_snapshot(snapshot, format=format)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="snapshot not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        media = {"json": "application/json", "csv": "text/csv", "markdown": "text/markdown"}
+        return Response(data, media_type=media[format], headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/v1/daily/import/preview")
+    def preview_daily_import(body: DailyImportInput) -> dict[str, object]:
+        item = _daily_import(body)
+        if isinstance(item, CompanyResearchRecord):
+            try:
+                validate_research_link(item, store.prediction_snapshot(item.prediction_snapshot_id))
+            except (KeyError, ValueError) as exc:
+                raise HTTPException(status_code=422, detail="invalid prediction reference") from exc
+        return {
+            "confirmation_hash": content_id(item.model_dump(mode="json")),
+            "record": item.model_dump(mode="json"),
+            "writes_performed": False,
+        }
+
+    @app.post("/api/v1/daily/import/confirm")
+    def confirm_daily_import(
+        body: DailyImportInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> dict[str, object]:
+        item = _daily_import(body)
+        if body.confirmation_hash != content_id(item.model_dump(mode="json")):
+            raise HTTPException(status_code=409, detail="preview confirmation hash mismatch")
+        try:
+            if isinstance(item, PredictionSnapshot):
+                inserted = store.append_prediction_snapshot(item)
+            elif isinstance(item, CompanyResearchRecord):
+                inserted = store.append_company_research(item)
+            else:
+                inserted = store.append_adoption_review(item)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"inserted": inserted, "record": item.model_dump(mode="json")}
 
     @app.get("/api/v1/home")
     def home(
@@ -673,9 +778,7 @@ def create_app(
         portfolio = store.latest_portfolio()
         proposal = _active_proposal(store, current_time().date())
         policy_snapshot = (
-            None
-            if proposal is None
-            else store.decision_policy_snapshot(proposal.proposal_id)
+            None if proposal is None else store.decision_policy_snapshot(proposal.proposal_id)
         )
         decision_config = None if policy_snapshot is None else policy_snapshot.config
         tax_states = {} if portfolio is None else portfolio.tax_state_map()
@@ -695,9 +798,7 @@ def create_app(
                 else str(sum((item.reserved_cash for item in portfolio.cash), Decimal("0"))),
                 "asOf": None if portfolio is None else portfolio.as_of,
                 "minimumCashRatio": (
-                    None
-                    if decision_config is None
-                    else str(decision_config.minimum_cash_ratio)
+                    None if decision_config is None else str(decision_config.minimum_cash_ratio)
                 ),
                 "dailyProposalLimit": None,
             },
@@ -743,19 +844,13 @@ def create_app(
                     None if decision_config is None else decision_config.maximum_positions
                 ),
                 "maximumSymbolWeight": (
-                    None
-                    if decision_config is None
-                    else str(decision_config.maximum_symbol_weight)
+                    None if decision_config is None else str(decision_config.maximum_symbol_weight)
                 ),
                 "maximumSectorWeight": (
-                    None
-                    if decision_config is None
-                    else str(decision_config.maximum_sector_weight)
+                    None if decision_config is None else str(decision_config.maximum_sector_weight)
                 ),
                 "maximumTurnoverRatio": (
-                    None
-                    if decision_config is None
-                    else str(decision_config.maximum_turnover_ratio)
+                    None if decision_config is None else str(decision_config.maximum_turnover_ratio)
                 ),
                 "maximumTradeAdvRatio": (
                     None
@@ -768,9 +863,7 @@ def create_app(
                     else str(decision_config.minimum_improvement_yen)
                 ),
                 "uncertaintyBufferYen": (
-                    None
-                    if decision_config is None
-                    else str(decision_config.uncertainty_buffer_yen)
+                    None if decision_config is None else str(decision_config.uncertainty_buffer_yen)
                 ),
             },
             "notifications": {

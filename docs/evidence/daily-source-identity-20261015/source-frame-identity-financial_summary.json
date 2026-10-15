@@ -1,0 +1,169 @@
+{
+  "started_at": "2026-10-14T23:39:13.548829+00:00",
+  "finished_at": "2026-10-14T23:40:20.611739+00:00",
+  "dataset": "financial_summary",
+  "dataset_snapshot_id": "3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d",
+  "source_snapshot_as_of": "2026-08-29T23:30:00+09:00",
+  "expected_source_snapshot_id": "a4dd9b8257a06785eb7a5d147d47c01bde12343200022002a9060ad979c1a32b",
+  "source_snapshot_id": "a4dd9b8257a06785eb7a5d147d47c01bde12343200022002a9060ad979c1a32b",
+  "rows": 185307,
+  "schema": [
+    [
+      "disclosed_date",
+      "datetime64[us]"
+    ],
+    [
+      "disclosed_time",
+      "object"
+    ],
+    [
+      "announced_at",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "provider_code",
+      "object"
+    ],
+    [
+      "symbol",
+      "object"
+    ],
+    [
+      "disclosure_number",
+      "object"
+    ],
+    [
+      "document_type",
+      "object"
+    ],
+    [
+      "period_type",
+      "object"
+    ],
+    [
+      "period_start",
+      "datetime64[us]"
+    ],
+    [
+      "period_end",
+      "datetime64[us]"
+    ],
+    [
+      "sales",
+      "float64"
+    ],
+    [
+      "operating_profit",
+      "float64"
+    ],
+    [
+      "ordinary_profit",
+      "float64"
+    ],
+    [
+      "net_income",
+      "float64"
+    ],
+    [
+      "eps",
+      "float64"
+    ],
+    [
+      "total_assets",
+      "float64"
+    ],
+    [
+      "equity",
+      "float64"
+    ],
+    [
+      "bps",
+      "float64"
+    ],
+    [
+      "provider_roe",
+      "float64"
+    ],
+    [
+      "shares_outstanding_fy",
+      "float64"
+    ],
+    [
+      "treasury_shares_fy",
+      "float64"
+    ],
+    [
+      "forecast_sales",
+      "float64"
+    ],
+    [
+      "forecast_operating_profit",
+      "float64"
+    ],
+    [
+      "forecast_net_income",
+      "float64"
+    ],
+    [
+      "forecast_eps",
+      "float64"
+    ],
+    [
+      "provider",
+      "object"
+    ],
+    [
+      "source_endpoint",
+      "object"
+    ],
+    [
+      "source_date",
+      "datetime64[us]"
+    ],
+    [
+      "received_at",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "available_at",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "as_of",
+      "datetime64[us, Asia/Tokyo]"
+    ],
+    [
+      "payload_hash",
+      "object"
+    ],
+    [
+      "schema_version",
+      "object"
+    ],
+    [
+      "ingestion_run_id",
+      "object"
+    ],
+    [
+      "source_record_hash",
+      "object"
+    ],
+    [
+      "raw_object_id",
+      "object"
+    ]
+  ],
+  "normalized_objects_verified": 2388,
+  "normalized_path_hash_list_sha256": "f9b8e282fd4e6a3e21088e217533223172903dded5c13f1a8121871d4155eea6",
+  "file_hashes_before_after_match": true,
+  "status": "PASS",
+  "purpose": "exact saved-source identity only; not historical-vintage, raw-pair or execution proof",
+  "holdout_scored": false,
+  "adoption_eligible": false,
+  "prototype_sha256": "42a33ae9e0d882c9e0978469c1cbff2d2be910377aeaa4ed139d90c6158c91f4",
+  "audit_script_sha256": "f09ed7b597c967a6d29f663c154f665da0fd7c10a73e4fdd66b3ed7f15ba6e04",
+  "metadata_file_sha256": "d2561ba42538d038c0404332aa24cfdf402e5cad859380406d89a65b8e7fcdc9",
+  "dependencies": {
+    "duckdb": "1.5.5"
+  }
+}
