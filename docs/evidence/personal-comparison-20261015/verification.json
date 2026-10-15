@@ -5,7 +5,7 @@
   "targeted_coverage_is_not_full_repository_coverage": true,
   "ruff": "PASS",
   "mypy_modules": 63,
-  "full_regression": "PENDING_AFTER_SOURCE_CHECKPOINT",
+  "full_regression": "PASS",
   "source_sha256": {
     "src/stock_ai/operations/personal.py": "6f9d4a39a6ba086b4ddf0bd5bab25f05ed59179e4df7fcd5b47a14ce720f5ffb",
     "src/stock_ai/operations/api.py": "f411ed27ea1ea0107637887291ea18c62bca84c0692c71d7f05dfa5934bf07f8",
@@ -29,5 +29,8 @@
   ],
   "research_only": true,
   "model_adopted": false,
-  "no_order_sent": true
+  "no_order_sent": true,
+  "source_commit": "7eea42a44642ad6ddf520c5359edfb7295c000f8",
+  "full_tests_passed": 747,
+  "full_coverage_percent": 86.95141865686875
 }

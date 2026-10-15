@@ -21,7 +21,7 @@
 
 今回ユーザーがアプリ内入力を明示したため、本人が入力した設定は本人専用クラウドDBへ保存する。PCが停止中でも保存・読込できる。認証された本人ID別のappend-only revisionを作り、同じ親revisionからの二重更新はDBのunique制約で防ぐ。古い画面からの保存は409で止まり、入力を残したまま保存済み内容を読み直せる。認証、same-origin、manual intent、厳密schemaを通った保存だけを受け付ける。原予測のテーブルは変更しない。
 
-クラウド入力のPython側への取込は実装・実入力で検証済み。保存版を照合し、PCでの保存確定後にアプリへ取込済みを返す。個別売買判断への接続は未完。資金等が揃っても、評価・費用・税・価格データの確認を省略して推奨株数を出さない。本番へテスト口座・架空保有を登録しない。
+クラウド入力のPython側への取込は実装・実入力で検証済み。保存版を照合し、PCでの保存確定後にアプリへ取込済みを返す。[PC上の研究用HOLD比較](PERSONAL_COMPARISON.md)も実装済み。初回台帳の明示照合・補足設定・結果のクラウド表示は未完。資金等が揃っても、評価・費用・税・価格データの確認を省略して推奨株数を出さない。本番へテスト口座・架空保有を登録しない。
 
 ## 原予測と手動調査
 
@@ -102,3 +102,5 @@ Python: `ruff check .`, `mypy src`, `pytest`, `pytest --cov`。Windowsのrunner�
 `private/`: Nodeのschema/fault tests、TypeScript、eslint、Sites build、390px表示確認。`web/`は既存PWAのlint/typecheck/test/buildを維持。履歴sourceのコピーは科学的証拠としてlint書換え対象から除き、coverage分母は実際の`src/stock_ai`に限定する。
 
 Sitesは既存`hosted/`と別のproject。publish用の隔離コピーは`.demo-artifacts/private-site-publish`。Windowsではhelperのプロセス内PATHへGit Bashを追加し、`TAR_OPTIONS=--force-local`を設定する。Nodeのnpm wrapperもcheckout内だけに置く。グローバル設定は変更しない。正規helperがpushしたcommitと対応archiveだけをprivate deployへ渡す。
+
+個人比較を含むsource `7eea42a`で全747試験PASS、coverage86.95%。[証拠](evidence/personal-comparison-20261015/full-regression.json)を参照。開発期間の日足も[42区間・386営業日・1,702,477行の照合](evidence/daily-market-development-20261015/README.md)が完了し、無約定・特殊code・調整要確認を保持した。営業日網羅は個別銘柄・企業行動・約定能力の証明ではなく、実市場NAVと採用判定は引き続き未完。

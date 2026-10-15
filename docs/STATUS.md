@@ -989,3 +989,12 @@ ops compare-personalとローカルAPIを追加。本人の最新手入力版・
 関連129試験、最終個人比較34試験、Ruff全体/mypy63 modules PASS。合成試験の各1,000円費用・2,000円推定税・残現金196,000円・HOLD比26,000円を独立手計算と照合。本人の実入力は保有なし・口座0・資金/リスクnullを保持し、提案なし/不足理由を返すことと全DB記録hash不変を確認。証拠docs/evidence/personal-comparison-20261015。全体回帰はこのsource checkpoint後に実行する。
 
 初回台帳の明示照合/確定、クラウドの補足設定と比較表示、実市場NAV・企業行動/約定能力/費用/税/リスク実証、最終selection/holdout・採用、最新推論/同期は残る。API403も未解消。Goal active、実注文なし。
+
+
+## 2026-10-15 — 個人比較の全回帰と開発期間の市場照合完了
+
+source 7eea42a44642ad6ddf520c5359edfb7295c000f8で全747試験PASS、coverage86.9514%（基準85%）。09:44 JSTに正常終了した。原入力不変・口座別照合・費用/税/HOLD計算を含むコードの回帰成功であり、実市場NAV・本人向け推奨や採用の完了とは区別する。証拠docs/evidence/personal-comparison-20261015/full-regression.json。
+
+開発評価期間2024-07-31〜2026-03-03の日足を42区間で認証。386営業日、raw/normalized 772 object、1,702,477行。全営業日の欠落・予定外日付・四本値の大小関係違反は0。取引あり1,629,008行、無約定73,469行、特殊code1,675行、調整要確認394行を保持。全receiptのcontent identity/byte hash、区間集計を独立に再確認した。元データは不変、最終評価の価格行・成績は未読/未採点。証拠docs/evidence/daily-market-development-20261015。
+
+独立集計scriptの初回はWindows既定cp932による日本語path誤読でidentity照合が失敗。元receiptの不変と正しいidentityを確認し、UTF-8を明示して再確認した。元audit・学習・全回帰は再実行せず、失敗scriptも保存した。次は当時の銘柄一覧とのキー照合。個別銘柄網羅、訂正前vintage、企業行動/約定能力/決済/費用/税、実市場NAV、初回台帳・クラウド補足設定/比較表示、最終selection/holdout・最新予測は残る。API403未解消。Goal active、実注文なし。

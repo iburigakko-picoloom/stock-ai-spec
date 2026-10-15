@@ -1,0 +1,3803 @@
+{
+  "adoption_eligible": false,
+  "all_source_files_unchanged": true,
+  "bar_states": {
+    "reported_no_trade": 73469,
+    "reported_trade": 1629008
+  },
+  "calendar_source_id": "212522faad73bd4fda69e598a09fbd40c49cb002e9bdfa8c66b690565568871a",
+  "checkpoints": [
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-001-checkpoint.json",
+      "sha256": "2e1f9471ec30feea8e4d87f289241b5150838b686301a2208148b6cff1da1d61"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-002-checkpoint.json",
+      "sha256": "e51e3cd5c48f068dfb5d59e789985be7143456f1d01796eca90e7185ef5a77e9"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-003-checkpoint.json",
+      "sha256": "ec11830939a2218b35f8140d09ff13d78b0a0b04a699de1caed2d36fae391323"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-004-checkpoint.json",
+      "sha256": "7cf60e158105ac349f2664f1de08eaff35410b7d9d2dc49e149f77d605764d74"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-005-checkpoint.json",
+      "sha256": "e12a167d32d22dca1c71edaa3487b2502f6bb213fcb88e65fb4ea61b877ef48e"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-006-checkpoint.json",
+      "sha256": "2c028eab239b424c28a750c397f3ea0fc5260a2b46b1843fbc032e85e8169200"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-007-checkpoint.json",
+      "sha256": "3fa453588ad3834ffa8da647ad967273e043af2b6433a38e47978defa4fcf16f"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-008-checkpoint.json",
+      "sha256": "0fee1abb8991f3d97fba48a07a944104da8f02b90d4ec81364ef07208c7a5dbe"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-009-checkpoint.json",
+      "sha256": "b43c5f9b3aed1d98dc8a4d61af9e54361b48569be3ed96684a157a49618f7fb1"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-010-checkpoint.json",
+      "sha256": "6b74631100c533bbe33954f5882355292b9b886ee97db38d97bbd2f27086dc0f"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-011-checkpoint.json",
+      "sha256": "d9eafc091e6b2256fe71a298fdebfdd0f7bcfbe4852b3ff096d364585bf9c02b"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-012-checkpoint.json",
+      "sha256": "8131b8e15f002f04ef2241c1e8641bd92b8b381109dcde1fef10b9e195b82ef6"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-013-checkpoint.json",
+      "sha256": "c1a418a919b1a22b1e6cb381817c7b048a8820de995438b931414f7edab8ef61"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-014-checkpoint.json",
+      "sha256": "ea6fcc3efa36b8cea5ba47315789259b99324c532f267af0a53bae2cf8d1a853"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-015-checkpoint.json",
+      "sha256": "8fe936803397c73994a03789c169fbfefd89c6b9c76f14ab583bea4f35b601b2"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-016-checkpoint.json",
+      "sha256": "c44776638cf7869d2e2e38f8c5003f8fe09c32c136011b485457b0f24f0a8994"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-017-checkpoint.json",
+      "sha256": "e00e3d676a76c64b334a13ffd1219370398a7c0d1dd7c15c23001778e867b212"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-018-checkpoint.json",
+      "sha256": "2ef7e8e3d5f6eb6fe6850efa4b3086325eac1099a02febf6d3b0dd266bde0ca6"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-019-checkpoint.json",
+      "sha256": "a0d5643bdcf0ab5e1b81a9869cb2dfad243318d413defdaf0b3b063a03d72592"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-020-checkpoint.json",
+      "sha256": "43564ec50b4916cc4cb6f0567388bb7568282383fee9da9378771b04090ddbef"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-021-checkpoint.json",
+      "sha256": "29e8a7373156eb4dbb5a134cbc99d2b2885744c6003dcbda70ab40ee15f2d5d9"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-022-checkpoint.json",
+      "sha256": "2eb25458349e415d52e7ac971353dcb755aa86fc2676561556719380bbaf5af1"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-023-checkpoint.json",
+      "sha256": "61169ae2c6b69f810126ff67ff1a17c44aec5302723a6b704d5f0d1846e40c0c"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-024-checkpoint.json",
+      "sha256": "922a12af7ccd8d833877a0235f49909f9a07513d6c685a5c0c9583b1092ff9a1"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-025-checkpoint.json",
+      "sha256": "662b3f63488bb8f2ca06e132cebe3fe04c66cd2d0a10199ee73d271c59f6ae88"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-026-checkpoint.json",
+      "sha256": "aa6a5a1a2f1cd7b958911a602ebb54f62c7c205b387c425eaa8dd59c274cd76b"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-027-checkpoint.json",
+      "sha256": "52037d54a2cba6c38909e67c3c9611c997e48bde488602325ef46c9024228d0e"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-028-checkpoint.json",
+      "sha256": "34762710c5d14a71adb4827d85447e0ee41cea6245e8a3785d0e0b377376c3bf"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-029-checkpoint.json",
+      "sha256": "eb8918e7937d621faaa07025a2d656821850dbcea0b9448a92eb365d102b1066"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-030-checkpoint.json",
+      "sha256": "da5d3c7a1856d406e52883a1c1c4a56cb6b3c395edf16697f19500e1d0cf6bfb"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-031-checkpoint.json",
+      "sha256": "e9f262c81b012dd7016429a171cfade8aee855241a0b378f63e48ec53abfd52f"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-032-checkpoint.json",
+      "sha256": "e086520b4d38362ad99e69971d351ccf863b3934511abccc0ec526c24c042372"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-033-checkpoint.json",
+      "sha256": "669228ccc28edf52fb5e8890c79514fc86d6a28c6aa153b4b4d32791ac8a38ed"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-034-checkpoint.json",
+      "sha256": "a038fdc6b319f05c22c61458b28e324a7ca79e056488ee07fd6f2c72755cb8fe"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-035-checkpoint.json",
+      "sha256": "24c35221b60ddac65ceb387b3ce6e941bf17ad8814fd9976ce02a91619697363"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-036-checkpoint.json",
+      "sha256": "ae44579f390580a86d8979d5288aa6b88f2b4798350c6f8845abe40f6ceb51a0"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-037-checkpoint.json",
+      "sha256": "0f6b6c0d31aaf75dc7f3eb4a173fa7bb3b2e83b094c6877e906b373cd0e3cb81"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-038-checkpoint.json",
+      "sha256": "b9e42767f8ea2b8e46839e772431d57d8e2f6ae65e7b89272975fb648e6660ee"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-039-checkpoint.json",
+      "sha256": "2722e63366c09000c3439c4df3db7d7a4e3390a5bb4e2fbc7af25b27a9072e75"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-040-checkpoint.json",
+      "sha256": "eb54f9067754f8b65a9a1f7dfa651a11f17ea13da6df7e8c520b684f6158df39"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-041-checkpoint.json",
+      "sha256": "ee826f53b61fc7caf8d36a4cbc7d179a9fe040a9456f9858f3c4ae61b088c01c"
+    },
+    {
+      "path": "artifacts\\daily-market-development-20261015\\window-042-checkpoint.json",
+      "sha256": "37ca7ec7f904858c0179543745d41d81215a0c2c168b19873fce92a232f8e848"
+    }
+  ],
+  "completed_at": "2026-10-15T00:38:03.393137+00:00",
+  "daily_bar_holdout_rows_read": false,
+  "end": "2026-03-03",
+  "evaluation_ready": false,
+  "expected_business_dates": 386,
+  "holdout_scored": false,
+  "implementation_sha256": "cf5e6b08f8c0dbade34143db0bde6d8b5c7e94f0442736d024028373b088aaf1",
+  "invalid_ohlc_keys": [],
+  "limitations": [
+    "Single-vintage as-revised only; not historical correction reconstruction.",
+    "Calendar date presence is not eligible-security completeness.",
+    "Corporate actions, ticks, execution capacity, settlement and realistic fees remain unverified.",
+    "No NAV, performance scoring, holdout evaluation or adoption."
+  ],
+  "missing_expected_trading_dates": [],
+  "no_order_sent": true,
+  "plan_sha256": "199fb6ec86a6aed8c55d249c52c27482971caa04461f35769fc0e8b12dec9cab",
+  "script_sha256": "48ceceb19258b0dec322de54d84b5931e1820ad674af76942462fda5d04c101a",
+  "start": "2024-07-31",
+  "status": "COMPLETE",
+  "totals": {
+    "adjustment_rows": 394,
+    "dates": 386,
+    "lower_limit_rows": 1670,
+    "nonstandard_code_rows": 1675,
+    "rows": 1702477,
+    "source_rows": 1702477,
+    "upper_limit_rows": 4495
+  },
+  "unexpected_dates": [],
+  "windows": 42,
+  "source_objects_verified": 772,
+  "calendar_dates_observed": 386,
+  "receipt_hashes_independently_reverified": true,
+  "receipts": [
+    {
+      "window": 1,
+      "start": "2024-07-31",
+      "end": "2024-08-13",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-07-31_2024-08-13\\671675dbbe564ac2d487606f647422441bfe60e90ecb399689bbe955b6f5635e.json",
+      "receipt_sha256": "4eb5bfda5517a118f8c6620fd2eb83a8e6e2e33a0806b6af44e38a6b846f5267",
+      "summary": {
+        "adjustment_rows": 1,
+        "bar_states": {
+          "reported_no_trade": 1387,
+          "reported_trade": 38077
+        },
+        "dates": 9,
+        "lower_limit_rows": 832,
+        "nonstandard_code_rows": 34,
+        "rows": 39464,
+        "source_rows": 39464,
+        "upper_limit_rows": 328
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 2,
+      "start": "2024-08-14",
+      "end": "2024-08-27",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-08-14_2024-08-27\\982968a90526ff6b6c37dd0b26fbff661e6252c526ebed697123982c1ac4fd5e.json",
+      "receipt_sha256": "cf86e248ab46b730138e5cdcf8f3a2dbe37f34e7200571d1ebdb6ad32cf5d232",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1717,
+          "reported_trade": 42162
+        },
+        "dates": 10,
+        "lower_limit_rows": 17,
+        "nonstandard_code_rows": 40,
+        "rows": 43879,
+        "source_rows": 43879,
+        "upper_limit_rows": 117
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 3,
+      "start": "2024-08-28",
+      "end": "2024-09-10",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-08-28_2024-09-10\\64d874ece044f5b79358f7312c8b6f8c2c7d31d5446633a59e811e6ccca16a62.json",
+      "receipt_sha256": "ba0a78dbbe5517d0525a3e8fc52f4d74fcae1023801b7289b017b8efc8e4c46a",
+      "summary": {
+        "adjustment_rows": 8,
+        "bar_states": {
+          "reported_no_trade": 1822,
+          "reported_trade": 42082
+        },
+        "dates": 10,
+        "lower_limit_rows": 9,
+        "nonstandard_code_rows": 37,
+        "rows": 43904,
+        "source_rows": 43904,
+        "upper_limit_rows": 88
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 4,
+      "start": "2024-09-11",
+      "end": "2024-09-24",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-09-11_2024-09-24\\c3846085bcca5544b4eef7ad9cb509dd68bd50dc79e3f5ab98cbd14149f269b8.json",
+      "receipt_sha256": "2a2aac822bc4ea5bcea7744c2b13e3c90ba3feb4f13e74efa6cab520be750a6e",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1503,
+          "reported_trade": 33595
+        },
+        "dates": 8,
+        "lower_limit_rows": 8,
+        "nonstandard_code_rows": 24,
+        "rows": 35098,
+        "source_rows": 35098,
+        "upper_limit_rows": 61
+      },
+      "source_objects": 16
+    },
+    {
+      "window": 5,
+      "start": "2024-09-25",
+      "end": "2024-10-08",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-09-25_2024-10-08\\cc8c2b48117ebcf17e7f0f84dcb4a9d2e45036ad0255f9a103af5934b9716f0d.json",
+      "receipt_sha256": "29770c7d1acdd674fd43c32f883969c412c013825eeb6ba8b604197188e5269e",
+      "summary": {
+        "adjustment_rows": 64,
+        "bar_states": {
+          "reported_no_trade": 1812,
+          "reported_trade": 42110
+        },
+        "dates": 10,
+        "lower_limit_rows": 11,
+        "nonstandard_code_rows": 33,
+        "rows": 43922,
+        "source_rows": 43922,
+        "upper_limit_rows": 88
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 6,
+      "start": "2024-10-09",
+      "end": "2024-10-22",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-10-09_2024-10-22\\01c780a86e6ffc3876527a177ef724ed4dddec78477b0653b7b5a5f75bd4d824.json",
+      "receipt_sha256": "4728d37b6b2337f60f0cb9904f3e3b6b5dd4a58db571666f1a83b7245af813de",
+      "summary": {
+        "adjustment_rows": 2,
+        "bar_states": {
+          "reported_no_trade": 1787,
+          "reported_trade": 37748
+        },
+        "dates": 9,
+        "lower_limit_rows": 24,
+        "nonstandard_code_rows": 36,
+        "rows": 39535,
+        "source_rows": 39535,
+        "upper_limit_rows": 60
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 7,
+      "start": "2024-10-23",
+      "end": "2024-11-05",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-10-23_2024-11-05\\71fe2455f89cd72103cc9e076e975da388687670e77949dd748edb4b05bb4c03.json",
+      "receipt_sha256": "5bb53ee886ec4ae550ff4bb263cfafc9268e74274774f5cfe6c68ad40ec79681",
+      "summary": {
+        "adjustment_rows": 5,
+        "bar_states": {
+          "reported_no_trade": 1747,
+          "reported_trade": 37821
+        },
+        "dates": 9,
+        "lower_limit_rows": 11,
+        "nonstandard_code_rows": 36,
+        "rows": 39568,
+        "source_rows": 39568,
+        "upper_limit_rows": 79
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 8,
+      "start": "2024-11-06",
+      "end": "2024-11-19",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-11-06_2024-11-19\\cf9dd57f18067501f72e63378bbb34e9210bafb1ce3cd5057c86fb25fb1632d7.json",
+      "receipt_sha256": "9fc9950229dc87c0f4f509a27a6699a63d8115877093796af999214e54d6c8fe",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1886,
+          "reported_trade": 42047
+        },
+        "dates": 10,
+        "lower_limit_rows": 45,
+        "nonstandard_code_rows": 40,
+        "rows": 43933,
+        "source_rows": 43933,
+        "upper_limit_rows": 153
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 9,
+      "start": "2024-11-20",
+      "end": "2024-12-03",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-11-20_2024-12-03\\9c01a88523bdcc7b6dc3e052d8fae085bc191a1986d3fb79a16374511a727967.json",
+      "receipt_sha256": "f25304374988a659362aa931e4ebbab55ec3e09645b81c08cef0aaeac0776956",
+      "summary": {
+        "adjustment_rows": 6,
+        "bar_states": {
+          "reported_no_trade": 1930,
+          "reported_trade": 42029
+        },
+        "dates": 10,
+        "lower_limit_rows": 10,
+        "nonstandard_code_rows": 40,
+        "rows": 43959,
+        "source_rows": 43959,
+        "upper_limit_rows": 89
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 10,
+      "start": "2024-12-04",
+      "end": "2024-12-17",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-12-04_2024-12-17\\407ed75072c7bbb8f9722f31e8a4de0abdec4bdded4f4a5fa9a8ed9cda69e062.json",
+      "receipt_sha256": "75509f27c515e78926af64b7b7533757e2d1b337580ced408d2718a87bb3cee6",
+      "summary": {
+        "adjustment_rows": 1,
+        "bar_states": {
+          "reported_no_trade": 1873,
+          "reported_trade": 42143
+        },
+        "dates": 10,
+        "lower_limit_rows": 7,
+        "nonstandard_code_rows": 40,
+        "rows": 44016,
+        "source_rows": 44016,
+        "upper_limit_rows": 80
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 11,
+      "start": "2024-12-18",
+      "end": "2024-12-31",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2024-12-18_2024-12-31\\46c39da075409e46f50f7df337f5ab2856518e464afe52098751195aea47a6c9.json",
+      "receipt_sha256": "b5928f7073831374ae575cf50cc79e49389bbc3a5c119dd94693e2843390caee",
+      "summary": {
+        "adjustment_rows": 26,
+        "bar_states": {
+          "reported_no_trade": 1561,
+          "reported_trade": 38140
+        },
+        "dates": 9,
+        "lower_limit_rows": 10,
+        "nonstandard_code_rows": 36,
+        "rows": 39701,
+        "source_rows": 39701,
+        "upper_limit_rows": 85
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 12,
+      "start": "2025-01-01",
+      "end": "2025-01-14",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-01-01_2025-01-14\\b66d166eb5a2034095c5a3a40b0f738e1f2ab2b3bd4f1b1ea2843f2d21a70006.json",
+      "receipt_sha256": "9518e8894a31738835429ec8a606faf522d8bfc1c094e88a95a17d67ede8e690",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1100,
+          "reported_trade": 25378
+        },
+        "dates": 6,
+        "lower_limit_rows": 15,
+        "nonstandard_code_rows": 24,
+        "rows": 26478,
+        "source_rows": 26478,
+        "upper_limit_rows": 64
+      },
+      "source_objects": 12
+    },
+    {
+      "window": 13,
+      "start": "2025-01-15",
+      "end": "2025-01-28",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-01-15_2025-01-28\\da7f36a98d94514a65afe39ef99b0189d7ff9eebbf8b9cd2596e1fac9c1b85e1.json",
+      "receipt_sha256": "2c00ef4a1cef74e4f7ebbcd0b434a574afc9dc687cf0ab6a042b40c1106f2987",
+      "summary": {
+        "adjustment_rows": 1,
+        "bar_states": {
+          "reported_no_trade": 1955,
+          "reported_trade": 42202
+        },
+        "dates": 10,
+        "lower_limit_rows": 17,
+        "nonstandard_code_rows": 40,
+        "rows": 44157,
+        "source_rows": 44157,
+        "upper_limit_rows": 83
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 14,
+      "start": "2025-01-29",
+      "end": "2025-02-11",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-01-29_2025-02-11\\6d0a055bfdb0ae35a928ab790e6d4723a66b234b66ac9398781058c569b6f32b.json",
+      "receipt_sha256": "fb2952963eaa397889d33beefab3a13d13e37357a5e5d75bac19fcb9bc5b9966",
+      "summary": {
+        "adjustment_rows": 6,
+        "bar_states": {
+          "reported_no_trade": 1759,
+          "reported_trade": 37931
+        },
+        "dates": 9,
+        "lower_limit_rows": 18,
+        "nonstandard_code_rows": 36,
+        "rows": 39690,
+        "source_rows": 39690,
+        "upper_limit_rows": 121
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 15,
+      "start": "2025-02-12",
+      "end": "2025-02-25",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-02-12_2025-02-25\\1c6bc027428c6f5e1e96a09c3a01bd60784a4904aeaca43522e38d4a72885849.json",
+      "receipt_sha256": "b718782606a8cdb45b884689454f9fe80ea80e88a7fa62f537bb25aaa30b8394",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1673,
+          "reported_trade": 37995
+        },
+        "dates": 9,
+        "lower_limit_rows": 34,
+        "nonstandard_code_rows": 36,
+        "rows": 39668,
+        "source_rows": 39668,
+        "upper_limit_rows": 136
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 16,
+      "start": "2025-02-26",
+      "end": "2025-03-11",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-02-26_2025-03-11\\6426f5d4a99b9af07b08f8a89451b9f98a3f118ab67c33dd7221445ef1a619af.json",
+      "receipt_sha256": "ecf2523da19d1385db0451b8c970a5c36d1d50f9ad6711c0e018a475ee6da7c0",
+      "summary": {
+        "adjustment_rows": 12,
+        "bar_states": {
+          "reported_no_trade": 1879,
+          "reported_trade": 42175
+        },
+        "dates": 10,
+        "lower_limit_rows": 18,
+        "nonstandard_code_rows": 40,
+        "rows": 44054,
+        "source_rows": 44054,
+        "upper_limit_rows": 70
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 17,
+      "start": "2025-03-12",
+      "end": "2025-03-25",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-03-12_2025-03-25\\bc4fdf9d2876e61d35dffd83bc090576502e67aff781c7e0e45a1c8057952f89.json",
+      "receipt_sha256": "03458e7254e98c2b6c8fe454bc71471891f54672667317b7c22394a034eefde8",
+      "summary": {
+        "adjustment_rows": 3,
+        "bar_states": {
+          "reported_no_trade": 1677,
+          "reported_trade": 37955
+        },
+        "dates": 9,
+        "lower_limit_rows": 8,
+        "nonstandard_code_rows": 36,
+        "rows": 39632,
+        "source_rows": 39632,
+        "upper_limit_rows": 77
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 18,
+      "start": "2025-03-26",
+      "end": "2025-04-08",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-03-26_2025-04-08\\d27ad4d8e683f85d9a0fc7475b0d5797ec4b1c704d7496215609bf10181a918e.json",
+      "receipt_sha256": "c872e1613cdea6573d203eed433999c8e200ed4838b5025be7e468304eb4956b",
+      "summary": {
+        "adjustment_rows": 52,
+        "bar_states": {
+          "reported_no_trade": 1787,
+          "reported_trade": 42319
+        },
+        "dates": 10,
+        "lower_limit_rows": 122,
+        "nonstandard_code_rows": 40,
+        "rows": 44106,
+        "source_rows": 44106,
+        "upper_limit_rows": 107
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 19,
+      "start": "2025-04-09",
+      "end": "2025-04-22",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-04-09_2025-04-22\\95dc7580bf20229e2bc18c3d73624fd4a96953a77e5619d032a5ea5e018a418c.json",
+      "receipt_sha256": "08516ff8bcee90a0145dfdc349e16f8f62adb5ca105df825b7830e4df498e3c6",
+      "summary": {
+        "adjustment_rows": 1,
+        "bar_states": {
+          "reported_no_trade": 2001,
+          "reported_trade": 42145
+        },
+        "dates": 10,
+        "lower_limit_rows": 6,
+        "nonstandard_code_rows": 40,
+        "rows": 44146,
+        "source_rows": 44146,
+        "upper_limit_rows": 116
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 20,
+      "start": "2025-04-23",
+      "end": "2025-05-06",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-04-23_2025-05-06\\f4c66ce6aee10cda5b9318df494d9e3b65187afae41132d5384bb948e7ee47a3.json",
+      "receipt_sha256": "a65adb98747a8c7d09698fac35a4d0726fc63c174ccd6fc6bb468a61a949ef64",
+      "summary": {
+        "adjustment_rows": 2,
+        "bar_states": {
+          "reported_no_trade": 1370,
+          "reported_trade": 29540
+        },
+        "dates": 7,
+        "lower_limit_rows": 7,
+        "nonstandard_code_rows": 28,
+        "rows": 30910,
+        "source_rows": 30910,
+        "upper_limit_rows": 56
+      },
+      "source_objects": 14
+    },
+    {
+      "window": 21,
+      "start": "2025-05-07",
+      "end": "2025-05-20",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-05-07_2025-05-20\\4edd1db7302e067f70498dbe407e5ec497d9751179832d60de81e155fcd0f238.json",
+      "receipt_sha256": "d8dfdbb629fce64342343eb32633506a59036a24cf1a5edb3a8c36954ed7eaab",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1943,
+          "reported_trade": 42180
+        },
+        "dates": 10,
+        "lower_limit_rows": 22,
+        "nonstandard_code_rows": 40,
+        "rows": 44123,
+        "source_rows": 44123,
+        "upper_limit_rows": 149
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 22,
+      "start": "2025-05-21",
+      "end": "2025-06-03",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-05-21_2025-06-03\\a0829d480524e54f1fd66110331b3ea4f6168f687da5046a452362d053082c1c.json",
+      "receipt_sha256": "7f7069714075ecd6016ff4fd5a551c705a234acf6a8b9ad8ab754901d1176a69",
+      "summary": {
+        "adjustment_rows": 11,
+        "bar_states": {
+          "reported_no_trade": 1996,
+          "reported_trade": 42106
+        },
+        "dates": 10,
+        "lower_limit_rows": 13,
+        "nonstandard_code_rows": 40,
+        "rows": 44102,
+        "source_rows": 44102,
+        "upper_limit_rows": 102
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 23,
+      "start": "2025-06-04",
+      "end": "2025-06-17",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-06-04_2025-06-17\\34090f4822e2cced68b96b77f54467794ad59f74d1a6cc6f8a44c7cac4001e93.json",
+      "receipt_sha256": "56da60ff98d060a9b3b73fc00a56239f16304c36bd30f1ed81404c6ffb8d9908",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 2114,
+          "reported_trade": 41942
+        },
+        "dates": 10,
+        "lower_limit_rows": 7,
+        "nonstandard_code_rows": 40,
+        "rows": 44056,
+        "source_rows": 44056,
+        "upper_limit_rows": 111
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 24,
+      "start": "2025-06-18",
+      "end": "2025-07-01",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-06-18_2025-07-01\\457db1ce2f551e53820465116a7fbcd0b1c86ab1f122c0779dbe600e09d8e953.json",
+      "receipt_sha256": "2f6e19077d36ba1db350d18987f9cc1a1f144d100786d9278651cb681eb8b1fa",
+      "summary": {
+        "adjustment_rows": 21,
+        "bar_states": {
+          "reported_no_trade": 1990,
+          "reported_trade": 42064
+        },
+        "dates": 10,
+        "lower_limit_rows": 18,
+        "nonstandard_code_rows": 40,
+        "rows": 44054,
+        "source_rows": 44054,
+        "upper_limit_rows": 92
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 25,
+      "start": "2025-07-02",
+      "end": "2025-07-15",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-07-02_2025-07-15\\fee43b801f23056e5f68b1784403a19c73c471d2364f13b862a4c5c2648af0ec.json",
+      "receipt_sha256": "e7043919b85a94f36d960e585fc43bc11db71d4b1394e74af83f3466eb91448f",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 2036,
+          "reported_trade": 42082
+        },
+        "dates": 10,
+        "lower_limit_rows": 17,
+        "nonstandard_code_rows": 40,
+        "rows": 44118,
+        "source_rows": 44118,
+        "upper_limit_rows": 93
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 26,
+      "start": "2025-07-16",
+      "end": "2025-07-29",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-07-16_2025-07-29\\396804bc8a7fee8beb9a00392110fc429b400b6b11d689176d3826c29cb339cb.json",
+      "receipt_sha256": "39b1b05846af03aa0382e93d0d0e3b4bb04b81f168c557cb64545a500df3c6ac",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1726,
+          "reported_trade": 38007
+        },
+        "dates": 9,
+        "lower_limit_rows": 9,
+        "nonstandard_code_rows": 36,
+        "rows": 39733,
+        "source_rows": 39733,
+        "upper_limit_rows": 84
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 27,
+      "start": "2025-07-30",
+      "end": "2025-08-12",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-07-30_2025-08-12\\25d8a81f87e70d0048c5fa10d3755116a9da16a7d36b4240af56006b1d2761d5.json",
+      "receipt_sha256": "a42180d74bd2794f2da83a6cc761ea2411a4e8c7c8b56de3d6f784290d0d81ac",
+      "summary": {
+        "adjustment_rows": 5,
+        "bar_states": {
+          "reported_no_trade": 1712,
+          "reported_trade": 38018
+        },
+        "dates": 9,
+        "lower_limit_rows": 23,
+        "nonstandard_code_rows": 36,
+        "rows": 39730,
+        "source_rows": 39730,
+        "upper_limit_rows": 120
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 28,
+      "start": "2025-08-13",
+      "end": "2025-08-26",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-08-13_2025-08-26\\f5a705bf0167f65f37c0ee8187de095aeb4acb38b0584016b595b589524bac40.json",
+      "receipt_sha256": "27f02546f020bb72f66ef7ebed29ec342b86ab9ecbb057d7fcb2d44fde44e295",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1881,
+          "reported_trade": 42269
+        },
+        "dates": 10,
+        "lower_limit_rows": 28,
+        "nonstandard_code_rows": 40,
+        "rows": 44150,
+        "source_rows": 44150,
+        "upper_limit_rows": 202
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 29,
+      "start": "2025-08-27",
+      "end": "2025-09-09",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-08-27_2025-09-09\\700e08c46d936c8aeb43229a5321cfa8bf0f7c36cc891dbf57bdf1eddac5fad8.json",
+      "receipt_sha256": "dc22ea1ea8172cd83b4de6b96bae770098097f706f12249e6c0e707073f7236c",
+      "summary": {
+        "adjustment_rows": 17,
+        "bar_states": {
+          "reported_no_trade": 1942,
+          "reported_trade": 42158
+        },
+        "dates": 10,
+        "lower_limit_rows": 21,
+        "nonstandard_code_rows": 40,
+        "rows": 44100,
+        "source_rows": 44100,
+        "upper_limit_rows": 112
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 30,
+      "start": "2025-09-10",
+      "end": "2025-09-23",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-09-10_2025-09-23\\0747ec30e5d86671b2a3b31fc30a1ec86895f6cde8cd118292dc827980c05207.json",
+      "receipt_sha256": "dcd8523b9f01c471c74a601a6b5ebf02666382f22724840b887cb45e8d0bebe6",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1489,
+          "reported_trade": 33793
+        },
+        "dates": 8,
+        "lower_limit_rows": 23,
+        "nonstandard_code_rows": 32,
+        "rows": 35282,
+        "source_rows": 35282,
+        "upper_limit_rows": 78
+      },
+      "source_objects": 16
+    },
+    {
+      "window": 31,
+      "start": "2025-09-24",
+      "end": "2025-10-07",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-09-24_2025-10-07\\d7ec0ca13c3879a4936f184060b24abb1da83d52f65eaf334590509d4dfdf3a0.json",
+      "receipt_sha256": "20075d974a2e06d2919522e7e65018cfd8adaa1181e43c885f45f43f16064c1e",
+      "summary": {
+        "adjustment_rows": 70,
+        "bar_states": {
+          "reported_no_trade": 1844,
+          "reported_trade": 42245
+        },
+        "dates": 10,
+        "lower_limit_rows": 21,
+        "nonstandard_code_rows": 44,
+        "rows": 44089,
+        "source_rows": 44089,
+        "upper_limit_rows": 108
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 32,
+      "start": "2025-10-08",
+      "end": "2025-10-21",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-10-08_2025-10-21\\6804ef1a66ec37b43037007f06a3d9e2661a7a7978eac1f225fd1097a0745e89.json",
+      "receipt_sha256": "eb4a63731cbcdf9450071b1714069bc01cb0ee22f399ace91cb353414537b8a9",
+      "summary": {
+        "adjustment_rows": 2,
+        "bar_states": {
+          "reported_no_trade": 1738,
+          "reported_trade": 37985
+        },
+        "dates": 9,
+        "lower_limit_rows": 21,
+        "nonstandard_code_rows": 45,
+        "rows": 39723,
+        "source_rows": 39723,
+        "upper_limit_rows": 96
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 33,
+      "start": "2025-10-22",
+      "end": "2025-11-04",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-10-22_2025-11-04\\554557732227f685bbe4a102a47255915b353328063b633bc330dd9c8c67488a.json",
+      "receipt_sha256": "0ec2bfcf1993e4013d1088685ba567199398dd2f7225dcbe86c5e7fe0b10a2bf",
+      "summary": {
+        "adjustment_rows": 10,
+        "bar_states": {
+          "reported_no_trade": 1742,
+          "reported_trade": 38019
+        },
+        "dates": 9,
+        "lower_limit_rows": 16,
+        "nonstandard_code_rows": 45,
+        "rows": 39761,
+        "source_rows": 39761,
+        "upper_limit_rows": 95
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 34,
+      "start": "2025-11-05",
+      "end": "2025-11-18",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-11-05_2025-11-18\\7819b2a95c802a93c3e4d280e049380d7380f807557807a19f610d0597d42acf.json",
+      "receipt_sha256": "cad145d51a963adfc62a502e3f17ac1fcc822a636ff96b308ab2515eea30029d",
+      "summary": {
+        "adjustment_rows": 2,
+        "bar_states": {
+          "reported_no_trade": 1953,
+          "reported_trade": 42227
+        },
+        "dates": 10,
+        "lower_limit_rows": 55,
+        "nonstandard_code_rows": 50,
+        "rows": 44180,
+        "source_rows": 44180,
+        "upper_limit_rows": 136
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 35,
+      "start": "2025-11-19",
+      "end": "2025-12-02",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-11-19_2025-12-02\\af856ce5d4b54e2481f2b7ac879b8d337b9ab4014223eb326774e2dd6bf2e61f.json",
+      "receipt_sha256": "e5cd812a85996ce1ade529c8831e6cf415196783d2719e0bd106d65903eaa9ad",
+      "summary": {
+        "adjustment_rows": 8,
+        "bar_states": {
+          "reported_no_trade": 1737,
+          "reported_trade": 38094
+        },
+        "dates": 9,
+        "lower_limit_rows": 18,
+        "nonstandard_code_rows": 45,
+        "rows": 39831,
+        "source_rows": 39831,
+        "upper_limit_rows": 63
+      },
+      "source_objects": 18
+    },
+    {
+      "window": 36,
+      "start": "2025-12-03",
+      "end": "2025-12-16",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-12-03_2025-12-16\\a3df257376da02cc2873101527838ea1b3758182e429da93f0b1c1c9b09fd1a6.json",
+      "receipt_sha256": "3b33845df0e191ac3197f15f5c5fa48001e5bbceb1f85f2c674c5ac16786735f",
+      "summary": {
+        "adjustment_rows": 1,
+        "bar_states": {
+          "reported_no_trade": 1997,
+          "reported_trade": 42278
+        },
+        "dates": 10,
+        "lower_limit_rows": 17,
+        "nonstandard_code_rows": 52,
+        "rows": 44275,
+        "source_rows": 44275,
+        "upper_limit_rows": 101
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 37,
+      "start": "2025-12-17",
+      "end": "2025-12-30",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-12-17_2025-12-30\\5f7a587925d02e4ecb1079675d735d76f37c467c49ca3aa6437f94c12fecb5ac.json",
+      "receipt_sha256": "54167dfbca974e58a0326b38c777b396f53ab2ec666ca32290c5367ff7838206",
+      "summary": {
+        "adjustment_rows": 40,
+        "bar_states": {
+          "reported_no_trade": 1913,
+          "reported_trade": 42440
+        },
+        "dates": 10,
+        "lower_limit_rows": 9,
+        "nonstandard_code_rows": 60,
+        "rows": 44353,
+        "source_rows": 44353,
+        "upper_limit_rows": 97
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 38,
+      "start": "2025-12-31",
+      "end": "2026-01-13",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2025-12-31_2026-01-13\\f6b29e634b3069d9faba292e6382e228b1b5e68bb893f12f13c897382d0776c3.json",
+      "receipt_sha256": "05e34d8ea6a0c0c91fbb34b4abc8301ecf41ce6d931293c45d5c981fe04f18c7",
+      "summary": {
+        "adjustment_rows": 0,
+        "bar_states": {
+          "reported_no_trade": 1118,
+          "reported_trade": 25494
+        },
+        "dates": 6,
+        "lower_limit_rows": 3,
+        "nonstandard_code_rows": 36,
+        "rows": 26612,
+        "source_rows": 26612,
+        "upper_limit_rows": 66
+      },
+      "source_objects": 12
+    },
+    {
+      "window": 39,
+      "start": "2026-01-14",
+      "end": "2026-01-27",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2026-01-14_2026-01-27\\74238210f0fc3bf680b3f58c30fab27927c3e29c5d15ed9e5079537b405cadf6.json",
+      "receipt_sha256": "effccb5b00e97eec2081aad9fdc8bc9d91d4aeef37ea134cfb401ef36060a82a",
+      "summary": {
+        "adjustment_rows": 2,
+        "bar_states": {
+          "reported_no_trade": 1928,
+          "reported_trade": 42413
+        },
+        "dates": 10,
+        "lower_limit_rows": 13,
+        "nonstandard_code_rows": 60,
+        "rows": 44341,
+        "source_rows": 44341,
+        "upper_limit_rows": 129
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 40,
+      "start": "2026-01-28",
+      "end": "2026-02-10",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2026-01-28_2026-02-10\\ebea04c7746f945208f5ab33f0799348c9f039633824d7f004418f6dd7aad391.json",
+      "receipt_sha256": "a79ef6a6cf5f7745cb6c2ef8639bd4b799437b415a14076853ebbb875cdec13c",
+      "summary": {
+        "adjustment_rows": 7,
+        "bar_states": {
+          "reported_no_trade": 1988,
+          "reported_trade": 42368
+        },
+        "dates": 10,
+        "lower_limit_rows": 18,
+        "nonstandard_code_rows": 60,
+        "rows": 44356,
+        "source_rows": 44356,
+        "upper_limit_rows": 147
+      },
+      "source_objects": 20
+    },
+    {
+      "window": 41,
+      "start": "2026-02-11",
+      "end": "2026-02-24",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2026-02-11_2026-02-24\\b52d5258288bbb9bab31358b9c122d7ede9b36b488314ed52427c21d12ff7586.json",
+      "receipt_sha256": "f64307f6c77904a3d165e8f805dffd39c4b358693f0e88f939f71b2767fed237",
+      "summary": {
+        "adjustment_rows": 1,
+        "bar_states": {
+          "reported_no_trade": 1527,
+          "reported_trade": 33967
+        },
+        "dates": 8,
+        "lower_limit_rows": 64,
+        "nonstandard_code_rows": 48,
+        "rows": 35494,
+        "source_rows": 35494,
+        "upper_limit_rows": 188
+      },
+      "source_objects": 16
+    },
+    {
+      "window": 42,
+      "start": "2026-02-25",
+      "end": "2026-03-03",
+      "receipt_path": "artifacts\\daily-market-development-20261015\\2026-02-25_2026-03-03\\3b116a242a91c8135f2f896ccf85f1304e9b7bd2eb78d91774ef0dd9f4317b31.json",
+      "receipt_sha256": "b59c320bf82bd667225a5db44d638c740fb75c259019d63195b14850fe54de22",
+      "summary": {
+        "adjustment_rows": 7,
+        "bar_states": {
+          "reported_no_trade": 929,
+          "reported_trade": 21265
+        },
+        "dates": 5,
+        "lower_limit_rows": 5,
+        "nonstandard_code_rows": 30,
+        "rows": 22194,
+        "source_rows": 22194,
+        "upper_limit_rows": 68
+      },
+      "source_objects": 10
+    }
+  ],
+  "daily_profile": {
+    "2024-07-31": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 194,
+      "reported_trade": 4189,
+      "rows": 4383
+    },
+    "2024-08-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 158,
+      "reported_trade": 4225,
+      "rows": 4383
+    },
+    "2024-08-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 143,
+      "reported_trade": 4241,
+      "rows": 4384
+    },
+    "2024-08-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 130,
+      "reported_trade": 4255,
+      "rows": 4385
+    },
+    "2024-08-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 140,
+      "reported_trade": 4245,
+      "rows": 4385
+    },
+    "2024-08-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 144,
+      "reported_trade": 4241,
+      "rows": 4385
+    },
+    "2024-08-08": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 167,
+      "reported_trade": 4219,
+      "rows": 4386
+    },
+    "2024-08-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 164,
+      "reported_trade": 4222,
+      "rows": 4386
+    },
+    "2024-08-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 147,
+      "reported_trade": 4240,
+      "rows": 4387
+    },
+    "2024-08-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 164,
+      "reported_trade": 4223,
+      "rows": 4387
+    },
+    "2024-08-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 170,
+      "reported_trade": 4217,
+      "rows": 4387
+    },
+    "2024-08-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 162,
+      "reported_trade": 4225,
+      "rows": 4387
+    },
+    "2024-08-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 162,
+      "reported_trade": 4224,
+      "rows": 4386
+    },
+    "2024-08-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 172,
+      "reported_trade": 4215,
+      "rows": 4387
+    },
+    "2024-08-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4200,
+      "rows": 4388
+    },
+    "2024-08-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 179,
+      "reported_trade": 4211,
+      "rows": 4390
+    },
+    "2024-08-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 178,
+      "reported_trade": 4211,
+      "rows": 4389
+    },
+    "2024-08-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 167,
+      "reported_trade": 4222,
+      "rows": 4389
+    },
+    "2024-08-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 175,
+      "reported_trade": 4214,
+      "rows": 4389
+    },
+    "2024-08-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4204,
+      "rows": 4392
+    },
+    "2024-08-29": {
+      "adjustment_rows": 7,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4193,
+      "rows": 4392
+    },
+    "2024-08-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4207,
+      "rows": 4392
+    },
+    "2024-09-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 162,
+      "reported_trade": 4229,
+      "rows": 4391
+    },
+    "2024-09-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 170,
+      "reported_trade": 4220,
+      "rows": 4390
+    },
+    "2024-09-04": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 172,
+      "reported_trade": 4218,
+      "rows": 4390
+    },
+    "2024-09-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 189,
+      "reported_trade": 4201,
+      "rows": 4390
+    },
+    "2024-09-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 189,
+      "reported_trade": 4200,
+      "rows": 4389
+    },
+    "2024-09-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 166,
+      "reported_trade": 4223,
+      "rows": 4389
+    },
+    "2024-09-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 202,
+      "reported_trade": 4187,
+      "rows": 4389
+    },
+    "2024-09-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 193,
+      "reported_trade": 4195,
+      "rows": 4388
+    },
+    "2024-09-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 205,
+      "reported_trade": 4183,
+      "rows": 4388
+    },
+    "2024-09-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 209,
+      "reported_trade": 4179,
+      "rows": 4388
+    },
+    "2024-09-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 176,
+      "reported_trade": 4211,
+      "rows": 4387
+    },
+    "2024-09-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 204,
+      "reported_trade": 4182,
+      "rows": 4386
+    },
+    "2024-09-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 183,
+      "reported_trade": 4203,
+      "rows": 4386
+    },
+    "2024-09-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 170,
+      "reported_trade": 4216,
+      "rows": 4386
+    },
+    "2024-09-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 163,
+      "reported_trade": 4226,
+      "rows": 4389
+    },
+    "2024-09-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 178,
+      "reported_trade": 4212,
+      "rows": 4390
+    },
+    "2024-09-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 152,
+      "reported_trade": 4243,
+      "rows": 4395
+    },
+    "2024-09-27": {
+      "adjustment_rows": 64,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 181,
+      "reported_trade": 4207,
+      "rows": 4388
+    },
+    "2024-09-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 165,
+      "reported_trade": 4223,
+      "rows": 4388
+    },
+    "2024-10-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 181,
+      "reported_trade": 4212,
+      "rows": 4393
+    },
+    "2024-10-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 188,
+      "reported_trade": 4205,
+      "rows": 4393
+    },
+    "2024-10-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 3,
+      "reported_no_trade": 187,
+      "reported_trade": 4206,
+      "rows": 4393
+    },
+    "2024-10-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 200,
+      "reported_trade": 4194,
+      "rows": 4394
+    },
+    "2024-10-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 181,
+      "reported_trade": 4213,
+      "rows": 4394
+    },
+    "2024-10-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4195,
+      "rows": 4394
+    },
+    "2024-10-09": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 209,
+      "reported_trade": 4184,
+      "rows": 4393
+    },
+    "2024-10-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 205,
+      "reported_trade": 4188,
+      "rows": 4393
+    },
+    "2024-10-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 195,
+      "reported_trade": 4199,
+      "rows": 4394
+    },
+    "2024-10-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 175,
+      "reported_trade": 4218,
+      "rows": 4393
+    },
+    "2024-10-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 201,
+      "reported_trade": 4191,
+      "rows": 4392
+    },
+    "2024-10-17": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 209,
+      "reported_trade": 4183,
+      "rows": 4392
+    },
+    "2024-10-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 210,
+      "reported_trade": 4183,
+      "rows": 4393
+    },
+    "2024-10-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4206,
+      "rows": 4392
+    },
+    "2024-10-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4196,
+      "rows": 4393
+    },
+    "2024-10-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4207,
+      "rows": 4395
+    },
+    "2024-10-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 193,
+      "reported_trade": 4202,
+      "rows": 4395
+    },
+    "2024-10-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 180,
+      "reported_trade": 4217,
+      "rows": 4397
+    },
+    "2024-10-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 181,
+      "reported_trade": 4217,
+      "rows": 4398
+    },
+    "2024-10-29": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 203,
+      "reported_trade": 4195,
+      "rows": 4398
+    },
+    "2024-10-30": {
+      "adjustment_rows": 5,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 196,
+      "reported_trade": 4199,
+      "rows": 4395
+    },
+    "2024-10-31": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 212,
+      "reported_trade": 4185,
+      "rows": 4397
+    },
+    "2024-11-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 206,
+      "reported_trade": 4191,
+      "rows": 4397
+    },
+    "2024-11-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4208,
+      "rows": 4396
+    },
+    "2024-11-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4210,
+      "rows": 4396
+    },
+    "2024-11-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4209,
+      "rows": 4395
+    },
+    "2024-11-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4213,
+      "rows": 4395
+    },
+    "2024-11-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 183,
+      "reported_trade": 4210,
+      "rows": 4393
+    },
+    "2024-11-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4200,
+      "rows": 4392
+    },
+    "2024-11-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 190,
+      "reported_trade": 4202,
+      "rows": 4392
+    },
+    "2024-11-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4196,
+      "rows": 4393
+    },
+    "2024-11-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 187,
+      "reported_trade": 4206,
+      "rows": 4393
+    },
+    "2024-11-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 187,
+      "reported_trade": 4206,
+      "rows": 4393
+    },
+    "2024-11-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 196,
+      "reported_trade": 4195,
+      "rows": 4391
+    },
+    "2024-11-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 219,
+      "reported_trade": 4173,
+      "rows": 4392
+    },
+    "2024-11-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 190,
+      "reported_trade": 4204,
+      "rows": 4394
+    },
+    "2024-11-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 194,
+      "reported_trade": 4201,
+      "rows": 4395
+    },
+    "2024-11-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 173,
+      "reported_trade": 4222,
+      "rows": 4395
+    },
+    "2024-11-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 191,
+      "reported_trade": 4205,
+      "rows": 4396
+    },
+    "2024-11-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4194,
+      "rows": 4396
+    },
+    "2024-11-28": {
+      "adjustment_rows": 5,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 215,
+      "reported_trade": 4181,
+      "rows": 4396
+    },
+    "2024-11-29": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 200,
+      "reported_trade": 4198,
+      "rows": 4398
+    },
+    "2024-12-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 169,
+      "reported_trade": 4229,
+      "rows": 4398
+    },
+    "2024-12-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 177,
+      "reported_trade": 4222,
+      "rows": 4399
+    },
+    "2024-12-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4215,
+      "rows": 4400
+    },
+    "2024-12-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4215,
+      "rows": 4400
+    },
+    "2024-12-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 190,
+      "reported_trade": 4209,
+      "rows": 4399
+    },
+    "2024-12-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4218,
+      "rows": 4400
+    },
+    "2024-12-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4203,
+      "rows": 4400
+    },
+    "2024-12-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4204,
+      "rows": 4401
+    },
+    "2024-12-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 176,
+      "reported_trade": 4226,
+      "rows": 4402
+    },
+    "2024-12-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 189,
+      "reported_trade": 4214,
+      "rows": 4403
+    },
+    "2024-12-16": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 180,
+      "reported_trade": 4225,
+      "rows": 4405
+    },
+    "2024-12-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4214,
+      "rows": 4406
+    },
+    "2024-12-18": {
+      "adjustment_rows": 2,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4221,
+      "rows": 4406
+    },
+    "2024-12-19": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4229,
+      "rows": 4411
+    },
+    "2024-12-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 175,
+      "reported_trade": 4235,
+      "rows": 4410
+    },
+    "2024-12-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 160,
+      "reported_trade": 4250,
+      "rows": 4410
+    },
+    "2024-12-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 173,
+      "reported_trade": 4236,
+      "rows": 4409
+    },
+    "2024-12-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 171,
+      "reported_trade": 4241,
+      "rows": 4412
+    },
+    "2024-12-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 166,
+      "reported_trade": 4248,
+      "rows": 4414
+    },
+    "2024-12-27": {
+      "adjustment_rows": 23,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 177,
+      "reported_trade": 4238,
+      "rows": 4415
+    },
+    "2024-12-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 172,
+      "reported_trade": 4242,
+      "rows": 4414
+    },
+    "2025-01-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 161,
+      "reported_trade": 4253,
+      "rows": 4414
+    },
+    "2025-01-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 177,
+      "reported_trade": 4234,
+      "rows": 4411
+    },
+    "2025-01-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4220,
+      "rows": 4412
+    },
+    "2025-01-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4225,
+      "rows": 4413
+    },
+    "2025-01-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4215,
+      "rows": 4414
+    },
+    "2025-01-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 183,
+      "reported_trade": 4231,
+      "rows": 4414
+    },
+    "2025-01-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 193,
+      "reported_trade": 4221,
+      "rows": 4414
+    },
+    "2025-01-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4214,
+      "rows": 4416
+    },
+    "2025-01-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 200,
+      "reported_trade": 4217,
+      "rows": 4417
+    },
+    "2025-01-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 189,
+      "reported_trade": 4228,
+      "rows": 4417
+    },
+    "2025-01-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 219,
+      "reported_trade": 4198,
+      "rows": 4417
+    },
+    "2025-01-22": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4215,
+      "rows": 4417
+    },
+    "2025-01-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4220,
+      "rows": 4417
+    },
+    "2025-01-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 189,
+      "reported_trade": 4225,
+      "rows": 4414
+    },
+    "2025-01-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 177,
+      "reported_trade": 4237,
+      "rows": 4414
+    },
+    "2025-01-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 187,
+      "reported_trade": 4227,
+      "rows": 4414
+    },
+    "2025-01-29": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 198,
+      "reported_trade": 4215,
+      "rows": 4413
+    },
+    "2025-01-30": {
+      "adjustment_rows": 6,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 200,
+      "reported_trade": 4210,
+      "rows": 4410
+    },
+    "2025-01-31": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 194,
+      "reported_trade": 4216,
+      "rows": 4410
+    },
+    "2025-02-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4227,
+      "rows": 4409
+    },
+    "2025-02-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4210,
+      "rows": 4409
+    },
+    "2025-02-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4219,
+      "rows": 4411
+    },
+    "2025-02-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 211,
+      "reported_trade": 4199,
+      "rows": 4410
+    },
+    "2025-02-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 201,
+      "reported_trade": 4209,
+      "rows": 4410
+    },
+    "2025-02-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4226,
+      "rows": 4408
+    },
+    "2025-02-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 189,
+      "reported_trade": 4218,
+      "rows": 4407
+    },
+    "2025-02-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 181,
+      "reported_trade": 4227,
+      "rows": 4408
+    },
+    "2025-02-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4222,
+      "rows": 4408
+    },
+    "2025-02-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 179,
+      "reported_trade": 4228,
+      "rows": 4407
+    },
+    "2025-02-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 191,
+      "reported_trade": 4216,
+      "rows": 4407
+    },
+    "2025-02-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 200,
+      "reported_trade": 4206,
+      "rows": 4406
+    },
+    "2025-02-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4216,
+      "rows": 4408
+    },
+    "2025-02-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4221,
+      "rows": 4409
+    },
+    "2025-02-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 167,
+      "reported_trade": 4241,
+      "rows": 4408
+    },
+    "2025-02-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 177,
+      "reported_trade": 4229,
+      "rows": 4406
+    },
+    "2025-02-27": {
+      "adjustment_rows": 12,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4204,
+      "rows": 4406
+    },
+    "2025-02-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 171,
+      "reported_trade": 4236,
+      "rows": 4407
+    },
+    "2025-03-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4225,
+      "rows": 4407
+    },
+    "2025-03-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 195,
+      "reported_trade": 4210,
+      "rows": 4405
+    },
+    "2025-03-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 195,
+      "reported_trade": 4210,
+      "rows": 4405
+    },
+    "2025-03-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 195,
+      "reported_trade": 4210,
+      "rows": 4405
+    },
+    "2025-03-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 191,
+      "reported_trade": 4214,
+      "rows": 4405
+    },
+    "2025-03-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 181,
+      "reported_trade": 4223,
+      "rows": 4404
+    },
+    "2025-03-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 190,
+      "reported_trade": 4214,
+      "rows": 4404
+    },
+    "2025-03-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 213,
+      "reported_trade": 4191,
+      "rows": 4404
+    },
+    "2025-03-13": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 208,
+      "reported_trade": 4195,
+      "rows": 4403
+    },
+    "2025-03-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 198,
+      "reported_trade": 4205,
+      "rows": 4403
+    },
+    "2025-03-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 184,
+      "reported_trade": 4219,
+      "rows": 4403
+    },
+    "2025-03-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 181,
+      "reported_trade": 4222,
+      "rows": 4403
+    },
+    "2025-03-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4222,
+      "rows": 4404
+    },
+    "2025-03-21": {
+      "adjustment_rows": 2,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 172,
+      "reported_trade": 4231,
+      "rows": 4403
+    },
+    "2025-03-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 169,
+      "reported_trade": 4235,
+      "rows": 4404
+    },
+    "2025-03-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 170,
+      "reported_trade": 4235,
+      "rows": 4405
+    },
+    "2025-03-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 180,
+      "reported_trade": 4225,
+      "rows": 4405
+    },
+    "2025-03-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 187,
+      "reported_trade": 4222,
+      "rows": 4409
+    },
+    "2025-03-28": {
+      "adjustment_rows": 50,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4222,
+      "rows": 4410
+    },
+    "2025-03-31": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 175,
+      "reported_trade": 4236,
+      "rows": 4411
+    },
+    "2025-04-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4214,
+      "rows": 4411
+    },
+    "2025-04-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 193,
+      "reported_trade": 4218,
+      "rows": 4411
+    },
+    "2025-04-03": {
+      "adjustment_rows": 2,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 176,
+      "reported_trade": 4235,
+      "rows": 4411
+    },
+    "2025-04-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 163,
+      "reported_trade": 4249,
+      "rows": 4412
+    },
+    "2025-04-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 159,
+      "reported_trade": 4254,
+      "rows": 4413
+    },
+    "2025-04-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 169,
+      "reported_trade": 4244,
+      "rows": 4413
+    },
+    "2025-04-09": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 184,
+      "reported_trade": 4229,
+      "rows": 4413
+    },
+    "2025-04-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 179,
+      "reported_trade": 4234,
+      "rows": 4413
+    },
+    "2025-04-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 196,
+      "reported_trade": 4217,
+      "rows": 4413
+    },
+    "2025-04-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4227,
+      "rows": 4413
+    },
+    "2025-04-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 212,
+      "reported_trade": 4201,
+      "rows": 4413
+    },
+    "2025-04-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 208,
+      "reported_trade": 4206,
+      "rows": 4414
+    },
+    "2025-04-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 232,
+      "reported_trade": 4183,
+      "rows": 4415
+    },
+    "2025-04-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 204,
+      "reported_trade": 4213,
+      "rows": 4417
+    },
+    "2025-04-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 191,
+      "reported_trade": 4226,
+      "rows": 4417
+    },
+    "2025-04-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 209,
+      "reported_trade": 4209,
+      "rows": 4418
+    },
+    "2025-04-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 207,
+      "reported_trade": 4209,
+      "rows": 4416
+    },
+    "2025-04-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 212,
+      "reported_trade": 4205,
+      "rows": 4417
+    },
+    "2025-04-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 184,
+      "reported_trade": 4232,
+      "rows": 4416
+    },
+    "2025-04-28": {
+      "adjustment_rows": 2,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4230,
+      "rows": 4416
+    },
+    "2025-04-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4223,
+      "rows": 4415
+    },
+    "2025-05-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 200,
+      "reported_trade": 4215,
+      "rows": 4415
+    },
+    "2025-05-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 189,
+      "reported_trade": 4226,
+      "rows": 4415
+    },
+    "2025-05-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4227,
+      "rows": 4415
+    },
+    "2025-05-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 212,
+      "reported_trade": 4203,
+      "rows": 4415
+    },
+    "2025-05-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 191,
+      "reported_trade": 4223,
+      "rows": 4414
+    },
+    "2025-05-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4229,
+      "rows": 4414
+    },
+    "2025-05-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4228,
+      "rows": 4413
+    },
+    "2025-05-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 196,
+      "reported_trade": 4215,
+      "rows": 4411
+    },
+    "2025-05-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 196,
+      "reported_trade": 4215,
+      "rows": 4411
+    },
+    "2025-05-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 198,
+      "reported_trade": 4212,
+      "rows": 4410
+    },
+    "2025-05-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 204,
+      "reported_trade": 4206,
+      "rows": 4410
+    },
+    "2025-05-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4222,
+      "rows": 4410
+    },
+    "2025-05-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 204,
+      "reported_trade": 4206,
+      "rows": 4410
+    },
+    "2025-05-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4211,
+      "rows": 4410
+    },
+    "2025-05-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 201,
+      "reported_trade": 4212,
+      "rows": 4413
+    },
+    "2025-05-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 193,
+      "reported_trade": 4219,
+      "rows": 4412
+    },
+    "2025-05-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 201,
+      "reported_trade": 4211,
+      "rows": 4412
+    },
+    "2025-05-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 194,
+      "reported_trade": 4217,
+      "rows": 4411
+    },
+    "2025-05-29": {
+      "adjustment_rows": 11,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 210,
+      "reported_trade": 4199,
+      "rows": 4409
+    },
+    "2025-05-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 194,
+      "reported_trade": 4215,
+      "rows": 4409
+    },
+    "2025-06-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4220,
+      "rows": 4408
+    },
+    "2025-06-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 212,
+      "reported_trade": 4196,
+      "rows": 4408
+    },
+    "2025-06-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 206,
+      "reported_trade": 4202,
+      "rows": 4408
+    },
+    "2025-06-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 220,
+      "reported_trade": 4188,
+      "rows": 4408
+    },
+    "2025-06-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 235,
+      "reported_trade": 4173,
+      "rows": 4408
+    },
+    "2025-06-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 198,
+      "reported_trade": 4208,
+      "rows": 4406
+    },
+    "2025-06-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 207,
+      "reported_trade": 4199,
+      "rows": 4406
+    },
+    "2025-06-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 214,
+      "reported_trade": 4192,
+      "rows": 4406
+    },
+    "2025-06-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 209,
+      "reported_trade": 4197,
+      "rows": 4406
+    },
+    "2025-06-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 209,
+      "reported_trade": 4196,
+      "rows": 4405
+    },
+    "2025-06-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 204,
+      "reported_trade": 4199,
+      "rows": 4403
+    },
+    "2025-06-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 212,
+      "reported_trade": 4188,
+      "rows": 4400
+    },
+    "2025-06-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4198,
+      "rows": 4400
+    },
+    "2025-06-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 210,
+      "reported_trade": 4188,
+      "rows": 4398
+    },
+    "2025-06-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 216,
+      "reported_trade": 4184,
+      "rows": 4400
+    },
+    "2025-06-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 195,
+      "reported_trade": 4206,
+      "rows": 4401
+    },
+    "2025-06-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 208,
+      "reported_trade": 4196,
+      "rows": 4404
+    },
+    "2025-06-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 196,
+      "reported_trade": 4212,
+      "rows": 4408
+    },
+    "2025-06-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4218,
+      "rows": 4410
+    },
+    "2025-06-27": {
+      "adjustment_rows": 21,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4217,
+      "rows": 4409
+    },
+    "2025-06-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 173,
+      "reported_trade": 4239,
+      "rows": 4412
+    },
+    "2025-07-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 206,
+      "reported_trade": 4206,
+      "rows": 4412
+    },
+    "2025-07-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4212,
+      "rows": 4411
+    },
+    "2025-07-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4209,
+      "rows": 4411
+    },
+    "2025-07-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 219,
+      "reported_trade": 4194,
+      "rows": 4413
+    },
+    "2025-07-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4211,
+      "rows": 4413
+    },
+    "2025-07-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 209,
+      "reported_trade": 4204,
+      "rows": 4413
+    },
+    "2025-07-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 206,
+      "reported_trade": 4206,
+      "rows": 4412
+    },
+    "2025-07-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 211,
+      "reported_trade": 4201,
+      "rows": 4412
+    },
+    "2025-07-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 205,
+      "reported_trade": 4206,
+      "rows": 4411
+    },
+    "2025-07-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4223,
+      "rows": 4411
+    },
+    "2025-07-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 195,
+      "reported_trade": 4216,
+      "rows": 4411
+    },
+    "2025-07-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 209,
+      "reported_trade": 4202,
+      "rows": 4411
+    },
+    "2025-07-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 200,
+      "reported_trade": 4209,
+      "rows": 4409
+    },
+    "2025-07-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 198,
+      "reported_trade": 4218,
+      "rows": 4416
+    },
+    "2025-07-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4231,
+      "rows": 4416
+    },
+    "2025-07-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 180,
+      "reported_trade": 4236,
+      "rows": 4416
+    },
+    "2025-07-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 181,
+      "reported_trade": 4237,
+      "rows": 4418
+    },
+    "2025-07-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 190,
+      "reported_trade": 4227,
+      "rows": 4417
+    },
+    "2025-07-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 184,
+      "reported_trade": 4231,
+      "rows": 4415
+    },
+    "2025-07-29": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4216,
+      "rows": 4415
+    },
+    "2025-07-30": {
+      "adjustment_rows": 3,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 205,
+      "reported_trade": 4210,
+      "rows": 4415
+    },
+    "2025-07-31": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4217,
+      "rows": 4414
+    },
+    "2025-08-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 196,
+      "reported_trade": 4218,
+      "rows": 4414
+    },
+    "2025-08-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 176,
+      "reported_trade": 4237,
+      "rows": 4413
+    },
+    "2025-08-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 187,
+      "reported_trade": 4227,
+      "rows": 4414
+    },
+    "2025-08-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 202,
+      "reported_trade": 4213,
+      "rows": 4415
+    },
+    "2025-08-07": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 203,
+      "reported_trade": 4212,
+      "rows": 4415
+    },
+    "2025-08-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 179,
+      "reported_trade": 4236,
+      "rows": 4415
+    },
+    "2025-08-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 167,
+      "reported_trade": 4248,
+      "rows": 4415
+    },
+    "2025-08-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 183,
+      "reported_trade": 4234,
+      "rows": 4417
+    },
+    "2025-08-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 195,
+      "reported_trade": 4222,
+      "rows": 4417
+    },
+    "2025-08-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 191,
+      "reported_trade": 4226,
+      "rows": 4417
+    },
+    "2025-08-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 179,
+      "reported_trade": 4236,
+      "rows": 4415
+    },
+    "2025-08-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 190,
+      "reported_trade": 4224,
+      "rows": 4414
+    },
+    "2025-08-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 191,
+      "reported_trade": 4223,
+      "rows": 4414
+    },
+    "2025-08-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 201,
+      "reported_trade": 4213,
+      "rows": 4414
+    },
+    "2025-08-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 199,
+      "reported_trade": 4215,
+      "rows": 4414
+    },
+    "2025-08-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 173,
+      "reported_trade": 4241,
+      "rows": 4414
+    },
+    "2025-08-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 179,
+      "reported_trade": 4235,
+      "rows": 4414
+    },
+    "2025-08-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 207,
+      "reported_trade": 4207,
+      "rows": 4414
+    },
+    "2025-08-28": {
+      "adjustment_rows": 16,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 203,
+      "reported_trade": 4208,
+      "rows": 4411
+    },
+    "2025-08-29": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 203,
+      "reported_trade": 4208,
+      "rows": 4411
+    },
+    "2025-09-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 190,
+      "reported_trade": 4220,
+      "rows": 4410
+    },
+    "2025-09-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 193,
+      "reported_trade": 4217,
+      "rows": 4410
+    },
+    "2025-09-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4224,
+      "rows": 4410
+    },
+    "2025-09-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 201,
+      "reported_trade": 4208,
+      "rows": 4409
+    },
+    "2025-09-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 197,
+      "reported_trade": 4212,
+      "rows": 4409
+    },
+    "2025-09-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 180,
+      "reported_trade": 4228,
+      "rows": 4408
+    },
+    "2025-09-09": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 182,
+      "reported_trade": 4226,
+      "rows": 4408
+    },
+    "2025-09-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 189,
+      "reported_trade": 4220,
+      "rows": 4409
+    },
+    "2025-09-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 192,
+      "reported_trade": 4218,
+      "rows": 4410
+    },
+    "2025-09-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 201,
+      "reported_trade": 4210,
+      "rows": 4411
+    },
+    "2025-09-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 177,
+      "reported_trade": 4234,
+      "rows": 4411
+    },
+    "2025-09-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 185,
+      "reported_trade": 4226,
+      "rows": 4411
+    },
+    "2025-09-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 193,
+      "reported_trade": 4219,
+      "rows": 4412
+    },
+    "2025-09-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 175,
+      "reported_trade": 4234,
+      "rows": 4409
+    },
+    "2025-09-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 177,
+      "reported_trade": 4232,
+      "rows": 4409
+    },
+    "2025-09-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4220,
+      "rows": 4408
+    },
+    "2025-09-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 179,
+      "reported_trade": 4232,
+      "rows": 4411
+    },
+    "2025-09-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 186,
+      "reported_trade": 4226,
+      "rows": 4412
+    },
+    "2025-09-29": {
+      "adjustment_rows": 69,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 184,
+      "reported_trade": 4220,
+      "rows": 4404
+    },
+    "2025-09-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4215,
+      "rows": 4403
+    },
+    "2025-10-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 4,
+      "reported_no_trade": 188,
+      "reported_trade": 4220,
+      "rows": 4408
+    },
+    "2025-10-02": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 195,
+      "reported_trade": 4214,
+      "rows": 4409
+    },
+    "2025-10-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 191,
+      "reported_trade": 4219,
+      "rows": 4410
+    },
+    "2025-10-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 165,
+      "reported_trade": 4246,
+      "rows": 4411
+    },
+    "2025-10-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 180,
+      "reported_trade": 4233,
+      "rows": 4413
+    },
+    "2025-10-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 191,
+      "reported_trade": 4223,
+      "rows": 4414
+    },
+    "2025-10-09": {
+      "adjustment_rows": 2,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 193,
+      "reported_trade": 4221,
+      "rows": 4414
+    },
+    "2025-10-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 189,
+      "reported_trade": 4225,
+      "rows": 4414
+    },
+    "2025-10-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 172,
+      "reported_trade": 4240,
+      "rows": 4412
+    },
+    "2025-10-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 191,
+      "reported_trade": 4222,
+      "rows": 4413
+    },
+    "2025-10-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 208,
+      "reported_trade": 4205,
+      "rows": 4413
+    },
+    "2025-10-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 212,
+      "reported_trade": 4202,
+      "rows": 4414
+    },
+    "2025-10-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 182,
+      "reported_trade": 4232,
+      "rows": 4414
+    },
+    "2025-10-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 200,
+      "reported_trade": 4215,
+      "rows": 4415
+    },
+    "2025-10-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 205,
+      "reported_trade": 4210,
+      "rows": 4415
+    },
+    "2025-10-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 197,
+      "reported_trade": 4221,
+      "rows": 4418
+    },
+    "2025-10-24": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 193,
+      "reported_trade": 4226,
+      "rows": 4419
+    },
+    "2025-10-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 181,
+      "reported_trade": 4238,
+      "rows": 4419
+    },
+    "2025-10-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 196,
+      "reported_trade": 4223,
+      "rows": 4419
+    },
+    "2025-10-29": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 193,
+      "reported_trade": 4226,
+      "rows": 4419
+    },
+    "2025-10-30": {
+      "adjustment_rows": 8,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 211,
+      "reported_trade": 4206,
+      "rows": 4417
+    },
+    "2025-10-31": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 186,
+      "reported_trade": 4231,
+      "rows": 4417
+    },
+    "2025-11-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 180,
+      "reported_trade": 4238,
+      "rows": 4418
+    },
+    "2025-11-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 174,
+      "reported_trade": 4244,
+      "rows": 4418
+    },
+    "2025-11-06": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 206,
+      "reported_trade": 4211,
+      "rows": 4417
+    },
+    "2025-11-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 210,
+      "reported_trade": 4206,
+      "rows": 4416
+    },
+    "2025-11-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 191,
+      "reported_trade": 4225,
+      "rows": 4416
+    },
+    "2025-11-11": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 206,
+      "reported_trade": 4210,
+      "rows": 4416
+    },
+    "2025-11-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 194,
+      "reported_trade": 4225,
+      "rows": 4419
+    },
+    "2025-11-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 191,
+      "reported_trade": 4229,
+      "rows": 4420
+    },
+    "2025-11-14": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 196,
+      "reported_trade": 4225,
+      "rows": 4421
+    },
+    "2025-11-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 190,
+      "reported_trade": 4228,
+      "rows": 4418
+    },
+    "2025-11-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 195,
+      "reported_trade": 4224,
+      "rows": 4419
+    },
+    "2025-11-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 191,
+      "reported_trade": 4233,
+      "rows": 4424
+    },
+    "2025-11-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 196,
+      "reported_trade": 4227,
+      "rows": 4423
+    },
+    "2025-11-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 201,
+      "reported_trade": 4224,
+      "rows": 4425
+    },
+    "2025-11-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 179,
+      "reported_trade": 4246,
+      "rows": 4425
+    },
+    "2025-11-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 192,
+      "reported_trade": 4236,
+      "rows": 4428
+    },
+    "2025-11-27": {
+      "adjustment_rows": 8,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 198,
+      "reported_trade": 4228,
+      "rows": 4426
+    },
+    "2025-11-28": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 192,
+      "reported_trade": 4233,
+      "rows": 4425
+    },
+    "2025-12-01": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 184,
+      "reported_trade": 4244,
+      "rows": 4428
+    },
+    "2025-12-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 204,
+      "reported_trade": 4223,
+      "rows": 4427
+    },
+    "2025-12-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 210,
+      "reported_trade": 4217,
+      "rows": 4427
+    },
+    "2025-12-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 210,
+      "reported_trade": 4217,
+      "rows": 4427
+    },
+    "2025-12-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 197,
+      "reported_trade": 4232,
+      "rows": 4429
+    },
+    "2025-12-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 197,
+      "reported_trade": 4231,
+      "rows": 4428
+    },
+    "2025-12-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 198,
+      "reported_trade": 4229,
+      "rows": 4427
+    },
+    "2025-12-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 208,
+      "reported_trade": 4219,
+      "rows": 4427
+    },
+    "2025-12-11": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 199,
+      "reported_trade": 4228,
+      "rows": 4427
+    },
+    "2025-12-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 5,
+      "reported_no_trade": 197,
+      "reported_trade": 4230,
+      "rows": 4427
+    },
+    "2025-12-15": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 182,
+      "reported_trade": 4246,
+      "rows": 4428
+    },
+    "2025-12-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 199,
+      "reported_trade": 4229,
+      "rows": 4428
+    },
+    "2025-12-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 199,
+      "reported_trade": 4233,
+      "rows": 4432
+    },
+    "2025-12-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 206,
+      "reported_trade": 4228,
+      "rows": 4434
+    },
+    "2025-12-19": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 201,
+      "reported_trade": 4232,
+      "rows": 4433
+    },
+    "2025-12-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 182,
+      "reported_trade": 4252,
+      "rows": 4434
+    },
+    "2025-12-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 191,
+      "reported_trade": 4243,
+      "rows": 4434
+    },
+    "2025-12-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 192,
+      "reported_trade": 4245,
+      "rows": 4437
+    },
+    "2025-12-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 180,
+      "reported_trade": 4257,
+      "rows": 4437
+    },
+    "2025-12-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 186,
+      "reported_trade": 4252,
+      "rows": 4438
+    },
+    "2025-12-29": {
+      "adjustment_rows": 40,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 187,
+      "reported_trade": 4250,
+      "rows": 4437
+    },
+    "2025-12-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 189,
+      "reported_trade": 4248,
+      "rows": 4437
+    },
+    "2026-01-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 177,
+      "reported_trade": 4259,
+      "rows": 4436
+    },
+    "2026-01-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 184,
+      "reported_trade": 4252,
+      "rows": 4436
+    },
+    "2026-01-07": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 192,
+      "reported_trade": 4244,
+      "rows": 4436
+    },
+    "2026-01-08": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 190,
+      "reported_trade": 4245,
+      "rows": 4435
+    },
+    "2026-01-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 195,
+      "reported_trade": 4240,
+      "rows": 4435
+    },
+    "2026-01-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 180,
+      "reported_trade": 4254,
+      "rows": 4434
+    },
+    "2026-01-14": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 192,
+      "reported_trade": 4240,
+      "rows": 4432
+    },
+    "2026-01-15": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 189,
+      "reported_trade": 4243,
+      "rows": 4432
+    },
+    "2026-01-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 198,
+      "reported_trade": 4233,
+      "rows": 4431
+    },
+    "2026-01-19": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 187,
+      "reported_trade": 4244,
+      "rows": 4431
+    },
+    "2026-01-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 189,
+      "reported_trade": 4246,
+      "rows": 4435
+    },
+    "2026-01-21": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 191,
+      "reported_trade": 4244,
+      "rows": 4435
+    },
+    "2026-01-22": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 198,
+      "reported_trade": 4237,
+      "rows": 4435
+    },
+    "2026-01-23": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 195,
+      "reported_trade": 4240,
+      "rows": 4435
+    },
+    "2026-01-26": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 183,
+      "reported_trade": 4255,
+      "rows": 4438
+    },
+    "2026-01-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 206,
+      "reported_trade": 4231,
+      "rows": 4437
+    },
+    "2026-01-28": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 202,
+      "reported_trade": 4235,
+      "rows": 4437
+    },
+    "2026-01-29": {
+      "adjustment_rows": 6,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 214,
+      "reported_trade": 4221,
+      "rows": 4435
+    },
+    "2026-01-30": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 195,
+      "reported_trade": 4240,
+      "rows": 4435
+    },
+    "2026-02-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 193,
+      "reported_trade": 4242,
+      "rows": 4435
+    },
+    "2026-02-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 204,
+      "reported_trade": 4231,
+      "rows": 4435
+    },
+    "2026-02-04": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 202,
+      "reported_trade": 4233,
+      "rows": 4435
+    },
+    "2026-02-05": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 203,
+      "reported_trade": 4233,
+      "rows": 4436
+    },
+    "2026-02-06": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 200,
+      "reported_trade": 4236,
+      "rows": 4436
+    },
+    "2026-02-09": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 183,
+      "reported_trade": 4253,
+      "rows": 4436
+    },
+    "2026-02-10": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 192,
+      "reported_trade": 4244,
+      "rows": 4436
+    },
+    "2026-02-12": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 188,
+      "reported_trade": 4248,
+      "rows": 4436
+    },
+    "2026-02-13": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 194,
+      "reported_trade": 4243,
+      "rows": 4437
+    },
+    "2026-02-16": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 186,
+      "reported_trade": 4250,
+      "rows": 4436
+    },
+    "2026-02-17": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 187,
+      "reported_trade": 4249,
+      "rows": 4436
+    },
+    "2026-02-18": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 192,
+      "reported_trade": 4244,
+      "rows": 4436
+    },
+    "2026-02-19": {
+      "adjustment_rows": 1,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 199,
+      "reported_trade": 4237,
+      "rows": 4436
+    },
+    "2026-02-20": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 196,
+      "reported_trade": 4242,
+      "rows": 4438
+    },
+    "2026-02-24": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 185,
+      "reported_trade": 4254,
+      "rows": 4439
+    },
+    "2026-02-25": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 187,
+      "reported_trade": 4251,
+      "rows": 4438
+    },
+    "2026-02-26": {
+      "adjustment_rows": 7,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 186,
+      "reported_trade": 4251,
+      "rows": 4437
+    },
+    "2026-02-27": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 187,
+      "reported_trade": 4252,
+      "rows": 4439
+    },
+    "2026-03-02": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 183,
+      "reported_trade": 4256,
+      "rows": 4439
+    },
+    "2026-03-03": {
+      "adjustment_rows": 0,
+      "nonstandard_code_rows": 6,
+      "reported_no_trade": 186,
+      "reported_trade": 4255,
+      "rows": 4441
+    }
+  },
+  "audit_result_sha256": "6f0449fec37e9bc0bd4de1bf54b5b6207dfbcae4e2626d6d992a1e2e057336b3",
+  "documentation_script_sha256": "a1cdfa63f66b7b1352889568eba454b90fbb058c75882c0b877866b59756edd3"
+}

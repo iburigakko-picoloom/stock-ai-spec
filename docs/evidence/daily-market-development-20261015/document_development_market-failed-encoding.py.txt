@@ -1,0 +1,71 @@
+from collections import Counter
+from pathlib import Path
+import hashlib
+import json
+
+root=Path(__file__).resolve().parent.parent
+output=root/'artifacts/daily-market-development-20261015'
+folder=root/'docs/evidence/daily-market-development-20261015'
+summary=json.loads((output/'summary.json').read_text())
+plan=json.loads((output/'plan.json').read_text())
+assert summary['status']=='COMPLETE' and summary['all_source_files_unchanged']
+assert not summary['evaluation_ready'] and not summary['holdout_scored']
+assert not folder.exists(), 'Preserve earlier evidence'
+
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda:stream.read(8*1024*1024),b''): h.update(block)
+    return h.hexdigest()
+
+
+assert sha(output/'plan.json')==summary['plan_sha256']
+assert sha(root/'src/stock_ai/ml/daily_market.py')==summary['implementation_sha256']
+assert sha(root/'.demo-artifacts/audit_development_market-executed-1.py')==summary['script_sha256']
+assert sha(root/'docs/evidence/daily-source-identity-20261015/summary.json')==plan['source_identity_evidence_sha256']
+total=Counter(); states=Counter(); days={}; receipts=[]; sources=set()
+for entry in summary['checkpoints']:
+    p=root/entry['path']; assert sha(p)==entry['sha256']
+    w=json.loads(p.read_text()); receipt_path=root/w['receipt_path']
+    assert sha(receipt_path)==w['receipt_sha256']
+    receipt=json.loads(receipt_path.read_text())
+    encoded=json.dumps(receipt,ensure_ascii=False,sort_keys=True,indent=2,allow_nan=False)
+    assert hashlib.sha256(encoded.encode()).hexdigest()==receipt_path.stem
+    assert receipt['summary']==w['summary']
+    assert receipt['implementation_sha256']==summary['implementation_sha256']
+    assert receipt['holdout_rows_read'] is False
+    assert not set(days).intersection(w['per_day'])
+    days.update(w['per_day'])
+    total.update({k:v for k,v in w['summary'].items() if k!='bar_states'})
+    states.update(w['summary']['bar_states'])
+    sources.update(x['object_id'] for x in receipt['source_objects'])
+    receipts.append({k:w[k] for k in ['window','start','end','receipt_path','receipt_sha256','summary','source_objects']})
+    del receipt,encoded
+assert dict(total)==summary['totals'] and dict(states)==summary['bar_states']
+assert len(days)==total['dates']
+assert sorted(set(plan['expected_business_dates'])-set(days))==summary['missing_expected_trading_dates']
+assert sorted(set(days)-set(plan['expected_business_dates']))==summary['unexpected_dates']
+folder.mkdir(parents=True)
+evidence={**summary,'source_objects_verified':len(sources),'calendar_dates_observed':len(days),
+          'receipt_hashes_independently_reverified':True,'receipts':receipts,'daily_profile':days,
+          'audit_result_sha256':sha(output/'summary.json'),
+          'documentation_script_sha256':sha(__file__)}
+(folder/'summary.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
+for source in [root/'.demo-artifacts/audit_development_market-executed-1.py',Path(__file__)]:
+    (folder/(source.name+'.txt')).write_bytes(source.read_bytes())
+rows=total['rows']
+lines=['# 開発期間全体の日足raw/normalized照合','',
+    f'{summary["start"]}〜{summary["end"]}を14暦日ごとの{summary["windows"]}窓に分割して読み取り専用で認証した。',
+    f'価格は{rows:,}行、{len(days)}営業日、raw/normalized {len(sources):,} object。全receiptのcontent identity/byte hashと集計を独立に再確認した。','',
+    '| 行の状態 | 件数 | 全行比 |','| --- | ---: | ---: |']
+for name,count in sorted(states.items()): lines.append(f'| {name} | {count:,} | {count/rows:.2%} |')
+lines+=['',f'特殊provider codeは{total["nonstandard_code_rows"]:,}行、調整イベント要確認は{total["adjustment_rows"]:,}行。無約定・欠損・特殊codeを削除していない。',
+    f'学習時の識別値に一致する営業日カレンダーに対し、価格行が全くない期待営業日は{len(summary["missing_expected_trading_dates"])}、予定外の日付は{len(summary["unexpected_dates"])}。OHLC大小関係の違反は{len(summary["invalid_ohlc_keys"])}。個々の銘柄が完全に揃うことをこの日付照合だけで保証しない。','',
+    'catalog/manifest/byte SHA、raw/normalizedの行metadata・キー・生OHLC/出来高/売買代金/調整係数を既存projectionで認証。終了時にも全対象ファイルのbyte hashと対象catalogが不変であることを確認した。日別件数/無約定/特殊code/調整要確認をsummary.jsonへ保存。明細はローカルartifactに残し、この証拠へ再配布しない。','',
+    '固定vintageは2026-08-29。カレンダー全体のsource ID再計算には最終評価期間に当たる暦日も含むが、価格partitionは2026-03-04以降を読まず、予測・target・運用成績・最終評価を採点していない。',
+    'PIT投資対象銘柄の完全性、訂正前vintage、配当/分割/現金交付、終値での約定能力、呼値、決済、実用費用は未確認。evaluation_ready=false、adoption_eligible=falseを維持する。日付網羅や元ファイルとの一致をNAV・モデル採用の合格へ置き換えない。実注文なし。']
+(folder/'README.md').write_text('\n'.join(lines)+'\n',encoding='utf-8',newline='\n')
+print(json.dumps({'rows':rows,'dates':len(days),'objects':len(sources),
+                  'missing_dates':len(summary['missing_expected_trading_dates']),
+                  'invalid_ohlc':len(summary['invalid_ohlc_keys'])}))

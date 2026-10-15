@@ -1,0 +1,12 @@
+{
+  "stage": "independent_documentation_verifier",
+  "initial_outcome": "AssertionError",
+  "location": "document_development_market.py:34 receipt content identity comparison",
+  "cause_verified": "Windows default cp932 decoding differed from UTF-8 for Japanese path strings",
+  "failed_script_sha256": "2ec94fec1710b2e9059e178596e64418a46c34e4389246d6e9a04ce19794c58f",
+  "original_receipt_bytes_changed": false,
+  "original_audit_rerun": false,
+  "repair": "Read JSON explicitly as UTF-8; preserve the same canonical identity check",
+  "reverified_receipts": 42,
+  "final_outcome": "PASS"
+}

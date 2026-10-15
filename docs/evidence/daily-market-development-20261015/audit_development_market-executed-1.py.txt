@@ -1,0 +1,226 @@
+"""Authenticate all development-window price pairs in bounded calendar chunks."""
+from collections import Counter
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+import hashlib
+import json
+import sys
+
+import duckdb
+import pandas as pd
+
+from stock_ai.data.contracts import DatasetName, StoredObject
+from stock_ai.data.production import _source_frame_id
+from stock_ai.data.storage import ImmutableParquetStore
+from stock_ai.ml.daily_market import DailyMarketRequest, project_daily_market
+from stock_ai.ml.evaluation_audit import write_audit_receipt
+
+root = Path(__file__).resolve().parent.parent
+output = root / 'artifacts/daily-market-development-20261015'
+resume = sys.argv[1:] == ['--resume']
+assert not sys.argv[1:] or resume
+assert not output.exists() or resume, 'Inspect the existing process before an explicit resume'
+output.mkdir(parents=True, exist_ok=True)
+summary_path = output / 'summary.json'
+assert not summary_path.exists(), 'Completed audit must not be rerun'
+
+
+def sha(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8*1024*1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8'))
+
+
+def stable(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False)
+
+
+def save_once(path, value):
+    with path.open('x', encoding='utf-8', newline='\n') as stream:
+        stream.write(stable(value)+'\n')
+
+
+baseline_path = root / 'artifacts/daily-simple-baselines/receipts/acc6ee1190f496ebce794281bb7927269b6b4e77ec46da027c9138dd0a51c5de.json'
+baseline = read(baseline_path)
+assert hashlib.sha256(stable(baseline).encode()).hexdigest() == baseline_path.stem
+identity_path = root / 'docs/evidence/daily-source-identity-20261015/summary.json'
+identities = read(identity_path)
+assert identities['all_five_source_frames_exact_match'] and identities['status'] == 'PASS'
+assert identities['feature_selection_id'] == baseline['feature_selection_id']
+start = min(date.fromisoformat(f['score_start']) for h in baseline['results'] for f in h['folds'])
+end = date.fromisoformat(baseline['locked_holdout_start']) - timedelta(days=1)
+cutoff = datetime.fromisoformat(identities['source_snapshot_as_of'])
+feature_id = baseline['feature_selection_id']
+feature_path = root / f'artifacts/selections/goal3-features/{feature_id}/{feature_id}.json'
+calendar_expected = next(x['source_snapshot_id'] for x in identities['datasets'] if x['dataset']=='trading_calendar')
+implementation = sha(root / 'src/stock_ai/ml/daily_market.py')
+script_hash = sha(__file__)
+
+query = '''
+    SELECT DISTINCT stored.parquet_path, stored.parquet_hash, stored.object_id,
+                    stored.kind, stored.source_date
+    FROM stored_objects stored
+    JOIN ingestion_run_objects link ON link.object_id=stored.object_id
+    JOIN ingestion_runs run ON run.ingestion_run_id=link.ingestion_run_id
+    LEFT JOIN bulk_file_checkpoints bulk ON bulk.fingerprint=run.bulk_fingerprint
+    WHERE stored.dataset=? AND stored.quality_passed AND stored.available_at<=?
+      AND run.status='SUCCEEDED'
+      AND (run.bulk_fingerprint IS NULL OR bulk.status='SUCCEEDED')
+    ORDER BY stored.object_id
+'''
+
+
+def catalog_prices():
+    with duckdb.connect(str(root / 'data/live/catalog.duckdb'), read_only=True,
+                        config={'threads':1,'memory_limit':'256MB'}) as con:
+        rows = con.execute(query, ['daily_prices', cutoff]).fetchall()
+    return [dict(path=p, sha256=h, object_id=i, kind=k, source_date=d.isoformat())
+            for p,h,i,k,d in rows if start<=d<=end]
+
+
+print('Authenticating frozen calendar and eligible price catalog', flush=True)
+with duckdb.connect(str(root / 'data/live/catalog.duckdb'), read_only=True,
+                    config={'threads':1,'memory_limit':'256MB'}) as con:
+    con.execute('BEGIN TRANSACTION')
+    calendar_objects = [x for x in con.execute(query, ['trading_calendar', cutoff]).fetchall() if x[3]=='normalized']
+    for path, expected, *_ in calendar_objects:
+        assert sha(path)==expected, path
+    calendar = con.execute('''
+        SELECT * FROM read_parquet(?, union_by_name=true) WHERE available_at<=?
+        QUALIFY row_number() OVER (PARTITION BY trading_date
+            ORDER BY available_at DESC,received_at DESC,payload_hash DESC)=1
+        ORDER BY trading_date
+    ''', [[x[0] for x in calendar_objects], cutoff]).df()
+    assert _source_frame_id(DatasetName.TRADING_CALENDAR, calendar)==calendar_expected
+    for path, expected, *_ in calendar_objects:
+        assert sha(path)==expected, path
+    calendar['date'] = pd.to_datetime(calendar.trading_date).dt.date
+    calendar = calendar.loc[calendar.date.between(start,end)]
+    all_dates = [start+timedelta(days=i) for i in range((end-start).days+1)]
+    assert list(calendar.date)==all_dates, 'Calendar contains missing or duplicated calendar dates'
+    assert calendar.is_equity_business_day.notna().all()
+    business_dates = sorted(calendar.loc[calendar.is_equity_business_day, 'date'])
+catalog = catalog_prices()
+windows = []
+cursor = start
+while cursor<=end:
+    last = min(end, cursor+timedelta(days=13))
+    windows.append((cursor,last))
+    cursor=last+timedelta(days=1)
+plan = {
+    'schema_version':'development-market-pair-audit-v1', 'start':start.isoformat(), 'end':end.isoformat(),
+    'source_snapshot_as_of':cutoff.isoformat(), 'feature_selection_id':feature_id,
+    'baseline_receipt_sha256':sha(baseline_path), 'source_identity_evidence_sha256':sha(identity_path),
+    'calendar_source_id':calendar_expected, 'calendar_objects_verified':len(calendar_objects),
+    'calendar_full_source_dates_read_only_for_identity':True,
+    'expected_business_dates':[d.isoformat() for d in business_dates],
+    'windows':[(a.isoformat(),b.isoformat()) for a,b in windows],
+    'eligible_price_catalog':catalog, 'implementation_sha256':implementation, 'script_sha256':script_hash,
+    'daily_bar_holdout_rows_read':False, 'holdout_scored':False,
+    'evaluation_ready':False, 'adoption_eligible':False,
+}
+plan_path=output/'plan.json'
+if plan_path.exists():
+    assert resume and read(plan_path)==plan, 'Audit plan or frozen source changed'
+else:
+    save_once(plan_path,plan)
+print(f'Calendar PASS: {len(business_dates)} trading dates, {len(windows)} nonoverlapping chunks',flush=True)
+store=ImmutableParquetStore(root/'data/live')
+checkpoints=[]
+try:
+    for index,(first,last) in enumerate(windows,1):
+        assert sha(root/'src/stock_ai/ml/daily_market.py')==implementation
+        assert catalog_prices()==catalog, 'Eligible price catalog changed'
+        request=DailyMarketRequest(catalog_path=root/'data/live/catalog.duckdb', store_root=root/'data/live',
+            feature_selection_path=feature_path, start=first, end=last, source_snapshot_as_of=cutoff)
+        window_root=output/f'{first}_{last}'
+        window_root.mkdir(exist_ok=True)
+        prior=list(window_root.glob('*.json'))
+        assert len(prior)<=1
+        if prior:
+            assert resume
+            path=prior[0]
+            receipt=read(path)
+            assert hashlib.sha256(stable(receipt).encode()).hexdigest()==path.stem
+        else:
+            receipt=project_daily_market(request)
+            path=write_audit_receipt(receipt,window_root)
+        assert receipt['request']==request.model_dump(mode='json')
+        assert receipt['implementation_sha256']==implementation
+        assert receipt['holdout_rows_read'] is False and receipt['capabilities']['evaluation_ready'] is False
+        rows=receipt['rows']
+        keys=[(r['trading_date'],r['provider_code']) for r in rows]
+        assert len(keys)==len(set(keys))
+        expected_dates={d.isoformat() for d in business_dates if first<=d<=last}
+        seen_dates={r['trading_date'] for r in rows}
+        outside=seen_dates-expected_dates
+        missing=expected_dates-seen_dates
+        invalid_ohlc=[]
+        per_day={}
+        for row in rows:
+            assert first.isoformat()<=row['trading_date']<=last.isoformat()
+            counts=per_day.setdefault(row['trading_date'],Counter())
+            counts['rows']+=1
+            counts[row['bar_state']]+=1
+            counts['nonstandard_code_rows']+=int(row['symbol'] is None)
+            counts['adjustment_rows']+=int(row['adjustment_requires_event_evidence'])
+            if row['bar_state']=='reported_trade' and not (
+                row['raw_low']<=min(row['raw_open'],row['raw_close'])<=
+                max(row['raw_open'],row['raw_close'])<=row['raw_high']):
+                invalid_ohlc.append((row['trading_date'],row['provider_code']))
+        for item in receipt['source_objects']:
+            stored=StoredObject.model_validate(item)
+            assert store.verify(stored.parquet_path.parent)==stored
+        checkpoint={
+            'window':index, 'start':first.isoformat(),'end':last.isoformat(),
+            'receipt_path':str(path.relative_to(root)), 'receipt_sha256':sha(path),
+            'summary':receipt['summary'], 'source_objects':len(receipt['source_objects']),
+            'missing_expected_trading_dates':sorted(missing), 'unexpected_dates':sorted(outside),
+            'invalid_ohlc_keys':invalid_ohlc, 'per_day':per_day,
+        }
+        checkpoint_path=output/f'window-{index:03d}-checkpoint.json'
+        if checkpoint_path.exists():
+            assert resume and read(checkpoint_path)==json.loads(stable(checkpoint))
+        else:
+            save_once(checkpoint_path,checkpoint)
+        checkpoints.append(checkpoint)
+        print(f'{index}/{len(windows)} {first}..{last}: {len(rows):,} rows, missing days={len(missing)}, OHLC issues={len(invalid_ohlc)}',flush=True)
+        del rows,receipt,keys
+    assert catalog_prices()==catalog
+    for item in catalog:
+        assert sha(item['path'])==item['sha256'], item['path']
+    totals=Counter()
+    states=Counter()
+    for window in checkpoints:
+        totals.update({k:v for k,v in window['summary'].items() if k!='bar_states'})
+        states.update(window['summary']['bar_states'])
+    summary={
+        'status':'COMPLETE', 'completed_at':datetime.now(timezone.utc).isoformat(),
+        'plan_sha256':sha(plan_path), 'script_sha256':script_hash, 'implementation_sha256':implementation,
+        'start':start.isoformat(),'end':end.isoformat(), 'windows':len(checkpoints),
+        'totals':totals, 'bar_states':states, 'all_source_files_unchanged':True,
+        'calendar_source_id':calendar_expected, 'expected_business_dates':len(business_dates),
+        'missing_expected_trading_dates':sorted({d for w in checkpoints for d in w['missing_expected_trading_dates']}),
+        'unexpected_dates':sorted({d for w in checkpoints for d in w['unexpected_dates']}),
+        'invalid_ohlc_keys':[key for w in checkpoints for key in w['invalid_ohlc_keys']],
+        'checkpoints':[{'path':str((output/f'window-{w["window"]:03d}-checkpoint.json').relative_to(root)),
+                        'sha256':sha(output/f'window-{w["window"]:03d}-checkpoint.json')} for w in checkpoints],
+        'limitations':['Single-vintage as-revised only; not historical correction reconstruction.',
+            'Calendar date presence is not eligible-security completeness.',
+            'Corporate actions, ticks, execution capacity, settlement and realistic fees remain unverified.',
+            'No NAV, performance scoring, holdout evaluation or adoption.'],
+        'daily_bar_holdout_rows_read':False,'holdout_scored':False,'evaluation_ready':False,
+        'adoption_eligible':False,'no_order_sent':True,
+    }
+    save_once(summary_path,summary)
+    print('ALL DEVELOPMENT PRICE PAIRS COMPLETE',str(summary_path),flush=True)
+except Exception as error:
+    write_audit_receipt({'status':'FAILED','error_type':type(error).__name__,'error':str(error),
+                         'completed_windows':len(checkpoints),'plan_sha256':sha(plan_path)},output/'failures')
+    raise
