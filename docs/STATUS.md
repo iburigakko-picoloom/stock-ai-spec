@@ -962,3 +962,12 @@ compare-daily-baselines v3へ固定Elastic Netとmomentum+revision/4特徴等重
 
 
 修正checkpoint7fccbe1で全713試験PASS、coverage86.81%（基準85%）を確認。1482.05秒、2031 warnings。full-regression.jsonへsource・実行日時・log/coverage SHAを保存した。追加モデルの実データ比較は別途継続中であり、この全回帰成功を実評価・採用の完了とみなさない。runbookのPC取込未実装という古い記述と、試験票のDecision Engine未接続という古い記述を、既に検証済みの実装範囲に合わせた。
+
+
+## 2026-10-15 — 学習時の元データ5種類との一致と新規取得の接続確認
+
+固定feature selection→production buildのcontent identity→dataset metadata→全5種類のsource frameを読み取り専用で照合し、全識別値の一致を確認した。normalized 13,015 objectのbyte hashを処理前後で検証。PIT選択後は株価/銘柄一覧が各9,801,708行、財務185,307行、営業日3,527行、TOPIX2,359行。512MBのDuckDB処理と型をそろえた行hashで、元の全件計算と同じ識別値を再現した。証拠docs/evidence/daily-source-identity-20261015。
+
+これは入力の同一性監査。元データの全暦日にはholdout日付も含むが、予測/target/成績を計算していない。訂正前vintage、全期間raw/normalized行ペア、PITユニバース/営業日完全性、企業行動/執行能力の保証には置き換えず、projectionはevaluation_ready=falseを維持する。catalog・元データ・dataset・学習成果は不変。
+
+同日の公式V2への読み取り確認では、株価Bulk一覧とFree対応の銘柄一覧がいずれもHTTP403。配当APIは未要求で、原因や本人の契約プランは未確定。認証値・応答本文は記録せず、契約/資格情報/production dataも変更していない。契約プランとキー有効状態を本人へ確認依頼済み。最新取得・最新推論は接続復旧が必要だが、保存データの追加比較・残実装は継続する。証拠docs/evidence/live-data-access-20261015。Goal active、実注文なし。

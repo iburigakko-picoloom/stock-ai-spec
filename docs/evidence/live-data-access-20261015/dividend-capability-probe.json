@@ -1,0 +1,22 @@
+{
+  "version": "jquants-existing-access-metadata-probe-v1",
+  "requests": [
+    {
+      "endpoint": "/equities/bars/daily",
+      "query_scope": {
+        "endpoint": "/equities/bars/daily",
+        "from": "2025-11-04",
+        "to": "2025-11-07"
+      },
+      "checked_at": "2026-10-14T23:58:58.791166+00:00",
+      "http_status": 403,
+      "result": "ACCESS_DENIED"
+    }
+  ],
+  "data_downloaded": false,
+  "credentials_persisted": false,
+  "subscription_changed": false,
+  "market_or_dividend_values_scored": false,
+  "implementation_sha256": "8d87f980c2ff3a834f5a088098e65e3e6fbc5aeec0627f3b67e9f6da9ffb9fd2",
+  "interpretation": "Metadata list access only; no inferred subscription name or event completeness."
+}

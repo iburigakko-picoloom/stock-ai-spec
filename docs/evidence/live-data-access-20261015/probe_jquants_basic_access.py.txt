@@ -1,0 +1,27 @@
+from datetime import date, datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+
+from stock_ai.data.contracts import DatasetName, SubscriptionPlan
+from stock_ai.data.jquants_v2 import JQuantsError, JQuantsV2Client, JQuantsV2Config
+
+destination = Path(__file__).resolve().parent / 'jquants-basic-access-probe.json'
+assert not destination.exists(), 'Preserve earlier probe'
+result = {'checked_at': datetime.now(timezone.utc).isoformat(),
+          'endpoint': '/equities/master', 'date': '2025-11-06',
+          'client_minimum_capability': 'free', 'inferred_subscription': None,
+          'catalog_or_production_files_changed': False, 'holdout_scored': False}
+try:
+    with JQuantsV2Client(config=JQuantsV2Config(plan=SubscriptionPlan.FREE,
+            max_retries=0, maximum_pages=1, timeout_seconds=30)) as client:
+        payload = client.fetch_date(DatasetName.SECURITY_MASTER, date(2025, 11, 6))
+        result.update(status='API_ACCESS_CONFIRMED', rows=len(payload.rows), pages=payload.pages)
+except JQuantsError as error:
+    result.update(status='API_ACCESS_NOT_CONFIRMED', error_type=type(error).__name__,
+                  safe_error=str(error))
+except Exception as error:
+    result.update(status='REQUEST_FAILED', error_type=type(error).__name__)
+result['implementation_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+destination.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
+print(json.dumps(result, ensure_ascii=False), flush=True)

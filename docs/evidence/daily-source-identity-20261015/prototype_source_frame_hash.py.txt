@@ -1,0 +1,92 @@
+"""Prototype bounded-memory equivalent of production._source_frame_id."""
+from __future__ import annotations
+
+import hashlib
+import json
+
+import duckdb
+import pandas as pd
+
+
+def identifier(name):
+    return '"' + name.replace('"', '""') + '"'
+
+
+def streamed_source_identity(connection, relation, dataset, keys, *, vector_chunks=8):
+    """The caller provides a stable PIT relation containing unique source keys."""
+    if vector_chunks < 1:
+        raise ValueError('vector_chunks must be positive')
+    table = identifier(relation)
+    columns = [row[0] for row in connection.execute(f'DESCRIBE {table}').fetchall()]
+    if not set(keys) <= set(columns):
+        raise ValueError('missing source key columns')
+    projection = []
+    for name in columns:
+        column = identifier(name)
+        # DuckDB's full fetchdf uses nullable integer/bool dtypes if any row is
+        # null. Derive those global dtypes before casting independently read chunks.
+        projection.append(f'CASE WHEN count(*) FILTER (WHERE {column} IS NULL)>0 '
+                          f'THEN NULL ELSE any_value({column}) END AS {column}')
+    schema_frame = connection.execute(f'SELECT {", ".join(projection)} FROM {table}').df()
+    schema = tuple((str(column), str(dtype)) for column, dtype in schema_frame.dtypes.items())
+    digest = hashlib.sha256(json.dumps({'dataset': dataset, 'schema': schema}, sort_keys=True).encode())
+    partition = ', '.join(map(identifier, keys))
+    audit = connection.execute(f'SELECT count(*), count(*) FILTER (WHERE '
+                              + ' OR '.join(identifier(key) + ' IS NULL' for key in keys)
+                              + f') FROM {table}').fetchone()
+    if audit is None or audit[0] == 0 or audit[1] != 0:
+        raise ValueError('source is empty or has missing keys')
+    if connection.execute(f'SELECT 1 FROM {table} GROUP BY {partition} HAVING count(*)>1 LIMIT 1').fetchone():
+        raise ValueError('source has duplicate keys')
+    cursor = connection.execute(f'SELECT * FROM {table} ORDER BY {partition}')
+    count = 0
+    while True:
+        frame = cursor.fetch_df_chunk(vector_chunks)
+        if frame.empty:
+            break
+        frame = frame.astype(schema_frame.dtypes.to_dict())
+        digest.update(pd.util.hash_pandas_object(frame, index=False).to_numpy().tobytes())
+        count += len(frame)
+    if count != audit[0]:
+        raise ValueError('streamed source row count changed')
+    return {'source_snapshot_id': digest.hexdigest(), 'rows': count, 'schema': schema}
+
+
+def verify_prototype():
+    import numpy as np
+    from stock_ai.data.contracts import DatasetName
+    from stock_ai.data.production import _source_frame_id
+
+    n = 5005
+    frame = pd.DataFrame({
+        'trading_date': pd.date_range('2000-01-01', periods=n),
+        'provider_code': ['13010'] * n,
+        'integer': pd.array(range(n), dtype='Int64'),
+        'integer_no_null': range(n),
+        'number': np.arange(n, dtype=float) / 3,
+        'text': ['value-' + str(i % 97) for i in range(n)],
+        'flag': pd.array([bool(i % 2) for i in range(n)], dtype='boolean'),
+        'instant': pd.date_range('2000-01-01', periods=n, tz='Asia/Tokyo'),
+        'always_null_integer': pd.array([None] * n, dtype='Int32'),
+    })
+    for name in ['integer', 'number', 'text', 'flag', 'instant']:
+        frame.loc[n - 1, name] = pd.NA
+    with duckdb.connect(config={'threads': 1}) as connection:
+        connection.register('fixture_input', frame)
+        connection.execute('CREATE TEMP TABLE fixture AS SELECT * FROM fixture_input')
+        original = connection.execute('SELECT * FROM fixture').df()
+        expected = _source_frame_id(DatasetName.DAILY_PRICES, original)
+        for chunks in (1, 2, 8):
+            result = streamed_source_identity(connection, 'fixture', 'daily_prices',
+                                             ['trading_date', 'provider_code'], vector_chunks=chunks)
+            assert result['source_snapshot_id'] == expected, (chunks, result, original.dtypes)
+            print('global nullable dtypes and full hash match, vector chunks:', chunks)
+        connection.execute('UPDATE fixture SET integer=1 WHERE integer IS NULL')
+        changed = streamed_source_identity(connection, 'fixture', 'daily_prices',
+                                            ['trading_date', 'provider_code'])
+        assert changed['source_snapshot_id'] != expected
+        print('value change detected')
+
+
+if __name__ == '__main__':
+    verify_prototype()

@@ -1,0 +1,60 @@
+"""Two read-only metadata calls; never persist credentials, bodies or file keys."""
+from datetime import datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+import os
+import time
+
+import httpx
+
+root = Path(__file__).resolve().parent.parent
+destination = root / '.demo-artifacts/dividend-capability-probe.json'
+assert not destination.exists(), 'Keep earlier probe evidence'
+token = os.environ.get('JQUANTS_API_KEY', '')
+assert token.strip(), 'Process credential unavailable'
+results = []
+with httpx.Client(timeout=30, follow_redirects=False, headers={
+        'Accept': 'application/json', 'User-Agent': 'stock-ai-capability-audit/1.0'}) as client:
+    for index, endpoint in enumerate(['/equities/bars/daily', '/fins/dividend']):
+        if index:
+            time.sleep(13)
+        query = {'endpoint': endpoint, 'from': '2025-11-04', 'to': '2025-11-07'}
+        record = {'endpoint': endpoint, 'query_scope': query,
+                  'checked_at': datetime.now(timezone.utc).isoformat()}
+        try:
+            with client.stream('GET', 'https://api.jquants.com/v2/bulk/list',
+                               params=query, headers={'x-api-key': token}) as response:
+                record['http_status'] = response.status_code
+                body = bytearray()
+                for block in response.iter_bytes():
+                    body.extend(block)
+                    if len(body) > 1024 * 1024:
+                        raise ValueError('Response size limit')
+                if response.status_code == 200:
+                    payload = json.loads(body)
+                    data = payload.get('data') if isinstance(payload, dict) else None
+                    if not isinstance(data, list) or not all(isinstance(row, dict) for row in data):
+                        record['result'] = 'INVALID_ENVELOPE'
+                    else:
+                        record.update(result='LIST_ACCESS_CONFIRMED', file_count=len(data))
+                elif response.status_code == 210:
+                    record['result'] = 'NO_FILES_RETURNED'
+                elif response.status_code in (401, 403):
+                    record['result'] = 'ACCESS_DENIED'
+                else:
+                    record['result'] = 'REQUEST_NOT_SUCCESSFUL'
+        except Exception as error:
+            # Only a fixed class name is retained, never exception text or response.
+            record.update(result='REQUEST_FAILED', exception_type=type(error).__name__)
+        results.append(record)
+        print(json.dumps(record, ensure_ascii=False), flush=True)
+        if index == 0 and record['result'] != 'LIST_ACCESS_CONFIRMED':
+            break
+result = {'version': 'jquants-existing-access-metadata-probe-v1', 'requests': results,
+          'data_downloaded': False, 'credentials_persisted': False,
+          'subscription_changed': False, 'market_or_dividend_values_scored': False,
+          'implementation_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+          'interpretation': 'Metadata list access only; no inferred subscription name or event completeness.'}
+destination.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
+print('saved capability result', flush=True)

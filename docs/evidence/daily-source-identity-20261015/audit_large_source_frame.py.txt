@@ -1,0 +1,89 @@
+"""Bounded read-only audit of one frozen normalized source frame, without scoring."""
+from datetime import datetime, timezone
+from pathlib import Path
+import argparse
+import hashlib
+import json
+
+import duckdb
+
+from prototype_source_frame_hash import streamed_source_identity, identifier
+from stock_ai.ml.production import _metadata_hash
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--dataset', choices=['financial_summary', 'security_master', 'daily_prices'], required=True)
+args = parser.parse_args()
+root = Path(__file__).resolve().parent.parent
+dataset = args.dataset
+destination = root / f'.demo-artifacts/source-frame-identity-{dataset}.json'
+assert not destination.exists(), 'Preserve earlier result'
+snapshot_id = '3d837e220b4662d2405dafd295b91645813af6e8ffed8cd52a44988b49847a7d'
+metadata_path = root / 'data/live/datasets/production' / snapshot_id / (snapshot_id + '.json')
+metadata = json.loads(metadata_path.read_text(encoding='utf-8'))
+assert metadata['snapshot_id'] == snapshot_id and _metadata_hash(metadata) == metadata['metadata_hash']
+expected = dict(metadata['source_snapshot_ids'])[dataset]
+cutoff = datetime.fromisoformat(metadata['source_snapshot_as_of'])
+keys = {'financial_summary': ['disclosure_number'],
+        'security_master': ['effective_date', 'provider_code'],
+        'daily_prices': ['trading_date', 'provider_code']}[dataset]
+temp_path = root / '.demo-artifacts' / ('source-frame-temp-' + dataset)
+temp_path.mkdir(exist_ok=True)
+
+
+def file_digest(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(4 * 1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+started = datetime.now(timezone.utc).isoformat()
+with duckdb.connect(str(root / 'data/live/catalog.duckdb'), read_only=True,
+                    config={'threads': 1, 'memory_limit': '512MB', 'temp_directory': str(temp_path),
+                            'preserve_insertion_order': False}) as connection:
+    connection.execute('BEGIN TRANSACTION')
+    stored = connection.execute('''
+        SELECT DISTINCT stored.parquet_path, stored.parquet_hash
+        FROM stored_objects stored JOIN ingestion_run_objects link ON link.object_id=stored.object_id
+        JOIN ingestion_runs run ON run.ingestion_run_id=link.ingestion_run_id
+        LEFT JOIN bulk_file_checkpoints bulk ON bulk.fingerprint=run.bulk_fingerprint
+        WHERE stored.dataset=? AND stored.kind='normalized' AND stored.quality_passed
+          AND stored.available_at<=? AND run.status='SUCCEEDED'
+          AND (run.bulk_fingerprint IS NULL OR bulk.status='SUCCEEDED')
+        ORDER BY stored.parquet_path
+    ''', [dataset, cutoff]).fetchall()
+    assert stored, 'No eligible sources'
+    print(dataset, 'verify normalized bytes', len(stored), 'objects', flush=True)
+    for path, expected_sha in stored:
+        assert file_digest(path) == expected_sha, path
+    partition = ', '.join(map(identifier, keys))
+    print(dataset, 'materialize exact PIT relation with 512MB spill budget', flush=True)
+    connection.execute(f'''
+        CREATE TEMP TABLE current_source AS
+        SELECT * FROM read_parquet(?, union_by_name=true) WHERE available_at<=?
+        QUALIFY row_number() OVER (PARTITION BY {partition}
+            ORDER BY available_at DESC,received_at DESC,payload_hash DESC)=1
+    ''', [[str(path) for path, _ in stored], cutoff])
+    print(dataset, 'stream source-frame hash', flush=True)
+    streamed = streamed_source_identity(connection, 'current_source', dataset, keys)
+    print(dataset, 'hash matches:', streamed['source_snapshot_id'] == expected, flush=True)
+    for path, expected_sha in stored:
+        assert file_digest(path) == expected_sha, path
+    assert streamed['source_snapshot_id'] == expected, (streamed, expected)
+    lineage = hashlib.sha256(json.dumps(stored, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+result = {
+    'started_at': started, 'finished_at': datetime.now(timezone.utc).isoformat(),
+    'dataset': dataset, 'dataset_snapshot_id': snapshot_id,
+    'source_snapshot_as_of': cutoff.isoformat(), 'expected_source_snapshot_id': expected,
+    **streamed, 'normalized_objects_verified': len(stored), 'normalized_path_hash_list_sha256': lineage,
+    'file_hashes_before_after_match': True, 'status': 'PASS',
+    'purpose': 'exact saved-source identity only; not historical-vintage, raw-pair or execution proof',
+    'holdout_scored': False, 'adoption_eligible': False,
+    'prototype_sha256': file_digest(root / '.demo-artifacts/prototype_source_frame_hash.py'),
+    'audit_script_sha256': file_digest(__file__),
+    'metadata_file_sha256': file_digest(metadata_path),
+    'dependencies': {'duckdb': duckdb.__version__},
+}
+destination.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
+print(dataset, 'PASS:', streamed['rows'], 'rows; saved', destination, flush=True)

@@ -74,7 +74,9 @@
 
 v04のSB20/SB60区間は反例が再現された。統計的有意性や自動採用の条件には使わず、現段階では診断用とする。学習データは8月時点であり「今日の予測」と表示しない。実注文送信機能はない。
 
-`research project-daily-market`で、[保存raw/normalizedの認証と日足projection](DAILY_MARKET_PROJECTION.md)を追加した。無約定行・元UL/LL・特殊コードを保持し、開発期間だけを読み出す。実データ確認は4日間まで。企業行動・約定能力・全期間の同一source接続を認証した実市場NAVは引き続き未完。
+`research project-daily-market`で、[保存raw/normalizedの認証と日足projection](DAILY_MARKET_PROJECTION.md)を追加した。無約定行・元UL/LL・特殊コードを保持し、開発期間だけを読み出す。raw/normalized行ペアの実データ確認は4日間まで。別の[全5種類のsource identity照合](evidence/daily-source-identity-20261015/README.md)は完了し、元の学習入力と一致した。全期間の行ペア、PITユニバース/営業日、企業行動・約定能力を認証した実市場NAVは引き続き未完。
+
+最新データの[2026-10-15接続確認](evidence/live-data-access-20261015/README.md)は、株価Bulk一覧と銘柄一覧の両方でHTTP403。本人の契約プランやキー有効状態は確認待ちであり、原因を断定しない。配当APIは未要求。接続復旧が必要な最新推論と、保存済みデータで続けられる比較・実装を区別する。
 
 `research compare-daily-baselines`で、[同じ開発foldにそろえた回帰・リスクbaseline比較](DAILY_BASELINE_COMPARISON.md)を実行できる。ゼロ予測・20日momentum・V0 Ridge・過去の下落率/分位点・V0 Logisticと全18候補を照合し、固定の候補平均も記録する。モデルの予測指標とcash/HOLD等の状態付きNAVは区別する。 v3では固定Elastic Netとmomentum+revision/等重みルール順位も比較する。ルールは全同時点特徴量の母集団で正解結合前に順位化し、リターン単位のMSEを付けない。
 

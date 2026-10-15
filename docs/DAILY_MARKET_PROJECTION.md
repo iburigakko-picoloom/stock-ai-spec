@@ -8,7 +8,9 @@
 
 DuckDBをread-only transactionで開き、指定期間・vintage内で品質合格、ingestion成功、Bulk完了のobjectを対象にする。normalized行が指すraw objectと、catalog/manifest全15項目、path、byte hash、行数、行metadata、レコードhash、キー集合、生OHLC/出来高/売買代金/調整係数を照合する。空partitionは同じpayload/dateのrawとの一意な組を確認する。読み込み後にもverifyする。
 
-複数vintageではavailable_at、received_at、payload_hashの順で版を選ぶ。後日の追加が以前の指定vintageの結果を変えないことを試験する。これはローカル証拠の整合性検証であり、providerの訂正前の値を復元するものではない。feature selectionが宣言したdataset IDを記録するが、そのdataset構築時の全source frameとの一致はまだ検証しない。
+複数vintageではavailable_at、received_at、payload_hashの順で版を選ぶ。後日の追加が以前の指定vintageの結果を変えないことを試験する。これはローカル証拠の整合性検証であり、providerの訂正前の値を復元するものではない。projectionコマンドはfeature selectionが宣言したdataset IDを記録するが、dataset構築時の全source frameとの一致はコマンド内では検証しない。
+
+別の[元データ識別値照合](evidence/daily-source-identity-20261015/README.md)で、固定feature selection→build→dataset metadataと全5種類のsource frameを認証した。normalized 13,015 objectの処理前後hashを検証し、株価・銘柄一覧は各9,801,708行を含む全5種類で学習時の識別値と完全一致。これは同一入力の確認であり、全期間raw/normalized行ペア、ユニバース/営業日完全性、企業行動/執行能力の認証や`evaluation_ready`への昇格ではない。
 
 ## 欠損・コード・執行能力
 
@@ -29,3 +31,5 @@ UL/LLをrawから回収するが終値の約定可否へ変換しない。非単
 正本JSONはsource metadata、抽出行、集計、不足能力、実装hash、pandas/DuckDB版を持つ。既存receiptは上書きしない。明細はローカル保存でクラウドへ送らない。指定窓をメモリ上に構成するため、全期間の処理前に分割/ストリーミングが必要。
 
 実データ確認は2025-11-04〜11-07の4日、8object、17,669行。[検証証拠](evidence/daily-market-20261015/README.md)を参照。全期間、PIT銘柄/営業日の完全性、企業行動、約定能力、実用費用、個人設定の接続は残る。実市場戦略成績、全候補比較、最終selection/holdout、最新推論、実用採用は未完。実注文なし。
+
+2026-10-15の[接続確認](evidence/live-data-access-20261015/README.md)では、株価Bulk一覧と銘柄一覧の2要求がHTTP403。原因や本人の契約プランは未確定、配当APIは未要求。最新データ取得成功の証拠が得られるまで、2026-08-29時点の保存データを今日のデータとは表示しない。保存済みデータによる検証は継続する。
