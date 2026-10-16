@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>市場データ・画面試験</title></head>
+<body><div id="market-test" class="device-settings page"></div><script type="module">
+// Browser-only layout fixture. This entry is excluded from the application build.
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { MobileMarketPanel } from "/src/mobile/MobileMarketPanel.tsx";
+import "/src/styles.css";
+createRoot(document.getElementById("market-test")).render(React.createElement(MobileMarketPanel, { configured: true, disabled: false, onBusy() {} }));
+</script></body></html>

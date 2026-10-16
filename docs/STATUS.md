@@ -1,12 +1,20 @@
 # Project Status
 
+## 2026-10-17 — 履歴の範囲取得・ページ再開・300社の対象プレビュー
+
+- J-Quantsの日別ページをnative SQLiteへ圧縮保存し、通信中断・403/429・process再生成後に同じcursorから再開する処理へ変更。calendarで休業日を確認できた場合は空価格を作らず他の取得を省略。ページごとの受領時刻・hash・行数を残し、共有DBの検証と暗号化durable保存後にだけ取得途中データをackする。保存成功後/ack前の停止も確定済みreceiptから回復する。明示的な取り直しは以前のページ証拠を保持して別acquisitionへ進む。
+- 「履歴の取得を開始・再開」と日付単位の停止を接続。初期420日前〜昨日、1範囲最大2年、保存済み日をskip。範囲はbackupに保存し、訂正取得は元の初回範囲を変えない。API未設定・契約外・上限・保存失敗を区別。現在はforegroundの手動処理であり、画面消失後の自動継続・毎営業日worker・完了通知は未完。
+- 時価総額は公式valuation endpointの百万円単位を使い、300億円=30,000百万円で判定。deprecatedなbars MktCapや推測株数へfallbackしない。受領済みcalendarで連続した直近20営業日を確定し、20日すべての売買代金が有効な普通株の上位300社を同順位コード順で抽出。条件外・未収録の全記録済み保有を残し、保有未入力も区別する。市場・業種の入力母集団は変更しない。
+- 日別の完全snapshotから削除された行を古い版から復活させる問題を修正。同じ内容に戻るA→B→Aも別の受領として保存し、旧5datasetテーブルをtransaction内で移行する。11:30後の受領・訂正をcutoffへ遡及させない。対象抽出は前営業日の銘柄一覧によるプレビューで、当日membership・最終推論/株数への接続はまだ完了していない。
+- Python関連113件pass（新規/変更した取得・対象抽出・台帳・backupを含む）。Ruff全件・mypy65 source（標準/win32）pass。TypeScript/ESLint/buildとフロント50件pass。headless Edgeで320/390px・文字150%の横溢れ/48px対象/操作間隔12pxを2件passし、320px画像を目視確認。追加native6件の最終結果はこの工程のCIで追記する。API実接続・実注文・private研究データの公開なし。Xiaomiの実測、モデル採用、日次自動化等の全完成条件は継続する。
+
 ## 2026-10-17 — ChatGPT再認証・更新・連携解除の復旧処理
 
 - native sessionをKeystore暗号化の単一envelopeへ整理し、検証済みclient/subjectと回転tokenの保存を分離。旧credential形式は新形式へ移行し、更新後にplan scopeが外れても新refresh tokenを先に保存してから推論を停止する。同時consumerの二重refreshを抑止。
 - 文書化されたterminal refresh errorの4xxコードだけで利用不能tokenを消去し、登録済みclient/subjectを保持。通信・5xxでは消去しない。再認証は同じclient/hostで行い、異なるsubjectや解除後に遅れて返った認証で置き換えない。
 - 連携解除で新規推論を止め、実行中接続を切断し、端末tokenを消去してから公式discoveryのrevocation endpointで失効を試す。issuer/HTTPS同一originを検証し、一時失敗だけ最大2回。失効の確認有無を画面へ返す。認証取消後の未採用grantも可能な範囲で失効を試す。
 - 接続済み状態から「ログインし直す」と中止が可能。期限切れ後のモデル・推論量と保存済み調査を維持し、利用資格・アプリ上限・一時障害・権限不足を分ける。raw provider messageを表示・記録せず、安定code等だけを暗号化保存する。
-- フロントのtypecheck/ESLint/buildと39件の試験がpass。追加native7件（permission喪失時の回転、terminal/一時障害、同時refresh、logout、owner/遅延callback、旧形式移行、診断/endpoint）を作成し、Android CIへ送る。実アカウントでのOAuth更新・失効、Xiaomi実機、バックグラウンド/初期一括取得等の完成条件は未完。実APIの推論・実注文なし。
+- フロントのtypecheck/ESLint/buildと39件の試験がpass。追加native7件（permission喪失時の回転、terminal/一時障害、同時refresh、logout、owner/遅延callback、旧形式移行、診断/endpoint）を含むrun38938128185はAndroid/verify両jobが成功。JUnit XMLで合計19件・失敗0・error0・skip0を確認した。実アカウントでのOAuth更新・失効、Xiaomi実機、バックグラウンド/初期一括取得等の完成条件は未完。実APIの推論・実注文なし。
 
 ## 2026-10-17 — ChatGPT調査の実行・回復・銘柄詳細を接続
 

@@ -10,6 +10,7 @@ import sqlite3
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi.routing import APIRoute, request_response
@@ -19,7 +20,7 @@ from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
 from stock_ai.operations.store import OperationalConflictError
 
-from . import market, models, personal
+from . import market, models, personal, universe
 from .features import bundled_selection, calculate
 from .portable_model import predict
 
@@ -175,6 +176,35 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 "status": 422,
                 "body": {"detail": "特徴量に必要な履歴・市場・財務データが不足または不整合です。"},
             }
+    if path == "/api/v1/mobile/market/plan":
+        try:
+            return {"status": 200, "body": market.plan(
+                STATE / "mobile.sqlite3", json.loads(body) if method == "POST" else None
+            )}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {
+                "detail": "取得範囲は昨日までの最大2年分で指定してください。"
+            }}
+    if path == "/api/v1/mobile/market/universe" and method == "GET":
+        ledger = _app.state.store.latest_portfolio()
+        profile = personal.portfolio_view(_app.state.store)
+        held = ([item.symbol for item in ledger.positions] if ledger is not None else
+                [item["symbol"] for item in profile["portfolio"]["holdings"]] if profile else [])
+        try:
+            # The displayed preview observes the same closed alpha boundary.
+            now = datetime.now(UTC)
+            cutoff = now.astimezone(ZoneInfo("Asia/Tokyo")).replace(
+                hour=11, minute=30, second=0, microsecond=0
+            )
+            selected = universe.select(STATE / "mobile.sqlite3", min(now, cutoff), held)
+            selected["holdings_recorded"] = ledger is not None or bool(
+                profile and profile["portfolio"]["holdings_status"] != "unrecorded"
+            )
+            return {"status": 200, "body": selected}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {
+                "detail": "対象抽出の受領記録または市場データを確認できません。"
+            }}
     if path == "/api/v1/mobile/market" and method == "GET":
         return {"status": 200, "body": market.status(STATE / "mobile.sqlite3")}
     if path == "/api/v1/mobile/models" and method == "GET":
@@ -224,7 +254,7 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 "status": 200,
                 "body": market.ingest(STATE / "mobile.sqlite3", json.loads(body)),
             }
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             return {
                 "status": 422,
                 "body": {

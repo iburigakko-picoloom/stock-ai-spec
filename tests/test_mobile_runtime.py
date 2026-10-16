@@ -26,6 +26,20 @@ def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):
     assert run(device, "GET", "https://foreign.example/api/v1/health")["status"] == 400
 
 
+def test_market_plan_and_unknown_holdings_survive_portable_backup(device):
+    plan = {"first_day": "2026-01-01", "last_day": "2026-01-06"}
+    assert run(device, "POST", "/api/v1/mobile/market/plan", plan)["body"] == plan
+    selected = run(device, "GET", "/api/v1/mobile/market/universe")["body"]
+    assert selected["holdings_recorded"] is False
+    assert selected["blocking_reasons"] == ["twenty_sessions_required"]
+    encoded = device.export_state()
+    device.initialize(encoded)
+    assert run(device, "GET", "/api/v1/mobile/market/plan")["body"] == plan
+    assert run(device, "POST", "/api/v1/mobile/market/plan", {
+        "first_day": "2026-01-06", "last_day": "2026-01-01"
+    })["status"] == 422
+
+
 def test_unknown_manual_inputs_survive_restart_and_exact_backup(device):
     value = {
         "schema_version": "manual-portfolio-v1",

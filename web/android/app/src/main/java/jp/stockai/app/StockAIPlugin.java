@@ -244,39 +244,39 @@ public class StockAIPlugin extends Plugin {
         conn.setRequestProperty("User-Agent", "StockAI-Android"); return conn;
     }
 
-    long lastProviderRequest = 0;
+    static long lastProviderRequest = 0;
+    MarketDownload marketDownload() {
+        return new MarketDownload(db, (endpoint, day, page) -> {
+            String credential = apiKey();
+            if (credential == null) throw new IllegalStateException("API_KEY_REQUIRED");
+            long delay = 12500 - (android.os.SystemClock.elapsedRealtime() - lastProviderRequest);
+            if (lastProviderRequest != 0 && delay > 0) Thread.sleep(delay);
+            String query = endpoint.equals("/markets/calendar")
+                ? "?from=" + day + "&to=" + java.time.LocalDate.parse(day).plusDays(21) : "?date=" + day;
+            if (page != null) query += "&pagination_key=" + java.net.URLEncoder.encode(page, "UTF-8");
+            HttpURLConnection conn = connection("https://api.jquants.com/v2" + endpoint + query);
+            conn.setRequestProperty("x-api-key", credential);
+            try {
+                lastProviderRequest = android.os.SystemClock.elapsedRealtime();
+                int status = conn.getResponseCode();
+                JSONObject result = new JSONObject().put("status", status);
+                if (status == 200) {
+                    JSONObject body = new JSONObject(new String(read(conn.getInputStream(), 20 * 1024 * 1024), StandardCharsets.UTF_8));
+                    result.put("body", body).put("received_at", java.time.Instant.now().toString());
+                }
+                return result;
+            } finally { conn.disconnect(); }
+        });
+    }
     @PluginMethod public void fetchMarket(PluginCall call) { network(call, () -> {
-        String day = call.getString("date"), credential = apiKey();
-        if (day == null || !day.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}") || credential == null) throw new IllegalArgumentException();
-        String[][] endpoints = {{"security_master", "/equities/master"}, {"daily_prices", "/equities/bars/daily"},
-            {"trading_calendar", "/markets/calendar"}, {"topix", "/indices/bars/daily/topix"}, {"financial_summary", "/fins/summary"}};
-        JSONObject datasets = new JSONObject();
-        for (String[] endpoint : endpoints) {
-            JSONArray records = new JSONArray(); String page = null;
-            java.util.HashSet<String> seen = new java.util.HashSet<>();
-            do {
-                long delay = 12500 - (android.os.SystemClock.elapsedRealtime() - lastProviderRequest);
-                if (lastProviderRequest != 0 && delay > 0) Thread.sleep(delay);
-                String query = endpoint[0].equals("trading_calendar") ? "?from=" + day + "&to=" + java.time.LocalDate.parse(day).plusDays(21) : "?date=" + day;
-                if (page != null) query += "&pagination_key=" + java.net.URLEncoder.encode(page, "UTF-8");
-                HttpURLConnection conn = connection("https://api.jquants.com/v2" + endpoint[1] + query);
-                conn.setRequestProperty("x-api-key", credential);
-                try {
-                    lastProviderRequest = android.os.SystemClock.elapsedRealtime(); int status = conn.getResponseCode();
-                    if (status != 200) { call.resolve(new JSObject().put("date", day).put("status", status).put("failedDataset", endpoint[0])); return; }
-                    JSONObject response = new JSONObject(new String(read(conn.getInputStream(), 20 * 1024 * 1024), StandardCharsets.UTF_8));
-                    JSONArray values = response.getJSONArray("data");
-                    for (int i = 0; i < values.length(); i++) records.put(values.getJSONObject(i));
-                    page = response.optString("pagination_key", "");
-                    if (page.isEmpty()) page = null;
-                    if (page != null && (!seen.add(page) || seen.size() > 100)) throw new SecurityException();
-                } finally { conn.disconnect(); }
-            } while (page != null);
-            datasets.put(endpoint[0], records);
-        }
-        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
-        format.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        call.resolve(new JSObject().put("date", day).put("received_at", format.format(new java.util.Date())).put("status", 200).put("datasets", datasets));
+        call.resolve(new JSObject(marketDownload().fetch(call.getString("date")).toString()));
+    }); }
+    @PluginMethod public void acknowledgeMarket(PluginCall call) { network(call, () -> {
+        marketDownload().acknowledge(call.getString("date"), call.getString("acquisitionId"));
+        call.resolve();
+    }); }
+    @PluginMethod public void restartMarket(PluginCall call) { network(call, () -> {
+        marketDownload().restart(call.getString("date")); call.resolve();
     }); }
     static byte[] read(InputStream stream, long limit) throws Exception {
         try (InputStream input = stream; ByteArrayOutputStream output = new ByteArrayOutputStream()) {

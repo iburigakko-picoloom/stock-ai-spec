@@ -13,7 +13,9 @@ export interface StockAINative {
   clearApiKey(): Promise<void>;
   checkUpdate(): Promise<ReleaseInfo>;
   installUpdate(input: { versionCode: number }): Promise<{ needsPermission: boolean }>;
-  fetchMarket(input: { date: string }): Promise<{ date: string; received_at: string; status: number; datasets?: Record<string, unknown[]>; failedDataset?: string }>;
+  fetchMarket(input: { date: string }): Promise<{ date: string; acquisitionId: string; received_at?: string; status: number; datasets?: Record<string, unknown[]>; valuations?: unknown[]; failedDataset?: string }>;
+  acknowledgeMarket(input: { date: string; acquisitionId: string }): Promise<void>;
+  restartMarket(input: { date: string }): Promise<void>;
   exportBackup(input: { password: string }): Promise<void>;
   importBackup(input: { password: string }): Promise<NativeState>;
   importModel(): Promise<{ content: string }>;

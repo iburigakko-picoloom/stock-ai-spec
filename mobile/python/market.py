@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import sqlite3
 import zlib
 from datetime import UTC, date, datetime, time, timedelta
@@ -21,16 +22,70 @@ from stock_ai.data.quality import require_quality, validate_rows
 
 def initialize(path: Path) -> None:
     with sqlite3.connect(path) as db:
+        db.execute("BEGIN IMMEDIATE")
+        # v1 keyed observations only by content. Preserve a later observation
+        # when a corrected value returns to an earlier value (A -> B -> A).
+        existing = db.execute("PRAGMA table_info(market_batches)").fetchall()
+        migrate = bool(existing) and "sequence" not in {row[1] for row in existing}
+        if migrate:
+            db.execute("ALTER TABLE market_batches RENAME TO market_batches_v1")
         db.execute(
             "CREATE TABLE IF NOT EXISTS market_batches("
-            "dataset TEXT NOT NULL, day TEXT NOT NULL, received_at TEXT NOT NULL, "
+            "sequence INTEGER PRIMARY KEY,dataset TEXT NOT NULL, "
+            "day TEXT NOT NULL, received_at TEXT NOT NULL, "
             "payload_hash TEXT NOT NULL, raw BLOB NOT NULL, normalized BLOB NOT NULL, "
-            "normalized_hash TEXT NOT NULL, PRIMARY KEY(dataset,day,payload_hash))"
+            "normalized_hash TEXT NOT NULL, UNIQUE(dataset,day,received_at,payload_hash))"
+        )
+        if migrate:
+            db.execute(
+                "INSERT INTO market_batches(dataset,day,received_at,payload_hash,raw,"
+                "normalized,normalized_hash) SELECT dataset,day,received_at,payload_hash,"
+                "raw,normalized,normalized_hash FROM market_batches_v1 ORDER BY rowid"
+            )
+            db.execute("DROP TABLE market_batches_v1")
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS market_batch_lookup "
+            "ON market_batches(dataset,day,received_at,sequence)"
         )
         db.execute(
             "CREATE TABLE IF NOT EXISTS market_days("
             "day TEXT PRIMARY KEY, received_at TEXT NOT NULL)"
         )
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS market_valuations("
+            "sequence INTEGER PRIMARY KEY,day TEXT NOT NULL,received_at TEXT NOT NULL,"
+            "payload_hash TEXT NOT NULL,raw BLOB NOT NULL,UNIQUE(day,received_at,payload_hash))"
+        )
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS market_valuation_lookup "
+            "ON market_valuations(day,received_at,sequence)"
+        )
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS market_download_plan("
+            "id INTEGER PRIMARY KEY CHECK(id=1),first_day TEXT NOT NULL,last_day TEXT NOT NULL)"
+        )
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS market_acquisitions("
+            "id TEXT PRIMARY KEY,day TEXT NOT NULL,content_hash TEXT NOT NULL,"
+            "source_pages TEXT NOT NULL)"
+        )
+
+
+def plan(path: Path, payload: dict | None = None) -> dict | None:
+    with sqlite3.connect(path) as db:
+        if payload is not None:
+            first, last = date.fromisoformat(payload["first_day"]), date.fromisoformat(
+                payload["last_day"]
+            )
+            today = datetime.now(ZoneInfo("Asia/Tokyo")).date()
+            if first > last or last >= today or (last - first).days > 730:
+                raise ValueError("Closed source dates within a two-year mobile range required")
+            db.execute("INSERT OR REPLACE INTO market_download_plan VALUES(1,?,?)",
+                       (str(first), str(last)))
+        row = db.execute(
+            "SELECT first_day,last_day FROM market_download_plan WHERE id=1"
+        ).fetchone()
+    return None if row is None else {"first_day": row[0], "last_day": row[1]}
 
 
 def ingest(path: Path, payload: dict) -> dict:
@@ -52,6 +107,16 @@ def ingest(path: Path, payload: dict) -> dict:
     ):
         raise ValueError("Missing business-day inputs")
     batches = []
+    valuation_batch = None
+    if "valuations" in payload:
+        from .universe import validate_valuations
+
+        rows = tuple(payload["valuations"])
+        validate_valuations(rows, day)
+        valuation_batch = (
+            str(day), received.isoformat(timespec="microseconds"), canonical_payload_hash(rows),
+            zlib.compress(json.dumps(rows, allow_nan=False).encode()),
+        )
     for dataset in DatasetName:
         rows = tuple(payload["datasets"][dataset.value])
         if dataset is DatasetName.TRADING_CALENDAR:
@@ -85,7 +150,7 @@ def ingest(path: Path, payload: dict) -> dict:
             (
                 dataset.value,
                 str(day),
-                received.isoformat(),
+                received.isoformat(timespec="microseconds"),
                 digest,
                 zlib.compress(json.dumps(rows, allow_nan=False).encode()),
                 zlib.compress(normalized),
@@ -95,7 +160,49 @@ def ingest(path: Path, payload: dict) -> dict:
     with sqlite3.connect(path) as db:
         # Publish a day only after every dataset passes. The previous good day
         # remains the latest if any endpoint returns 403 or fails validation.
-        db.executemany("INSERT OR IGNORE INTO market_batches VALUES(?,?,?,?,?,?,?)", batches)
+        if "acquisitionId" in payload:
+            acquisition = payload["acquisitionId"]
+            if not isinstance(acquisition, str) or not re.fullmatch(
+                r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", acquisition
+            ):
+                raise ValueError("Invalid acquisition receipt")
+            pages = payload["source_pages"]
+            expected_rows = {name: len(rows) for name, rows in payload["datasets"].items()}
+            expected_rows["valuations"] = len(payload["valuations"])
+            counts, numbers = dict.fromkeys(expected_rows, 0), dict.fromkeys(expected_rows, 0)
+            if not isinstance(pages, list) or not 1 <= len(pages) <= 600:
+                raise ValueError("Invalid source page manifest")
+            for page in pages:
+                name = page["dataset"]
+                stamp = datetime.fromisoformat(page["received_at"])
+                if (name not in counts or not stamp.tzinfo or stamp > received
+                        or type(page["page"]) is not int or page["page"] != numbers[name]
+                        or type(page["row_count"]) is not int or page["row_count"] < 0
+                        or not isinstance(page["sha256"], str)
+                        or not re.fullmatch(r"[0-9a-f]{64}", page["sha256"])):
+                    raise ValueError("Invalid source page receipt")
+                numbers[name] += 1
+                counts[name] += page["row_count"]
+            if counts != expected_rows:
+                raise ValueError("Source page row count mismatch")
+            digest = hashlib.sha256(json.dumps(payload, sort_keys=True, allow_nan=False).encode())
+            identity = (str(day), digest.hexdigest())
+            previous = db.execute(
+                "SELECT day,content_hash FROM market_acquisitions WHERE id=?", (acquisition,)
+            ).fetchone()
+            if previous is not None and previous != identity:
+                raise ValueError("Acquisition receipt changed")
+            db.execute("INSERT OR IGNORE INTO market_acquisitions VALUES(?,?,?,?)",
+                       (acquisition, *identity, json.dumps(pages, sort_keys=True)))
+        db.executemany(
+            "INSERT OR IGNORE INTO market_batches(dataset,day,received_at,payload_hash,raw,"
+            "normalized,normalized_hash) VALUES(?,?,?,?,?,?,?)", batches
+        )
+        if valuation_batch is not None:
+            db.execute(
+                "INSERT OR IGNORE INTO market_valuations(day,received_at,payload_hash,raw) "
+                "VALUES(?,?,?,?)", valuation_batch
+            )
         db.execute(
             "INSERT OR REPLACE INTO market_days VALUES(?,?)", (str(day), received.isoformat())
         )
@@ -106,6 +213,9 @@ def status(path: Path) -> dict:
     with sqlite3.connect(path) as db:
         row = db.execute("SELECT MAX(day),COUNT(*) FROM market_days").fetchone()
         completed = [item[0] for item in db.execute("SELECT day FROM market_days ORDER BY day")]
+        receipts = [{"date": day, "acquisitionId": identity} for day, identity in db.execute(
+            "SELECT day,id FROM market_acquisitions ORDER BY day,id"
+        )]
     return {
         "latest_data_date": row[0],
         "completed_days": row[1],
@@ -113,6 +223,7 @@ def status(path: Path) -> dict:
         "latest_forecast_available": False,
         "model_adopted": False,
         "completed_dates": completed,
+        "committed_acquisitions": receipts,
     }
 
 
@@ -123,24 +234,33 @@ class SQLiteSource:
     def point_in_time(self, dataset: DatasetName, as_of: datetime) -> pd.DataFrame:
         if not as_of.tzinfo:
             raise ValueError("Aware cutoff required")
-        with sqlite3.connect(self.path) as db:
-            rows = db.execute(
-                "SELECT normalized,normalized_hash FROM market_batches "
-                "WHERE dataset=? AND received_at<=? ORDER BY received_at,payload_hash",
-                (dataset.value, as_of.astimezone(UTC).isoformat()),
-            ).fetchall()
         parts = []
         total = 0
-        for content, expected in rows:
-            decoded = zlib.decompress(content)
-            if hashlib.sha256(decoded).hexdigest() != expected:
-                raise ValueError("Stored normalized data changed")
-            frame = pd.read_json(io.BytesIO(decoded), orient="table")
-            total += len(frame)
-            if total > 1_500_000:
-                raise ValueError("MOBILE_MEMORY_LIMIT: input is too large for the mobile worker")
-            if not frame.empty:
-                parts.append(frame)
+        with sqlite3.connect(self.path) as db:
+            # Each endpoint response is a complete daily snapshot. A correction
+            # that removes a row must not resurrect it from an older response.
+            rows = db.execute(
+                "WITH versions AS (SELECT sequence,normalized,normalized_hash,"
+                "received_at,payload_hash,ROW_NUMBER() OVER("
+                "PARTITION BY day ORDER BY received_at DESC,sequence DESC) n "
+                "FROM market_batches WHERE dataset=? AND received_at<=?) "
+                "SELECT normalized,normalized_hash,sequence FROM versions WHERE n=1 "
+                "ORDER BY received_at,sequence",
+                (dataset.value, as_of.astimezone(UTC).isoformat(timespec="microseconds")),
+            )
+            for content, expected, sequence in rows:
+                decoded = zlib.decompress(content)
+                if hashlib.sha256(decoded).hexdigest() != expected:
+                    raise ValueError("Stored normalized data changed")
+                frame = pd.read_json(io.BytesIO(decoded), orient="table")
+                total += len(frame)
+                if total > 1_500_000:
+                    raise ValueError(
+                        "MOBILE_MEMORY_LIMIT: input is too large for the mobile worker"
+                    )
+                if not frame.empty:
+                    frame["_observation_order"] = sequence
+                    parts.append(frame)
         if not parts:
             return pd.DataFrame()
         frame = pd.concat(parts, ignore_index=True)
@@ -151,10 +271,10 @@ class SQLiteSource:
             DatasetName.TOPIX: ["trading_date"],
             DatasetName.FINANCIAL_SUMMARY: ["disclosure_number"],
         }[dataset]
-        frame = frame.sort_values(["available_at", "received_at", "payload_hash"]).drop_duplicates(
-            keys, keep="last"
-        )
-        return frame.sort_values(keys).reset_index(drop=True)
+        frame = frame.sort_values(
+            ["available_at", "received_at", "_observation_order", "payload_hash"]
+        ).drop_duplicates(keys, keep="last")
+        return frame.drop(columns="_observation_order").sort_values(keys).reset_index(drop=True)
 
 
 def feature_inputs(path: Path, as_of: datetime) -> dict:
