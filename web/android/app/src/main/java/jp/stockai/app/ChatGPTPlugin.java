@@ -228,8 +228,12 @@ public class ChatGPTPlugin extends Plugin {
         catch (Exception error) { call.reject("調査を開始できません。", failureCode(error)); return; }
         client().respond(id, call.getString("requestJson"), call.getString("requestSha256"), call.getString("model"), call.getString("effort"))
             .whenComplete((value, error) -> {
-                if (error == null) call.resolve(JSObject.fromJSONObject(value));
-                else call.reject("ChatGPT調査を完了できません。保存済みの実行状態を確認してください。", ChatGPTClient.failureCode(error));
+                if (error != null) {
+                    call.reject("ChatGPT調査を完了できません。保存済みの実行状態を確認してください。", ChatGPTClient.failureCode(error));
+                    return;
+                }
+                try { call.resolve(JSObject.fromJSONObject(value)); }
+                catch (org.json.JSONException invalid) { call.reject("保存済みの実行状態を確認してください。", "EXECUTION_RECEIPT_UNAVAILABLE"); }
             });
     }
     @PluginMethod public void listModels(PluginCall call) { execute(call, () -> {
