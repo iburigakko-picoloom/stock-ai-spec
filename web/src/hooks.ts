@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiGet } from "./api";
+import { isAndroid } from "./mobile/native";
 
 export function useApiData<T>(path: string): {
   data: T | null;
@@ -37,20 +38,23 @@ export function useApiData<T>(path: string): {
 
   useEffect(() => {
     const refreshVisible = (): void => {
-      if (document.visibilityState === "visible" && navigator.onLine) reload();
+      if (document.visibilityState === "visible" && (isAndroid() || navigator.onLine)) reload();
     };
     const invalidateOffline = (): void => {
+      if (isAndroid()) { reload(); return; }
       setData(null);
       setError("オフラインです。古い提案は表示しません。");
       setLoading(false);
     };
     document.addEventListener("visibilitychange", refreshVisible);
     window.addEventListener("online", refreshVisible);
+    window.addEventListener("focus", refreshVisible);
     window.addEventListener("offline", invalidateOffline);
     const timer = window.setInterval(refreshVisible, 60_000);
     return () => {
       document.removeEventListener("visibilitychange", refreshVisible);
       window.removeEventListener("online", refreshVisible);
+      window.removeEventListener("focus", refreshVisible);
       window.removeEventListener("offline", invalidateOffline);
       window.clearInterval(timer);
     };
