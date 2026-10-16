@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.android_lifecycle_check import Controller, main
+from scripts.android_lifecycle_check import NAMESPACE, PACKAGE, Controller, DeliveryDeferred, main
 
 
 def test_non_ci_execution_never_invokes_adb_even_for_diagnostics(tmp_path, monkeypatch):
@@ -60,3 +60,33 @@ def test_wrong_device_or_platform_is_rejected_before_install_or_clear(
         controller.execute()
     assert not controller.guarded
     assert all(call[0] not in ("install", "pm", "reboot") for call in observed)
+
+
+def test_scheduler_dispatch_requires_guard_and_targets_only_prepared_job(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    marker = {"system_job": {"namespace": NAMESPACE, "id": 7}}
+    calls = []
+    monkeypatch.setattr(controller, "shell", lambda *args: calls.append(args) or "Running job")
+    with pytest.raises(RuntimeError, match="guard"):
+        controller.dispatch_ready_job(marker, "process")
+    assert calls == []
+    controller.guarded = True
+    controller.dispatch_ready_job(marker, "process")
+    assert calls == [("cmd", "jobscheduler", "run", "-s", "-u", "0", "-n", NAMESPACE, PACKAGE, "7")]
+
+
+@pytest.mark.parametrize("dispatch_ready,error", [(False, DeliveryDeferred), (True, RuntimeError)])
+def test_unforced_mode_or_bad_observation_cannot_trigger_scheduler(
+    tmp_path, monkeypatch, dispatch_ready, error
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=dispatch_ready)
+
+    def wait(*args, **kwargs):
+        raise error("no accepted observation")
+
+    monkeypatch.setattr(controller, "wait_ack", wait)
+    monkeypatch.setattr(controller, "dispatch_ready_job", lambda *a: pytest.fail("new dispatch"))
+    with pytest.raises(error):
+        controller.observe_delivery({}, "process")

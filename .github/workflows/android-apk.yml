@@ -35,6 +35,12 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
   workflow_dispatch:
+    inputs:
+      lifecycle_delivery:
+        description: 'OS delivery observation (unforced retains the 200s acceptance window)'
+        type: choice
+        options: [scheduler-satisfied, unforced]
+        default: scheduler-satisfied
 
 permissions:
   contents: read
@@ -106,7 +112,7 @@ jobs:
 
   android:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -169,9 +175,16 @@ jobs:
       - name: Android persistence tests
         working-directory: web/android
         run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest
-      - name: Real worker process loss, screen off and reboot
-        timeout-minutes: 12
-        run: python scripts/android_lifecycle_check.py
+      - name: Real worker recovery and OS dispatch evidence
+        timeout-minutes: 20
+        env:
+          LIFECYCLE_DELIVERY: ${{ inputs.lifecycle_delivery || 'scheduler-satisfied' }}
+        run: |
+          case "$LIFECYCLE_DELIVERY" in
+            unforced) python scripts/android_lifecycle_check.py ;;
+            scheduler-satisfied) python scripts/android_lifecycle_check.py --dispatch-ready ;;
+            *) exit 2 ;;
+          esac
       - name: Android diagnostics
         if: failure()
         run: |

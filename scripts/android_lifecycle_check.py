@@ -19,10 +19,15 @@ PACKAGE = "jp.stockai.app.debug"
 RUNNER = PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner"
 CASE = "jp.stockai.app.DailyLifecycleTest"
 DATABASE = "databases/stockai-device.sqlite3"
+NAMESPACE = "androidx.work.systemjobscheduler"
+
+
+class DeliveryDeferred(RuntimeError):
+    """A readable pending receipt was not delivered within the observation window."""
 
 
 class Controller:
-    def __init__(self, output: Path) -> None:
+    def __init__(self, output: Path, *, dispatch_ready: bool = False) -> None:
         workspace = Path.cwd().resolve()
         self.output = output.resolve()
         if not self.output.is_relative_to(workspace) or self.output == workspace:
@@ -30,7 +35,13 @@ class Controller:
         self.output.mkdir(parents=True, exist_ok=True)
         self.command = ["adb"]
         self.guarded = False
-        self.report: dict = {"synthetic_only": True, "phases": [], "status": "running"}
+        self.dispatch_ready = dispatch_ready
+        self.report: dict = {
+            "synthetic_only": True,
+            "delivery_policy": "scheduler-satisfied" if dispatch_ready else "unforced",
+            "phases": [],
+            "status": "running",
+        }
 
     def adb(self, *args: str, timeout: int = 40, required: bool = True) -> bytes:
         result = subprocess.run(self.command + list(args), capture_output=True, timeout=timeout)
@@ -144,9 +155,9 @@ class Controller:
             "updated_at": row[1],
         }
 
-    def wait_ack(self, marker: dict) -> dict:
+    def wait_ack(self, marker: dict, *, seconds: int = 200) -> dict:
         target = marker["targets"][-1]
-        deadline = time.monotonic() + 200
+        deadline = time.monotonic() + seconds
         errors = 0
         latest = None
         while time.monotonic() < deadline:
@@ -158,9 +169,40 @@ class Controller:
             except (sqlite3.Error, OSError, RuntimeError, IndexError, TypeError):
                 errors += 1
             time.sleep(2)
-        raise RuntimeError(
+        error = (
+            DeliveryDeferred
+            if latest is not None and latest["pending_pages"] > 0 and errors == 0
+            else RuntimeError
+        )
+        raise error(
             f"Same scheduled acquisition not acknowledged: {latest}; observation_errors={errors}"
         )
+
+    def dispatch_ready_job(self, marker: dict, phase: str) -> None:
+        if not self.guarded:
+            raise RuntimeError("Scheduler commands require the disposable-emulator guard")
+        job = marker["system_job"]
+        if job["namespace"] != NAMESPACE or type(job["id"]) is not int or job["id"] < 0:
+            raise RuntimeError("Invalid prepared scheduler identity")
+        # -s preserves every constraint. Do not use -f, change device policy,
+        # enqueue replacement work or call the worker/core from instrumentation.
+        result = self.shell(
+            "cmd", "jobscheduler", "run", "-s", "-u", "0", "-n", NAMESPACE,
+            PACKAGE, str(job["id"]),
+        )
+        (self.output / f"{phase}-scheduler-dispatch.txt").write_text(result, encoding="utf-8")
+        if "Running job" not in result or "[FORCED]" in result:
+            raise RuntimeError("The prepared job was not dispatched with constraints satisfied")
+
+    def observe_delivery(self, prepared: dict, phase: str) -> dict:
+        if not self.dispatch_ready:
+            return {**self.wait_ack(prepared), "delivery": "unforced"}
+        try:
+            return {**self.wait_ack(prepared, seconds=90), "delivery": "unforced"}
+        except DeliveryDeferred:
+            self.diagnostics(phase + "-deferred")
+            self.dispatch_ready_job(prepared, phase)
+            return {**self.wait_ack(prepared), "delivery": "scheduler-satisfied"}
 
     def stopped(self) -> bool:
         result = self.shell("dumpsys", "package", PACKAGE)
@@ -238,7 +280,7 @@ class Controller:
                     "am", "start", "-W", "-n", PACKAGE + "/jp.stockai.app.MainActivity", timeout=60
                 )
                 self.shell("input", "keyevent", "KEYCODE_SLEEP")
-            observed = self.wait_ack(prepared)
+            observed = self.observe_delivery(prepared, phase)
             power = self.shell("dumpsys", "power")
             if not re.search(r"mWakefulness=(Asleep|Dozing)", power):
                 raise RuntimeError("Display was not asleep during the accepted observation")
@@ -273,8 +315,15 @@ class Controller:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path(".demo-artifacts/android-lifecycle"))
+    parser.add_argument(
+        "--dispatch-ready", action="store_true",
+        help=(
+            "After an unforced observation, ask JobScheduler to run the existing job "
+            "with all constraints satisfied; this does not prove natural delivery timing"
+        ),
+    )
     args = parser.parse_args()
-    controller = Controller(args.output)
+    controller = Controller(args.output, dispatch_ready=args.dispatch_ready)
     try:
         controller.execute()
     except Exception:

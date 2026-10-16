@@ -3,6 +3,8 @@ package jp.stockai.app;
 import static org.junit.Assert.*;
 import android.app.Activity;
 import android.app.NotificationManager;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -214,8 +216,20 @@ public class DailyLifecycleTest {
         for (Object info : (List<?>) await(call(manager, "getWorkInfosForUniqueWork", workName("PUMP"))))
             if (!(Boolean) call(call(info, "getState"), "isFinished")) pending++;
         assertEquals(1, pending);
+        JobInfo systemJob = null;
+        String namespace = "androidx.work.systemjobscheduler";
+        JobScheduler scheduler = context.getSystemService(JobScheduler.class).forNamespace(namespace);
+        for (int i = 0; i < 40 && systemJob == null; i++) {
+            for (JobInfo candidate : scheduler.getAllPendingJobs())
+                if (call(request, "getId").toString().equals(candidate.getExtras().getString("EXTRA_WORK_SPEC_ID"))) {
+                    assertNull(systemJob); systemJob = candidate;
+                }
+            if (systemJob == null) Thread.sleep(100);
+        }
+        assertNotNull("Original WorkRequest must be registered with the OS", systemJob);
         proof.put("phase", phase).put("stage", "prepared").put("pid", android.os.Process.myPid())
             .put("generation", call(state, "currentGeneration")).put("work_id", call(request, "getId").toString())
+            .put("system_job", new JSONObject().put("namespace", namespace).put("id", systemJob.getId()))
             .put("watch_id", call(watch, "getId").toString()).put("prepared_at", Instant.now().toString());
         saveMarker(proof);
     }

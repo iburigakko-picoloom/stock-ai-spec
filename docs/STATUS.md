@@ -7,7 +7,9 @@
 - 生きた予約の取得IDを追跡し、検証instrumentationを始める前に外側からnative ACK/世代更新を観測する。受領ID・元の受領時刻・本人revision・未完ページ/cursorを確認。通知は未許可のまま。synthetic休日の完成受領から共有commitする試験であり、実API通信や承認モデルの株数成功に読み替えない。
 - 初回86eb6c6のrun38979214134は、test APKのFiles.readStringがAndroidのFiles APIに存在しないためcompileで停止。readAllBytes＋UTF-8へ修正した。原本は`.demo-artifacts/lifecycle-first-android-failure.log`。lifecycleの実行成功/失敗とは扱わない。
 - 修正5575036のrun38979680236はcompile・既存native55件をpassした後、process/prepareでIllegalAccessError。no-restartではtest APKと起動済みアプリのruntime packageが異なり、package-private ownerへ直接アクセスできなかった。試験側だけで既存application loaderからowner・journal・WorkManager singletonを呼ぶよう修正。アプリ本体の可視性やdispatch経路は変更しない。原本は`.demo-artifacts/lifecycle-second-reports/.demo-artifacts/android-lifecycle/process-prepare.txt`。修正後のguard4件とRuffがローカルpass。
-- 新しいlifecycle試験は再実行待ち。前回文書1e40a7aのrun38977324150はAndroid/verify成功・release skipを確認。実アカウント/実市場モデル採用・Xiaomi性能/同署名更新、72時間台帳運用の確認は引き続き残る。私有研究worker再開・学習・実注文・merge・APK公開なし。
+- 修正7561a99のrun38980794035はverify成功（guard4・Python305＋platform6・frontend71・WASM/画面6＋1＋2・source801/private0）、compile/既存native55件も成功。process/prepareがpassし、画面オフでprocess killは成立したが、200秒以内に自然配送されず未完で停止。native世代3・queued・元の1ページが残り、JobSchedulerに同じ予約が存在した。診断に最大31分のbatching設定があり、最小遅延と配送時刻を同一視していた試験条件を分離する。
+- 通常CIでは元のsystem job IDをtest APKで記録し、90秒の自然観測後にOSの`run -s`で全制約を満たす同じ予約だけを配送する別モードを明示選択。既定の無介入200秒試験は残し、workflowの手動選択で実行できる。観測不正時の配送・`-f`・再enqueue・時計/電力policy変更はしない。自然配送と制御配送を結果へ別記し、制御配送の成功で自然起動時刻の受入を済ませない。
+- 新しいlifecycle試験は再実行待ち。前回文書1e40a7aのrun38977324150はAndroid/verify成功・release skipを確認。実アカウント/実市場モデル採用・自然配送とXiaomi性能/同署名更新、72時間台帳運用の確認は引き続き残る。私有研究worker再開・学習・実注文・merge・APK公開なし。
 
 ## 2026-10-17 — ChatGPT調査を日次処理へ接続
 
