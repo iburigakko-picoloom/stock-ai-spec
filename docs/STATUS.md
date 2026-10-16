@@ -1104,3 +1104,13 @@ StockAI0.1.12/versionCode10012を自動公開。APK21,150,645 bytes、SHA256 d3a
 ローカル全回帰は790件を収集し789成功、1件が試験準備のgit rev-parseで作業directoryの所有者確認により停止した。信頼先を当該試験processのGIT_CONFIG環境だけへ指定し、該当1件と全体収集後に追加した3件を再実行して4成功。既存789件と合わせ最終793件を確認し、append後coverage87.07%（基準85%）を達成。全件が一度のrunで成功したという記録にはしない。コード修正や試験skipで回避せず、元の失敗logを保持した。64moduleの型検査、React型/Lint/build、変更部Python26件も成功。証拠docs/evidence/android-personal-20261016/verification.json。
 
 本人の0.1.11での保存・オフライン・端末再起動・backup/復元の成功報告は記録済み。新APKの実機更新、新画面、最新原予測/市場根拠と個人比較の全接続、初期履歴の一括取得、最終モデル採用/配布条件、実市場NAV、実API403、全市場長期履歴の端末能力、所有者による鍵のオフPC保管は残る。元の研究71行・DECISIONS31行・STATUS89行と未追跡dataを保持し、private siteは変更していない。実注文なし。
+
+## 2026-10-17 — 完成工程の固定とChatGPT連携の実装開始
+
+本人の完成指示に基づき、docs/FINISHING_PLAN.mdとD112へ、300億円/300候補・全保有維持、モバイル回線、毎営業日の自動更新、本人用モデル一度取込、ChatGPTの独立調査と判断併記、48px/12pxの操作間隔を固定した。既存研究成果と未commitの研究記録は保持する。
+
+Androidの別pluginへ公開OAuth client、loopback/PKCE、JWKS/issuer/audience/nonce/期限/同一本人検証、Keystore資格情報、更新、モデル一覧、推論深度保存、検索付きSSE完了確認を追加した。資格情報をJS/backupへ返さず、別料金APIへ切り替えない。認証故障・scope・中断SSE・暗号文差替のAndroid試験を追加。Reactの接続画面と保存前の試験禁止/権限不足/中断の3試験を追加した。
+
+ローカルTypeScript/Lint/build成功、React24件PASS、Pythonの配布検証10件PASS。最初のReact試験はWindowsのsandbox一時directoryのrename EPERMで試験収集前に停止し、作業領域内TEMP/TMPで同じ試験を再実行して成功。Androidコンパイル/機器試験と実アカウント認証・検索はまだ未確認。PCにJDK/SDKがないため既存Android CIを使用する。制限環境でghの接続確認が失敗し、接続済みGitHubアプリもbranch作成403だった。許可された読み取り接続で既存ghのrepository push/admin権限を確認し、既存CLI経路へ戻した。認証情報の変更や取得・表示は行わない。
+
+これは連携入口の段階であり、独立調査の自動保存/表示、背景実行、履歴一括取得、実市場評価、モデル採用、最新予測/個人株数の接続、実機性能は未完。Goal active、実注文なし。

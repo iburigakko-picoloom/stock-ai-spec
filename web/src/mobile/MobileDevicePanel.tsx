@@ -3,6 +3,7 @@ import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { restoreMobileState } from "./runtime";
 import { MobilePersonalPanel } from "./MobilePersonalPanel";
+import { ChatGPTPanel } from "./ChatGPTPanel";
 import type { LocalPortfolio, SavedPortfolio } from "./personal";
 
 export function MobileUpdateNotice(): ReactNode {
@@ -60,7 +61,8 @@ export function MobileDevicePanel(): ReactNode {
     catch (error) { setMessage(error instanceof Error ? error.message : "処理を完了できませんでした。入力・通信・保存状態を確認してください。"); }
     finally { setBusy(false); }
   }
-  return <>
+  return <div className="device-settings">
+    <ChatGPTPanel />
     <section className="section">
       <h2>端末内の研究環境</h2>
       <p>保有・設定はこの端末に保存します。モデルの最終採用と推論の一致確認が完了するまで研究用表示を続けます。</p>
@@ -143,5 +145,5 @@ export function MobileDevicePanel(): ReactNode {
         <button className="button" disabled={busy || !confirmRestore} onClick={() => void action(() => restoreMobileState(restorePayload), "復元しました。")}>このバックアップから復元</button></div>}
     </section>
     <p role="status">{busy ? "端末内で処理しています…" : message}</p>
-  </>;
+  </div>;
 }

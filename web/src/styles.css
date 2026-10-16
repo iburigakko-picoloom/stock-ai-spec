@@ -138,11 +138,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sticky-action { position: fixed; z-index: 15; left: 50%; bottom: calc(66px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(100%, 800px); padding: 10px 20px 12px; background: white; border-top: 1px solid var(--line); }
 .sticky-action p { margin: 0 0 7px; color: var(--muted); font-size: 0.66rem; text-align: center; }
 .sticky-action .text-link { display: block; margin-top: 7px; text-align: center; }
-.button { display: inline-flex; width: 100%; min-height: 46px; padding: 0 18px; align-items: center; justify-content: center; border: 0; border-radius: 10px; font-weight: 800; cursor: pointer; }
+.button { display: inline-flex; width: 100%; min-height: 48px; padding: 10px 18px; align-items: center; justify-content: center; border: 0; border-radius: 10px; font-weight: 800; cursor: pointer; }
 .button--primary { color: white; background: var(--blue); }
 .button--secondary { color: var(--ink); background: #e8f0f4; border: 1px solid #cbd9e1; }
 .button:disabled { opacity: 0.45; cursor: not-allowed; }
-.button-stack { display: grid; gap: 10px; margin-top: 18px; }
+.button-stack { display: grid; gap: 12px; margin-top: 18px; }
 .text-link, .back-link { color: var(--blue); font-size: 0.8rem; font-weight: 700; }
 .back-link { display: inline-flex; align-items: center; min-height: 44px; margin: 2px 0 8px; }
 
@@ -248,6 +248,22 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .status-list dt { color: var(--muted); font-size: 0.76rem; }
 .status-list dd { min-width: 0; max-width: 60%; margin: 0; color: var(--ink); font-size: 0.76rem; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
 .setting-footnote { display: block; margin-top: 9px; color: var(--muted); }
+.device-settings .button + .button { margin-top: 12px; }
+.device-settings .button-stack .button + .button { margin-top: 0; }
+.device-settings label { display: grid; gap: 8px; margin: 16px 0 12px; overflow-wrap: anywhere; }
+.device-settings input:not([type="checkbox"]), .device-settings select { width: 100%; min-width: 0; min-height: 48px; }
+.device-settings input[type="checkbox"] { width: 24px; height: 24px; min-height: 24px; flex: 0 0 24px; }
+.device-settings .check-label, .device-settings label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.device-settings fieldset { min-width: 0; margin: 20px 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.settings-disclosure { margin-top: 20px; }
+.settings-disclosure > summary { min-height: 48px; padding: 12px 0; cursor: pointer; font-weight: 600; }
+.settings-content { display: flow-root; }
+.settings-content > p { color: var(--muted); font-size: .85rem; }
+.danger-zone { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
+.connection-status { font-weight: 600; overflow-wrap: anywhere; }
+.connection-probe { margin-top: 20px; padding: 16px; background: var(--wash); border-radius: 10px; overflow-wrap: anywhere; }
+.connection-probe a { color: var(--blue); text-decoration: underline; }
+.connection-probe li + li { margin-top: 12px; }
 .pipeline-state { margin-bottom: 18px; padding: 17px; color: white; background: #164e63; border-radius: 13px; }
 .pipeline-state--warning { background: #8a5b0b; }
 .pipeline-state span, .pipeline-state strong { display: block; }
