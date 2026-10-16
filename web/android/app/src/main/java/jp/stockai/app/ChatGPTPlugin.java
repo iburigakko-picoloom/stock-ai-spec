@@ -10,20 +10,15 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,31 +28,15 @@ import org.json.JSONObject;
 /** Public OAuth client. Tokens never cross the Capacitor bridge. */
 @CapacitorPlugin(name = "StockAIChatGPT")
 public class ChatGPTPlugin extends Plugin {
-    private static final Set<HttpURLConnection> responseConnections = new HashSet<>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final ExecutorService researchExecutor = Executors.newSingleThreadExecutor();
     private volatile ServerSocket pending;
     private volatile String connectionState = "disconnected";
     private JSONArray catalog = new JSONArray();
 
     private NativeSecrets secrets() { return new NativeSecrets(getContext()); }
-    private ChatGPTSession session() {
-        return new ChatGPTSession(getContext(), new ChatGPTSession.Remote() {
-            @Override public JSONObject refresh(JSONObject saved) throws Exception {
-                Map<String, String> body = new LinkedHashMap<>(); body.put("grant_type", "refresh_token");
-                body.put("client_id", saved.getString("client_id")); body.put("refresh_token", saved.getString("refresh_token"));
-                body.put("resource", ChatGPTProtocol.RESOURCE); return exchange(body);
-            }
-            @Override public JSONObject jwks() throws Exception {
-                return fetch(ChatGPTProtocol.ISSUER + "/.well-known/jwks.json", null, null);
-            }
-            @Override public void revoke(JSONObject saved) throws Exception { revokeSession(saved); }
-        });
-    }
-    private JSONObject selection() throws Exception {
-        String saved = secrets().read("selection");
-        return saved == null ? new JSONObject().put("model", "").put("effort", "medium") : new JSONObject(saved);
-    }
+    private ChatGPTClient client() { return ChatGPTClient.get(getContext()); }
+    private ChatGPTSession session() { return client().session(); }
+    private JSONObject selection() throws Exception { return client().selection(); }
     private JSObject status() throws Exception {
         ChatGPTSession manager = session(); JSONObject state = manager.snapshot();
         JSONObject saved = state.optJSONObject("credentials"), registration = state.optJSONObject("registration");
@@ -99,69 +78,10 @@ public class ChatGPTPlugin extends Plugin {
         catch (Exception error) { call.reject("保存済みの連携状態を確認できません。", "CREDENTIAL_READ_FAILED"); }
     }
 
-    static String form(Map<String, String> values) throws Exception {
-        StringBuilder output = new StringBuilder();
-        for (Map.Entry<String, String> entry : values.entrySet()) {
-            if (output.length() > 0) output.append('&');
-            output.append(URLEncoder.encode(entry.getKey(), "UTF-8")).append('=')
-                .append(URLEncoder.encode(entry.getValue(), "UTF-8"));
-        }
-        return output.toString();
-    }
-    static JSONObject fetch(String url, String post, String bearer) throws Exception {
-        if (!Arrays.asList(ChatGPTProtocol.ISSUER + "/.well-known/jwks.json",
-                ChatGPTProtocol.ISSUER + "/api/accounts/oauth/token", ChatGPTProtocol.RESOURCE + "/models").contains(url))
-            throw new SecurityException("ENDPOINT_NOT_ALLOWED");
-        HttpURLConnection connection = StockAIPlugin.connection(url);
-        try {
-            if (bearer != null) connection.setRequestProperty("Authorization", "Bearer " + bearer);
-            if (post != null) {
-                connection.setRequestMethod("POST"); connection.setDoOutput(true);
-                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                try (OutputStream output = connection.getOutputStream()) { output.write(post.getBytes(StandardCharsets.UTF_8)); }
-            }
-            int code = connection.getResponseCode();
-            if (code != 200) throw providerFailure(connection, code);
-            return new JSONObject(new String(StockAIPlugin.read(connection.getInputStream(), 4 * 1024 * 1024), StandardCharsets.UTF_8));
-        } finally { connection.disconnect(); }
-    }
-    private static ChatGPTProtocol.ProviderFailure providerFailure(HttpURLConnection connection, int code) throws Exception {
-        String body = "";
-        try {
-            if (connection.getErrorStream() != null) body = new String(
-                StockAIPlugin.read(connection.getErrorStream(), 65536), StandardCharsets.UTF_8);
-        } catch (Exception unreadable) { /* Retain the known HTTP status, never a partial message. */ }
-        return ChatGPTProtocol.failure(code, body, connection.getHeaderField("x-request-id"));
-    }
-    private static void revokeSession(JSONObject saved) throws Exception {
-        HttpURLConnection discovery = StockAIPlugin.connection(ChatGPTProtocol.ISSUER + "/.well-known/openid-configuration");
-        String endpoint;
-        try {
-            discovery.setConnectTimeout(5000); discovery.setReadTimeout(5000);
-            int code = discovery.getResponseCode(); if (code != 200) throw providerFailure(discovery, code);
-            JSONObject document = new JSONObject(new String(StockAIPlugin.read(discovery.getInputStream(), 65536), StandardCharsets.UTF_8));
-            endpoint = ChatGPTProtocol.revocationEndpoint(document);
-        } finally { discovery.disconnect(); }
-        Map<String, String> values = new LinkedHashMap<>();
-        values.put("client_id", saved.getString("client_id")); values.put("token", saved.getString("refresh_token"));
-        values.put("token_type_hint", "refresh_token");
-        HttpURLConnection connection = StockAIPlugin.connection(endpoint);
-        try {
-            connection.setConnectTimeout(5000); connection.setReadTimeout(5000);
-            connection.setRequestMethod("POST"); connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            try (OutputStream output = connection.getOutputStream()) { output.write(form(values).getBytes(StandardCharsets.UTF_8)); }
-            int code = connection.getResponseCode(); if (code != 200) throw providerFailure(connection, code);
-        } finally { connection.disconnect(); }
-    }
-    private JSONObject exchange(Map<String, String> values) throws Exception {
-        JSONObject result = fetch(ChatGPTProtocol.ISSUER + "/api/accounts/oauth/token", form(values), null);
-        if (!"Bearer".equalsIgnoreCase(result.getString("token_type"))
-                || result.getString("access_token").isEmpty() || result.getLong("expires_in") <= 0)
-            throw new SecurityException("INVALID_TOKEN_RESPONSE");
-        result.put("expires_at", System.currentTimeMillis() / 1000 + result.getLong("expires_in"));
-        return result;
-    }
+    static String form(Map<String, String> values) throws Exception { return ChatGPTClient.form(values); }
+    static JSONObject fetch(String url, String post, String bearer) throws Exception { return ChatGPTClient.fetch(url, post, bearer); }
+    private static void revokeSession(JSONObject saved) throws Exception { ChatGPTClient.revokeSession(saved); }
+    private JSONObject exchange(Map<String, String> values) throws Exception { return client().exchange(values); }
 
     @PluginMethod public void signIn(PluginCall call) {
         synchronized (this) {
@@ -267,11 +187,7 @@ public class ChatGPTPlugin extends Plugin {
     @PluginMethod public void cancelSignIn(PluginCall call) { closePending(); call.resolve(); }
     @PluginMethod public void signOut(PluginCall call) {
         ChatGPTSession manager = session(); String ticket = manager.requestSignOut(); closePending();
-        HttpURLConnection[] connections;
-        synchronized (responseConnections) { connections = responseConnections.toArray(new HttpURLConnection[0]); }
-        for (HttpURLConnection connection : connections) {
-            try { connection.disconnect(); } catch (RuntimeException ignored) { }
-        }
+        ChatGPTClient.disconnectResponses();
         try { execute(call, () -> {
             manager.signOut(ticket); secrets().remove("selection"); catalog = new JSONArray(); call.resolve(status());
         }); } catch (java.util.concurrent.RejectedExecutionException stopped) {
@@ -292,24 +208,7 @@ public class ChatGPTPlugin extends Plugin {
         if (id == null || !id.matches("[0-9a-f]{32}")) throw new IOException("INVALID_ATTEMPT_ID");
         return id;
     }
-    private JSONObject infer(JSONObject tokens, JSONObject request) throws Exception {
-        HttpURLConnection connection = StockAIPlugin.connection(ChatGPTProtocol.RESOURCE + "/responses");
-        try {
-            synchronized (responseConnections) {
-                if (!session().canUse(tokens)) throw new IOException("SIGN_IN_REQUIRED");
-                responseConnections.add(connection);
-            }
-            connection.setReadTimeout(300000); connection.setRequestMethod("POST"); connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestProperty("Accept", "text/event-stream");
-            connection.setRequestProperty("Authorization", "Bearer " + tokens.getString("access_token"));
-            try (OutputStream output = connection.getOutputStream()) { output.write(request.toString().getBytes(StandardCharsets.UTF_8)); }
-            int code = connection.getResponseCode(); if (code != 200) throw providerFailure(connection, code);
-            try (InputStreamReader input = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
-                return ChatGPTProtocol.readResponse(input);
-            }
-        } finally { synchronized (responseConnections) { responseConnections.remove(connection); } connection.disconnect(); }
-    }
+    private JSONObject infer(JSONObject tokens, JSONObject request) throws Exception { return client().infer(tokens, request); }
     @PluginMethod public void getExecution(PluginCall call) {
         // Never queue an observation behind a long-running request.
         try { call.resolve(JSObject.fromJSONObject(new ResearchJournal(getContext()).current(executionId(call)))); }
@@ -325,32 +224,13 @@ public class ChatGPTPlugin extends Plugin {
     }); }
     @PluginMethod public void respond(PluginCall call) {
         final String id;
-        final ResearchJournal journal = new ResearchJournal(getContext());
-        try {
-            id = executionId(call);
-            JSONObject previous = journal.begin(id, call.getString("requestSha256"), call.getString("model"), call.getString("effort"));
-            boolean dispatch = previous.getBoolean("dispatch"); previous.remove("dispatch");
-            if (!dispatch) { call.resolve(JSObject.fromJSONObject(previous)); return; }
-        } catch (Exception error) { call.reject("調査を開始できません。", failureCode(error)); return; }
-        try { execute(call, () -> {
-            String digest = call.getString("requestSha256");
-            String model = call.getString("model"), effort = call.getString("effort");
-            try {
-                JSONObject request = ChatGPTProtocol.researchRequest(call.getString("requestJson"), digest, model, effort);
-                JSONObject chosen = selection();
-                if (!chosen.getString("model").equals(model) || !chosen.getString("effort").equals(effort))
-                    throw new IOException("MODEL_SELECTION_CHANGED");
-                JSONObject tokens = activeCredentials();
-                JSONObject response = infer(tokens, request);
-                call.resolve(JSObject.fromJSONObject(journal.complete(id, response)));
-            } catch (Exception error) {
-                journal.fail(id, failureCode(error));
-                throw error;
-            } finally { journal.release(id); }
-        }, researchExecutor); }
-        catch (java.util.concurrent.RejectedExecutionException error) {
-            journal.release(id); call.reject("調査の実行環境が停止しました。", "PROCESS_INTERRUPTED");
-        }
+        try { id = executionId(call); }
+        catch (Exception error) { call.reject("調査を開始できません。", failureCode(error)); return; }
+        client().respond(id, call.getString("requestJson"), call.getString("requestSha256"), call.getString("model"), call.getString("effort"))
+            .whenComplete((value, error) -> {
+                if (error == null) call.resolve(JSObject.fromJSONObject(value));
+                else call.reject("ChatGPT調査を完了できません。保存済みの実行状態を確認してください。", ChatGPTClient.failureCode(error));
+            });
     }
     @PluginMethod public void listModels(PluginCall call) { execute(call, () -> {
         JSONObject tokens = activeCredentials();
@@ -413,6 +293,6 @@ public class ChatGPTPlugin extends Plugin {
         closePending(); executor.shutdownNow();
         // Finish already accepted calls and keep their receipts if only the
         // Activity goes away. Process death is recovered by ResearchJournal.
-        researchExecutor.shutdown();
+        // Application-owned research continues and retains its native receipt.
     }
 }

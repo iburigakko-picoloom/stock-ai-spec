@@ -21,7 +21,7 @@ from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
 from stock_ai.operations.store import OperationalConflictError
 
-from . import decisions, forecasts, market, membership, models, personal, universe
+from . import decisions, forecasts, market, membership, models, personal, research, universe
 from .features import bundled_selection, calculate
 from .model_bundle import parity as bundle_parity
 from .portable_model import predict
@@ -227,6 +227,13 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             }}
     if path == "/api/v1/mobile/market" and method == "GET":
         return {"status": 200, "body": market.status(STATE / "mobile.sqlite3")}
+    if path == "/api/v1/mobile/research/plan" and method == "GET":
+        try:
+            return {"status": 200, "body": research.plan(
+                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC)
+            )}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {"detail": "当日の数値・株数の保存を確認できません。"}}
     if path == "/api/v1/mobile/models" and method == "GET":
         return {"status": 200, "body": models.status(STATE / "mobile.sqlite3", _app.state.store)}
     if path == "/api/v1/mobile/daily" and method == "GET":

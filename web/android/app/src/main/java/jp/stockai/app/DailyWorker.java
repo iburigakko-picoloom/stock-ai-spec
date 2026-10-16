@@ -41,6 +41,29 @@ public final class DailyWorker extends Worker {
                         public void notice(String key, String text) throws Exception { durable.notice(session, key, text); }
                     }, stopped, Instant::now);
                 boolean more = pipeline.tick(state.getString("firstDay"));
+                if (!more && !stopped.getAsBoolean() && durable.row().optString("state").equals("numerical_saved")) {
+                    ChatGPTClient chatgpt = ChatGPTClient.get(context);
+                    NativeSecrets secrets = new NativeSecrets(context);
+                    DailyResearch research = new DailyResearch(
+                        (method, path, body) -> owner.request(method, path, body).get(660, TimeUnit.SECONDS),
+                        new DailyResearch.Provider() {
+                            public JSONObject selection() throws Exception { return chatgpt.researchSelection(); }
+                            public JSONObject respond(String id, String request, String hash, String model, String effort) throws Exception {
+                                return chatgpt.respond(id, request, hash, model, effort).get(340, TimeUnit.SECONDS);
+                            }
+                            public JSONObject recover(String id) throws Exception { return new ResearchJournal(context).recover(id); }
+                            public void acknowledge(String id) throws Exception { new ResearchJournal(context).acknowledge(id); }
+                        }, new DailyResearch.Journal() {
+                            public JSONObject read(String day) throws Exception {
+                                String saved = secrets.read("daily-research-" + day); return saved == null ? null : new JSONObject(saved);
+                            }
+                            public void write(String day, JSONObject value) throws Exception { secrets.write("daily-research-" + day, value.toString()); }
+                        }, new DailyPipeline.Progress() {
+                            public void state(String value, String day) throws Exception { durable.state(session, value, day); }
+                            public void notice(String key, String text) throws Exception { durable.notice(session, key, text); }
+                        }, stopped, Instant::now);
+                    more = research.step();
+                }
                 if (more && !stopped.getAsBoolean()) journal.continueAfterSlice();
                 return Result.success();
             } catch (InterruptedException ignored) {

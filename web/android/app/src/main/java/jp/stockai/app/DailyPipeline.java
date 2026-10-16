@@ -103,6 +103,12 @@ final class DailyPipeline {
             progress.notice(today + ":late", "11:30までの当日情報が不足しています。保存状態を確認してください。");
             return false;
         }
+        check();
+        JSONObject existing = core.request("GET", "/api/v1/mobile/research/plan", "null");
+        check();
+        if (existing.getInt("status") == 200 && today.equals(existing.getJSONObject("body").optString("day"))) {
+            progress.state("numerical_saved", today); return false;
+        }
         progress.state("calculating", today);
         JSONObject numerical = api("POST", "daily/generate", new JSONObject());
         if (!"published".equals(numerical.optString("phase")) && !"cash_only".equals(numerical.optString("phase"))) {

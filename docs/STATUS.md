@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-17 — ChatGPT調査を日次処理へ接続
+
+- 認証・更新・モデル指定・推論をapplication contextの共有clientへ移動し、画面と日次処理で同じnative journal/直列queueを使う。認証のbrowser操作は画面に残し、資格情報名・Keystore・refresh直列化・同一account照合・失効/取消・課金APIへの切替禁止を維持した。競合した別要求が既存のactive予約を解除しないようにする。
+- 当日の選択原予測とactive株数から上位20＋全保有を固定。モデル/推論量/prompt/account/snapshotを営業日ごとの暗号化batchに保持し、1sliceで独立調査または照合の1段階を保存する。共有claimのnative確定→実行/回復→共有receiptのnative確定→ACKの順。既知の応答は再送せず、失敗/不明は自動retryしない。1銘柄の不成立は未完として他銘柄を継続し、上限/認証/通信障害は本人の確認を待つ。
+- 保存済みの有効な数値/株数を読み直して、調査の各sliceで特徴量・予測を再生成しない。時刻逆行、過去日、本人入力変更、復元後のresearch record欠損を完成扱いにしない。全現金では仮の調査/予測を作らない。数値保存/調査中/要確認/調査完了を表示する。
+- ローカルのPython41件（新しい対象計画4件とruntime/調査契約の回帰）・フロント70件、Ruff・TypeScript/ESLintがpass。同梱Pythonを再生成（共有29 files・offline21 packages・model0）。build・既存WASM/画面6件と配布計算ページ1件、source798 files/私有ファイル0・package監査もpass。新nativeの同一client・既存応答・競合予約・2段階・commit/ACK失敗・設定変更・上限・一部失敗の試験はCI待ち。
+- 前回文書fca2752のrun38973800343はAndroid/verify成功・release skipを確認。今回の調査自動化の成功へ転用しない。実アカウントの利用資格/検索、OS停止/再起動・Xiaomi受入、実市場モデル採用は未完。72時間の本人入力照合は維持。私有研究/学習の再開・実注文・merge・APK公開なし。
+
 ## 2026-10-17 — 開始から小分け取得・日次計算・通知を接続
 
 - WorkManagerへ端末内の明示的な開始/停止とsession IDを保存。CONNECTEDでモバイル回線を許可し、重複した開始をunique workで抑止。各取得を最大4ページに区切り、次のsliceと15分周期の回復予約へ接続した。APIキーとprovider間隔をUI/nativeで共通化し、同じ単一計算ownerを使う。

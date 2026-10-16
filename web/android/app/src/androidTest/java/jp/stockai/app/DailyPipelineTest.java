@@ -27,6 +27,7 @@ public class DailyPipelineTest {
     }
     JSONObject core(String method, String path, String body) throws Exception {
         events.add(method + " " + path);
+        if (path.endsWith("/research/plan")) return new JSONObject().put("status", 422).put("body", new JSONObject());
         JSONObject result;
         if (path.endsWith("/membership")) result = membership();
         else if (path.endsWith("/market")) result = new JSONObject().put("completed_dates", complete ? new JSONArray().put(prior) : new JSONArray())
