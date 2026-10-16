@@ -6,7 +6,7 @@
 - 「履歴の取得を開始・再開」と日付単位の停止を接続。初期420日前〜昨日、1範囲最大2年、保存済み日をskip。範囲はbackupに保存し、訂正取得は元の初回範囲を変えない。API未設定・契約外・上限・保存失敗を区別。現在はforegroundの手動処理であり、画面消失後の自動継続・毎営業日worker・完了通知は未完。
 - 時価総額は公式valuation endpointの百万円単位を使い、300億円=30,000百万円で判定。deprecatedなbars MktCapや推測株数へfallbackしない。受領済みcalendarで連続した直近20営業日を確定し、20日すべての売買代金が有効な普通株の上位300社を同順位コード順で抽出。条件外・未収録の全記録済み保有を残し、保有未入力も区別する。市場・業種の入力母集団は変更しない。
 - 日別の完全snapshotから削除された行を古い版から復活させる問題を修正。同じ内容に戻るA→B→Aも別の受領として保存し、旧5datasetテーブルをtransaction内で移行する。11:30後の受領・訂正をcutoffへ遡及させない。対象抽出は前営業日の銘柄一覧によるプレビューで、当日membership・最終推論/株数への接続はまだ完了していない。
-- Python関連113件pass（新規/変更した取得・対象抽出・台帳・backupを含む）。Ruff全件・mypy65 source（標準/win32）pass。TypeScript/ESLint/buildとフロント50件pass。headless Edgeで320/390px・文字150%の横溢れ/48px対象/操作間隔12pxを2件passし、320px画像を目視確認。追加native6件の最終結果はこの工程のCIで追記する。API実接続・実注文・private研究データの公開なし。Xiaomiの実測、モデル採用、日次自動化等の全完成条件は継続する。
+- Python関連113件pass（新規/変更した取得・対象抽出・台帳・backupを含む）。Ruff全件・mypy65 source（標準/win32）pass。TypeScript/ESLint/buildとフロント50件pass。headless Edgeで320/390px・文字150%の横溢れ/48px対象/操作間隔12pxを2件passし、320px画像を目視確認。ca0875cのrun38941623361はAndroid/verify両jobが成功、releaseはskip。取得の追加6件を含むnative25件・失敗0・error0・skip0をJUnit XMLで確認した。WASMとPCの特徴量・モデル一致、既存調査画面の試験もCI内でpass。証拠は`.demo-artifacts/native-market-ci-38941623361`。API実接続・実注文・private研究データの公開なし。Xiaomiの実測、モデル採用、日次自動化等の全完成条件は継続する。
 
 ## 2026-10-17 — ChatGPT再認証・更新・連携解除の復旧処理
 
