@@ -5,7 +5,8 @@
 - 全組合せを使う既存方式を維持し、明示的な研究方針`daily-decision-engine-v3-bounded`を追加。HOLD・通常単元で可能な全現金・流動性内の縮小案から株数調整と乗り換えを調べ、探索評価32,768回以内で結果と検討範囲・上限到達を保存する。全候補×口座を検討できなければ停止し、最適解の証明とは扱わない。
 - 元の費用・価格影響・複数売却の税相殺・源泉徴収・NISA購入枠・投資上限・銘柄/業種集中・現金・流動性制約を再利用。試行時は元から未保有で目標0のキーだけを省き、最後は全対象で再検査する。100株変更時に端株を残し、137株→337株の上限も正しく扱う。選ばれた値の後処理で現金・制約を無視しない。
 - 本人設定の旧方式を自動移行せず、方式変更時に条件の確認を解除。新規設定は未確認の有限回方式を選ぶ。旧提案のserializationに新しいnullを挿入せず、保存済みhash/backupを維持する。新方針の個人比較には探索実装のhashも含める。
-- 小規模の全組合せ解、費用・税、NISA/同一銘柄の複数口座、流動性、端株、上限後の確認済み結果、巨大資金でも株数rangeを作らないことを検証。300社＋保有のPC結果と、非ゼロ費用・価格影響・売却税を含むWASM結果が一致した。PC上のheadless Edgeで探索約1.43秒、5,319評価のfixtureを`.demo-artifacts/android/bounded-parity-20261017.json`へ記録（実機ではない）。最終関連Python170件、Ruff/mypy66 source（標準/win32）、フロント59件とTypeScript/ESLint/buildがpass。WASM/市場・モデル・本人設定画面5件もpass。320px・文字150%の画像を目視し、選択肢の表記を収まる長さへ整理。Android CIは次のpushで確認する。
+- 小規模の全組合せ解、費用・税、NISA/同一銘柄の複数口座、流動性、端株、上限後の確認済み結果、巨大資金でも株数rangeを作らないことを検証。300社＋保有のPC結果と、非ゼロ費用・価格影響・売却税を含むWASM結果が一致した。PC上のheadless Edgeで探索約1.43秒、5,319評価のfixtureを`.demo-artifacts/android/bounded-parity-20261017.json`へ記録（実機ではない）。最終関連Python170件、Ruff/mypy66 source（標準/win32）、フロント59件とTypeScript/ESLint/buildがpass。WASM/市場・モデル・本人設定画面5件もpass。320px・文字150%の画像を目視し、選択肢の表記を収まる長さへ整理。
+- 実装7f0b493の[run38956862746](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38956862746)はAndroid/verify両job成功、release skip。共有Python256件と追加platform6件、フロント59件、WASM/レイアウト5件と既存調査画面2件がpass。native JUnit27件・失敗/error/skip0を原本で確認。公開source監査767 files・private keys/models/market files0。証拠は`.demo-artifacts/native-bounded-ci-38956862746`と`bounded-ci-verify.log`。実機・実モデル採用の証拠へ昇格しない。
 - 承認済みモデルは0件。凍結市場根拠から原予測/本人設定を経て株数を不変保存する接続、通常の開始操作・日次background、実市場NAV/holdout・実アカウント・Xiaomi受入は引き続き未完。研究workerの再開・新たな学習・実注文なし。前回の文書commit452e6d3のrun38953827813は成功を確認。
 
 ## 2026-10-17 — 復元前のSQLite接続を明示的に終了
