@@ -52,6 +52,7 @@ public class LocalComputeOwnerTest {
     }
 
     @Test public void realOfflineInterpreterSerializesCallersAndRestoresAfterOwnerRecreation() throws Exception {
+        System.out.println("StockAI test WebView=" + android.webkit.WebView.getCurrentWebViewPackage().versionName);
         assertEquals(200, result(owner.request("GET", "/api/v1/health", "null")).getInt("status"));
         CompletableFuture<JSObject> first = owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile());
         // Independent callers use the same authoritative state. The second

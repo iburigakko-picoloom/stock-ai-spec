@@ -5,6 +5,7 @@
 - Android UI内のPython Workerと世代counterを、application contextを持つ単一のnative計算窓口へ移動。同じdatabase pathのUI・native呼出しを直列化し、POSTは暗号化commit後にだけ応答する。保存失敗時の未確定メモリを破棄して再読込し、別handleからの世代変更も検出する。Activity消失で窓口を閉じる処理は置かない。
 - APK専用の別HTTPS originへ計算ページを同梱。外部navigation・network fallback・file/content accessを止め、CSPでframeと接続を制限。APIキー・OAuth情報を渡さず、同じ共有Pythonを実行する。暗号化保存名・alias・旧形式・chunk/AAD/CASを維持し、見出しと分割の読出しを同じtransactionへ変更。復元時は旧hostを終了してから隔離検証し、2つのWASM heapを常駐させない。検証不合格なら元のdurable stateを維持する。
 - ローカルのTypeScript/ESLint/build・フロント66件と、配布用計算ページをnativeと同じCSP・外部通信遮断で起動して保存する試験1件がpass。package監査もpass。Androidでは実際の同梱Python、同時利用、owner再生成、復元不正、commit失敗、旧暗号文・別DB handleの整合を確認する新規試験を追加し、CIで確認する。まだnative成功とは数えない。
+- 初回293d7cdのrun38966989599は、暗号処理の移動時に削除したArrays importが既存の更新redirect検証でも必要だったためAndroid compileに失敗。元のimportを復元する。runtimeテスト前の失敗であり、native計算の成功/失敗へ読み替えない。
 - 前回最終78a3a2bのrun38963878464はAndroid/verify両job成功・release skip。共有Python301件・追加platform6件・フロント63件・WASM/画面6件・調査画面2件とnative27件（原本の失敗/error/skip0）を確認済み。今回の共通化がこの証拠を自動で引き継いだとは扱わない。
 - 日次scheduler、画面オフ/OS停止・再起動後の再開、初期取得の自動接続・通知は未実装。承認モデル0件、実連携・Xiaomi受入・実市場NAV/採用/holdoutも未完。研究worker再開・私有学習・実注文・merge・APK公開なし。
 
