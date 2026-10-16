@@ -7,19 +7,24 @@ let python: {
   runPythonAsync(code: string): Promise<unknown>;
   globals: { set(key: string, value: unknown): void };
 } | null = null;
+let stage = "interpreter";
 
 async function initialize(state: string): Promise<void> {
+  stage = "interpreter";
   // Vite must leave the offline interpreter module URL unchanged.
   const url = new URL("/python/pyodide.mjs", self.location.origin).href;
   const { loadPyodide } = await import(/* @vite-ignore */ url);
   python = await loadPyodide({ indexURL: "/python/" });
   if (!python) throw new Error("Python initialization failed");
+  stage = "packages";
   await python.loadPackage(["numpy", "pandas", "pydantic", "sqlite3", "tzdata", "fastapi", "httpx"]);
+  stage = "archive";
   const archive = new Uint8Array(await (await fetch("/python/stock_ai.zip")).arrayBuffer());
   python.unpackArchive(archive, "zip", { extractDir: "/stockai-code" });
   python.globals.set("saved_state", state);
   const build = await (await fetch("/python/build-info.json")).json();
   python.globals.set("source_commit", build.source_commit);
+  stage = "state";
   await python.runPythonAsync("import sys, os\nsys.path.insert(0, '/stockai-code')\nos.environ['STOCK_AI_CODE_COMMIT'] = source_commit\nfrom stock_ai.mobile import runtime\nruntime.initialize(saved_state)");
 }
 
@@ -34,6 +39,7 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; state?: str
       if (!python) throw new Error("端末内の計算環境が未起動です。");
       let result: unknown = null;
       if (input.command === "request") {
+        stage = "request";
         python.globals.set("method", input.method);
         python.globals.set("request_path", input.path);
         python.globals.set("request_body", input.body || "null");
@@ -43,7 +49,8 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; state?: str
         ? String(await python.runPythonAsync("runtime.export_state()")) : null;
       self.postMessage({ id: input.id, result, state });
     } catch (error) {
-      self.postMessage({ id: input.id, error: import.meta.env.DEV ? String(error) : "端末内の処理に失敗しました。保存済みデータを確認し、再起動してください。" });
+      const kind = error instanceof WebAssembly.CompileError || error instanceof WebAssembly.LinkError || error instanceof WebAssembly.RuntimeError ? "wasm" : error instanceof TypeError ? "type" : error instanceof Error && error.name === "PythonError" ? "python" : "other";
+      self.postMessage({ id: input.id, error_code: `${stage}_${kind}`, error: import.meta.env.DEV ? String(error) : "端末内の処理に失敗しました。保存済みデータを確認し、再起動してください。" });
     }
   });
 };

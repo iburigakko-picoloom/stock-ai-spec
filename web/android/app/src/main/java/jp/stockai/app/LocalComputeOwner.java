@@ -60,9 +60,10 @@ final class LocalComputeOwner {
             try {
                 if (Looper.myLooper() == Looper.getMainLooper()) throw new IllegalStateException("COMPUTE_ON_MAIN_THREAD");
                 result.complete(operation.run());
-            } catch (Exception ignored) {
-                // Never propagate account payloads, Python traces or provider URLs.
-                result.completeExceptionally(new IllegalStateException("COMPUTE_OPERATION_FAILED"));
+            } catch (Exception error) {
+                // The plugin always exposes a fixed error. Internal causes aid
+                // isolated native tests; worker diagnostics contain only enums.
+                result.completeExceptionally(new IllegalStateException("COMPUTE_OPERATION_FAILED", error));
             } finally { queued.decrementAndGet(); }
         }); } catch (java.util.concurrent.RejectedExecutionException ignored) {
             queued.decrementAndGet(); result.completeExceptionally(new IllegalStateException("COMPUTE_QUEUE_UNAVAILABLE"));

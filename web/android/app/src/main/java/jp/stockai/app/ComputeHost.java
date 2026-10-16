@@ -31,6 +31,8 @@ final class ComputeHost {
     private volatile CompletableFuture<JSONObject> pending;
     private volatile long requestId;
     private volatile boolean closed;
+    private volatile boolean assetUnavailable;
+    private final java.util.concurrent.atomic.AtomicInteger interpreterAssets = new java.util.concurrent.atomic.AtomicInteger();
     private WebView view;
 
     ComputeHost(Context context) { this.context = context.getApplicationContext(); }
@@ -49,6 +51,9 @@ final class ComputeHost {
         String path = uri.getPath();
         if (path == null || !path.startsWith("/") || path.contains("\\") || path.contains("\u0000")) return denied();
         for (String part : path.split("/", -1)) if (part.equals(".") || part.equals("..")) return denied();
+        int bit = path.equals("/python/pyodide.mjs") ? 1 : path.equals("/python/pyodide.asm.js") ? 2
+            : path.equals("/python/pyodide.asm.wasm") ? 4 : path.equals("/python/pyodide-lock.json") ? 8 : 0;
+        interpreterAssets.getAndUpdate(value -> value | bit);
         try {
             InputStream content = context.getAssets().open("public" + path);
             String extension = path.substring(path.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
@@ -64,7 +69,7 @@ final class ComputeHost {
             headers.put("Cache-Control", "no-store"); headers.put("X-Content-Type-Options", "nosniff");
             String encoding = mime.startsWith("text/") || mime.equals("application/json") ? "UTF-8" : null;
             return new WebResourceResponse(mime, encoding, 200, "OK", headers, content);
-        } catch (Exception ignored) { return denied(); }
+        } catch (Exception ignored) { assetUnavailable = true; return denied(); }
     }
 
     @SuppressLint("SetJavaScriptEnabled") // Trusted APK-only page; no arbitrary navigation or network.
@@ -125,7 +130,12 @@ final class ComputeHost {
                 if (closed || response == null || !Long.toString(requestId).equals(identity)) return;
                 if (payload.length() > LocalStateStore.MAX_CHARACTERS + 4 * 1024 * 1024) throw new IllegalArgumentException();
                 JSONObject value = new JSONObject(payload);
-                if (value.has("error")) throw new IllegalStateException();
+                if (value.has("error")) {
+                    String code = value.optString("code");
+                    if (!code.matches("(interpreter|packages|archive|state|request)_(wasm|type|python|other)|worker_js")) code = "unknown";
+                    response.completeExceptionally(new IllegalStateException("COMPUTE_" + code + "_ASSETMASK_" + interpreterAssets.get() + (assetUnavailable ? "_APK_ASSET_UNAVAILABLE" : "")));
+                    return;
+                }
                 response.complete(value);
             } catch (Exception ignored) {
                 if (response != null) response.completeExceptionally(new IllegalStateException("COMPUTE_FAILED"));

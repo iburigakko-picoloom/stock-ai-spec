@@ -12,15 +12,15 @@ const bridge = hostWindow.StockAICompute;
 if (bridge) {
   const worker = new Worker(new URL("./compute-worker.ts", import.meta.url), { type: "module" });
   let active: number | null = null;
-  worker.onmessage = (event: MessageEvent<{ id: number; error?: string }>) => {
+  worker.onmessage = (event: MessageEvent<{ id: number; error?: string; error_code?: string }>) => {
     if (event.data.id !== active) return;
     const identity = String(active); active = null;
-    bridge.complete(identity, JSON.stringify(event.data.error ? { error: "COMPUTE_WORKER_FAILED" } : event.data));
+    bridge.complete(identity, JSON.stringify(event.data.error ? { error: "COMPUTE_WORKER_FAILED", code: event.data.error_code } : event.data));
   };
   worker.onerror = () => {
     if (active !== null) {
       const identity = String(active); active = null;
-      bridge.complete(identity, JSON.stringify({ error: "COMPUTE_WORKER_UNAVAILABLE" }));
+      bridge.complete(identity, JSON.stringify({ error: "COMPUTE_WORKER_UNAVAILABLE", code: "worker_js" }));
     }
   };
   hostWindow.stockAICompute = request => {
