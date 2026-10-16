@@ -48,7 +48,7 @@ CIでは通常のinstrumented試験の後に、専用test APKと`scripts/android
 
 結果はActionsの`android-test-reports`にある`lifecycle-report.json`と各段階のテキストで確認する。合成の受領済み休日データを使うため、示せるのは予約・保存・同じ取得ID/受領時刻の再開である。実J-Quants通信、実アカウント調査、採用モデルの株数、Xiaomiの実行時刻や性能の証拠は別に必要。host側のSQLite観測コピーは成果物へアップロードしない。
 
-通常CIは`--dispatch-ready`を明示し、90秒の自然観測後も未配送なら、元のsystem job IDへOSの`run -s`を一度だけ送る。全制約を満たす場合だけ実行し、`-f`・再enqueue・電力policyや時計の変更は使わない。結果の`delivery_policy`と各phaseの`delivery`を確認し、制御配送の成功を自然起動時刻の受入と数えない。手動workflowの`lifecycle_delivery=unforced`では、介入なしの200秒試験をそのまま実行する。初回の無介入試験は予約とページを保持したままOSが保留し、200秒以内の完了を確認できなかった。
+通常CIは`--dispatch-ready`を明示し、90秒の自然観測後も未配送なら、画面を2秒起こしてから消灯し、通常の遅延alarm配送を許す。なお未配送の場合だけ、元のsystem job IDへOSの`run -s`を一度だけ送る。全制約を満たす場合だけ実行し、`-f`・再enqueue・電力policyや時計の変更は使わない。結果の`delivery_policy`と各phaseの`delivery`で画面起動も確認し、制御配送の成功を自動起動時刻の受入と数えない。手動workflowの`lifecycle_delivery=unforced`では、介入なしの200秒試験をそのまま実行する。初回の無介入試験は予約とページを保持したままOSが保留し、200秒以内の完了を確認できなかった。続く`-s`だけの試験も、経過済みのTIMING_DELAYが未解除で拒否されている。
 
 ## 自動署名配布
 

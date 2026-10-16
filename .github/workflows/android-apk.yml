@@ -39,8 +39,8 @@ on:
       lifecycle_delivery:
         description: 'OS delivery observation (unforced retains the 200s acceptance window)'
         type: choice
-        options: [scheduler-satisfied, unforced]
-        default: scheduler-satisfied
+        options: [screen-wake-and-scheduler, unforced]
+        default: screen-wake-and-scheduler
 
 permissions:
   contents: read
@@ -178,11 +178,11 @@ jobs:
       - name: Real worker recovery and OS dispatch evidence
         timeout-minutes: 20
         env:
-          LIFECYCLE_DELIVERY: ${{ inputs.lifecycle_delivery || 'scheduler-satisfied' }}
+          LIFECYCLE_DELIVERY: ${{ inputs.lifecycle_delivery || 'screen-wake-and-scheduler' }}
         run: |
           case "$LIFECYCLE_DELIVERY" in
             unforced) python scripts/android_lifecycle_check.py ;;
-            scheduler-satisfied) python scripts/android_lifecycle_check.py --dispatch-ready ;;
+            screen-wake-and-scheduler) python scripts/android_lifecycle_check.py --dispatch-ready ;;
             *) exit 2 ;;
           esac
       - name: Android diagnostics

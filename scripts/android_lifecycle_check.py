@@ -38,7 +38,9 @@ class Controller:
         self.dispatch_ready = dispatch_ready
         self.report: dict = {
             "synthetic_only": True,
-            "delivery_policy": "scheduler-satisfied" if dispatch_ready else "unforced",
+            "delivery_policy": (
+                "screen-wake-then-scheduler-satisfied" if dispatch_ready else "unforced"
+            ),
             "phases": [],
             "status": "running",
         }
@@ -201,8 +203,19 @@ class Controller:
             return {**self.wait_ack(prepared, seconds=90), "delivery": "unforced"}
         except DeliveryDeferred:
             self.diagnostics(phase + "-deferred")
+            # API35 can leave an overdue TIMING_DELAY unsatisfied while asleep.
+            # Allow ordinary alarm delivery by waking the display briefly, then
+            # restore sleep before observing ACK. This is explicit intervention,
+            # not proof of natural wake-up; no clock/power policy is changed.
+            self.shell("input", "keyevent", "KEYCODE_WAKEUP")
+            time.sleep(2)
+            self.shell("input", "keyevent", "KEYCODE_SLEEP")
+            try:
+                return {**self.wait_ack(prepared, seconds=3), "delivery": "screen-wake"}
+            except DeliveryDeferred:
+                pass
             self.dispatch_ready_job(prepared, phase)
-            return {**self.wait_ack(prepared), "delivery": "scheduler-satisfied"}
+            return {**self.wait_ack(prepared), "delivery": "screen-wake-and-scheduler-satisfied"}
 
     def stopped(self) -> bool:
         result = self.shell("dumpsys", "package", PACKAGE)
@@ -318,8 +331,9 @@ def main() -> None:
     parser.add_argument(
         "--dispatch-ready", action="store_true",
         help=(
-            "After an unforced observation, ask JobScheduler to run the existing job "
-            "with all constraints satisfied; this does not prove natural delivery timing"
+            "After an unforced observation, briefly wake/sleep the display, then ask "
+            "JobScheduler to run the existing job with all constraints satisfied; "
+            "this does not prove natural wake-up or delivery timing"
         ),
     )
     args = parser.parse_args()
