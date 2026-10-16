@@ -6,7 +6,8 @@
 - 既存55件を維持し、追加suiteだけを分けて実行する。実際のActivity破棄、画面オフ、force-stopを伴わないprocess kill、kernel reboot、force-stop後の明示再起動の3段階で、同じDailyWorker・周期予約・native保存・APK内Pythonを検証する。通常のinstrumentation終了は対象をforce-stopするため、no-restartを使う。
 - 生きた予約の取得IDを追跡し、検証instrumentationを始める前に外側からnative ACK/世代更新を観測する。受領ID・元の受領時刻・本人revision・未完ページ/cursorを確認。通知は未許可のまま。synthetic休日の完成受領から共有commitする試験であり、実API通信や承認モデルの株数成功に読み替えない。
 - 初回86eb6c6のrun38979214134は、test APKのFiles.readStringがAndroidのFiles APIに存在しないためcompileで停止。readAllBytes＋UTF-8へ修正した。原本は`.demo-artifacts/lifecycle-first-android-failure.log`。lifecycleの実行成功/失敗とは扱わない。
-- 新しいlifecycle試験はCI待ち。前回文書1e40a7aのrun38977324150はAndroid/verify成功・release skipを確認。実アカウント/実市場モデル採用・Xiaomi性能/同署名更新、72時間台帳運用の確認は引き続き残る。私有研究worker再開・学習・実注文・merge・APK公開なし。
+- 修正5575036のrun38979680236はcompile・既存native55件をpassした後、process/prepareでIllegalAccessError。no-restartではtest APKと起動済みアプリのruntime packageが異なり、package-private ownerへ直接アクセスできなかった。試験側だけで既存application loaderからowner・journal・WorkManager singletonを呼ぶよう修正。アプリ本体の可視性やdispatch経路は変更しない。原本は`.demo-artifacts/lifecycle-second-reports/.demo-artifacts/android-lifecycle/process-prepare.txt`。修正後のguard4件とRuffがローカルpass。
+- 新しいlifecycle試験は再実行待ち。前回文書1e40a7aのrun38977324150はAndroid/verify成功・release skipを確認。実アカウント/実市場モデル採用・Xiaomi性能/同署名更新、72時間台帳運用の確認は引き続き残る。私有研究worker再開・学習・実注文・merge・APK公開なし。
 
 ## 2026-10-17 — ChatGPT調査を日次処理へ接続
 

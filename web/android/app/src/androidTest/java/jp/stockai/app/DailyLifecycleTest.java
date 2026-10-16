@@ -2,6 +2,7 @@ package jp.stockai.app;
 
 import static org.junit.Assert.*;
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -10,24 +11,23 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
 import android.util.AtomicFile;
 import android.util.Base64;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.work.ExistingPeriodicWorkPolicy;
-import androidx.work.ExistingWorkPolicy;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.PeriodicWorkRequest;
-import androidx.work.WorkInfo;
-import androidx.work.WorkManager;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.List;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipInputStream;
 import org.json.JSONArray;
@@ -41,7 +41,10 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class DailyLifecycleTest {
     Context context;
-    LocalComputeOwner owner;
+    Object owner, state;
+    SQLiteDatabase database;
+    ClassLoader applicationLoader;
+    static final ZoneId JST = ZoneId.of("Asia/Tokyo");
     File marker;
     String phase;
 
@@ -57,15 +60,74 @@ public class DailyLifecycleTest {
         phase = args.getString("stockai.lifecycle.phase");
         assertTrue("process".equals(phase) || "reboot".equals(phase) || "force-stop".equals(phase));
         marker = new File(context.getFilesDir(), "lifecycle-proof.json");
-        owner = LocalComputeOwner.get(context);
-        assertTrue("Provider credentials must be absent", MarketClient.apiKey(context) == null);
-        String account = new NativeSecrets(context).read("session-v2");
+        applicationLoader = context.getClassLoader();
+        owner = call(type("LocalComputeOwner"), "get", context);
+        state = field(owner, "state"); database = (SQLiteDatabase) field(state, "database");
+        assertTrue("Provider credentials must be absent", call(type("MarketClient"), "apiKey", context) == null);
+        String account = (String) call(construct(type("NativeSecrets"), context), "read", "session-v2");
         assertTrue(account == null || new JSONObject(account).isNull("credentials"));
-        assertFalse(NotificationManagerCompat.from(context).areNotificationsEnabled());
+        assertFalse(context.getSystemService(NotificationManager.class).areNotificationsEnabled());
+    }
+
+    // no-restart instrumentation has a different runtime package/class loader.
+    // Resolve application internals (including WorkManager's singleton) through
+    // its existing loader. This bridge exists only in the test APK; production
+    // visibility, transport and scheduler remain unchanged.
+    Class<?> type(String name) throws Exception { return applicationLoader.loadClass(name.contains(".") ? name : "jp.stockai.app." + name); }
+    static boolean accepts(Class<?>[] parameters, Object[] arguments) {
+        if (parameters.length != arguments.length) return false;
+        for (int i = 0; i < parameters.length; i++) {
+            Class<?> wanted = parameters[i]; Object argument = arguments[i];
+            if (wanted == long.class) wanted = Long.class;
+            if (wanted == int.class) wanted = Integer.class;
+            if (wanted == boolean.class) wanted = Boolean.class;
+            if (argument == null ? parameters[i].isPrimitive() : !wanted.isInstance(argument)) return false;
+        }
+        return true;
+    }
+    static Object call(Object target, String name, Object... arguments) throws Exception {
+        Class<?> owner = target instanceof Class<?> ? (Class<?>) target : target.getClass();
+        for (Class<?> current = owner; current != null; current = current.getSuperclass())
+            for (var method : current.getDeclaredMethods()) if (method.getName().equals(name) && accepts(method.getParameterTypes(), arguments)) {
+                method.setAccessible(true);
+                try { return method.invoke(target instanceof Class<?> ? null : target, arguments); }
+                catch (InvocationTargetException error) {
+                    if (error.getCause() instanceof Exception) throw (Exception) error.getCause();
+                    if (error.getCause() instanceof Error) throw (Error) error.getCause();
+                    throw error;
+                }
+            }
+        throw new NoSuchMethodException(owner.getName() + "." + name);
+    }
+    static Object construct(Class<?> type, Object... arguments) throws Exception {
+        for (var constructor : type.getDeclaredConstructors()) if (accepts(constructor.getParameterTypes(), arguments)) {
+            constructor.setAccessible(true); return constructor.newInstance(arguments);
+        }
+        throw new NoSuchMethodException(type.getName());
+    }
+    static Object field(Object target, String name) throws Exception {
+        var member = (target instanceof Class<?> ? (Class<?>) target : target.getClass()).getDeclaredField(name);
+        member.setAccessible(true); return member.get(target instanceof Class<?> ? null : target);
+    }
+    static Object await(Object future) throws Exception { return ((Future<?>) future).get(240, TimeUnit.SECONDS); }
+    Object manager() throws Exception { return call(type("androidx.work.WorkManager"), "getInstance", context); }
+    String workName(String name) throws Exception { return (String) field(type("DailyAutomation"), name); }
+    Object keep(String name) throws Exception { return field(type("androidx.work." + name), "KEEP"); }
+    Object automation() throws Exception { return construct(type("DailyAutomation"), context, database); }
+    JSONObject automationRow(Object value) throws Exception { return (JSONObject) call(value, "row"); }
+
+    interface Remote { JSONObject fetch(String endpoint, String day, String cursor) throws Exception; }
+    Object download(boolean membership, Remote remote) throws Exception {
+        Class<?> contract = type("MarketDownload$Remote");
+        Object proxy = Proxy.newProxyInstance(applicationLoader, new Class<?>[]{contract}, (object, method, arguments) -> {
+            if (method.getName().equals("fetch")) return remote.fetch((String) arguments[0], (String) arguments[1], (String) arguments[2]);
+            throw new UnsupportedOperationException(method.getName());
+        });
+        return construct(type("MarketDownload"), database, proxy, membership);
     }
 
     JSONObject api(String method, String path, JSONObject body) throws Exception {
-        JSONObject result = owner.request(method, "/api/v1/" + path, body == null ? "null" : body.toString()).get(240, TimeUnit.SECONDS);
+        JSONObject result = (JSONObject) await(call(owner, "request", method, "/api/v1/" + path, body == null ? "null" : body.toString()));
         assertEquals("Local API status: " + path, 200, result.getInt("status")); return result;
     }
     JSONObject readMarker() throws Exception {
@@ -82,90 +144,95 @@ public class DailyLifecycleTest {
             .put("body", new JSONObject().put("data", new JSONArray().put(new JSONObject().put("Date", day)
                 .put("HolDiv", closed ? "0" : "1"))).put("pagination_key", next));
     }
-    MarketDownload closedDownload(boolean membership) {
-        return new MarketDownload(owner.state.database, (endpoint, day, cursor) -> {
+    Object closedDownload(boolean membership) throws Exception {
+        return download(membership, (endpoint, day, cursor) -> {
             assertEquals("/markets/calendar", endpoint); return calendar(day, true, "");
-        }, membership);
+        });
     }
     long count(String query, String... values) {
-        try (Cursor cursor = owner.state.database.rawQuery(query, values)) { assertTrue(cursor.moveToFirst()); return cursor.getLong(0); }
+        try (Cursor cursor = database.rawQuery(query, values)) { assertTrue(cursor.moveToFirst()); return cursor.getLong(0); }
     }
 
     @Test public void prepare() throws Exception {
         JSONObject proof;
-        DailyAutomation automation = new DailyAutomation(context, owner.state.database);
+        Object automation = automation();
         if (phase.equals("process")) {
             assertFalse(marker.exists());
             assertTrue(api("GET", "mobile/portfolio", null).isNull("body"));
             assertEquals(0, api("GET", "mobile/market", null).getJSONObject("body").getJSONArray("completed_dates").length());
             assertEquals(0, api("GET", "mobile/models", null).getJSONObject("body").getInt("imported_bundle_count"));
-            JSONObject profile = api("POST", "mobile/portfolio", new JSONObject(LocalComputeOwnerTest.emptyProfile())).getJSONObject("body");
+            JSONObject profile = api("POST", "mobile/portfolio", new JSONObject("{\"schema_version\":\"manual-portfolio-v1\",\"holdings_status\":\"none\",\"investment_budget_yen\":null,\"maximum_drawdown_percent\":null,\"accounts\":[],\"holdings\":[]}")).getJSONObject("body");
             proof = new JSONObject().put("profile", profile).put("targets", new JSONArray());
-            String partialDay = LocalDate.now(DailyPipeline.JST).minusDays(30).toString();
-            MarketDownload partial = new MarketDownload(owner.state.database, (endpoint, day, cursor) -> {
+            String partialDay = LocalDate.now(JST).minusDays(30).toString();
+            Object partial = download(false, (endpoint, day, cursor) -> {
                 if (endpoint.equals("/markets/calendar")) return calendar(day, false, "");
                 assertEquals("/equities/master", endpoint); assertNull(cursor);
                 return new JSONObject().put("status", 200).put("received_at", Instant.now().toString())
                     .put("body", new JSONObject().put("data", new JSONArray()).put("pagination_key", "fixture-next-page"));
             });
-            JSONObject pending = partial.fetch(partialDay, 2, () -> false);
+            JSONObject pending = (JSONObject) call(partial, "fetch", partialDay, 2, (java.util.function.BooleanSupplier) () -> false);
             assertEquals(202, pending.getInt("status"));
             proof.put("partial_day", partialDay).put("partial_id", pending.getString("acquisitionId"));
             // A real Activity uses and destroys its UI bridge before the worker
             // later runs. The computation owner must remain application-owned.
             var instrumentation = InstrumentationRegistry.getInstrumentation();
-            Activity activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
+            Activity activity = instrumentation.startActivitySync(new Intent().setClassName(context, "jp.stockai.app.MainActivity")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
             instrumentation.runOnMainSync(activity::finish);
             for (int i = 0; i < 60 && !activity.isDestroyed(); i++) { instrumentation.waitForIdleSync(); Thread.sleep(50); }
             assertTrue(activity.isDestroyed()); proof.put("activity_destroyed", true);
         } else {
             proof = readMarker(); assertEquals("verified", proof.getString("stage"));
-            assertFalse(automation.row().optBoolean("enabled"));
+            assertFalse(automationRow(automation).optBoolean("enabled"));
         }
         JSONArray targets = proof.getJSONArray("targets");
-        String day = (targets.length() == 0 ? LocalDate.now(DailyPipeline.JST)
+        String day = (targets.length() == 0 ? LocalDate.now(JST)
             : LocalDate.parse(targets.getJSONObject(targets.length() - 1).getString("date"))).minusDays(1).toString();
-        JSONObject receipt = closedDownload(false).fetch(day);
+        JSONObject receipt = (JSONObject) call(closedDownload(false), "fetch", day);
         assertEquals(200, receipt.getInt("status"));
         targets.put(new JSONObject().put("date", day).put("id", receipt.getString("acquisitionId"))
             .put("received_at", receipt.getString("received_at")).put("pages", receipt.getJSONArray("source_pages")));
         // This is a synthetic closed session, in the test APK only. Preserve
         // actual receipts even when today's alpha cutoff has already passed.
-        JSONObject member = closedDownload(true).fetch(LocalDate.now(DailyPipeline.JST).toString());
+        JSONObject member = (JSONObject) call(closedDownload(true), "fetch", LocalDate.now(JST).toString());
         api("POST", "mobile/market/membership", member);
-        closedDownload(true).acknowledge(member.getString("date"), member.getString("acquisitionId"));
-        if (automation.row().has("firstDay")) owner.state.database.execSQL("UPDATE daily_automation SET first_day=? WHERE id=1 AND enabled=0", new Object[]{day});
-        automation.enable(day);
-        WorkManager manager = WorkManager.getInstance(context);
-        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(DailyWorker.class).setConstraints(DailyAutomation.connected())
-            .setInitialDelay(60, TimeUnit.SECONDS).build();
-        PeriodicWorkRequest watch = new PeriodicWorkRequest.Builder(DailyWakeWorker.class, 15, TimeUnit.MINUTES)
-            .setConstraints(DailyAutomation.connected()).setInitialDelay(60, TimeUnit.SECONDS).build();
-        manager.enqueueUniquePeriodicWork(DailyAutomation.WATCH, ExistingPeriodicWorkPolicy.KEEP, watch).getResult().get(20, TimeUnit.SECONDS);
-        manager.enqueueUniqueWork(DailyAutomation.PUMP, ExistingWorkPolicy.KEEP, request).getResult().get(20, TimeUnit.SECONDS);
-        automation.wake(); // Duplicate caller must keep the same pending request.
-        long pending = manager.getWorkInfosForUniqueWork(DailyAutomation.PUMP).get(20, TimeUnit.SECONDS).stream().filter(x -> !x.getState().isFinished()).count();
+        call(closedDownload(true), "acknowledge", member.getString("date"), member.getString("acquisitionId"));
+        if (automationRow(automation).has("firstDay")) database.execSQL("UPDATE daily_automation SET first_day=? WHERE id=1 AND enabled=0", new Object[]{day});
+        call(automation, "enable", day);
+        Object manager = manager();
+        Object constraints = call(type("DailyAutomation"), "connected");
+        Object requestBuilder = construct(type("androidx.work.OneTimeWorkRequest$Builder"), type("DailyWorker"));
+        call(requestBuilder, "setConstraints", constraints); call(requestBuilder, "setInitialDelay", 60L, TimeUnit.SECONDS);
+        Object request = call(requestBuilder, "build");
+        Object watchBuilder = construct(type("androidx.work.PeriodicWorkRequest$Builder"), type("DailyWakeWorker"), 15L, TimeUnit.MINUTES);
+        call(watchBuilder, "setConstraints", constraints); call(watchBuilder, "setInitialDelay", 60L, TimeUnit.SECONDS);
+        Object watch = call(watchBuilder, "build");
+        await(call(call(manager, "enqueueUniquePeriodicWork", workName("WATCH"), keep("ExistingPeriodicWorkPolicy"), watch), "getResult"));
+        await(call(call(manager, "enqueueUniqueWork", workName("PUMP"), keep("ExistingWorkPolicy"), request), "getResult"));
+        call(automation, "wake"); // Duplicate caller must keep the same pending request.
+        long pending = 0;
+        for (Object info : (List<?>) await(call(manager, "getWorkInfosForUniqueWork", workName("PUMP"))))
+            if (!(Boolean) call(call(info, "getState"), "isFinished")) pending++;
         assertEquals(1, pending);
         proof.put("phase", phase).put("stage", "prepared").put("pid", android.os.Process.myPid())
-            .put("generation", owner.state.currentGeneration()).put("work_id", request.getId().toString())
-            .put("watch_id", watch.getId().toString()).put("prepared_at", Instant.now().toString());
+            .put("generation", call(state, "currentGeneration")).put("work_id", call(request, "getId").toString())
+            .put("watch_id", call(watch, "getId").toString()).put("prepared_at", Instant.now().toString());
         saveMarker(proof);
     }
 
     @Test public void verify() throws Exception {
         JSONObject proof = readMarker(); assertEquals(phase, proof.getString("phase")); assertEquals("prepared", proof.getString("stage"));
-        WorkManager manager = WorkManager.getInstance(context);
-        WorkInfo result = null;
+        Object manager = manager();
+        Object result = null;
         for (int i = 0; i < 100; i++) {
-            result = manager.getWorkInfoById(UUID.fromString(proof.getString("work_id"))).get(20, TimeUnit.SECONDS);
-            if (result != null && result.getState().isFinished()) break;
+            result = await(call(manager, "getWorkInfoById", UUID.fromString(proof.getString("work_id"))));
+            if (result != null && (Boolean) call(call(result, "getState"), "isFinished")) break;
             Thread.sleep(200);
         }
-        assertNotNull(result); assertEquals(WorkInfo.State.SUCCEEDED, result.getState());
-        assertFalse(manager.getWorkInfoById(UUID.fromString(proof.getString("watch_id"))).get(20, TimeUnit.SECONDS).getState().isFinished());
-        DailyAutomation automation = new DailyAutomation(context, owner.state.database);
-        automation.stop(); // Stop later test slices before reading the shared facts.
+        assertNotNull(result); assertEquals("SUCCEEDED", call(result, "getState").toString());
+        Object watch = await(call(manager, "getWorkInfoById", UUID.fromString(proof.getString("watch_id"))));
+        assertFalse((Boolean) call(call(watch, "getState"), "isFinished"));
+        call(automation(), "stop"); // Stop later test slices before reading the shared facts.
         assertTrue("Original personal revision changed", proof.getJSONObject("profile").toString()
             .equals(api("GET", "mobile/portfolio", null).getJSONObject("body").toString()));
         JSONArray acquisitions = api("GET", "mobile/market", null).getJSONObject("body").getJSONArray("committed_acquisitions");
@@ -176,7 +243,7 @@ public class DailyLifecycleTest {
             assertTrue(found);
             assertEquals(0, count("SELECT COUNT(*) FROM market_download_pages WHERE id=?", target.getString("id")));
         }
-        try (Cursor partial = owner.state.database.rawQuery("SELECT endpoint,cursor FROM market_downloads WHERE id=?", new String[]{proof.getString("partial_id")})) {
+        try (Cursor partial = database.rawQuery("SELECT endpoint,cursor FROM market_downloads WHERE id=?", new String[]{proof.getString("partial_id")})) {
             assertTrue(partial.moveToFirst()); assertEquals(1, partial.getInt(0)); assertEquals("fixture-next-page", partial.getString(1));
         }
         assertEquals(2, count("SELECT COUNT(*) FROM market_download_pages WHERE id=?", proof.getString("partial_id")));
@@ -185,19 +252,24 @@ public class DailyLifecycleTest {
         assertTrue(api("GET", "mobile/decision", null).isNull("body"));
         assertFalse(api("GET", "health", null).getJSONObject("body").getBoolean("orderSubmissionAvailable"));
         proof.put("stage", "verified").put("verified_pid", android.os.Process.myPid())
-            .put("verified_generation", owner.state.currentGeneration()).put("verified_at", Instant.now().toString());
+            .put("verified_generation", call(state, "currentGeneration")).put("verified_at", Instant.now().toString());
         saveMarker(proof);
     }
 
     void verifyOriginalReceipts(JSONObject proof) throws Exception {
-        String payload = owner.readState().get(30, TimeUnit.SECONDS).getString("payload");
+        String payload = ((JSONObject) await(call(owner, "readState"))).getString("payload");
         File copy = File.createTempFile("lifecycle-mobile-", ".sqlite3", context.getCacheDir());
         try {
             boolean found = false;
             try (ZipInputStream archive = new ZipInputStream(new ByteArrayInputStream(Base64.decode(payload, Base64.NO_WRAP)))) {
                 java.util.zip.ZipEntry entry;
                 while ((entry = archive.getNextEntry()) != null) if (entry.getName().equals("mobile.sqlite3")) {
-                    try (FileOutputStream output = new FileOutputStream(copy)) { output.write(StockAIPlugin.read(archive, 2 * 1024 * 1024)); }
+                    ByteArrayOutputStream bytes = new ByteArrayOutputStream(); byte[] buffer = new byte[8192]; int count;
+                    while ((count = archive.read(buffer)) != -1) {
+                        if (bytes.size() + count > 2 * 1024 * 1024) throw new java.io.IOException("Fixture archive exceeds limit");
+                        bytes.write(buffer, 0, count);
+                    }
+                    try (FileOutputStream output = new FileOutputStream(copy)) { output.write(bytes.toByteArray()); }
                     found = true; break;
                 }
             }
