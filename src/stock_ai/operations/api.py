@@ -31,6 +31,7 @@ from stock_ai.domain import (
     UserDecision,
     UserDecisionLine,
 )
+from stock_ai.operations.chatgpt_research import ResearchConfiguration
 from stock_ai.operations.daily import (
     CompanyResearchRecord,
     OwnerAdoptionReview,
@@ -119,6 +120,23 @@ class ExecutionInput(ApiModel):
 class ApplyExecutionsInput(ApiModel):
     next_as_of: datetime
     next_portfolio_id: str = Field(min_length=1)
+
+
+class ResearchStartInput(ApiModel):
+    configuration: ResearchConfiguration
+    rerun_previous_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class ResearchClaimInput(ApiModel):
+    retry: bool = Field(default=False, strict=True)
+
+
+class ResearchReceiptInput(ApiModel):
+    response: dict[str, Any] | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error_code: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_]{1,100}$")
+    interrupted: bool = Field(default=False, strict=True)
 
 
 class CsvPreviewInput(ApiModel):
@@ -411,7 +429,7 @@ def create_app(
     def daily_latest() -> dict[str, object]:
         snapshot = store.latest_prediction_snapshot()
         if snapshot is None:
-            return {"snapshot": None, "research": [], "is_stale": True}
+            return {"snapshot": None, "research": [], "chatgpt_research": [], "is_stale": True}
         return {
             "snapshot": snapshot.model_dump(mode="json"),
             "research": [
@@ -420,7 +438,78 @@ def create_app(
             ],
             "is_stale": snapshot.as_of.astimezone(JST).date() != current_time().date(),
             "research_symbols": snapshot.research_symbols(),
+            "chatgpt_research": [
+                item.model_dump(mode="json")
+                for item in store.chatgpt_research(snapshot.snapshot_id)
+            ],
         }
+
+    @app.get("/api/v1/research/{snapshot_id}")
+    def research_runs(snapshot_id: str) -> object:
+        try:
+            snapshot = store.prediction_snapshot(snapshot_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="snapshot not found") from exc
+        return {"runs": store.research_runs(snapshot.snapshot_id)}
+
+    @app.post("/api/v1/research/{snapshot_id}/{symbol}/start")
+    def research_start(
+        snapshot_id: str, symbol: str, body: ResearchStartInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        try:
+            snapshot = store.prediction_snapshot(snapshot_id)
+            # A source-backed company name may not yet be available. Preserve
+            # the verified symbol instead of accepting a caller's invented name.
+            proposal = _active_proposal(store, snapshot.as_of.astimezone(JST).date())
+            company_name = next((
+                item.company_name for item in (() if proposal is None else proposal.lines)
+                if item.symbol == symbol
+            ), f"証券コード {symbol}")
+            return store.begin_research(
+                snapshot_id, symbol, body.configuration, company_name=company_name,
+                now=current_time(), rerun_previous_id=body.rerun_previous_id,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="snapshot not found") from exc
+        except OperationalConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/research/{run_id}/claim")
+    def research_claim(
+        run_id: str, body: ResearchClaimInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        try:
+            return store.claim_research(run_id, now=current_time(), retry=body.retry)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="research run not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/research/{attempt_id}/receipt")
+    def research_receipt(
+        attempt_id: str, body: ResearchReceiptInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        if (body.error_code is not None and any(item is not None for item in (
+            body.response, body.started_at, body.completed_at,
+        ))) or (body.error_code is None and body.interrupted):
+            raise HTTPException(status_code=422, detail="use one research outcome only")
+        try:
+            return store.finish_research(
+                attempt_id, now=current_time(), response=body.response,
+                started_at=body.started_at, completed_at=body.completed_at,
+                error_code=body.error_code, interrupted=body.interrupted,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="research attempt not found") from exc
+        except OperationalConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/v1/personal/readiness")
     def personal_readiness() -> object:
@@ -733,13 +822,36 @@ def create_app(
             if today_proposal is None
             else [_line_view(item) for item in today_proposal.lines if item.symbol == symbol]
         )
-        if not positions and not lines:
+        snapshot = store.latest_prediction_snapshot()
+        if snapshot is not None and snapshot.as_of.astimezone(JST).date() > proposal_date:
+            snapshot = None
+        prediction = next((
+            item for item in (() if snapshot is None else snapshot.predictions)
+            if item.symbol == symbol
+        ), None)
+        if not positions and not lines and prediction is None:
             raise HTTPException(status_code=404, detail="symbol not found")
         return {
             "symbol": symbol,
             "positions": positions,
             "proposalLines": lines,
             "proposal": None if today_proposal is None else _proposal_view(today_proposal),
+            "forecast": None if prediction is None or snapshot is None else {
+                "snapshotId": snapshot.snapshot_id, "asOf": snapshot.as_of,
+                "generatedAt": snapshot.generated_at,
+                "isStale": snapshot.as_of.astimezone(JST).date() != proposal_date,
+                "mode": snapshot.mode, "blockingReasons": snapshot.blocking_reasons,
+                "prediction": prediction.model_dump(mode="json"),
+                "researchEligible": symbol in snapshot.research_symbols(),
+            },
+            "researchRuns": [] if snapshot is None else store.research_runs(
+                snapshot.snapshot_id, symbol,
+            ),
+            "chatgptResearch": [] if snapshot is None else [
+                item.model_dump(mode="json")
+                for item in store.chatgpt_research(snapshot.snapshot_id)
+                if item.context.symbol == symbol
+            ],
         }
 
     @app.get("/api/v1/validation")

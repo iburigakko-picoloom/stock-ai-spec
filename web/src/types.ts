@@ -194,4 +194,12 @@ export interface StockDetail {
   }>;
   proposalLines: ProposalLine[];
   proposal: DailyProposal | null;
+  forecast: {
+    snapshotId: string; asOf: string; generatedAt: string; isStale: boolean;
+    mode: "research" | "paper" | "owner_approved"; blockingReasons: string[];
+    prediction: { expected_return_5d: number; expected_return_20d: number; large_loss_probability: number };
+    researchEligible: boolean;
+  } | null;
+  researchRuns: import("./mobile/chatgpt").ResearchRunView[];
+  chatgptResearch: import("./mobile/chatgpt").ResearchRecord[];
 }

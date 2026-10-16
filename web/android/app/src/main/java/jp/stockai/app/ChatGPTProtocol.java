@@ -14,6 +14,8 @@ import java.security.Signature;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.HashSet;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -108,11 +110,48 @@ final class ChatGPTProtocol {
         return false;
     }
 
+    static JSONObject researchRequest(String text, String digest, String model, String effort) throws Exception {
+        if (text == null || text.length() > 512000 || digest == null || !digest.matches("[0-9a-f]{64}"))
+            throw new SecurityException("INVALID_RESEARCH_REQUEST");
+        byte[] hash = MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+        StringBuilder actual = new StringBuilder();
+        for (byte item : hash) actual.append(String.format(java.util.Locale.ROOT, "%02x", item & 0xff));
+        if (!MessageDigest.isEqual(actual.toString().getBytes(StandardCharsets.US_ASCII), digest.getBytes(StandardCharsets.US_ASCII)))
+            throw new SecurityException("RESEARCH_REQUEST_HASH_MISMATCH");
+        JSONObject body = new JSONObject(text);
+        if (!body.keySet().equals(new HashSet<>(Arrays.asList("instructions", "input", "tools", "include")))
+                || body.getString("instructions").length() > 8000 || body.getJSONArray("input").length() != 1
+                || !body.getJSONArray("tools").toString().equals("[{\"type\":\"web_search\"}]")
+                || !body.getJSONArray("include").toString().equals("[\"web_search_call.action.sources\"]"))
+            throw new SecurityException("INVALID_RESEARCH_REQUEST");
+        JSONObject input = body.getJSONArray("input").getJSONObject(0);
+        if (!input.keySet().equals(new HashSet<>(Arrays.asList("role", "content")))
+                || !input.getString("role").equals("user") || input.getString("content").isEmpty()
+                || model == null || !model.matches("[a-zA-Z0-9._:-]{1,160}")
+                || !Arrays.asList("low", "medium", "high", "xhigh", "max").contains(effort))
+            throw new SecurityException("INVALID_RESEARCH_REQUEST");
+        return body.put("model", model).put("reasoning", new JSONObject().put("effort", effort))
+            .put("store", false).put("stream", true);
+    }
+
+    private static String boundedLine(BufferedReader reader) throws IOException {
+        StringBuilder value = new StringBuilder(); int next;
+        while ((next = reader.read()) != -1 && next != '\n') {
+            if (value.length() >= 2 * 1024 * 1024) throw new IOException("RESPONSE_LIMIT");
+            value.append((char) next);
+        }
+        if (next == -1 && value.length() == 0) return null;
+        if (value.length() > 0 && value.charAt(value.length() - 1) == '\r') value.setLength(value.length() - 1);
+        return value.toString();
+    }
+
     static JSONObject readResponse(Reader source) throws Exception {
         BufferedReader reader = new BufferedReader(source);
         StringBuilder data = new StringBuilder(); long total = 0; String line;
-        while ((line = reader.readLine()) != null) {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(15);
+        while ((line = boundedLine(reader)) != null) {
             total += line.length();
+            if (System.nanoTime() > deadline) throw new IOException("RESPONSE_TIMEOUT");
             if (total > 8 * 1024 * 1024 || line.length() > 2 * 1024 * 1024)
                 throw new IOException("RESPONSE_LIMIT");
             if (line.isEmpty()) {
@@ -122,7 +161,8 @@ final class ChatGPTProtocol {
                 String type = event.optString("type");
                 if (type.equals("response.completed")) {
                     JSONObject response = event.getJSONObject("response");
-                    if (!response.getString("status").equals("completed")) throw new IOException("RESPONSE_INCOMPLETE");
+                    if (!response.getString("status").equals("completed") || !response.isNull("error")
+                            || !response.isNull("incomplete_details")) throw new IOException("RESPONSE_INCOMPLETE");
                     return response;
                 }
                 if (type.equals("response.failed") || type.equals("response.incomplete") || type.equals("error")) {

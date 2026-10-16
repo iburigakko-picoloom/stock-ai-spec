@@ -32,6 +32,7 @@ import org.json.JSONObject;
 @CapacitorPlugin(name = "StockAIChatGPT")
 public class ChatGPTPlugin extends Plugin {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService researchExecutor = Executors.newSingleThreadExecutor();
     private volatile ServerSocket pending;
     private volatile String connectionState = "disconnected";
     private JSONArray catalog = new JSONArray();
@@ -55,7 +56,10 @@ public class ChatGPTPlugin extends Plugin {
     }
     interface Operation { void run() throws Exception; }
     private void execute(PluginCall call, Operation operation) {
-        executor.execute(() -> {
+        execute(call, operation, executor);
+    }
+    private void execute(PluginCall call, Operation operation, ExecutorService target) {
+        target.execute(() -> {
             try { operation.run(); }
             catch (Exception error) {
                 String code = error.getMessage();
@@ -201,6 +205,7 @@ public class ChatGPTPlugin extends Plugin {
     }
 
     private JSONObject activeCredentials() throws Exception {
+        synchronized (ChatGPTPlugin.class) {
         JSONObject saved = credentials();
         if (saved == null) throw new IOException("SIGN_IN_REQUIRED");
         if (!ChatGPTProtocol.hasPlanPermission(saved)) throw new IOException("PLAN_PERMISSION_REQUIRED");
@@ -219,6 +224,73 @@ public class ChatGPTPlugin extends Plugin {
         }
         if (!ChatGPTProtocol.hasPlanPermission(saved)) throw new IOException("PLAN_PERMISSION_REQUIRED");
         secrets().write("credentials", saved.toString()); return saved;
+        }
+    }
+
+    private static String failureCode(Exception error) {
+        String code = error.getMessage();
+        return code != null && code.matches("[A-Za-z0-9_]{1,100}") ? code : "CONNECTION_FAILED";
+    }
+    private static String executionId(PluginCall call) throws IOException {
+        String id = call.getString("attemptId");
+        if (id == null || !id.matches("[0-9a-f]{32}")) throw new IOException("INVALID_ATTEMPT_ID");
+        return id;
+    }
+    private static JSONObject infer(JSONObject tokens, JSONObject request) throws Exception {
+        HttpURLConnection connection = StockAIPlugin.connection(ChatGPTProtocol.RESOURCE + "/responses");
+        try {
+            connection.setReadTimeout(300000); connection.setRequestMethod("POST"); connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Accept", "text/event-stream");
+            connection.setRequestProperty("Authorization", "Bearer " + tokens.getString("access_token"));
+            try (OutputStream output = connection.getOutputStream()) { output.write(request.toString().getBytes(StandardCharsets.UTF_8)); }
+            int code = connection.getResponseCode(); if (code != 200) throw new IOException("HTTP_" + code);
+            try (InputStreamReader input = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
+                return ChatGPTProtocol.readResponse(input);
+            }
+        } finally { connection.disconnect(); }
+    }
+    @PluginMethod public void getExecution(PluginCall call) {
+        // Never queue an observation behind a long-running request.
+        try { call.resolve(JSObject.fromJSONObject(new ResearchJournal(getContext()).current(executionId(call)))); }
+        catch (Exception error) { call.reject("調査の実行状態を確認できません。", failureCode(error)); }
+    }
+    @PluginMethod public void recoverExecution(PluginCall call) {
+        try {
+            call.resolve(JSObject.fromJSONObject(new ResearchJournal(getContext()).recover(executionId(call))));
+        } catch (Exception error) { call.reject("調査の実行状態を回復できません。", failureCode(error)); }
+    }
+    @PluginMethod public void forgetExecution(PluginCall call) { execute(call, () -> {
+        new ResearchJournal(getContext()).acknowledge(executionId(call)); call.resolve();
+    }); }
+    @PluginMethod public void respond(PluginCall call) {
+        final String id;
+        final ResearchJournal journal = new ResearchJournal(getContext());
+        try {
+            id = executionId(call);
+            JSONObject previous = journal.begin(id, call.getString("requestSha256"), call.getString("model"), call.getString("effort"));
+            boolean dispatch = previous.getBoolean("dispatch"); previous.remove("dispatch");
+            if (!dispatch) { call.resolve(JSObject.fromJSONObject(previous)); return; }
+        } catch (Exception error) { call.reject("調査を開始できません。", failureCode(error)); return; }
+        try { execute(call, () -> {
+            String digest = call.getString("requestSha256");
+            String model = call.getString("model"), effort = call.getString("effort");
+            try {
+                JSONObject request = ChatGPTProtocol.researchRequest(call.getString("requestJson"), digest, model, effort);
+                JSONObject chosen = selection();
+                if (!chosen.getString("model").equals(model) || !chosen.getString("effort").equals(effort))
+                    throw new IOException("MODEL_SELECTION_CHANGED");
+                JSONObject tokens = activeCredentials();
+                JSONObject response = infer(tokens, request);
+                call.resolve(JSObject.fromJSONObject(journal.complete(id, response)));
+            } catch (Exception error) {
+                journal.fail(id, failureCode(error));
+                throw error;
+            } finally { journal.release(id); }
+        }, researchExecutor); }
+        catch (java.util.concurrent.RejectedExecutionException error) {
+            journal.release(id); call.reject("調査の実行環境が停止しました。", "PROCESS_INTERRUPTED");
+        }
     }
     @PluginMethod public void listModels(PluginCall call) { execute(call, () -> {
         JSONObject tokens = activeCredentials();
@@ -252,18 +324,7 @@ public class ChatGPTPlugin extends Plugin {
             .put("tools", new JSONArray().put(new JSONObject().put("type", "web_search")))
             .put("input", new JSONArray().put(new JSONObject().put("role", "user").put("content",
                 "接続確認です。日本取引所グループの公式サイトをWeb検索し、事業を日本語1文で説明して出典URLを示してください。投資判断は不要です。")));
-        HttpURLConnection connection = StockAIPlugin.connection(ChatGPTProtocol.RESOURCE + "/responses");
-        try {
-            connection.setReadTimeout(300000); connection.setRequestMethod("POST"); connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestProperty("Accept", "text/event-stream");
-            connection.setRequestProperty("Authorization", "Bearer " + tokens.getString("access_token"));
-            try (OutputStream output = connection.getOutputStream()) { output.write(request.toString().getBytes(StandardCharsets.UTF_8)); }
-            int code = connection.getResponseCode(); if (code != 200) throw new IOException("HTTP_" + code);
-            JSONObject result;
-            try (InputStreamReader input = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
-                result = ChatGPTProtocol.readResponse(input);
-            }
+        JSONObject result = infer(tokens, request);
             JSONArray outputs = result.getJSONArray("output"), citations = new JSONArray();
             StringBuilder text = new StringBuilder(); boolean searched = false;
             for (int i = 0; i < outputs.length(); i++) {
@@ -286,8 +347,12 @@ public class ChatGPTPlugin extends Plugin {
             call.resolve(new JSObject().put("text", text.toString()).put("citations", citations)
                 .put("model", chosen.getString("model")).put("effort", chosen.getString("effort"))
                 .put("completedAt", java.time.Instant.now().toString()));
-        } finally { connection.disconnect(); }
     }); }
 
-    @Override protected void handleOnDestroy() { closePending(); executor.shutdownNow(); }
+    @Override protected void handleOnDestroy() {
+        closePending(); executor.shutdownNow();
+        // Finish already accepted calls and keep their receipts if only the
+        // Activity goes away. Process death is recovered by ResearchJournal.
+        researchExecutor.shutdown();
+    }
 }

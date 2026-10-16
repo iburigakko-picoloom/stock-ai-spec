@@ -1,12 +1,13 @@
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ActionBadge, Metric, PageHeader, StatePanel, yen } from "../components";
+import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { StockDetail } from "../types";
+import { CompanyResearchPanel } from "../mobile/CompanyResearchPanel";
 
 export function StockDetailPage(): ReactNode {
   const { symbol = "" } = useParams();
-  const { data, error, loading } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
+  const { data, error, loading, reload } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
   const [selectedBucket, setSelectedBucket] = useState("ALL");
   if (loading) return <StatePanel title="銘柄情報を読み込んでいます" />;
   if (error || !data) return <StatePanel tone="error" title="銘柄情報を取得できません" detail={error} />;
@@ -68,6 +69,17 @@ export function StockDetailPage(): ReactNode {
           <div className="emphasis"><dt>全体の純改善</dt><dd>{yen(data.proposal.netImprovement)}</dd></div>
         </dl>
       </section>}
+      {data.forecast && <section className="section numerical-forecast" aria-labelledby="numerical-forecast-title">
+        <div className="section-title"><div><span>NUMERICAL FORECAST</span><h2 id="numerical-forecast-title">数値モデルの予測</h2></div></div>
+        <p className="explain">入力締切 {dateTime(data.forecast.asOf, true)} JST{data.forecast.isStale && "（過去の予測）"}</p>
+        <div className="metric-grid metric-grid--2">
+          <Metric label="5営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_5d)} />
+          <Metric label="20営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_20d)} />
+        </div>
+        {data.forecast.mode !== "owner_approved" && <p className="explain">検証用の予測です。採用済みの運用提案として扱いません。</p>}
+        {data.forecast.blockingReasons.length > 0 && <details className="research-disclosure"><summary>予測の未解決事項</summary><ul>{data.forecast.blockingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></details>}
+      </section>}
+      <CompanyResearchPanel symbol={symbol} forecast={data.forecast ?? null} runs={data.researchRuns ?? []} records={data.chatgptResearch ?? []} onChanged={reload} />
     </div>
   );
 }

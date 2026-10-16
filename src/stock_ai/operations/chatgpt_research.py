@@ -159,6 +159,54 @@ class ResearchPass(DomainModel):
         return self
 
 
+class ResearchRun(DomainModel):
+    run_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    context: ResearchContext
+
+    @model_validator(mode="after")
+    def identity(self) -> Self:
+        if self.run_id != content_id(self.context.model_dump(mode="json")):
+            raise ValueError("research run identity mismatch")
+        return self
+
+    @classmethod
+    def create(cls, context: ResearchContext) -> ResearchRun:
+        return cls(run_id=content_id(context.model_dump(mode="json")), context=context)
+
+
+class ResearchAttempt(DomainModel):
+    attempt_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    run_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    phase: Literal["independent", "comparison"]
+    status: Literal["running", "completed", "failed", "interrupted"] = "running"
+    started_at: datetime
+    finished_at: datetime | None = None
+    pass_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    error_code: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_]{1,100}$")
+
+    _aware = field_validator("started_at")(_require_aware)
+
+    @field_validator("finished_at")
+    @classmethod
+    def aware_finish(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else _require_aware(value)
+
+    @model_validator(mode="after")
+    def lifecycle(self) -> Self:
+        if self.status == "running":
+            if self.finished_at is not None or self.pass_id is not None or self.error_code:
+                raise ValueError("running research cannot claim a terminal outcome")
+        elif self.finished_at is None or self.finished_at < self.started_at:
+            raise ValueError("terminal research needs an ordered finish time")
+        if self.status == "completed" and (self.pass_id is None or self.error_code is not None):
+            raise ValueError("completed research must reference its saved pass")
+        if self.status in {"failed", "interrupted"} and (
+            self.error_code is None or self.pass_id is not None
+        ):
+            raise ValueError("failed research needs only a stable error code")
+        return self
+
+
 class ChatGPTResearchRecord(DomainModel):
     schema_version: Literal["chatgpt-company-research-v1"] = "chatgpt-company-research-v1"
     research_id: str = Field(pattern=r"^[0-9a-f]{64}$")

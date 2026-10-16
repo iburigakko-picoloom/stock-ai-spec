@@ -264,6 +264,19 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .connection-probe { margin-top: 20px; padding: 16px; background: var(--wash); border-radius: 10px; overflow-wrap: anywhere; }
 .connection-probe a { color: var(--blue); text-decoration: underline; }
 .connection-probe li + li { margin-top: 12px; }
+.research-actions { display: grid; gap: 12px; margin: 20px 0 12px; }
+.research-status { font-weight: 700; }
+.research-meta, .research-message, .research-history { overflow-wrap: anywhere; }
+.research-meta { display: block; color: var(--muted); line-height: 1.7; }
+.research-preview { line-height: 1.8; overflow-wrap: anywhere; }
+.research-disclosure { margin-top: 16px; border-top: 1px solid var(--line); }
+.research-disclosure > summary { min-height: 48px; padding: 14px 0; cursor: pointer; font-weight: 600; }
+.research-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.85; }
+.research-findings small { color: var(--muted); overflow-wrap: anywhere; }
+.research-sources { line-height: 2; overflow-wrap: anywhere; }
+.research-sources a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.research-history { padding: 8px 0; line-height: 1.7; border-bottom: 1px solid var(--line); }
+.research-history > summary { min-height: 48px; padding: 12px 0; cursor: pointer; }
 .pipeline-state { margin-bottom: 18px; padding: 17px; color: white; background: #164e63; border-radius: 13px; }
 .pipeline-state--warning { background: #8a5b0b; }
 .pipeline-state span, .pipeline-state strong { display: block; }

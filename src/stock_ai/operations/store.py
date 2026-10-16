@@ -15,7 +15,8 @@ from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ValidationError
@@ -34,7 +35,12 @@ from stock_ai.domain import (
 )
 from stock_ai.operations.chatgpt_research import (
     ChatGPTResearchRecord,
+    ResearchAttempt,
+    ResearchConfiguration,
+    ResearchContext,
     ResearchPass,
+    ResearchRun,
+    accept_response,
     comparison_request,
     create_record,
     independent_request,
@@ -44,6 +50,7 @@ from stock_ai.operations.daily import (
     CompanyResearchRecord,
     OwnerAdoptionReview,
     PredictionSnapshot,
+    canonical_json,
     content_id,
     validate_research_link,
 )
@@ -134,6 +141,8 @@ _HASHED_TABLES = (
     "manual_portfolio_imports",
     "chatgpt_research_passes",
     "chatgpt_research_records",
+    "chatgpt_research_runs",
+    "chatgpt_research_attempts",
 )
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -147,7 +156,15 @@ def _verify_hashed_row(table: str, row: sqlite3.Row) -> None:
     payload = _checked_payload(row, table)
     item: Any
     try:
-        if table in {"chatgpt_research_passes", "chatgpt_research_records"}:
+        if table == "chatgpt_research_runs":
+            item = _parse_model(ResearchRun, payload)
+            expected = {"run_id": item.run_id, "snapshot_id": item.context.prediction_snapshot_id,
+                        "symbol": item.context.symbol}
+        elif table == "chatgpt_research_attempts":
+            item = _parse_model(ResearchAttempt, payload)
+            expected = {"attempt_id": item.attempt_id, "run_id": item.run_id,
+                        "phase": item.phase, "status": item.status}
+        elif table in {"chatgpt_research_passes", "chatgpt_research_records"}:
             item = (
                 _parse_model(ResearchPass, payload)
                 if table == "chatgpt_research_passes"
@@ -313,6 +330,12 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
     }
     for table in _HASHED_TABLES:
         if (
+            table in {"chatgpt_research_runs", "chatgpt_research_attempts"}
+            and schema_version < 5 and table not in tables
+        ):
+            counts[table] = 0
+            continue
+        if (
             table in {"chatgpt_research_passes", "chatgpt_research_records"}
             and schema_version < 4 and table not in tables
         ):
@@ -422,6 +445,18 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
                 ChatGPTResearchRecord, _checked_payload(row, "chatgpt_research_records")
             )
             _validate_chatgpt_record(connection, record)
+    if "chatgpt_research_runs" in tables:
+        for row in connection.execute("SELECT * FROM chatgpt_research_runs"):
+            run = _parse_model(ResearchRun, _checked_payload(row, "chatgpt_research_runs"))
+            validate_context(run.context, _chatgpt_snapshot(
+                connection, run.context.prediction_snapshot_id,
+            ))
+    if "chatgpt_research_attempts" in tables:
+        for row in connection.execute("SELECT * FROM chatgpt_research_attempts"):
+            attempt = _parse_model(
+                ResearchAttempt, _checked_payload(row, "chatgpt_research_attempts")
+            )
+            _validate_chatgpt_attempt(connection, attempt)
     return counts
 
 
@@ -443,6 +478,52 @@ def _chatgpt_pass(connection: sqlite3.Connection, pass_id: str) -> ResearchPass:
         raise OperationalIntegrityError("ChatGPT research is missing a saved research pass")
     _verify_hashed_row("chatgpt_research_passes", row)
     return _parse_model(ResearchPass, row["payload"])
+
+
+def _chatgpt_run(connection: sqlite3.Connection, run_id: str) -> ResearchRun:
+    row = connection.execute(
+        "SELECT * FROM chatgpt_research_runs WHERE run_id = ?", (run_id,),
+    ).fetchone()
+    if row is None:
+        raise KeyError(run_id)
+    _verify_hashed_row("chatgpt_research_runs", row)
+    return _parse_model(ResearchRun, row["payload"])
+
+
+def _require_research_receipt_times(
+    attempt: ResearchAttempt, started_at: datetime, completed_at: datetime, now: datetime,
+) -> None:
+    if any(item.tzinfo is None or item.utcoffset() is None for item in (
+        started_at, completed_at, now,
+    )) or not attempt.started_at <= started_at <= completed_at <= now + timedelta(seconds=60):
+        raise ValueError("research receipt times do not match the durable attempt")
+
+
+def _validate_chatgpt_attempt(connection: sqlite3.Connection, attempt: ResearchAttempt) -> None:
+    run = _chatgpt_run(connection, attempt.run_id)
+    if attempt.started_at < run.context.research_as_of:
+        raise OperationalIntegrityError("research attempt predates its context")
+    if attempt.phase == "comparison":
+        rows = connection.execute(
+            "SELECT * FROM chatgpt_research_passes WHERE snapshot_id = ? AND symbol = ?",
+            (run.context.prediction_snapshot_id, run.context.symbol),
+        ).fetchall()
+        previous = [
+            _parse_model(ResearchPass, _checked_payload(row, "chatgpt_research_passes"))
+            for row in rows
+        ]
+        if not any(
+            item.context == run.context and item.phase == "independent"
+            and item.completed_at <= attempt.started_at for item in previous
+        ):
+            raise OperationalIntegrityError("comparison attempt lacks prior independent research")
+    if attempt.pass_id is not None:
+        item = _chatgpt_pass(connection, attempt.pass_id)
+        if (
+            item.context != run.context or item.phase != attempt.phase
+            or item.started_at < attempt.started_at or item.completed_at != attempt.finished_at
+        ):
+            raise OperationalIntegrityError("research attempt differs from saved pass")
 
 
 def _validate_chatgpt_pass(connection: sqlite3.Connection, item: ResearchPass) -> None:
@@ -639,7 +720,19 @@ class OperationalStore:
                     content_hash TEXT NOT NULL,
                     FOREIGN KEY(snapshot_id) REFERENCES prediction_snapshots(snapshot_id)
                 );
-                PRAGMA user_version=4;
+                CREATE TABLE IF NOT EXISTS chatgpt_research_runs (
+                    run_id TEXT PRIMARY KEY, snapshot_id TEXT NOT NULL, symbol TEXT NOT NULL,
+                    payload TEXT NOT NULL, content_hash TEXT NOT NULL,
+                    FOREIGN KEY(snapshot_id) REFERENCES prediction_snapshots(snapshot_id)
+                );
+                CREATE TABLE IF NOT EXISTS chatgpt_research_attempts (
+                    attempt_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, phase TEXT NOT NULL,
+                    status TEXT NOT NULL, payload TEXT NOT NULL, content_hash TEXT NOT NULL,
+                    FOREIGN KEY(run_id) REFERENCES chatgpt_research_runs(run_id)
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_chatgpt_active_attempt
+                    ON chatgpt_research_attempts(run_id) WHERE status = 'running';
+                PRAGMA user_version=5;
 
                 CREATE TABLE IF NOT EXISTS proposals (
                     proposal_id TEXT PRIMARY KEY,
@@ -1011,6 +1104,250 @@ class OperationalStore:
         return tuple(sorted(result, key=lambda item: (
             item.comparison.completed_at, item.research_id,
         )))
+
+    @staticmethod
+    def _research_view(connection: sqlite3.Connection, run: ResearchRun) -> dict[str, Any]:
+        snapshot_id = run.context.prediction_snapshot_id
+        validate_context(run.context, _chatgpt_snapshot(connection, snapshot_id))
+        passes = []
+        for row in connection.execute(
+            "SELECT * FROM chatgpt_research_passes WHERE snapshot_id = ? AND symbol = ?",
+            (snapshot_id, run.context.symbol),
+        ):
+            _verify_hashed_row("chatgpt_research_passes", row)
+            item = _parse_model(ResearchPass, row["payload"])
+            if item.context == run.context:
+                _validate_chatgpt_pass(connection, item)
+                passes.append(item)
+        attempts = []
+        for row in connection.execute(
+            "SELECT * FROM chatgpt_research_attempts WHERE run_id = ?", (run.run_id,),
+        ):
+            _verify_hashed_row("chatgpt_research_attempts", row)
+            attempt = _parse_model(ResearchAttempt, row["payload"])
+            _validate_chatgpt_attempt(connection, attempt)
+            attempts.append(attempt)
+        records = []
+        for row in connection.execute(
+            "SELECT * FROM chatgpt_research_records WHERE snapshot_id = ? AND symbol = ?",
+            (snapshot_id, run.context.symbol),
+        ):
+            _verify_hashed_row("chatgpt_research_records", row)
+            record = _parse_model(ChatGPTResearchRecord, row["payload"])
+            if record.context == run.context:
+                _validate_chatgpt_record(connection, record)
+                records.append(record)
+        return {
+            "run": run.model_dump(mode="json"),
+            "passes": [item.model_dump(mode="json") for item in sorted(
+                passes, key=lambda item: (item.started_at, item.pass_id),
+            )],
+            "attempts": [item.model_dump(mode="json") for item in sorted(
+                attempts, key=lambda item: (item.started_at, item.attempt_id),
+            )],
+            "record": None if not records else records[-1].model_dump(mode="json"),
+        }
+
+    def research_runs(
+        self, snapshot_id: str, symbol: str | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM chatgpt_research_runs WHERE snapshot_id = ?", (snapshot_id,),
+            ).fetchall()
+            runs = []
+            for row in rows:
+                _verify_hashed_row("chatgpt_research_runs", row)
+                run = _parse_model(ResearchRun, row["payload"])
+                if symbol is None or run.context.symbol == symbol:
+                    runs.append(run)
+            return tuple(self._research_view(connection, run) for run in sorted(
+                runs, key=lambda run: (run.context.revision, run.run_id),
+            ))
+
+    def begin_research(
+        self, snapshot_id: str, symbol: str, configuration: ResearchConfiguration,
+        *, company_name: str, now: datetime, rerun_previous_id: str | None = None,
+    ) -> dict[str, Any]:
+        configuration = ResearchConfiguration.model_validate_json(configuration.model_dump_json())
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            snapshot = _chatgpt_snapshot(connection, snapshot_id)
+            rows = connection.execute(
+                "SELECT * FROM chatgpt_research_runs WHERE snapshot_id = ? AND symbol = ?",
+                (snapshot_id, symbol),
+            ).fetchall()
+            existing = []
+            for row in rows:
+                _verify_hashed_row("chatgpt_research_runs", row)
+                existing.append(_parse_model(ResearchRun, row["payload"]))
+            existing.sort(key=lambda item: item.context.revision)
+            matching = [item for item in existing if item.context.configuration == configuration]
+            if rerun_previous_id is None and matching:
+                return self._research_view(connection, matching[-1])
+            if rerun_previous_id is not None:
+                if not matching or matching[-1].run_id != rerun_previous_id:
+                    raise OperationalConflictError("research changed; reload before rerunning")
+                previous = self._research_view(connection, matching[-1])
+                if any(item["status"] == "running" for item in previous["attempts"]):
+                    raise OperationalConflictError("research is still running")
+            if any(
+                connection.execute(
+                    "SELECT 1 FROM chatgpt_research_attempts "
+                    "WHERE run_id = ? AND status = 'running'",
+                    (item.run_id,),
+                ).fetchone() is not None for item in existing
+            ):
+                raise OperationalConflictError(
+                    "research is still running with another configuration"
+                )
+            context = ResearchContext(
+                prediction_snapshot_id=snapshot_id, symbol=symbol, company_name=company_name,
+                numerical_as_of=snapshot.as_of, research_as_of=now, configuration=configuration,
+                revision=max((item.context.revision for item in existing), default=0) + 1,
+            )
+            validate_context(context, snapshot)
+            run = ResearchRun.create(context)
+            self._insert_immutable(
+                connection, table="chatgpt_research_runs", identity_column="run_id",
+                identity=run.run_id, columns={"snapshot_id": snapshot_id, "symbol": symbol},
+                payload=_canonical_payload(run),
+            )
+            result = self._research_view(connection, run)
+            connection.commit()
+            return result
+
+    def claim_research(
+        self, run_id: str, *, now: datetime, retry: bool = False,
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            run = _chatgpt_run(connection, run_id)
+            view = self._research_view(connection, run)
+            if view["record"] is not None:
+                return {"state": "completed", **view}
+            for attempt in view["attempts"]:
+                if attempt["status"] == "running":
+                    return {"state": "running", "attempt": attempt, **view}
+            first = next((
+                ResearchPass.model_validate(item) for item in view["passes"]
+                if item["phase"] == "independent"
+            ), None)
+            phase: Literal["independent", "comparison"] = (
+                "independent" if first is None else "comparison"
+            )
+            failed = [item for item in view["attempts"] if item["phase"] == phase]
+            if failed and not retry:
+                return {"state": "blocked", "attempt": failed[-1], **view}
+            item = ResearchAttempt(
+                attempt_id=uuid4().hex, run_id=run_id, phase=phase, started_at=now,
+            )
+            _validate_chatgpt_attempt(connection, item)
+            request = independent_request(run.context) if first is None else comparison_request(
+                run.context, first,
+                _chatgpt_snapshot(connection, run.context.prediction_snapshot_id),
+            )
+            self._insert_immutable(
+                connection, table="chatgpt_research_attempts", identity_column="attempt_id",
+                identity=item.attempt_id, columns={
+                    "run_id": run_id, "phase": phase, "status": "running",
+                }, payload=_canonical_payload(item),
+            )
+            connection.commit()
+            return {
+                "state": "ready", **view, "attempt": item.model_dump(mode="json"),
+                "request_json": canonical_json(request), "request_sha256": content_id(request),
+            }
+
+    def finish_research(
+        self, attempt_id: str, *, now: datetime, response: dict[str, Any] | None = None,
+        started_at: datetime | None = None, completed_at: datetime | None = None,
+        error_code: str | None = None, interrupted: bool = False,
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM chatgpt_research_attempts WHERE attempt_id = ?", (attempt_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(attempt_id)
+            _verify_hashed_row("chatgpt_research_attempts", row)
+            attempt = _parse_model(ResearchAttempt, row["payload"])
+            run = _chatgpt_run(connection, attempt.run_id)
+            view = self._research_view(connection, run)
+            if error_code is not None:
+                finished = ResearchAttempt.model_validate({
+                    **attempt.model_dump(), "status": "interrupted" if interrupted else "failed",
+                    "error_code": error_code, "finished_at": now,
+                })
+            else:
+                if response is None or started_at is None or completed_at is None:
+                    raise ValueError("completed research requires a response and execution times")
+                _require_research_receipt_times(attempt, started_at, completed_at, now)
+                first = next((
+                    ResearchPass.model_validate(item) for item in view["passes"]
+                    if item["phase"] == "independent"
+                ), None)
+                try:
+                    accepted = accept_response(
+                        run.context, attempt.phase, response, snapshot=_chatgpt_snapshot(
+                            connection, run.context.prediction_snapshot_id,
+                        ), started_at=started_at, completed_at=completed_at,
+                        independent=first if attempt.phase == "comparison" else None,
+                    )
+                except (ValueError, KeyError, TypeError, AttributeError):
+                    if attempt.status != "running":
+                        raise OperationalConflictError(
+                            "research attempt is already terminal"
+                        ) from None
+                    finished = ResearchAttempt.model_validate({
+                        **attempt.model_dump(), "status": "failed",
+                        "error_code": "INVALID_RESEARCH_RESPONSE", "finished_at": completed_at,
+                    })
+                else:
+                    if attempt.status == "completed" and attempt.pass_id == accepted.pass_id:
+                        return view
+                    if attempt.status != "running":
+                        raise OperationalConflictError("research attempt is already terminal")
+                    _validate_chatgpt_pass(connection, accepted)
+                    self._insert_immutable(
+                        connection, table="chatgpt_research_passes", identity_column="pass_id",
+                        identity=accepted.pass_id, columns={
+                            "snapshot_id": run.context.prediction_snapshot_id,
+                            "symbol": run.context.symbol,
+                        }, payload=_canonical_payload(accepted),
+                    )
+                    if attempt.phase == "comparison":
+                        assert first is not None
+                        record = create_record(run.context, first, accepted, _chatgpt_snapshot(
+                            connection, run.context.prediction_snapshot_id,
+                        ))
+                        _validate_chatgpt_record(connection, record)
+                        self._insert_immutable(
+                            connection, table="chatgpt_research_records",
+                            identity_column="research_id", identity=record.research_id,
+                            columns={"snapshot_id": run.context.prediction_snapshot_id,
+                                     "symbol": run.context.symbol},
+                            payload=_canonical_payload(record),
+                        )
+                    finished = ResearchAttempt.model_validate({
+                        **attempt.model_dump(), "status": "completed", "pass_id": accepted.pass_id,
+                        "finished_at": completed_at,
+                    })
+            if attempt.status != "running":
+                if (attempt.status, attempt.error_code) == (finished.status, finished.error_code):
+                    return view
+                raise OperationalConflictError("research attempt is already terminal")
+            _validate_chatgpt_attempt(connection, finished)
+            payload = _canonical_payload(finished)
+            connection.execute(
+                "UPDATE chatgpt_research_attempts SET status = ?, payload = ?, content_hash = ? "
+                "WHERE attempt_id = ? AND status = 'running'",
+                (finished.status, payload, _payload_hash(payload), attempt_id),
+            )
+            result = self._research_view(connection, run)
+            connection.commit()
+            return result
 
     def append_portfolio(self, portfolio: PortfolioState, *, created_at: datetime) -> bool:
         if created_at.tzinfo is None or created_at.utcoffset() is None:
