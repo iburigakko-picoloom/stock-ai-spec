@@ -88,13 +88,54 @@ def plan(path: Path, payload: dict | None = None) -> dict | None:
     return None if row is None else {"first_day": row[0], "last_day": row[1]}
 
 
+def receipt_time(value: str) -> datetime:
+    """Round sub-microsecond native receipt precision forward, never backward."""
+    if not isinstance(value, str):
+        raise ValueError("Invalid receipt time")
+    match = re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.(\d{1,9}))?(?:Z|[+-]\d{2}:\d{2})",
+        value,
+    )
+    if match is None:
+        raise ValueError("Aware ISO receipt time required")
+    instant = datetime.fromisoformat(value)
+    fraction = match.group(1) or ""
+    if len(fraction) > 6 and any(char != "0" for char in fraction[6:]):
+        instant += timedelta(microseconds=1)
+    return instant
+
+
+def receipt_identity(payload: dict, expected_rows: dict, received: datetime):
+    acquisition = payload["acquisitionId"]
+    if not isinstance(acquisition, str) or not re.fullmatch(
+        r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", acquisition
+    ):
+        raise ValueError("Invalid acquisition receipt")
+    pages = payload["source_pages"]
+    counts, numbers = dict.fromkeys(expected_rows, 0), dict.fromkeys(expected_rows, 0)
+    if not isinstance(pages, list) or not 1 <= len(pages) <= 600:
+        raise ValueError("Invalid source page manifest")
+    for page in pages:
+        name = page["dataset"]
+        stamp = receipt_time(page["received_at"])
+        if (name not in counts or not stamp.tzinfo or stamp > received
+                or type(page["page"]) is not int or page["page"] != numbers[name]
+                or type(page["row_count"]) is not int or page["row_count"] < 0
+                or not isinstance(page["sha256"], str)
+                or not re.fullmatch(r"[0-9a-f]{64}", page["sha256"])):
+            raise ValueError("Invalid source page receipt")
+        numbers[name] += 1
+        counts[name] += page["row_count"]
+    if counts != expected_rows:
+        raise ValueError("Source page row count mismatch")
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, allow_nan=False).encode())
+    return acquisition, digest.hexdigest(), pages
+
+
 def ingest(path: Path, payload: dict) -> dict:
     day = date.fromisoformat(payload["date"])
-    received = datetime.fromisoformat(payload["received_at"]).astimezone(UTC)
-    if (
-        not datetime.fromisoformat(payload["received_at"]).tzinfo
-        or day > received.astimezone(ZoneInfo("Asia/Tokyo")).date()
-    ):
+    received = receipt_time(payload["received_at"]).astimezone(UTC)
+    if day > received.astimezone(ZoneInfo("Asia/Tokyo")).date():
         raise ValueError("Invalid source/receipt date")
     if set(payload["datasets"]) != {dataset.value for dataset in DatasetName}:
         raise ValueError("Incomplete acquisition")
@@ -161,32 +202,10 @@ def ingest(path: Path, payload: dict) -> dict:
         # Publish a day only after every dataset passes. The previous good day
         # remains the latest if any endpoint returns 403 or fails validation.
         if "acquisitionId" in payload:
-            acquisition = payload["acquisitionId"]
-            if not isinstance(acquisition, str) or not re.fullmatch(
-                r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", acquisition
-            ):
-                raise ValueError("Invalid acquisition receipt")
-            pages = payload["source_pages"]
             expected_rows = {name: len(rows) for name, rows in payload["datasets"].items()}
             expected_rows["valuations"] = len(payload["valuations"])
-            counts, numbers = dict.fromkeys(expected_rows, 0), dict.fromkeys(expected_rows, 0)
-            if not isinstance(pages, list) or not 1 <= len(pages) <= 600:
-                raise ValueError("Invalid source page manifest")
-            for page in pages:
-                name = page["dataset"]
-                stamp = datetime.fromisoformat(page["received_at"])
-                if (name not in counts or not stamp.tzinfo or stamp > received
-                        or type(page["page"]) is not int or page["page"] != numbers[name]
-                        or type(page["row_count"]) is not int or page["row_count"] < 0
-                        or not isinstance(page["sha256"], str)
-                        or not re.fullmatch(r"[0-9a-f]{64}", page["sha256"])):
-                    raise ValueError("Invalid source page receipt")
-                numbers[name] += 1
-                counts[name] += page["row_count"]
-            if counts != expected_rows:
-                raise ValueError("Source page row count mismatch")
-            digest = hashlib.sha256(json.dumps(payload, sort_keys=True, allow_nan=False).encode())
-            identity = (str(day), digest.hexdigest())
+            acquisition, receipt_hash, pages = receipt_identity(payload, expected_rows, received)
+            identity = (str(day), receipt_hash)
             previous = db.execute(
                 "SELECT day,content_hash FROM market_acquisitions WHERE id=?", (acquisition,)
             ).fetchone()

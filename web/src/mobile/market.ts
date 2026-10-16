@@ -7,11 +7,18 @@ export interface MarketStatus {
 }
 export interface MarketPlan { first_day: string; last_day: string }
 export type AcquisitionMode = "pending" | "corrections" | "restart";
+export interface MembershipStatus {
+  date: string; cutoff: string; latest_received_at: string | null; available_at_cutoff: boolean;
+  is_business_day: boolean | null; acquisitionId: string | null;
+  eligible_acquisition_id: string | null; after_cutoff: boolean;
+  eligible_received_at?: string | null;
+}
 export interface UniversePreview {
   as_of: string; latest_source_date: string | null; window_dates: string[];
   new_candidates: { symbol: string; company_name: string; rank: number }[];
   decision_symbols: string[]; held_only: string[]; blocking_reasons: string[];
   holdings_recorded?: boolean;
+  membership_mode?: string; membership_verified?: boolean; membership_source_date?: string;
 }
 export function shiftDate(day: string, count: number): string {
   const value = new Date(`${day}T00:00:00Z`);
@@ -37,6 +44,23 @@ export function pendingDates(plan: MarketPlan, completed: string[]): string[] {
   return days;
 }
 let active = false;
+export async function acquireMembership(restart = false): Promise<MembershipStatus> {
+  if (active) throw new Error("市場データは取得中です。");
+  active = true;
+  try {
+    const saved = await apiGet<MembershipStatus>("/api/v1/mobile/market/membership");
+    if (saved.acquisitionId) await StockAI.acknowledgeMembership({ date: saved.date, acquisitionId: saved.acquisitionId });
+    if (saved.after_cutoff && saved.available_at_cutoff && !restart) return saved;
+    if (restart) await StockAI.restartMembership({ date: saved.date });
+    const receipt = await StockAI.fetchMembership({ date: saved.date });
+    if (receipt.status !== 200) throw new Error(`当日の銘柄一覧を取得できません（HTTP ${receipt.status}）。契約・APIキー・通信を確認してください。`);
+    if (receipt.date !== saved.date || receipt.purpose !== "membership" || !receipt.datasets || !receipt.acquisitionId || !receipt.received_at)
+      throw new Error("当日の銘柄一覧が不完全です。完了として保存しません。");
+    const result = await apiPost<MembershipStatus>("/api/v1/mobile/market/membership", receipt);
+    await StockAI.acknowledgeMembership({ date: saved.date, acquisitionId: receipt.acquisitionId });
+    return result;
+  } finally { active = false; }
+}
 export async function acquireRange(plan: MarketPlan, progress: (day: string, done: number, total: number, saved?: MarketStatus) => void,
   stopped: () => boolean, mode: AcquisitionMode = "pending"): Promise<{ stopped: boolean; status: MarketStatus }> {
   if (active) throw new Error("市場データは取得中です。");

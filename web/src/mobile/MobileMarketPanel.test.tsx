@@ -33,7 +33,7 @@ test("saved range is restored and stopping remains reachable while other setting
 });
 test("range and correction controls are collapsed with missing account setup", async () => {
   render(<MobileMarketPanel configured={false} disabled={false} onBusy={vi.fn()} />);
-  await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(3));
   expect(screen.getByRole("button", { name: "履歴の取得を開始・再開" })).toBeDisabled();
   expect(screen.getByText("取得範囲・訂正データ・計算の確認").closest("details")).not.toHaveAttribute("open");
   expect(screen.getByText(/画面を開いて取得します/)).toBeVisible();

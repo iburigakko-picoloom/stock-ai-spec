@@ -1,10 +1,11 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { apiGet, apiPost } from "../api";
 import { StockAI } from "./native";
-import { acquireRange, pendingDates, shiftDate, type MarketStatus } from "./market";
+import { acquireMembership, acquireRange, pendingDates, shiftDate, type MarketStatus, type MembershipStatus } from "./market";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
-vi.mock("./native", () => ({ StockAI: { fetchMarket: vi.fn(), acknowledgeMarket: vi.fn(), restartMarket: vi.fn() } }));
+vi.mock("./native", () => ({ StockAI: { fetchMarket: vi.fn(), acknowledgeMarket: vi.fn(), restartMarket: vi.fn(),
+  fetchMembership: vi.fn(), acknowledgeMembership: vi.fn(), restartMembership: vi.fn() } }));
 const empty: MarketStatus = { latest_data_date: null, completed_dates: [] };
 const plan = { first_day: "2026-01-05", last_day: "2026-01-06" };
 const receipt = (day: string) => ({ date: day, acquisitionId: `fixture-${day}`, status: 200,
@@ -74,4 +75,42 @@ test("simultaneous range starts are rejected before dispatch", async () => {
   await expect(acquireRange(plan, vi.fn(), () => false)).rejects.toThrow("取得中");
   finish(receipt(plan.first_day));
   await first;
+});
+
+const member: MembershipStatus = { date: "2026-02-03", cutoff: "2026-02-03T11:30:00+09:00",
+  latest_received_at: null, available_at_cutoff: false, is_business_day: null,
+  acquisitionId: null, eligible_acquisition_id: null, after_cutoff: false };
+test("membership commits before acknowledging and uses only date across the native bridge", async () => {
+  const events: string[] = [];
+  const incoming = { ...receipt(member.date), purpose: "membership" };
+  vi.mocked(apiGet).mockResolvedValue(member);
+  vi.mocked(StockAI.fetchMembership).mockResolvedValue(incoming);
+  vi.mocked(apiPost).mockImplementation(async () => { events.push("commit"); return member; });
+  vi.mocked(StockAI.acknowledgeMembership).mockImplementation(async () => { events.push("ack"); });
+  await acquireMembership();
+  expect(events).toEqual(["commit", "ack"]);
+  expect(StockAI.fetchMembership).toHaveBeenCalledWith({ date: member.date });
+});
+test("committed pre-cutoff observation is reused after cutoff and lost acknowledgment is recovered", async () => {
+  vi.mocked(apiGet).mockResolvedValue({ ...member, available_at_cutoff: true, after_cutoff: true,
+    acquisitionId: "saved-late-observation", eligible_acquisition_id: "saved-pre-cutoff" });
+  await acquireMembership();
+  expect(StockAI.acknowledgeMembership).toHaveBeenCalledWith({ date: member.date, acquisitionId: "saved-late-observation" });
+  expect(StockAI.fetchMembership).not.toHaveBeenCalled();
+});
+test("membership persistence failure retains native pages", async () => {
+  vi.mocked(apiGet).mockResolvedValue(member);
+  vi.mocked(StockAI.fetchMembership).mockResolvedValue({ ...receipt(member.date), purpose: "membership" });
+  vi.mocked(apiPost).mockRejectedValue(new Error("durable write failed"));
+  await expect(acquireMembership()).rejects.toThrow("durable write");
+  expect(StockAI.acknowledgeMembership).not.toHaveBeenCalled();
+});
+test("membership failure and wrong purpose cannot publish successful acquisition", async () => {
+  vi.mocked(apiGet).mockResolvedValue(member);
+  vi.mocked(StockAI.fetchMembership).mockResolvedValue({ ...receipt(member.date), status: 403 });
+  await expect(acquireMembership()).rejects.toThrow("403");
+  vi.mocked(StockAI.fetchMembership).mockResolvedValue({ ...receipt(member.date), purpose: "history" });
+  await expect(acquireMembership()).rejects.toThrow("不完全");
+  expect(apiPost).not.toHaveBeenCalled();
+  expect(StockAI.acknowledgeMembership).not.toHaveBeenCalled();
 });

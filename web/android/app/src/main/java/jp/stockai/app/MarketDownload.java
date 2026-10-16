@@ -28,9 +28,16 @@ final class MarketDownload {
     interface Remote { JSONObject fetch(String endpoint, String day, String cursor) throws Exception; }
     final SQLiteDatabase db;
     final Remote remote;
+    final String[][] endpoints;
+    final boolean membershipOnly;
+    String key(String day) { return membershipOnly ? "membership:" + day : day; }
 
     MarketDownload(SQLiteDatabase db, Remote remote) {
-        this.db = db; this.remote = remote;
+        this(db, remote, false);
+    }
+    MarketDownload(SQLiteDatabase db, Remote remote, boolean membershipOnly) {
+        this.db = db; this.remote = remote; this.membershipOnly = membershipOnly;
+        this.endpoints = membershipOnly ? new String[][]{ENDPOINTS[0], ENDPOINTS[1]} : ENDPOINTS;
         db.execSQL("CREATE TABLE IF NOT EXISTS market_downloads(day TEXT PRIMARY KEY, id TEXT NOT NULL UNIQUE, endpoint INTEGER NOT NULL, cursor TEXT, bytes INTEGER NOT NULL, received_at TEXT)");
         db.execSQL("CREATE TABLE IF NOT EXISTS market_download_pages(id TEXT NOT NULL, endpoint INTEGER NOT NULL, page INTEGER NOT NULL, input_cursor TEXT NOT NULL, size INTEGER NOT NULL, sha256 TEXT NOT NULL, received_at TEXT NOT NULL, row_count INTEGER NOT NULL, PRIMARY KEY(id,endpoint,page), UNIQUE(id,endpoint,input_cursor))");
         db.execSQL("CREATE TABLE IF NOT EXISTS market_download_chunks(id TEXT NOT NULL, endpoint INTEGER NOT NULL, page INTEGER NOT NULL, piece INTEGER NOT NULL, payload BLOB NOT NULL, PRIMARY KEY(id,endpoint,page,piece))");
@@ -40,27 +47,28 @@ final class MarketDownload {
     JSONObject fetch(String day) throws Exception {
         synchronized (LOCK) {
             LocalDate selected = LocalDate.parse(day);
-            if (!selected.toString().equals(day) || !selected.isBefore(LocalDate.now(ZoneId.of("Asia/Tokyo"))))
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
+            if (!selected.toString().equals(day) || (membershipOnly ? selected.isAfter(today) : !selected.isBefore(today)))
                 throw new IOException("CLOSED_SOURCE_DAY_REQUIRED");
             db.execSQL("INSERT OR IGNORE INTO market_downloads VALUES(?,?,0,NULL,0,NULL)",
-                new Object[]{day, UUID.randomUUID().toString()});
+                new Object[]{key(day), UUID.randomUUID().toString()});
             while (true) {
                 String id, cursor, previousReceipt; int index; long bytes;
-                try (Cursor row = db.rawQuery("SELECT id,endpoint,cursor,bytes,received_at FROM market_downloads WHERE day=?", new String[]{day})) {
+                try (Cursor row = db.rawQuery("SELECT id,endpoint,cursor,bytes,received_at FROM market_downloads WHERE day=?", new String[]{key(day)})) {
                     if (!row.moveToFirst()) throw new IOException("DOWNLOAD_MISSING");
                     id = row.getString(0); index = row.getInt(1); cursor = row.getString(2);
                     bytes = row.getLong(3); previousReceipt = row.getString(4);
                 }
-                if (index == ENDPOINTS.length) return assemble(day, id, previousReceipt);
+                if (index == endpoints.length) return assemble(day, id, previousReceipt);
                 int count;
                 try (Cursor rows = db.rawQuery("SELECT COUNT(*) FROM market_download_pages WHERE id=? AND endpoint=?", new String[]{id, String.valueOf(index)})) {
                     rows.moveToFirst(); count = rows.getInt(0);
                 }
                 if (count >= 100) throw new IOException("PAGE_LIMIT");
-                JSONObject response = remote.fetch(ENDPOINTS[index][1], day, cursor);
+                JSONObject response = remote.fetch(endpoints[index][1], day, cursor);
                 int status = response.getInt("status");
                 if (status != 200) return new JSONObject().put("date", day).put("status", status)
-                    .put("failedDataset", ENDPOINTS[index][0]).put("acquisitionId", id);
+                    .put("failedDataset", endpoints[index][0]).put("acquisitionId", id);
                 JSONObject body = response.getJSONObject("body");
                 JSONArray values = body.getJSONArray("data");
                 if (values.length() > 50000) throw new IOException("PAGE_LIMIT");
@@ -93,9 +101,9 @@ final class MarketDownload {
                         db.execSQL("INSERT INTO market_download_chunks VALUES(?,?,?,?,?)", new Object[]{id, index, count, piece,
                             java.util.Arrays.copyOfRange(compressed, offset, Math.min(compressed.length, offset + 256 * 1024))});
                     int following = next.isEmpty() ? index + 1 : index;
-                    if (index == 0 && next.isEmpty() && !businessDay(id, day)) following = ENDPOINTS.length;
+                    if (index == 0 && next.isEmpty() && !businessDay(id, day)) following = endpoints.length;
                     db.execSQL("UPDATE market_downloads SET endpoint=?,cursor=?,bytes=?,received_at=? WHERE day=? AND id=?",
-                        new Object[]{following, next.isEmpty() ? null : next, bytes + raw.length, received, day, id});
+                        new Object[]{following, next.isEmpty() ? null : next, bytes + raw.length, received, key(day), id});
                     db.setTransactionSuccessful();
                 } finally { db.endTransaction(); }
             }
@@ -141,30 +149,32 @@ final class MarketDownload {
 
     private JSONObject assemble(String day, String id, String received) throws Exception {
         JSONObject datasets = new JSONObject();
-        for (int i = 0; i < ENDPOINTS.length - 1; i++) datasets.put(ENDPOINTS[i][0], records(id, i));
+        for (int i = 0; i < (membershipOnly ? endpoints.length : endpoints.length - 1); i++) datasets.put(endpoints[i][0], records(id, i));
         JSONArray receipts = new JSONArray();
         try (Cursor pages = db.rawQuery("SELECT endpoint,page,received_at,sha256,row_count FROM market_download_pages WHERE id=? ORDER BY endpoint,page", new String[]{id})) {
-            while (pages.moveToNext()) receipts.put(new JSONObject().put("dataset", ENDPOINTS[pages.getInt(0)][0])
+            while (pages.moveToNext()) receipts.put(new JSONObject().put("dataset", endpoints[pages.getInt(0)][0])
                 .put("page", pages.getInt(1)).put("received_at", pages.getString(2))
                 .put("sha256", pages.getString(3)).put("row_count", pages.getInt(4)));
         }
-        return new JSONObject().put("status", 200).put("date", day).put("acquisitionId", id)
-            .put("received_at", received).put("datasets", datasets).put("valuations", records(id, ENDPOINTS.length - 1))
-            .put("source_pages", receipts);
+        JSONObject result = new JSONObject().put("status", 200).put("date", day).put("acquisitionId", id)
+            .put("received_at", received).put("datasets", datasets).put("source_pages", receipts);
+        if (membershipOnly) result.put("purpose", "membership");
+        else result.put("valuations", records(id, endpoints.length - 1));
+        return result;
     }
 
     void acknowledge(String day, String id) throws Exception {
         synchronized (LOCK) {
             db.beginTransaction();
             try {
-                try (Cursor row = db.rawQuery("SELECT id,endpoint FROM market_downloads WHERE day=?", new String[]{day})) {
+                try (Cursor row = db.rawQuery("SELECT id,endpoint FROM market_downloads WHERE day=?", new String[]{key(day)})) {
                     if (!row.moveToFirst()) return;
                     if (!row.getString(0).equals(id)) return; // A later correction is a different acquisition.
-                    if (row.getInt(1) != ENDPOINTS.length) throw new IOException("DOWNLOAD_NOT_COMMITTED");
+                    if (row.getInt(1) != endpoints.length) throw new IOException("DOWNLOAD_NOT_COMMITTED");
                 }
                 db.execSQL("DELETE FROM market_download_pages WHERE id=?", new Object[]{id});
                 db.execSQL("DELETE FROM market_download_chunks WHERE id=?", new Object[]{id});
-                db.execSQL("DELETE FROM market_downloads WHERE day=? AND id=?", new Object[]{day, id});
+                db.execSQL("DELETE FROM market_downloads WHERE day=? AND id=?", new Object[]{key(day), id});
                 db.setTransactionSuccessful();
             } finally { db.endTransaction(); }
         }
@@ -177,8 +187,8 @@ final class MarketDownload {
             try {
                 // Preserve rejected page evidence. Only the active pointer changes.
                 db.execSQL("INSERT OR IGNORE INTO market_download_retired SELECT id,day,? FROM market_downloads WHERE day=?",
-                    new Object[]{Instant.now().toString(), day});
-                db.execSQL("DELETE FROM market_downloads WHERE day=?", new Object[]{day});
+                    new Object[]{Instant.now().toString(), key(day)});
+                db.execSQL("DELETE FROM market_downloads WHERE day=?", new Object[]{key(day)});
                 db.setTransactionSuccessful();
             } finally { db.endTransaction(); }
         }

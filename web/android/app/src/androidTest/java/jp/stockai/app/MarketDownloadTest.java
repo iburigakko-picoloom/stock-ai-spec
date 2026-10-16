@@ -134,4 +134,40 @@ public class MarketDownloadTest {
         db.execSQL("UPDATE market_download_chunks SET payload=? WHERE endpoint=1 AND piece=0", new Object[]{new byte[]{1, 2}});
         try { journal.fetch(day); fail("corrupt page accepted"); } catch (IOException expected) { }
     }
+    @Test public void membershipAndHistoricalDayHaveIsolatedAcquisitionsAndAcknowledgments() throws Exception {
+        MarketDownload historical = new MarketDownload(db, this::ordinary);
+        JSONObject prices = historical.fetch(day);
+        calls.clear();
+        MarketDownload current = new MarketDownload(db, this::ordinary, true);
+        JSONObject master = current.fetch(day);
+        assertEquals("membership", master.getString("purpose"));
+        assertEquals(2, calls.size());
+        assertEquals(2, master.getJSONObject("datasets").length());
+        assertFalse(master.has("valuations"));
+        assertNotEquals(prices.getString("acquisitionId"), master.getString("acquisitionId"));
+        current.acknowledge(day, prices.getString("acquisitionId"));
+        historical.acknowledge(day, master.getString("acquisitionId"));
+        assertEquals(master.getString("acquisitionId"), current.fetch(day).getString("acquisitionId"));
+        assertEquals(prices.getString("acquisitionId"), historical.fetch(day).getString("acquisitionId"));
+        current.acknowledge(day, master.getString("acquisitionId"));
+        historical.fetch(day);
+    }
+    @Test public void currentDayMembershipCanResumeAndCalendarHolidayNeverFetchesFutureMaster() throws Exception {
+        String today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")).toString();
+        MarketDownload current = new MarketDownload(db, (endpoint, selected, cursor) -> {
+            if (endpoint.equals("/equities/master")) throw new IOException("synthetic interruption");
+            return ordinary(endpoint, selected, cursor);
+        }, true);
+        try { current.fetch(today); fail("interruption accepted"); } catch (IOException expected) { }
+        JSONObject result = new MarketDownload(db, (endpoint, selected, cursor) -> {
+            assertEquals("/equities/master", endpoint); return ordinary(endpoint, selected, cursor);
+        }, true).fetch(today);
+        assertEquals(today, result.getString("date"));
+        current.restart(today);
+        JSONObject holiday = new MarketDownload(db, (endpoint, selected, cursor) -> {
+            assertEquals("/markets/calendar", endpoint);
+            return page(new JSONArray().put(new JSONObject().put("Date", today).put("HolDiv", "0")), "");
+        }, true).fetch(today);
+        assertEquals(0, holiday.getJSONObject("datasets").getJSONArray("security_master").length());
+    }
 }

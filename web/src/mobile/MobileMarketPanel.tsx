@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGet, apiPost } from "../api";
-import { acquireRange, defaultPlan, type AcquisitionMode, type MarketPlan, type MarketStatus, type UniversePreview } from "./market";
+import { acquireMembership, acquireRange, defaultPlan, type AcquisitionMode, type MarketPlan, type MarketStatus, type MembershipStatus, type UniversePreview } from "./market";
 
 export function MobileMarketPanel({ configured, disabled, onBusy }: {
   configured: boolean; disabled: boolean; onBusy: (value: boolean) => void;
@@ -12,10 +12,11 @@ export function MobileMarketPanel({ configured, disabled, onBusy }: {
   const [message, setMessage] = useState("");
   const [refreshDay, setRefreshDay] = useState("");
   const [selection, setSelection] = useState<UniversePreview | null>(null);
+  const [membership, setMembership] = useState<MembershipStatus | null>(null);
   const stop = useRef(false);
   useEffect(() => {
-    void Promise.all([apiGet<MarketStatus>("/api/v1/mobile/market"), apiGet<MarketPlan | null>("/api/v1/mobile/market/plan")])
-      .then(([saved, range]) => { setStatus(saved); if (range) setPlan(range); setLoaded(true); })
+    void Promise.all([apiGet<MarketStatus>("/api/v1/mobile/market"), apiGet<MarketPlan | null>("/api/v1/mobile/market/plan"), apiGet<MembershipStatus>("/api/v1/mobile/market/membership")])
+      .then(([saved, range, member]) => { setStatus(saved); if (range) setPlan(range); setMembership(member); setLoaded(true); })
       .catch(() => setMessage("取得範囲と保存データを確認できません。アプリを再起動してください。"));
     return () => { stop.current = true; };
   }, []);
@@ -49,25 +50,36 @@ export function MobileMarketPanel({ configured, disabled, onBusy }: {
     </div>
     <p role="status" aria-live="polite">{message}</p>
     <details className="market-options"><summary>取得範囲・訂正データ・計算の確認</summary>
+      <p>当日の銘柄一覧・直近受領：{membership?.latest_received_at ?? "未取得"}。11:30までに受領した利用対象：{membership?.eligible_received_at ?? "未確認"}</p>
       <label>開始日<input type="date" disabled={disabled || running} value={plan.first_day} onChange={e => setPlan({ ...plan, first_day: e.target.value })} /></label>
       <label>終了日<input type="date" disabled={disabled || running} value={plan.last_day} onChange={e => setPlan({ ...plan, last_day: e.target.value })} /></label>
       <p>最大2年分。初期値は特徴量の履歴用に420日前からです。契約外の期間や不足データを自動的に補いません。</p>
       <label>訂正を確認する日付<input type="date" disabled={disabled || running} value={refreshDay} onChange={e => setRefreshDay(e.target.value)} /></label>
       <div className="button-stack">
+        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured} onClick={() => void inspect(async () => {
+          const saved = await acquireMembership(); setMembership(saved); setSelection(null);
+          setMessage(saved.available_at_cutoff ? saved.is_business_day ? "当日の銘柄一覧を確認しました。" : "カレンダーで当日の休場を確認しました。" : "11:30後の受領です。今日の数値予測へは使えません。");
+        })}>当日の銘柄一覧を取得・再開</button>
+        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured} onClick={() => void inspect(async () => {
+          const saved = await acquireMembership(true); setMembership(saved); setSelection(null);
+          setMessage("銘柄一覧を取り直しました。11:30を過ぎて受領した情報は今日の数値予測へ使いません。");
+        })}>当日の銘柄一覧を最初から再取得</button>
         <button className="button button--secondary" disabled={disabled || running || !loaded || !configured || !refreshDay} onClick={() => void run({ first_day: refreshDay, last_day: refreshDay }, "corrections")}>この日付の訂正を取得・再開</button>
         <button className="button button--secondary" disabled={disabled || running || !loaded || !configured || !refreshDay} onClick={() => void run({ first_day: refreshDay, last_day: refreshDay }, "restart")}>この日付を最初から再取得</button>
         <button className="button button--secondary" disabled={disabled || running || !status?.latest_data_date} onClick={() => void inspect(async () => {
-          setSelection(await apiGet<UniversePreview>("/api/v1/mobile/market/universe")); setMessage("対象抽出の受領記録を確認しました。");
+          setSelection(await apiGet<UniversePreview>("/api/v1/mobile/market/current-universe")); setMessage("対象抽出の受領記録を確認しました。");
         })}>候補と全保有の対象を確認</button>
         <button className="button button--secondary" disabled={disabled || running || !status?.latest_data_date} onClick={() => void inspect(async () => {
           await apiPost("/api/v1/mobile/features/latest", {}); setMessage("保存データで特徴量を計算しました。モデル採用と推論の一致確認は別途必要です。");
         })}>保存データで特徴量を確認</button>
       </div>
       <p>検証に失敗し続ける場合は「最初から再取得」で取り直せます。</p>
-      {selection && <div><p>抽出時点：{selection.as_of}／銘柄一覧・終値・時価総額：{selection.latest_source_date ?? "不足"}</p>
+      {selection && <div><p>抽出時点：{selection.as_of}／当日の銘柄一覧：{selection.membership_source_date ?? "未確認"}／終値・時価総額：{selection.latest_source_date ?? "不足"}</p>
         {selection.holdings_recorded === false && <p>保有の入力が未確認です。対象の保有銘柄を確定するには、口座・保有の入力が必要です。</p>}
         <p>条件内の上位{selection.new_candidates.length}社＋条件外の保有{selection.held_only.length}社＝評価対象{selection.decision_symbols.length}社</p>
-        {selection.blocking_reasons.length > 0 && <p>必要な20営業日のカレンダー・株価・銘柄一覧・時価総額がそろっていません。全保有を対象に残しています。</p>}
+        {selection.blocking_reasons.includes("current_membership_missing") ? <p>11:30までに受領した当日の銘柄一覧がありません。全保有を対象に残しています。</p>
+          : selection.blocking_reasons.includes("non_business_day") ? <p>当日は休場日です。新しい数値予測は作成しません。</p>
+          : selection.blocking_reasons.length > 0 && <p>必要な20営業日のカレンダー・株価・時価総額がそろっていません。全保有を対象に残しています。</p>}
         <p>全保有のうち条件外：{selection.held_only.join("、") || "なし"}。市場・業種の特徴量は全体の母集団から計算します。</p>
       </div>}
     </details>

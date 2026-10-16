@@ -40,6 +40,20 @@ def test_market_plan_and_unknown_holdings_survive_portable_backup(device):
     })["status"] == 422
 
 
+def test_current_membership_survives_backup_without_replacing_canonical_history(device):
+    from mobile.python import membership
+
+    from tests.test_mobile_membership import CUTOFF, observation
+
+    payload = observation()
+    assert run(device, "POST", "/api/v1/mobile/market/membership", payload)["status"] == 200
+    before = membership.snapshot(device.STATE / "mobile.sqlite3", CUTOFF)
+    encoded = device.export_state()
+    device.initialize(encoded)
+    assert membership.snapshot(device.STATE / "mobile.sqlite3", CUTOFF) == before
+    assert run(device, "GET", "/api/v1/mobile/market")["body"]["completed_dates"] == []
+
+
 def test_unknown_manual_inputs_survive_restart_and_exact_backup(device):
     value = {
         "schema_version": "manual-portfolio-v1",

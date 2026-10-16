@@ -24,6 +24,8 @@ test("offline Python preserves input and matches PC 41/51 features and six model
     }
     await send({ command: "initialize", state: "" });
     const health = await send({ command: "request", method: "GET", path: "/api/v1/health" });
+    const membership = await send({ command: "request", method: "GET", path: "/api/v1/mobile/market/membership" });
+    const universe = await send({ command: "request", method: "GET", path: "/api/v1/mobile/market/current-universe" });
     const values = await send({ command: "request", method: "POST", path: "/api/v1/mobile/features", body: JSON.stringify(input.inputs) });
     const insufficient = await send({ command: "request", method: "POST", path: "/api/v1/mobile/features", body: JSON.stringify({ ...input.inputs, daily: input.inputs.daily.slice(-4) }) });
     const models = [];
@@ -37,9 +39,11 @@ test("offline Python preserves input and matches PC 41/51 features and six model
     await send({ command: "initialize", state: saved.state });
     const restored = await send({ command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
     worker.terminate();
-    return { health, values, saved, models, insufficient, restored };
+    return { health, membership, universe, values, saved, models, insufficient, restored };
   }, { inputs: golden.inputs, models: golden.models });
   expect(result.health.result).toMatchObject({ status: 200, body: { orderSubmissionAvailable: false } });
+  expect(result.membership.result).toMatchObject({ status: 200, body: { available_at_cutoff: false } });
+  expect(result.universe.result).toMatchObject({ status: 200, body: { blocking_reasons: ["current_membership_missing"], holdings_recorded: false } });
   expect(result.saved.result).toMatchObject({ status: 200, body: { portfolio: { holdings_status: "none", investment_budget_yen: null } } });
   expect(result.saved.state).toBeTruthy();
   expect(result.insufficient.result).toMatchObject({ status: 422 });

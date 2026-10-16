@@ -20,7 +20,7 @@ from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
 from stock_ai.operations.store import OperationalConflictError
 
-from . import market, models, personal, universe
+from . import market, membership, models, personal, universe
 from .features import bundled_selection, calculate
 from .portable_model import predict
 
@@ -78,6 +78,7 @@ def initialize(encoded: str = "") -> dict:
             "id INTEGER PRIMARY KEY, saved_at TEXT NOT NULL, payload TEXT NOT NULL)"
         )
     market.initialize(STATE / "mobile.sqlite3")
+    membership.initialize(STATE / "mobile.sqlite3")
     models.initialize(STATE / "mobile.sqlite3")
     personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
     _app.state.store.verify_integrity()
@@ -176,6 +177,16 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 "status": 422,
                 "body": {"detail": "特徴量に必要な履歴・市場・財務データが不足または不整合です。"},
             }
+    if path == "/api/v1/mobile/market/membership":
+        try:
+            now = datetime.now(UTC)
+            result = (membership.ingest(STATE / "mobile.sqlite3", json.loads(body), now)
+                      if method == "POST" else membership.status(STATE / "mobile.sqlite3", now))
+            return {"status": 200, "body": result}
+        except (ValueError, KeyError, TypeError, StopIteration):
+            return {"status": 422, "body": {
+                "detail": "当日の銘柄一覧・カレンダー・受領時刻を確認できません。"
+            }}
     if path == "/api/v1/mobile/market/plan":
         try:
             return {"status": 200, "body": market.plan(
@@ -185,7 +196,9 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             return {"status": 422, "body": {
                 "detail": "取得範囲は昨日までの最大2年分で指定してください。"
             }}
-    if path == "/api/v1/mobile/market/universe" and method == "GET":
+    if method == "GET" and path in (
+        "/api/v1/mobile/market/universe", "/api/v1/mobile/market/current-universe"
+    ):
         ledger = _app.state.store.latest_portfolio()
         profile = personal.portfolio_view(_app.state.store)
         held = ([item.symbol for item in ledger.positions] if ledger is not None else
@@ -196,7 +209,10 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             cutoff = now.astimezone(ZoneInfo("Asia/Tokyo")).replace(
                 hour=11, minute=30, second=0, microsecond=0
             )
-            selected = universe.select(STATE / "mobile.sqlite3", min(now, cutoff), held)
+            selected = universe.select(
+                STATE / "mobile.sqlite3", min(now, cutoff), held,
+                current_membership=path.endswith("/current-universe"),
+            )
             selected["holdings_recorded"] = ledger is not None or bool(
                 profile and profile["portfolio"]["holdings_status"] != "unrecorded"
             )

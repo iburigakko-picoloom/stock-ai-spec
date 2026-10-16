@@ -245,7 +245,8 @@ public class StockAIPlugin extends Plugin {
     }
 
     static long lastProviderRequest = 0;
-    MarketDownload marketDownload() {
+    MarketDownload marketDownload() { return marketDownload(false); }
+    MarketDownload marketDownload(boolean membership) {
         return new MarketDownload(db, (endpoint, day, page) -> {
             String credential = apiKey();
             if (credential == null) throw new IllegalStateException("API_KEY_REQUIRED");
@@ -266,7 +267,7 @@ public class StockAIPlugin extends Plugin {
                 }
                 return result;
             } finally { conn.disconnect(); }
-        });
+        }, membership);
     }
     @PluginMethod public void fetchMarket(PluginCall call) { network(call, () -> {
         call.resolve(new JSObject(marketDownload().fetch(call.getString("date")).toString()));
@@ -277,6 +278,15 @@ public class StockAIPlugin extends Plugin {
     }); }
     @PluginMethod public void restartMarket(PluginCall call) { network(call, () -> {
         marketDownload().restart(call.getString("date")); call.resolve();
+    }); }
+    @PluginMethod public void fetchMembership(PluginCall call) { network(call, () -> {
+        call.resolve(new JSObject(marketDownload(true).fetch(call.getString("date")).toString()));
+    }); }
+    @PluginMethod public void acknowledgeMembership(PluginCall call) { network(call, () -> {
+        marketDownload(true).acknowledge(call.getString("date"), call.getString("acquisitionId")); call.resolve();
+    }); }
+    @PluginMethod public void restartMembership(PluginCall call) { network(call, () -> {
+        marketDownload(true).restart(call.getString("date")); call.resolve();
     }); }
     static byte[] read(InputStream stream, long limit) throws Exception {
         try (InputStream input = stream; ByteArrayOutputStream output = new ByteArrayOutputStream()) {

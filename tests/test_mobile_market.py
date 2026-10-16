@@ -120,3 +120,17 @@ def test_repeat_content_is_new_observation_and_legacy_migration_preserves_rows(t
     market.initialize(path)
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT * FROM market_batches ORDER BY sequence").fetchall() == before
+
+
+def test_nanosecond_receipts_cannot_enter_a_microsecond_cutoff_early(tmp_path):
+    path = tmp_path / "market.sqlite3"
+    market.initialize(path)
+    value = payload()
+    value["received_at"] = "2026-01-06T02:30:00.000000001Z"
+    market.ingest(path, value)
+    assert market.SQLiteSource(path).point_in_time(
+        DatasetName.DAILY_PRICES, datetime.fromisoformat("2026-01-06T02:30:00Z")
+    ).empty
+    assert not market.SQLiteSource(path).point_in_time(
+        DatasetName.DAILY_PRICES, datetime.fromisoformat("2026-01-06T02:30:00.000001Z")
+    ).empty
