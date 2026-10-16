@@ -38,6 +38,7 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
   } }));
   await page.goto("/mobile-tests/market-layout.html");
   await expect(page.getByRole("button", { name: "履歴の取得を開始・再開" })).toBeEnabled();
+  await expect(page.getByRole("region", { name: "毎日の自動処理" }).getByRole("button", { name: "開始", exact: true })).toBeEnabled();
   await page.addStyleTag({ content: "html { font-size: 150%; }" });
   await page.getByText("取得範囲・訂正データ・計算の確認", { exact: true }).click();
   await expect(page.getByLabel("開始日", { exact: true })).toBeVisible();
@@ -63,6 +64,7 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
     if (i > 0) expect(buttons[i].top - buttons[i - 1].bottom).toBeGreaterThanOrEqual(12);
   }
   await page.screenshot({ path: info.outputPath(`market-layout-${width}.png`), fullPage: true });
+  await page.getByRole("region", { name: "毎日の自動処理" }).screenshot({ path: info.outputPath(`daily-${width}.png`) });
   await page.getByRole("region", { name: "端末内のモデルと予測" }).screenshot({ path: info.outputPath(`model-decision-${width}.png`) });
   await page.getByRole("region", { name: "補足設定と初回台帳" }).screenshot({ path: info.outputPath(`personal-policy-${width}.png`) });
 });

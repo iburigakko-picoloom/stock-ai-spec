@@ -6,6 +6,7 @@ import { MobilePersonalPanel } from "./MobilePersonalPanel";
 import { ChatGPTPanel } from "./ChatGPTPanel";
 import { MobileMarketPanel } from "./MobileMarketPanel";
 import { MobileModelPanel } from "./MobileModelPanel";
+import { DailyPanel } from "./DailyPanel";
 import type { LocalPortfolio, SavedPortfolio } from "./personal";
 
 export function MobileUpdateNotice(): ReactNode {
@@ -59,6 +60,7 @@ export function MobileDevicePanel(): ReactNode {
     finally { setBusy(false); }
   }
   return <div className="device-settings">
+    <DailyPanel />
     <ChatGPTPanel />
     <section className="section">
       <h2>端末内の研究環境</h2>

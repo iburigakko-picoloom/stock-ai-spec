@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ActionBadge, DecisionSteps, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, TodayResponse } from "../types";
+import { DailyPanel } from "../mobile/DailyPanel";
 
 const priority = new Map([
   ["SELL", 0],
@@ -44,6 +45,7 @@ export function TodayPage(): ReactNode {
     <div className={`page${proposal ? " page--with-sticky" : ""}`}>
       <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} />
       <RuntimeBanner mode={data.runtimeMode} />
+      <DailyPanel />
       {!data.isStale && data.pipelineState === "CASH_ONLY" ? (
         <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
       ) : !proposal ? (

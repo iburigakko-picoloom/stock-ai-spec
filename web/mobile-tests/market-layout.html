@@ -8,8 +8,10 @@ import { MemoryRouter } from "react-router-dom";
 import { MobileMarketPanel } from "/src/mobile/MobileMarketPanel.tsx";
 import { MobileModelPanel } from "/src/mobile/MobileModelPanel.tsx";
 import { MobilePersonalPanel } from "/src/mobile/MobilePersonalPanel.tsx";
+import { DailyControls } from "/src/mobile/DailyPanel.tsx";
 import "/src/styles.css";
 createRoot(document.getElementById("market-test")).render(React.createElement(MemoryRouter, null,
+  React.createElement(DailyControls, { status: { enabled: false, state: "idle", notificationsEnabled: false }, busy: false, message: "", onChange() {} }),
   React.createElement(MobileMarketPanel, { configured: true, disabled: false, onBusy() {} }),
   React.createElement(MobileModelPanel, { disabled: false, inputsSaved: true, onBusy() {} }),
   React.createElement(MobilePersonalPanel, { disabled: false, profile: {

@@ -45,6 +45,11 @@ final class MarketDownload {
     }
 
     JSONObject fetch(String day) throws Exception {
+        return fetch(day, Integer.MAX_VALUE, () -> false);
+    }
+
+    JSONObject fetch(String day, int pageBudget, java.util.function.BooleanSupplier stopped) throws Exception {
+        if (pageBudget < 1) throw new IllegalArgumentException();
         synchronized (LOCK) {
             LocalDate selected = LocalDate.parse(day);
             LocalDate today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
@@ -52,7 +57,9 @@ final class MarketDownload {
                 throw new IOException("CLOSED_SOURCE_DAY_REQUIRED");
             db.execSQL("INSERT OR IGNORE INTO market_downloads VALUES(?,?,0,NULL,0,NULL)",
                 new Object[]{key(day), UUID.randomUUID().toString()});
+            int fetched = 0;
             while (true) {
+                if (stopped.getAsBoolean()) throw new InterruptedException();
                 String id, cursor, previousReceipt; int index; long bytes;
                 try (Cursor row = db.rawQuery("SELECT id,endpoint,cursor,bytes,received_at FROM market_downloads WHERE day=?", new String[]{key(day)})) {
                     if (!row.moveToFirst()) throw new IOException("DOWNLOAD_MISSING");
@@ -60,6 +67,8 @@ final class MarketDownload {
                     bytes = row.getLong(3); previousReceipt = row.getString(4);
                 }
                 if (index == endpoints.length) return assemble(day, id, previousReceipt);
+                if (fetched >= pageBudget) return new JSONObject().put("date", day).put("status", 202)
+                    .put("acquisitionId", id);
                 int count;
                 try (Cursor rows = db.rawQuery("SELECT COUNT(*) FROM market_download_pages WHERE id=? AND endpoint=?", new String[]{id, String.valueOf(index)})) {
                     rows.moveToFirst(); count = rows.getInt(0);
@@ -106,6 +115,7 @@ final class MarketDownload {
                         new Object[]{following, next.isEmpty() ? null : next, bytes + raw.length, received, key(day), id});
                     db.setTransactionSuccessful();
                 } finally { db.endTransaction(); }
+                fetched++;
             }
         }
     }

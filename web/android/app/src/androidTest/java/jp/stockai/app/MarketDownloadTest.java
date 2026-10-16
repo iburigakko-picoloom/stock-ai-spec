@@ -45,6 +45,28 @@ public class MarketDownloadTest {
         else row.put("Code", "12340");
         return page(new JSONArray().put(row), "");
     }
+    @Test public void boundedSlicesReopenWithSameReceiptAndNeverExposePartialDatasets() throws Exception {
+        MarketDownload download = new MarketDownload(db, this::ordinary);
+        JSONObject first = download.fetch(day, 2, () -> false);
+        assertEquals(202, first.getInt("status")); assertFalse(first.has("datasets"));
+        assertEquals(2, calls.size());
+        String id = first.getString("acquisitionId");
+        db.close(); db = SQLiteDatabase.openOrCreateDatabase(file, null);
+        JSONObject second = new MarketDownload(db, this::ordinary).fetch(day, 2, () -> false);
+        assertEquals(202, second.getInt("status")); assertEquals(id, second.getString("acquisitionId"));
+        JSONObject finalPage = new MarketDownload(db, this::ordinary).fetch(day, 2, () -> false);
+        assertEquals(200, finalPage.getInt("status")); assertEquals(id, finalPage.getString("acquisitionId"));
+        assertEquals(6, calls.size());
+        assertEquals(6, finalPage.getJSONArray("source_pages").length());
+    }
+    @Test public void cancellationBetweenPagesKeepsAcceptedPageForResume() throws Exception {
+        try { new MarketDownload(db, this::ordinary).fetch(day, 4, () -> calls.size() >= 1); fail("cancel ignored"); }
+        catch (InterruptedException expected) { }
+        assertEquals(1, calls.size());
+        JSONObject saved = new MarketDownload(db, this::ordinary).fetch(day);
+        assertEquals(200, saved.getInt("status"));
+        assertEquals(6, calls.size());
+    }
     @Test public void interruptedPagesResumeAfterDatabaseReopenAndCompletedReceiptIsReused() throws Exception {
         MarketDownload first = new MarketDownload(db, (endpoint, selected, cursor) -> {
             if (endpoint.equals("/equities/master")) {

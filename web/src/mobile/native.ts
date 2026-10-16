@@ -1,6 +1,10 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 export interface NativeState { generation: number; payload: string }
+export interface DailyStatus {
+  enabled: boolean; state: string; firstDay?: string; day?: string | null;
+  updatedAt?: string; retryAt?: string | null; notificationsEnabled: boolean;
+}
 export interface NativeMarketReceipt {
   date: string; acquisitionId: string; received_at?: string; status: number;
   datasets?: Record<string, unknown[]>; valuations?: unknown[]; failedDataset?: string;
@@ -11,6 +15,10 @@ export interface ReleaseInfo {
   notes: string; sha256: string; url: string; size: number;
 }
 export interface StockAINative {
+  dailyStatus(): Promise<DailyStatus>;
+  startDaily(): Promise<DailyStatus>;
+  stopDaily(): Promise<DailyStatus>;
+  requestDailyNotifications(): Promise<{ granted: boolean }>;
   compute(input: { method: "GET" | "POST"; path: string; body: string }): Promise<{ status: number; body: unknown }>;
   restoreState(input: { payload: string }): Promise<{ generation: number }>;
   readState(): Promise<NativeState>;

@@ -14,6 +14,9 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.ActivityCallback;
 import java.io.*;
@@ -25,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.*;
 
-@CapacitorPlugin(name = "StockAI")
+@CapacitorPlugin(name = "StockAI", permissions = {@Permission(alias = "dailyNotifications", strings = {android.Manifest.permission.POST_NOTIFICATIONS})})
 public class StockAIPlugin extends Plugin {
     static final String REPO = "iburigakko-picoloom/stock-ai-spec";
     final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -80,6 +83,7 @@ public class StockAIPlugin extends Plugin {
         completeLocal(call, owner().readState());
     }); }
     @PluginMethod public void restoreState(PluginCall call) { background(call, () -> {
+        automation().stop();
         completeLocal(call, owner().restore(call.getString("payload"), null));
     }); }
     @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
@@ -87,12 +91,31 @@ public class StockAIPlugin extends Plugin {
         if (!(raw instanceof Number)) throw new IllegalArgumentException();
         double value = ((Number) raw).doubleValue();
         if (!Double.isFinite(value) || value < 0 || value > LocalStateStore.MAX_GENERATION || value != Math.rint(value)) throw new IllegalArgumentException();
+        automation().stop();
         completeLocal(call, owner().restore(call.getString("payload"), (long) value));
     }); }
 
+    DailyAutomation automation() throws Exception { return new DailyAutomation(getContext(), owner().state.database); }
+    @PluginMethod public void dailyStatus(PluginCall call) { background(call, () -> call.resolve(new JSObject(automation().status().toString()))); }
+    @PluginMethod public void startDaily(PluginCall call) { background(call, () -> {
+        if (apiKey() == null) { call.reject("設定でJ-Quants APIキーを保存してから開始してください。", "API_KEY_REQUIRED"); return; }
+        automation().start(); call.resolve(new JSObject(automation().status().toString()));
+    }); }
+    @PluginMethod public void stopDaily(PluginCall call) { background(call, () -> {
+        automation().stop(); call.resolve(new JSObject(automation().status().toString()));
+    }); }
+    @PluginMethod public void requestDailyNotifications(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 33 || getPermissionState("dailyNotifications") == PermissionState.GRANTED) {
+            dailyNotificationPermission(call); return;
+        }
+        requestPermissionForAlias("dailyNotifications", call, "dailyNotificationPermission");
+    }
+    @PermissionCallback private void dailyNotificationPermission(PluginCall call) {
+        call.resolve(new JSObject().put("granted", androidx.core.app.NotificationManagerCompat.from(getContext()).areNotificationsEnabled()));
+    }
+
     String apiKey() throws Exception {
-        String value = getContext().getSharedPreferences("stockai-secrets", 0).getString("jquants", null);
-        return value == null ? null : decrypt(Base64.decode(value, Base64.NO_WRAP));
+        return MarketClient.apiKey(getContext());
     }
     @PluginMethod public void keyStatus(PluginCall call) { background(call, () -> call.resolve(new JSObject().put("configured", apiKey() != null))); }
     @PluginMethod public void saveApiKey(PluginCall call) { background(call, () -> {
@@ -102,6 +125,7 @@ public class StockAIPlugin extends Plugin {
         call.resolve();
     }); }
     @PluginMethod public void clearApiKey(PluginCall call) { background(call, () -> {
+        automation().stop();
         if (!getContext().getSharedPreferences("stockai-secrets", 0).edit().remove("jquants").commit()) throw new IOException();
         call.resolve();
     }); }
@@ -159,31 +183,8 @@ public class StockAIPlugin extends Plugin {
         conn.setRequestProperty("User-Agent", "StockAI-Android"); return conn;
     }
 
-    static long lastProviderRequest = 0;
     MarketDownload marketDownload() { return marketDownload(false); }
-    MarketDownload marketDownload(boolean membership) {
-        return new MarketDownload(db, (endpoint, day, page) -> {
-            String credential = apiKey();
-            if (credential == null) throw new IllegalStateException("API_KEY_REQUIRED");
-            long delay = 12500 - (android.os.SystemClock.elapsedRealtime() - lastProviderRequest);
-            if (lastProviderRequest != 0 && delay > 0) Thread.sleep(delay);
-            String query = endpoint.equals("/markets/calendar")
-                ? "?from=" + day + "&to=" + java.time.LocalDate.parse(day).plusDays(21) : "?date=" + day;
-            if (page != null) query += "&pagination_key=" + java.net.URLEncoder.encode(page, "UTF-8");
-            HttpURLConnection conn = connection("https://api.jquants.com/v2" + endpoint + query);
-            conn.setRequestProperty("x-api-key", credential);
-            try {
-                lastProviderRequest = android.os.SystemClock.elapsedRealtime();
-                int status = conn.getResponseCode();
-                JSONObject result = new JSONObject().put("status", status);
-                if (status == 200) {
-                    JSONObject body = new JSONObject(new String(read(conn.getInputStream(), 20 * 1024 * 1024), StandardCharsets.UTF_8));
-                    result.put("body", body).put("received_at", java.time.Instant.now().toString());
-                }
-                return result;
-            } finally { conn.disconnect(); }
-        }, membership);
-    }
+    MarketDownload marketDownload(boolean membership) { return new MarketClient(getContext(), db).download(membership); }
     @PluginMethod public void fetchMarket(PluginCall call) { network(call, () -> {
         call.resolve(new JSObject(marketDownload().fetch(call.getString("date")).toString()));
     }); }
