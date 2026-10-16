@@ -10,7 +10,9 @@
 - 修正7561a99のrun38980794035はverify成功（guard4・Python305＋platform6・frontend71・WASM/画面6＋1＋2・source801/private0）、compile/既存native55件も成功。process/prepareがpassし、画面オフでprocess killは成立したが、200秒以内に自然配送されず未完で停止。native世代3・queued・元の1ページが残り、JobSchedulerに同じ予約が存在した。診断に最大31分のbatching設定があり、最小遅延と配送時刻を同一視していた試験条件を分離する。
 - 通常CIでは元のsystem job IDをtest APKで記録し、90秒の自然観測後にOSの`run -s`で全制約を満たす同じ予約だけを配送する別モードを明示選択。既定の無介入200秒試験は残し、workflowの手動選択で実行できる。観測不正時の配送・`-f`・再enqueue・時計/電力policy変更はしない。自然配送と制御配送を結果へ別記し、制御配送の成功で自然起動時刻の受入を済ませない。
 - 2ec621aのrun38982102570はverify成功（guard7件ほか上記同じ件数）、compile/既存native55件も成功。元のsystem job IDは取得できたが、最小遅延の実時間が経過した後もTIMING_DELAYが未解除で、`run -s`がfunctional constraintsとして拒否した。`-f`へ切り替えず終了した。原本は`.demo-artifacts/lifecycle-dispatch-reports`。制御モードだけ、90秒観測後に2秒間の画面起動→消灯を追加して通常の遅延alarm配送を許し、その後の同じ予約/ACKを観測する。なお未配送の場合だけ同じjobへ`-s`を送る。画面起動の介入もpolicyとdeliveryへ明記し、自動起動の成功と数えない。guard7件とRuffの再確認がpass。
-- 新しいlifecycle試験は再実行待ち。前回文書1e40a7aのrun38977324150はAndroid/verify成功・release skipを確認。実アカウント/実市場モデル採用・自然配送とXiaomi性能/同署名更新、72時間台帳運用の確認は引き続き残る。私有研究worker再開・学習・実注文・merge・APK公開なし。
+- a9c615cの[run38983024280](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38983024280)はAndroid/verify成功・release skip。JUnit原本55件・失敗/error/skip0に加え、controllerのprepare/verifyが3段階・計6呼出しすべてpass。processは短時間の画面起動＋全制約付き`run -s`、rebootは起動後の解錠/消灯以外に追加配送介入なし、force-stopは70秒間の停止保持と明示再表示後に追加配送介入なしで完了した。3段階すべてACK観測時はAsleep、世代5/8/11・保持する取得1/2/3件。元のWorkRequestのSUCCEEDED、native ACK、受領時刻/hash、本人revision、未完2ページ/cursor、通知拒否を検証。自然な画面オフ起動の時間保証や実API/モデル/ChatGPT成功とは数えない。
+- 同じsourceでguard7件、Python305＋platform6、frontend71、WASM/市場・モデル/本人画面6件・配布計算ページ1件・調査画面2件がpass。Ruff、mypy66 source（標準/win32）、TypeScript/ESLint/build、source801/private0とpackage監査もpass。証拠は`.demo-artifacts/lifecycle-screen-reports`、`lifecycle-screen-android.log`、`lifecycle-screen-verify.log`。今回のcontroller6呼出しを既存55件へ足して61種類のテストとは数えない。
+- 前回文書1e40a7aのrun38977324150もAndroid/verify成功・release skipを確認。実アカウント/実市場モデル採用・自然配送とXiaomi性能/同署名更新、72時間台帳運用の確認は引き続き残る。私有研究worker再開・学習・実注文・merge・APK公開なし。
 
 ## 2026-10-17 — ChatGPT調査を日次処理へ接続
 

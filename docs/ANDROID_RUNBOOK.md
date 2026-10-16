@@ -50,6 +50,8 @@ CIでは通常のinstrumented試験の後に、専用test APKと`scripts/android
 
 通常CIは`--dispatch-ready`を明示し、90秒の自然観測後も未配送なら、画面を2秒起こしてから消灯し、通常の遅延alarm配送を許す。なお未配送の場合だけ、元のsystem job IDへOSの`run -s`を一度だけ送る。全制約を満たす場合だけ実行し、`-f`・再enqueue・電力policyや時計の変更は使わない。結果の`delivery_policy`と各phaseの`delivery`で画面起動も確認し、制御配送の成功を自動起動時刻の受入と数えない。手動workflowの`lifecycle_delivery=unforced`では、介入なしの200秒試験をそのまま実行する。初回の無介入試験は予約とページを保持したままOSが保留し、200秒以内の完了を確認できなかった。続く`-s`だけの試験も、経過済みのTIMING_DELAYが未解除で拒否されている。
 
+実装a9c615cの[CI 38983024280](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38983024280)で、既存native55件と3段階のprepare/verify計6呼出しがpass。processでは画面起動＋`-s`、rebootでは解錠/消灯後に追加の配送介入なし、force-stopでは70秒の停止観測と明示再表示後に追加の配送介入なしで、同じWorkRequestの完了・取得ID・元の受領時刻・本人revision・未完cursorを確認した。3段階のACK観測時はいずれもAsleep、通知未許可。全自動の画面オフ起動時刻、実API、ChatGPTや採用モデルの計算、Xiaomiの性能は別の未完受入である。
+
 ## 自動署名配布
 
 `.github/workflows/android-apk.yml`はmainのAndroid関連変更で起動する。PRは署名Secretsを利用せずテスト/ビルドする。React、PC/Python、通信遮断WASM一致、Androidコンパイル、暗号化backup、lintを通過後、mainでのみrelease鍵で署名し、ReleasesへAPK・`update.json`・`SHA256SUMS`・署名証明を公開する。draftへassetをすべてuploadしてから公開する。
