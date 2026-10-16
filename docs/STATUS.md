@@ -7,6 +7,7 @@
 - ローカルのTypeScript/ESLint/build・フロント66件と、配布用計算ページをnativeと同じCSP・外部通信遮断で起動して保存する試験1件がpass。package監査もpass。Androidでは実際の同梱Python、同時利用、owner再生成、復元不正、commit失敗、旧暗号文・別DB handleの整合を確認する新規試験を追加し、CIで確認する。まだnative成功とは数えない。
 - 初回293d7cdのrun38966989599は、暗号処理の移動時に削除したArrays importが既存の更新redirect検証でも必要だったためAndroid compileに失敗。元のimportを復元する。runtimeテスト前の失敗であり、native計算の成功/失敗へ読み替えない。
 - 修正d46815fのrun38967501219はcompile/lintを通過し、native31件中30件pass/1件fail。旧暗号・別handle整合の追加2件を含む保存試験はpassしたが、WebView124.0.6367.219で実際のinterpreter起動が4.45秒で失敗した。原本は`.demo-artifacts/native-owner-failure-38967501219`。単なるretryで済ませず、workerの起動段階と固定error種別だけを返す診断で切り分ける。口座値・Python trace・provider応答は出さない。
+- 診断73bfb9cのrun38968897961で`interpreter_type_ASSETMASK_0`を確認。Python本体の要求が画面用asset handlerに届いていない。CapacitorのBridge/CapConfigも確認し、application-wide Worker loaderへ同じAPK handlerを接続し、Activity再作成でUI用serverへ上書きされないようにする。network/file/contentの禁止と不明URLの拒否は両方で維持する。
 - 前回最終78a3a2bのrun38963878464はAndroid/verify両job成功・release skip。共有Python301件・追加platform6件・フロント63件・WASM/画面6件・調査画面2件とnative27件（原本の失敗/error/skip0）を確認済み。今回の共通化がこの証拠を自動で引き継いだとは扱わない。
 - 日次scheduler、画面オフ/OS停止・再起動後の再開、初期取得の自動接続・通知は未実装。承認モデル0件、実連携・Xiaomi受入・実市場NAV/採用/holdoutも未完。研究worker再開・私有学習・実注文・merge・APK公開なし。
 

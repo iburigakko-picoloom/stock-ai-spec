@@ -11,6 +11,8 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -82,6 +84,15 @@ final class ComputeHost {
                 view.getSettings().setAllowFileAccess(false); view.getSettings().setAllowContentAccess(false);
                 view.getSettings().setBlockNetworkLoads(true);
                 view.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+                // Worker imports/fetches may use the application-wide worker
+                // loader rather than this WebViewClient (also used by Capacitor).
+                ServiceWorkerController workers = ServiceWorkerController.getInstance();
+                workers.getServiceWorkerWebSettings().setAllowFileAccess(false);
+                workers.getServiceWorkerWebSettings().setAllowContentAccess(false);
+                workers.getServiceWorkerWebSettings().setBlockNetworkLoads(true);
+                workers.setServiceWorkerClient(new ServiceWorkerClient() {
+                    @Override public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) { return asset(request.getUrl()); }
+                });
                 view.addJavascriptInterface(new Bridge(), "StockAICompute");
                 view.setWebViewClient(new WebViewClient() {
                     @Override public WebResourceResponse shouldInterceptRequest(WebView source, WebResourceRequest request) { return asset(request.getUrl()); }
