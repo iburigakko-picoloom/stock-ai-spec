@@ -4,7 +4,8 @@
 
 - CI履歴を再確認し、ab608e6のrun38946144536で旧入力の2回目復元に`database is locked`が発生していたことを確認。Android jobは成功したがverifyは127件pass/1件failであり、このrun全体を成功とは扱わない。
 - Python SQLiteのtransaction contextだけでは接続が閉じないため、端末内の個人設定・市場・当日一覧・候補・モデル・原予測の接続を、commit/rollback後に必ずcloseする共通contextへ変更。backupのprobe・出力・入力接続も例外時にcloseする。保存schemaと原payloadは変えず、GCによる解放を待たない。
-- 開いた接続すべてへの強参照を残したまま3回の復元と各画面の読取を行い、全接続が閉じていることを検証する回帰試験を追加。関連端末内Python92件がpass。最新sourceのAndroid CIで再確認する。実注文・実API・新たな学習やholdout開封なし。
+- 開いた接続すべてへの強参照を残したまま3回の復元と各画面の読取を行い、全接続が閉じていることを検証する回帰試験を追加。関連端末内Python92件、最終probe/出力接続修正後の対象2件、WASMの計算/復元2件がpass。実注文・実API・新たな学習やholdout開封なし。
+- 実装55b480eの[run38952669553](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38952669553)はAndroid/verify両job成功、release skip。共有Python156件、フロント58件、WASM/市場・モデル画面4件、既存調査画面2件、Ruff/mypy65 source（標準/win32）/TypeScript/ESLint/buildがpass。JUnit原本でnative27件（Protocol6・Session7・MarketDownload8・ResearchJournal3・StatePersistence3）、失敗/error/skip0。公開source監査763 files・private keys/models/market files0。証拠は`.demo-artifacts/native-bundle-ci-38952669553`と`storage-ci-verify.log`。実アカウント・実機受入・モデル採用の成功とは数えない。
 
 ## 2026-10-17 — 校正付きモデル一式と端末内の原予測保存
 
@@ -13,7 +14,7 @@
 - 当日membership・前営業日までの広い市場母集団・候補/全保有・本人台帳を接続し、5/20日の原予測を共有PredictionSnapshotへ研究用として保存。履歴不足の新規候補は除外理由と元抽出票を残し、保有予測不足は全体を未完了にする。4/5文字の保有コードを残す。全現金で対象がない場合は仮銘柄・仮予測を作らない。
 - 数値生成日時、11:30締切、実際の情報受領日時を分け、元head出力・source/feature hashを保存。計算intent→共有snapshot→完了markerの順で記録し、中断後は同じ数値と日時で再開。本人入力の競合を保存transaction内で再確認し、完了markerだけ失った保存を起動時に照合する。ChatGPT調査は既存の原予測を参照できるが数値・保有・約定を変更しない。
 - 「一式を取り込む」「数値予測を計算・保存」を接続し、予測・不足候補・実時刻を折りたたみへ表示。時刻は年・秒・JST付きで揃え、元のISO時刻も保持。採用未完了と推奨株数未作成を明記。pin前の4head PC/端末照合は読取専用で、取込・承認・snapshot作成を行わない。
-- ローカルの関連Python155件、修復/読取専用照合20件、5文字保有を含む抽出境界1件、既存台帳/API29件がpass。Ruff、strict mypy65 source（標準/win32）、TypeScript/ESLint/build、フロント58件がpass。WASMで41/51特徴量・3モデル種×3taskの9モデル・4head bundleがPC参照値と一致し、台帳の新interpreter復元も確認。320/390px・文字150%で48px対象/12px間隔/横溢れの2件、既存調査画面2件もpass。Android CIは次のpushで確認する。
+- ローカルの関連Python155件、修復/読取専用照合20件、5文字保有を含む抽出境界1件、既存台帳/API29件がpass。Ruff、strict mypy65 source（標準/win32）、TypeScript/ESLint/build、フロント58件がpass。WASMで41/51特徴量・3モデル種×3taskの9モデル・4head bundleがPC参照値と一致し、台帳の新interpreter復元も確認。320/390px・文字150%で48px対象/12px間隔/横溢れの2件、既存調査画面2件もpass。実装295b0acのrun38952171793でAndroid/verify両job成功、release skip。接続寿命修正後の最終結果は上の55b480eの記録を参照。
 - 承認済みbundleは0件。紙運用レビューや取込だけで採用へ昇格せず、既存の認証済み評価/holdout/設定ゲートを維持。実市場NAV・株数/HOLD/費用/税との最終接続、300社に対応する探索、日次background/通知、実API/実アカウント、Xiaomi性能・更新受入は未完。既存の私有研究変更を含めず、実注文なし。全完成条件は継続中。
 
 ## 2026-10-17 — 当日の銘柄一覧を履歴と分離して11:30対象へ接続
