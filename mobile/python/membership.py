@@ -99,6 +99,24 @@ def snapshot(path: Path, as_of: datetime) -> dict | None:
         ).fetchone()
     if row is None:
         return None
+    return _checked(row, day, as_of)
+
+
+def reference(path: Path, acquisition_id: str, as_of: datetime) -> dict:
+    """Read the exact frozen observation, including after a later correction."""
+    if as_of.tzinfo is None:
+        raise ValueError("Aware membership cutoff required")
+    with connect(path) as db:
+        row = db.execute(
+            "SELECT acquisition_id,payload_hash,raw,received_at FROM mobile_membership "
+            "WHERE acquisition_id=?", (acquisition_id,),
+        ).fetchone()
+    if row is None:
+        raise ValueError("Frozen membership missing")
+    return _checked(row, as_of.astimezone(JST).date(), as_of)
+
+
+def _checked(row, day, as_of):
     try:
         decoder = zlib.decompressobj()
         raw = decoder.decompress(row[2], 64 * 1024 * 1024 + 1)

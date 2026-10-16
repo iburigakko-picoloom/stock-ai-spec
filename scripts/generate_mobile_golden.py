@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +15,11 @@ from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from mobile.pc.export_model import export_model
 from mobile.python.model_bundle import ModelBundle, encoded
+from pytest import MonkeyPatch
 from tests.test_bounded_decision import large_scenario, propose
+from tests.test_mobile_bundles import SELECTION
+from tests.test_mobile_decisions import NOW
+from tests.test_mobile_decisions import ready as decision_ready
 from xgboost import XGBClassifier, XGBRegressor
 
 from stock_ai.features import V2_EXTENDED_MANIFEST, FeatureEngine
@@ -144,13 +149,25 @@ bounded_fixture = {
     "model_bundle_version": bounded_expected.model_bundle_version,
     "expected": bounded_expected.model_dump(mode="json"),
 }
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    with MonkeyPatch.context() as patch:
+        device, path, store, _, policy = decision_ready.__wrapped__(Path(temporary), patch)
+        decision_state = device.export_state()
+        from mobile.python import decisions
+
+        decision_fixture = {
+            "synthetic_only": True, "state": decision_state, "policy": policy,
+            "selection": SELECTION, "now": NOW.isoformat(),
+            "expected": decisions.generate(path, store, NOW),
+        }
 destination.write_text(
     json.dumps(
         {"inputs": inputs, "expected": expected, "models": vectors,
          "bundle": {"content": bundle_content, "rows": bundle_rows,
                     "bundle_id": bundle.bundle_id,
                     "sha256": hashlib.sha256(bundle_content.encode()).hexdigest(),
-                    "expected": bundle_expected}, "bounded": bounded_fixture},
+                    "expected": bundle_expected}, "bounded": bounded_fixture,
+         "decision": decision_fixture},
         ensure_ascii=False,
         allow_nan=False,
     ),

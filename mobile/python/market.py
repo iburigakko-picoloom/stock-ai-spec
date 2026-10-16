@@ -297,6 +297,21 @@ class SQLiteSource:
         return frame.drop(columns="_observation_order").sort_values(keys).reset_index(drop=True)
 
 
+def master_references(path: Path, cutoff: datetime) -> list[dict]:
+    """Freeze raw observation identities without hashing runtime-dependent Pandas dtypes."""
+    with connect(path) as db:
+        rows = db.execute(
+            "WITH versions AS (SELECT sequence,day,received_at,payload_hash,ROW_NUMBER() OVER("
+            "PARTITION BY day ORDER BY received_at DESC,sequence DESC) n FROM market_batches "
+            "WHERE dataset='security_master' AND day<=? AND received_at<=?) "
+            "SELECT sequence,day,received_at,payload_hash FROM versions WHERE n=1 ORDER BY day",
+            (cutoff.astimezone(ZoneInfo("Asia/Tokyo")).date().isoformat(),
+             cutoff.astimezone(UTC).isoformat(timespec="microseconds")),
+        ).fetchall()
+    return [{"dataset": "security_master", "observation_id": row[0], "date": row[1],
+             "received_at": row[2], "payload_hash": row[3]} for row in rows]
+
+
 def feature_inputs(path: Path, as_of: datetime) -> dict:
     cutoff = datetime.combine(
         as_of.astimezone(ZoneInfo("Asia/Tokyo")).date(), time(11, 30), ZoneInfo("Asia/Tokyo")

@@ -4,11 +4,12 @@
 // Browser-only layout fixture. This entry is excluded from the application build.
 import React from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
 import { MobileMarketPanel } from "/src/mobile/MobileMarketPanel.tsx";
 import { MobileModelPanel } from "/src/mobile/MobileModelPanel.tsx";
 import { MobilePersonalPanel } from "/src/mobile/MobilePersonalPanel.tsx";
 import "/src/styles.css";
-createRoot(document.getElementById("market-test")).render(React.createElement(React.Fragment, null,
+createRoot(document.getElementById("market-test")).render(React.createElement(MemoryRouter, null,
   React.createElement(MobileMarketPanel, { configured: true, disabled: false, onBusy() {} }),
   React.createElement(MobileModelPanel, { disabled: false, inputsSaved: true, onBusy() {} }),
   React.createElement(MobilePersonalPanel, { disabled: false, profile: {

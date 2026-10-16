@@ -520,6 +520,17 @@ class BoundedSearchAudit(DomainModel):
         return self
 
 
+class PersonalInputReferences(DomainModel):
+    manual_revision_id: str = Field(pattern="^[0-9a-f]{64}$")
+    ledger_portfolio_id: str = Field(min_length=1)
+    settings_revision_id: str = Field(pattern="^[0-9a-f]{64}$")
+    executions_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+
+
+class PersonalPublicationGuard(PersonalInputReferences):
+    forecast_snapshot_id: str = Field(pattern="^[0-9a-f]{64}$")
+
+
 class PortfolioProposal(DomainModel):
     proposal_id: str = Field(min_length=1)
     as_of: datetime
@@ -540,6 +551,7 @@ class PortfolioProposal(DomainModel):
     morning_audit: MorningDecisionAudit | None = None
     daily_audit: DailyDecisionAudit | None = None
     search_audit: BoundedSearchAudit | None = None
+    personal_guard: PersonalPublicationGuard | None = None
     is_research_only: bool = False
     no_trade_reason: str | None = None
     is_order_instruction: bool = False
@@ -551,6 +563,8 @@ class PortfolioProposal(DomainModel):
         value: dict[str, Any] = handler(self)
         if self.search_audit is None:
             value.pop("search_audit", None)
+        if self.personal_guard is None:
+            value.pop("personal_guard", None)
         return value
 
     @field_validator("estimated_cash_after", mode="after")
@@ -581,6 +595,11 @@ class PortfolioProposal(DomainModel):
         if self.daily_audit is not None:
             if not self.is_research_only or self.daily_audit.as_of != self.as_of:
                 raise ValueError("daily proposal research lineage must match proposal as_of")
+        if self.personal_guard is not None and (
+            self.daily_audit is None or not self.is_research_only
+            or self.current_portfolio_id != self.personal_guard.ledger_portfolio_id
+        ):
+            raise ValueError("personal publication guard requires matching research lineage")
         if self.morning_audit is not None:
             if not self.is_research_only or self.morning_audit.as_of != self.as_of:
                 raise ValueError("morning proposal research lineage must match proposal as_of")

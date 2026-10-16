@@ -145,6 +145,23 @@ def test_publication_marker_is_reconciled_after_restart(ready, monkeypatch):
     assert device._app.state.store.latest_prediction_snapshot() == snapshot
 
 
+def test_uncommitted_selection_never_uses_old_snapshot_after_restart(ready, monkeypatch):
+    device, store, path, _, features, _ = ready
+    first = forecasts.generate(path, store, NOW)
+    snapshot = store.latest_prediction_snapshot()
+    features["features"]["5"][0]["f1"] = 2.0
+    def interrupt(*args, **kwargs):
+        raise ValueError("synthetic interruption")
+    monkeypatch.setattr(store, "append_prediction_snapshot", interrupt)
+    with pytest.raises(ValueError, match="interruption"):
+        forecasts.generate(path, store, NOW + timedelta(minutes=1))
+    assert forecasts.latest(path)["run_id"] != first["run_id"]
+    device.initialize(device.export_state())
+    assert forecasts.latest(path)["phase"] == "computed"
+    assert device._app.state.store.latest_prediction_snapshot() is None
+    assert device._app.state.store.prediction_snapshot(snapshot.snapshot_id) == snapshot
+
+
 def test_personal_input_change_is_checked_inside_the_snapshot_write_transaction(ready, monkeypatch):
     _, store, path, _, _, _ = ready
     original = store.append_prediction_snapshot
@@ -167,12 +184,14 @@ def test_later_missing_approval_or_personal_input_never_overwrites_prior_predict
     assert forecasts.generate(path, store, NOW)["blocking_reasons"] == [
         "CALIBRATED_MODEL_BUNDLE_UNAVAILABLE"
     ]
-    assert store.latest_prediction_snapshot() == saved
+    assert store.prediction_snapshot(saved.snapshot_id) == saved
+    assert store.latest_prediction_snapshot() is None  # No active fallback after a failed run.
     manual = store.latest_manual_portfolio()
     personal.save_portfolio(store, manual.portfolio, manual.export.revision_id, NOW)
     later = forecasts.generate(path, store, NOW)
     assert later["blocking_reasons"] == ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF"]
-    assert store.latest_prediction_snapshot().snapshot_id == first["snapshot"]["snapshot_id"]
+    assert store.prediction_snapshot(first["snapshot"]["snapshot_id"]) == saved
+    assert store.latest_prediction_snapshot() is None
 
 
 def test_rehashed_output_disagreement_with_the_original_snapshot_is_rejected(ready):
@@ -186,6 +205,8 @@ def test_rehashed_output_disagreement_with_the_original_snapshot_is_rejected(rea
         db.execute("UPDATE mobile_forecast_runs SET run_id=?,payload=?,content_hash=? "
                    "WHERE run_id=?",
                    (value["run_id"], canonical_json(value), content_id(value), identity))
+        db.execute("UPDATE mobile_forecast_selections SET run_id=? WHERE run_id=?",
+                   (value["run_id"], identity))
     with pytest.raises(ValueError, match="preserved numerical output"):
         forecasts.latest(path)
 

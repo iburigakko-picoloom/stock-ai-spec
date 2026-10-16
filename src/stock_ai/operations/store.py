@@ -33,6 +33,7 @@ from stock_ai.domain import (
     TradeSide,
     UserDecision,
 )
+from stock_ai.domain.models import PersonalInputReferences, PersonalPublicationGuard
 from stock_ai.operations.chatgpt_research import (
     ChatGPTResearchRecord,
     ResearchAttempt,
@@ -74,6 +75,7 @@ from stock_ai.operations.models import (
     PaperReadoutPeriod,
     PaperSeriesPoint,
     PaperSummary,
+    PipelineState,
     PositionDifference,
     PositionReconciliationPreview,
     RankingRecord,
@@ -457,6 +459,19 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
                 ResearchAttempt, _checked_payload(row, "chatgpt_research_attempts")
             )
             _validate_chatgpt_attempt(connection, attempt)
+    _mobile_numerical_selection(connection)
+    for row in connection.execute("SELECT key,value FROM operational_metadata "
+                                  "WHERE key LIKE 'mobile-cash-receipt:%'"):
+        _cash_receipt(row[1], row[0].removeprefix("mobile-cash-receipt:"))
+    for row in connection.execute("SELECT key,value FROM operational_metadata "
+                                  "WHERE key LIKE 'mobile-cash-active:%'"):
+        linked = connection.execute("SELECT value FROM operational_metadata WHERE key=?",
+                                    ("mobile-cash-receipt:" + row[1],)).fetchone()
+        if linked is None:
+            raise OperationalIntegrityError("cash-only publication receipt missing")
+        value = _cash_receipt(linked[0], row[1])
+        if value["status"]["business_date"] != row[0].removeprefix("mobile-cash-active:"):
+            raise OperationalIntegrityError("cash-only publication date changed")
     return counts
 
 
@@ -613,6 +628,118 @@ def _validate_decision_policy_snapshot(
         )
     if snapshot.config.version != proposal.decision_engine_version:
         raise OperationalIntegrityError("decision policy engine version does not match proposal")
+
+
+def _write_daily_status(connection: sqlite3.Connection, status: DailyOperationStatus) -> None:
+    _validate_status_proposal(connection, status)
+    payload = _canonical_payload(status)
+    connection.execute(
+        "INSERT INTO daily_status(business_date,payload,content_hash,updated_at) VALUES(?,?,?,?) "
+        "ON CONFLICT(business_date) DO UPDATE SET payload=excluded.payload,"
+        "content_hash=excluded.content_hash,updated_at=excluded.updated_at",
+        (status.business_date.isoformat(), payload, _payload_hash(payload),
+         status.updated_at.isoformat()),
+    )
+
+
+def _hash_reference(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(
+        x in "0123456789abcdef" for x in value
+    )
+
+
+def _mobile_numerical_selection(connection: sqlite3.Connection) -> dict[str, Any] | None:
+    row = connection.execute("SELECT value FROM operational_metadata "
+                             "WHERE key='mobile-numerical-active'").fetchone()
+    if row is None:
+        return None
+    try:
+        value = json.loads(row[0])
+        if set(value) != {"run_id", "as_of", "snapshot_id"} or not _hash_reference(value["run_id"]):
+            raise ValueError("invalid numerical reference")
+        cutoff = datetime.fromisoformat(value["as_of"])
+        if cutoff.tzinfo is None or cutoff.utcoffset() is None:
+            raise ValueError("naive numerical reference")
+        if value["snapshot_id"] is not None:
+            if not _hash_reference(value["snapshot_id"]):
+                raise ValueError("invalid snapshot reference")
+            snapshot_row = connection.execute(
+                "SELECT payload,content_hash FROM prediction_snapshots WHERE snapshot_id=?",
+                (value["snapshot_id"],),
+            ).fetchone()
+            if snapshot_row is None:
+                raise ValueError("missing selected snapshot")
+            snapshot = _parse_model(PredictionSnapshot,
+                                    _checked_payload(snapshot_row, "prediction_snapshots"))
+            if snapshot.as_of != cutoff:
+                raise ValueError("selected cutoff changed")
+        return dict(value)
+    except (ValueError, TypeError, KeyError) as exc:
+        raise OperationalIntegrityError("invalid active numerical reference") from exc
+
+
+def _cash_receipt(payload: str, identity: str) -> dict[str, Any]:
+    try:
+        value = json.loads(payload)
+        if (set(value) != {"receipt_id", "guard", "status", "numerical_run_id"}
+                or value["receipt_id"] != identity or not _hash_reference(identity)
+                or not _hash_reference(value["numerical_run_id"])):
+            raise ValueError("invalid cash reference")
+        PersonalInputReferences.model_validate(value["guard"])
+        status = DailyOperationStatus.model_validate(value["status"])
+        if (status.pipeline_state is not PipelineState.CASH_ONLY or status.is_stale
+                or status.proposal_id is not None or status.blocking_reason is not None):
+            raise ValueError("invalid cash status")
+        return dict(value)
+    except (ValueError, TypeError, KeyError) as exc:
+        raise OperationalIntegrityError("invalid cash-only publication receipt") from exc
+
+
+def _guard_personal_references(
+    connection: sqlite3.Connection, guard: PersonalInputReferences,
+) -> PortfolioState:
+    manual = connection.execute("SELECT revision_id FROM manual_portfolio_imports "
+                                "ORDER BY revision_sequence DESC LIMIT 1").fetchone()
+    ledger = connection.execute("SELECT portfolio_id,payload,content_hash FROM portfolio_states "
+                                "ORDER BY as_of DESC,portfolio_id DESC LIMIT 1").fetchone()
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE name='mobile_personal_settings' "
+                          "AND type='table'").fetchone() is None:
+        raise OperationalConflictError("frozen personal settings missing")
+    settings = connection.execute("SELECT revision_id,payload,content_hash "
+                                  "FROM mobile_personal_settings ORDER BY sequence DESC LIMIT 1"
+                                  ).fetchone()
+    executions = tuple(_parse_model(ExecutionRecord, _checked_payload(row, "executions"))
+                       for row in connection.execute("SELECT payload,content_hash FROM executions "
+                                                     "ORDER BY execution_id"))
+    if (manual is None or ledger is None or settings is None
+            or manual[0] != guard.manual_revision_id or ledger[0] != guard.ledger_portfolio_id
+            or settings[0] != guard.settings_revision_id
+            or _payload_hash(settings[1]) != settings[2] or settings[0] != settings[2]
+            or content_id([x.model_dump(mode="json") for x in executions])
+            != guard.executions_sha256):
+        raise OperationalConflictError("frozen proposal personal inputs changed")
+    return _parse_model(PortfolioState, _checked_payload(ledger, "portfolio_states"))
+
+
+def _guard_personal_publication(
+    connection: sqlite3.Connection, guard: PersonalPublicationGuard, proposal: PortfolioProposal,
+) -> None:
+    _guard_personal_references(connection, guard)
+    selected = _mobile_numerical_selection(connection)
+    if selected is None or selected["snapshot_id"] != guard.forecast_snapshot_id:
+        raise OperationalConflictError("active numerical forecast changed")
+    row = connection.execute("SELECT payload,content_hash FROM prediction_snapshots "
+                             "WHERE snapshot_id=?", (guard.forecast_snapshot_id,)).fetchone()
+    if row is None:
+        raise OperationalIntegrityError("frozen proposal forecast missing")
+    snapshot = _parse_model(PredictionSnapshot, _checked_payload(row, "prediction_snapshots"))
+    if (proposal.daily_audit is None or not proposal.is_research_only
+            or snapshot.as_of != proposal.as_of
+            or snapshot.model_version != proposal.model_bundle_version
+            or proposal.current_portfolio_id != guard.ledger_portfolio_id
+            or proposal.daily_audit.forecast_content_sha256
+            != content_id(snapshot.model_dump(mode="json"))):
+        raise OperationalIntegrityError("frozen proposal forecast differs")
 
 
 def _verify_database_path(path: Path) -> dict[str, int]:
@@ -946,6 +1073,7 @@ class OperationalStore:
     def append_prediction_snapshot(
         self, snapshot: PredictionSnapshot, *, expected_manual_revision_id: str | None = None,
         expected_portfolio_id: str | None = None,
+        mobile_run_id: str | None = None,
     ) -> bool:
         snapshot = PredictionSnapshot.model_validate_json(snapshot.model_dump_json())
         with self._connect() as connection:
@@ -955,7 +1083,7 @@ class OperationalStore:
             existing = connection.execute(
                 "SELECT 1 FROM prediction_snapshots WHERE snapshot_id=?", (snapshot.snapshot_id,)
             ).fetchone()
-            if expected_manual_revision_id is not None and existing is None:
+            if expected_manual_revision_id is not None and (existing is None or mobile_run_id):
                 manual = connection.execute(
                     "SELECT revision_id FROM manual_portfolio_imports "
                     "ORDER BY revision_sequence DESC LIMIT 1"
@@ -977,8 +1105,32 @@ class OperationalStore:
                 columns={"as_of": snapshot.as_of.isoformat()},
                 payload=_canonical_payload(snapshot),
             )
+            if mobile_run_id is not None:
+                connection.execute("INSERT OR REPLACE INTO operational_metadata VALUES(?,?)", (
+                    "mobile-numerical-active", canonical_json({"run_id": mobile_run_id,
+                    "as_of": snapshot.as_of.isoformat(), "snapshot_id": snapshot.snapshot_id}),
+                ))
             connection.commit()
             return inserted
+
+    def select_mobile_numerical_without_snapshot(
+        self, run_id: str, as_of: datetime, manual_revision_id: str | None,
+        ledger_portfolio_id: str | None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            manual = connection.execute("SELECT revision_id FROM manual_portfolio_imports "
+                                        "ORDER BY revision_sequence DESC LIMIT 1").fetchone()
+            ledger = connection.execute("SELECT portfolio_id FROM portfolio_states "
+                                        "ORDER BY as_of DESC,portfolio_id DESC LIMIT 1").fetchone()
+            if ((None if manual is None else manual[0]) != manual_revision_id
+                    or (None if ledger is None else ledger[0]) != ledger_portfolio_id):
+                raise OperationalConflictError("numerical selection personal inputs changed")
+            connection.execute("INSERT OR REPLACE INTO operational_metadata VALUES(?,?)", (
+                "mobile-numerical-active", canonical_json({"run_id": run_id,
+                "as_of": as_of.isoformat(), "snapshot_id": None}),
+            ))
+            connection.commit()
 
     def append_adoption_review(self, review: OwnerAdoptionReview) -> bool:
         review = OwnerAdoptionReview.model_validate_json(review.model_dump_json())
@@ -1012,6 +1164,12 @@ class OperationalStore:
 
     def latest_prediction_snapshot(self) -> PredictionSnapshot | None:
         with self._connect() as connection:
+            reference = _mobile_numerical_selection(connection)
+            if reference is not None:
+                if reference["snapshot_id"] is None:
+                    return None
+                snapshot = self.prediction_snapshot(reference["snapshot_id"])
+                return snapshot
             row = connection.execute(
                 "SELECT snapshot_id FROM prediction_snapshots "
                 "ORDER BY julianday(as_of) DESC, snapshot_id DESC LIMIT 1"
@@ -1433,16 +1591,28 @@ class OperationalStore:
         *,
         archived_at: datetime,
         decision_policy: DecisionPolicySnapshot,
+        publication_status: DailyOperationStatus | None = None,
     ) -> bool:
         if archived_at.tzinfo is None or archived_at.utcoffset() is None:
             raise ValueError("archived_at must be timezone-aware")
         if archived_at < proposal.generated_at:
             raise ValueError("proposal cannot be archived before generation")
         _validate_decision_policy_snapshot(decision_policy, proposal)
+        if publication_status is not None and (
+            publication_status.pipeline_state is not PipelineState.PROPOSAL_READY
+            or publication_status.proposal_id != proposal.proposal_id
+            or publication_status.updated_at != archived_at
+            or publication_status.is_stale or publication_status.blocking_reason is not None
+        ):
+            raise ValueError("proposal publication status must describe this archive")
         payload = _canonical_payload(proposal)
         business_date = proposal.as_of.astimezone(JST).date()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute("SELECT 1 FROM proposals WHERE proposal_id=?",
+                                          (proposal.proposal_id,)).fetchone()
+            if proposal.personal_guard is not None and existing is None:
+                _guard_personal_publication(connection, proposal.personal_guard, proposal)
             if (
                 connection.execute(
                     "SELECT 1 FROM portfolio_states WHERE portfolio_id = ?",
@@ -1521,11 +1691,150 @@ class OperationalStore:
                 },
                 payload=_canonical_payload(decision_policy),
             )
+            if publication_status is not None and inserted:
+                _write_daily_status(connection, publication_status)
             connection.commit()
         return inserted
 
     def proposal(self, proposal_id: str) -> PortfolioProposal:
         return self._load_one("proposals", "proposal_id", proposal_id, PortfolioProposal)
+
+    def proposal_inputs_current(self, proposal: PortfolioProposal) -> bool:
+        if proposal.personal_guard is None:
+            return True
+        with self._connect() as connection:
+            try:
+                _guard_personal_publication(connection, proposal.personal_guard, proposal)
+            except OperationalConflictError:
+                return False
+        return True
+
+    def recheck_personal_publication(
+        self, proposal: PortfolioProposal, status: DailyOperationStatus,
+    ) -> None:
+        if (proposal.personal_guard is None
+                or status.pipeline_state is not PipelineState.PROPOSAL_READY
+                or status.proposal_id != proposal.proposal_id or status.is_stale):
+            raise ValueError("guarded proposal recheck required")
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            _guard_personal_publication(connection, proposal.personal_guard, proposal)
+            row = connection.execute("SELECT payload,content_hash FROM daily_status "
+                                     "WHERE business_date=?", (status.business_date.isoformat(),)
+                                     ).fetchone()
+            if row is None:
+                raise OperationalIntegrityError("published proposal daily status missing")
+            previous = _parse_model(DailyOperationStatus, _checked_payload(row, "daily_status"))
+            if (previous.proposal_id == proposal.proposal_id and not previous.is_stale
+                    and previous.pipeline_state in {PipelineState.PROPOSAL_READY,
+                        PipelineState.USER_DECISION_SAVED, PipelineState.EXECUTION_PENDING,
+                        PipelineState.EXECUTION_RECORDED, PipelineState.MARKET_CLOSED}):
+                return
+            decision = connection.execute(
+                "SELECT payload,content_hash FROM user_decisions WHERE proposal_id=? "
+                "ORDER BY version DESC LIMIT 1", (proposal.proposal_id,),
+            ).fetchone()
+            if decision is not None:
+                _parse_model(UserDecision, _checked_payload(decision, "user_decisions"))
+                status = status.model_copy(update={
+                    "pipeline_state": PipelineState.USER_DECISION_SAVED,
+                })
+            _write_daily_status(connection, status)
+            connection.commit()
+
+    def publish_cash_only(
+        self, receipt_id: str, guard: PersonalInputReferences, status: DailyOperationStatus,
+        *, numerical_run_id: str,
+    ) -> None:
+        if (len(receipt_id) != 64 or any(x not in "0123456789abcdef" for x in receipt_id)
+                or status.pipeline_state is not PipelineState.CASH_ONLY or status.proposal_id
+                or status.is_stale):
+            raise ValueError("valid cash-only publication required")
+        marker = canonical_json({"receipt_id": receipt_id, "guard": guard.model_dump(mode="json"),
+                                 "status": status.model_dump(mode="json"),
+                                 "numerical_run_id": numerical_run_id})
+        key = "mobile-cash-receipt:" + receipt_id
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            previous = connection.execute("SELECT value FROM operational_metadata WHERE key=?",
+                                          (key,)).fetchone()
+            if previous is not None:
+                if previous[0] != marker:
+                    raise OperationalIntegrityError("cash-only receipt changed")
+                return  # An ACK retry must not reactivate or retimestamp an old result.
+            ledger = _guard_personal_references(connection, guard)
+            selected = _mobile_numerical_selection(connection)
+            if (selected is None or selected["run_id"] != numerical_run_id
+                    or selected["snapshot_id"] is not None
+                    or datetime.fromisoformat(selected["as_of"]).astimezone(JST).date()
+                    != status.business_date):
+                raise OperationalConflictError("cash-only numerical receipt changed")
+            if any(position.shares > 0 for position in ledger.positions):
+                raise OperationalConflictError("cash-only publication has current holdings")
+            connection.execute("INSERT INTO operational_metadata VALUES(?,?)", (key, marker))
+            connection.execute("INSERT OR REPLACE INTO operational_metadata VALUES(?,?)", (
+                "mobile-cash-active:" + status.business_date.isoformat(), receipt_id,
+            ))
+            _write_daily_status(connection, status)
+            connection.commit()
+
+    def cash_only_inputs_current(self, business_date: date) -> bool:
+        identity = self.metadata("mobile-cash-active:" + business_date.isoformat())
+        marker = None if identity is None else self.metadata("mobile-cash-receipt:" + identity)
+        if marker is None or identity is None:
+            raise OperationalIntegrityError("cash-only publication receipt missing")
+        value = _cash_receipt(marker, identity)
+        guard = PersonalInputReferences.model_validate(value["guard"])
+        status = DailyOperationStatus.model_validate(value["status"])
+        if value["receipt_id"] != identity or status.business_date != business_date:
+            raise OperationalIntegrityError("cash-only publication reference changed")
+        with self._connect() as connection:
+            selected = _mobile_numerical_selection(connection)
+            if (selected is None or selected["run_id"] != value["numerical_run_id"]
+                    or selected["snapshot_id"] is not None):
+                return False
+            try:
+                ledger = _guard_personal_references(connection, guard)
+            except OperationalConflictError:
+                return False
+        return not any(position.shares > 0 for position in ledger.positions)
+
+    def recheck_cash_publication(self, receipt_id: str, status: DailyOperationStatus) -> None:
+        marker = self.metadata("mobile-cash-receipt:" + receipt_id)
+        if marker is None:
+            raise OperationalIntegrityError("cash-only publication receipt missing")
+        value = _cash_receipt(marker, receipt_id)
+        guard = PersonalInputReferences.model_validate(value["guard"])
+        if (status.pipeline_state is not PipelineState.CASH_ONLY
+                or status.business_date.isoformat() != value["status"]["business_date"]
+                or status.is_stale or status.proposal_id is not None):
+            raise ValueError("valid cash-only recheck required")
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            ledger = _guard_personal_references(connection, guard)
+            selected = _mobile_numerical_selection(connection)
+            if (any(x.shares > 0 for x in ledger.positions) or selected is None
+                    or selected["run_id"] != value["numerical_run_id"]
+                    or selected["snapshot_id"] is not None):
+                raise OperationalConflictError("cash-only recheck inputs changed")
+            previous = connection.execute(
+                "SELECT payload,content_hash FROM daily_status WHERE business_date=?",
+                (status.business_date.isoformat(),),
+            ).fetchone()
+            if previous is not None:
+                prior = _parse_model(DailyOperationStatus,
+                                     _checked_payload(previous, "daily_status"))
+                active = connection.execute("SELECT value FROM operational_metadata WHERE key=?",
+                                            ("mobile-cash-active:" +
+                                             status.business_date.isoformat(),)).fetchone()
+                if (prior.pipeline_state is PipelineState.CASH_ONLY and not prior.is_stale
+                        and active is not None and active[0] == receipt_id):
+                    return
+            connection.execute("INSERT OR REPLACE INTO operational_metadata VALUES(?,?)", (
+                "mobile-cash-active:" + status.business_date.isoformat(), receipt_id,
+            ))
+            _write_daily_status(connection, status)
+            connection.commit()
 
     def decision_policy_snapshot(self, proposal_id: str) -> DecisionPolicySnapshot | None:
         with self._connect() as connection:
@@ -1819,25 +2128,8 @@ class OperationalStore:
         return next_state
 
     def set_daily_status(self, status: DailyOperationStatus) -> None:
-        payload = _canonical_payload(status)
         with self._connect() as connection:
-            _validate_status_proposal(connection, status)
-            connection.execute(
-                """
-                INSERT INTO daily_status(business_date, payload, content_hash, updated_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(business_date) DO UPDATE SET
-                    payload=excluded.payload,
-                    content_hash=excluded.content_hash,
-                    updated_at=excluded.updated_at
-                """,
-                (
-                    status.business_date.isoformat(),
-                    payload,
-                    _payload_hash(payload),
-                    status.updated_at.isoformat(),
-                ),
-            )
+            _write_daily_status(connection, status)
             connection.commit()
 
     def daily_status(self, business_date: date) -> DailyOperationStatus | None:

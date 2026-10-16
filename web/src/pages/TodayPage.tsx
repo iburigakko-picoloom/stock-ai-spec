@@ -44,7 +44,9 @@ export function TodayPage(): ReactNode {
     <div className={`page${proposal ? " page--with-sticky" : ""}`}>
       <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} />
       <RuntimeBanner mode={data.runtimeMode} />
-      {!proposal ? (
+      {!data.isStale && data.pipelineState === "CASH_ONLY" ? (
+        <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
+      ) : !proposal ? (
         <><StatePanel
           tone={data.isStale ? "warning" : "neutral"}
           title={data.isStale ? "今日は提案を表示できません" : "次回の分析を待っています"}

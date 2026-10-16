@@ -12,6 +12,10 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
   await page.route("**/api/v1/mobile/models", route => route.fulfill({ json: {
     approved_bundle_count: 1, imported_bundle_count: 1, bundle_ready: true, model_adopted: false,
   } }));
+  await page.route("**/api/v1/mobile/decision", route => route.fulfill({ json: {
+    run_id: "synthetic-decision", phase: "published", outcome: "proposal", is_active: true,
+    checked_at: "2026-10-17T11:50:00+09:00", blocking_reasons: [],
+  } }));
   await page.route("**/api/v1/mobile/personal/settings", route => route.fulfill({ json: {
     saved: null, current_portfolio: { revision_id: "a".repeat(64), saved_at: "2026-10-17T09:00:00+09:00",
       portfolio: { schema_version: "manual-portfolio-v1", holdings_status: "none",
@@ -51,7 +55,7 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
   for (const select of await page.locator("select:visible").all()) {
     expect((await select.boundingBox())!.height).toBeGreaterThanOrEqual(48);
   }
-  const buttons = await page.locator("button:visible").evaluateAll(nodes => nodes.map(node => {
+  const buttons = await page.locator("button:visible, a.button:visible").evaluateAll(nodes => nodes.map(node => {
     const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
   }));
   for (let i = 0; i < buttons.length; i++) {
@@ -59,5 +63,6 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
     if (i > 0) expect(buttons[i].top - buttons[i - 1].bottom).toBeGreaterThanOrEqual(12);
   }
   await page.screenshot({ path: info.outputPath(`market-layout-${width}.png`), fullPage: true });
+  await page.getByRole("region", { name: "端末内のモデルと予測" }).screenshot({ path: info.outputPath(`model-decision-${width}.png`) });
   await page.getByRole("region", { name: "補足設定と初回台帳" }).screenshot({ path: info.outputPath(`personal-policy-${width}.png`) });
 });

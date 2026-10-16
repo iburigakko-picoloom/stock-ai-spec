@@ -277,6 +277,8 @@ def _active_proposal(
         raise OperationalIntegrityError("daily status references a missing proposal") from exc
     if proposal.as_of.astimezone(JST).date() != business_date:
         raise OperationalIntegrityError("daily status proposal belongs to another business date")
+    if not store.proposal_inputs_current(proposal):
+        return None
     return proposal
 
 
@@ -305,6 +307,12 @@ def _today(store: OperationalStore, business_date: date) -> dict[str, object]:
         state = status.pipeline_state
         blocking_reason = status.blocking_reason
         is_stale = status.is_stale
+        if (not is_stale and proposal is None and status.pipeline_state in PROPOSAL_DISPLAY_STATES):
+            state, is_stale = PipelineState.STALE_DATA, True
+            blocking_reason = "PERSONAL_INPUTS_CHANGED"
+        if state is PipelineState.CASH_ONLY and not store.cash_only_inputs_current(business_date):
+            state, is_stale = PipelineState.STALE_DATA, True
+            blocking_reason = "PERSONAL_INPUTS_CHANGED"
     return {
         "businessDate": business_date.isoformat(),
         "pipelineState": state.value,

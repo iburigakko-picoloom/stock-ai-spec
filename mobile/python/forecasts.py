@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from stock_ai.domain import Prediction, PredictionUncertainty
 from stock_ai.operations.daily import PredictionSnapshot, canonical_json, content_id
+from stock_ai.operations.store import OperationalConflictError
 
 from . import market, models, universe
 from .features import bundled_selection, calculate
@@ -26,6 +27,17 @@ def initialize(path: Path) -> None:
             "sequence INTEGER PRIMARY KEY,run_id TEXT NOT NULL UNIQUE,scope_hash TEXT NOT NULL "
             "UNIQUE,payload TEXT NOT NULL,content_hash TEXT NOT NULL,phase TEXT NOT NULL)"
         )
+        db.execute("CREATE TABLE IF NOT EXISTS mobile_forecast_selections("
+                   "sequence INTEGER PRIMARY KEY,run_id TEXT NOT NULL,selected_at TEXT NOT NULL)")
+
+
+def _select(path, run_id, now):
+    with connect(path) as db:
+        previous = db.execute("SELECT run_id FROM mobile_forecast_selections "
+                              "ORDER BY sequence DESC LIMIT 1").fetchone()
+        if previous is None or previous[0] != run_id:
+            db.execute("INSERT INTO mobile_forecast_selections VALUES(NULL,?,?)",
+                       (run_id, now.isoformat()))
 
 
 def _checked(row) -> dict:
@@ -76,11 +88,17 @@ def _publish(path: Path, store, value: dict) -> dict:
         store.append_prediction_snapshot(
             snapshot, expected_manual_revision_id=value["scope"]["manual_revision_id"],
             expected_portfolio_id=value["scope"]["ledger_portfolio_id"],
+            mobile_run_id=value["run_id"],
         )
         with connect(path) as db:
             db.execute("UPDATE mobile_forecast_runs SET phase='published' WHERE run_id=?",
                        (value["run_id"],))
         value["phase"] = "published"
+    else:
+        store.select_mobile_numerical_without_snapshot(
+            value["run_id"], datetime.fromisoformat(value["scope"]["as_of"]),
+            value["scope"]["manual_revision_id"], value["scope"]["ledger_portfolio_id"],
+        )
     return value
 
 
@@ -103,15 +121,22 @@ def _save(path: Path, store, scope: dict, now: datetime, *, snapshot=None,
             "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_forecast_runs "
             "WHERE scope_hash=?", (scope_hash,)
         ).fetchone()
-    return _publish(path, store, _checked(row))
+    value = _checked(row)
+    _select(path, value["run_id"], now)
+    return _publish(path, store, value)
 
 
 def latest(path: Path) -> dict | None:
     with connect(path) as db:
+        selected = db.execute("SELECT run_id FROM mobile_forecast_selections "
+                              "ORDER BY sequence DESC LIMIT 1").fetchone()
         row = db.execute(
             "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_forecast_runs "
-            "ORDER BY sequence DESC LIMIT 1"
+            + ("WHERE run_id=?" if selected is not None else "ORDER BY sequence DESC LIMIT 1"),
+            () if selected is None else (selected[0],),
         ).fetchone()
+        if selected is not None and row is None:
+            raise ValueError("Selected numerical receipt missing")
     return None if row is None else _checked(row)
 
 
@@ -132,6 +157,32 @@ def reconcile_publications(path: Path, store) -> None:
                 raise ValueError("Published forecast differs from its computation receipt")
             db.execute("UPDATE mobile_forecast_runs SET phase='published' WHERE run_id=?",
                        (value["run_id"],))
+
+
+    selected = latest(path)
+    if selected is None:
+        return
+    try:
+        if selected["phase"] == "published":
+            # Recover selection only from an identical existing archive. Never
+            # turn an uncommitted computation into a new snapshot on startup.
+            snapshot = PredictionSnapshot.model_validate(selected["snapshot"])
+            if store.prediction_snapshot(snapshot.snapshot_id) != snapshot:
+                raise ValueError("Selected forecast archive differs from receipt")
+            store.append_prediction_snapshot(
+                snapshot, expected_manual_revision_id=selected["scope"]["manual_revision_id"],
+                expected_portfolio_id=selected["scope"]["ledger_portfolio_id"],
+                mobile_run_id=selected["run_id"],
+            )
+        else:
+            store.select_mobile_numerical_without_snapshot(
+                selected["run_id"], datetime.fromisoformat(selected["scope"]["as_of"]),
+                selected["scope"]["manual_revision_id"], selected["scope"]["ledger_portfolio_id"],
+            )
+    except OperationalConflictError:
+        # Historical receipts remain restorable after personal inputs change.
+        # Their proposal guard independently prevents current use.
+        pass
 
 
 def generate(path: Path, store, now: datetime) -> dict:
@@ -189,6 +240,7 @@ def generate(path: Path, store, now: datetime) -> dict:
             raise ValueError("Feature provenance mismatch")
         maps[horizon] = by_symbol
     proof = {"source_snapshot_ids": inputs["source_snapshot_ids"],
+             "security_master_sources": market.master_references(path, cutoff),
              "revision_policy": inputs["revision_policy"],
              "feature_values_sha256": content_id(features["features"]),
              "membership_and_universe": selection}
@@ -208,6 +260,7 @@ def generate(path: Path, store, now: datetime) -> dict:
             "WHERE scope_hash=?", (content_id(scope),)
         ).fetchone()
     if existing is not None:
+        _select(path, existing[0], now)
         return _publish(path, store, _checked(existing))
     usable = set(maps[5]) & set(maps[20]) & set(selection["decision_symbols"])
     missing_held = sorted(set(held) - usable)

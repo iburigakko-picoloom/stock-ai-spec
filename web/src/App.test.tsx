@@ -147,6 +147,13 @@ afterEach(() => {
 });
 
 describe("Goal 5 PWA", () => {
+  it("shows a completed cash-only day without a fictitious proposal or review", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, pipelineState: "CASH_ONLY", proposal: null })));
+    render(<MemoryRouter><TodayPage /></MemoryRouter>);
+    await screen.findByText("分析完了・全現金維持");
+    expect(screen.queryByText("次回の分析を待っています")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "判断を確認" })).not.toBeInTheDocument();
+  });
   it("keeps missing amounts distinct from a real zero", () => {
     for (const value of [undefined, null, "", " ", "invalid"]) expect(yen(value)).toBe("—");
     expect(yen("0")).toBe("0円");

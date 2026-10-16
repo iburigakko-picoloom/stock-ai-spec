@@ -32,7 +32,7 @@ from stock_ai.domain import (
     Security,
     TaxState,
 )
-from stock_ai.domain.models import DailyDecisionAudit
+from stock_ai.domain.models import DailyDecisionAudit, PersonalPublicationGuard
 from stock_ai.operations.daily import PredictionSnapshot, content_id
 from stock_ai.operations.manual_portfolio import (
     Digest,
@@ -166,6 +166,18 @@ class PersonalComparison(InputModel):
         return self
 
 
+def implementation_hashes(settings: PersonalSettings | None) -> tuple[tuple[str, str], ...]:
+    names: tuple[str, ...] = (
+        "operations/personal.py", "operations/manual_portfolio.py", "operations/daily.py",
+        "domain/models.py", "decision/engine.py", "decision/costs.py", "decision/tax.py",
+    )
+    if (settings is not None
+            and settings.decision_policy.version == "daily-decision-engine-v3-bounded"):
+        names += ("decision/bounded.py",)
+    root = Path(__file__).resolve().parents[1]
+    return tuple((name, hashlib.sha256((root / name).read_bytes()).hexdigest()) for name in names)
+
+
 def compare_personal(
     request: PersonalComparisonRequest,
     *,
@@ -173,6 +185,7 @@ def compare_personal(
     ledger: PortfolioState | None,
     forecast: PredictionSnapshot | None,
     executions: tuple[ExecutionRecord, ...],
+    publication_guard: PersonalPublicationGuard | None = None,
 ) -> PersonalComparison:
     """Reconcile every account/holding and run the existing cost/tax/HOLD engine."""
     # Revalidate even constructed/model_copy values before using them in a proposal.
@@ -377,6 +390,7 @@ def compare_personal(
                     "proposal_id": result.proposal_id + "-personal-" + inputs_hash[:16],
                     "daily_audit": audit,
                     "is_research_only": True,
+                    "personal_guard": publication_guard,
                 }
             )
             selected_value = sum(
@@ -387,25 +401,7 @@ def compare_personal(
         checked_at=request.checked_at,
         inputs_sha256=inputs_hash,
         request=request,
-        implementation_sha256=tuple(
-            (
-                name,
-                hashlib.sha256(
-                    (Path(__file__).resolve().parents[1] / name).read_bytes()
-                ).hexdigest(),
-            )
-            for name in (
-                "operations/personal.py",
-                "operations/manual_portfolio.py",
-                "operations/daily.py",
-                "domain/models.py",
-                "decision/engine.py",
-                "decision/costs.py",
-                "decision/tax.py",
-            ) + (("decision/bounded.py",) if request.settings is not None
-                 and request.settings.decision_policy.version == "daily-decision-engine-v3-bounded"
-                 else ())
-        ),
+        implementation_sha256=implementation_hashes(request.settings),
         manual_revision_id=None if manual is None else manual.export.revision_id,
         owner_scope_hash=None if manual is None else manual.owner_scope_hash,
         ledger_portfolio_id=None if ledger is None else ledger.portfolio_id,
@@ -499,6 +495,8 @@ def compare_stored_personal(
     request: PersonalComparisonRequest,
     *,
     now: datetime | None = None,
+    forecast_snapshot_id: str | None = None,
+    publication_guard: PersonalPublicationGuard | None = None,
 ) -> PersonalComparison:
     """Read authoritative records twice; concurrent input changes invalidate the result."""
 
@@ -511,14 +509,16 @@ def compare_stored_personal(
         return (
             store.latest_manual_portfolio(),
             store.latest_portfolio(),
-            store.latest_prediction_snapshot(),
+            (store.latest_prediction_snapshot() if forecast_snapshot_id is None
+             else store.prediction_snapshot(forecast_snapshot_id)),
             store.executions(),
         )
 
     request = request.model_copy(update={"checked_at": now or datetime.now(UTC)})
     before = read_inputs()
     result = compare_personal(
-        request, manual=before[0], ledger=before[1], forecast=before[2], executions=before[3]
+        request, manual=before[0], ledger=before[1], forecast=before[2], executions=before[3],
+        publication_guard=publication_guard,
     )
     if read_inputs() != before:
         from stock_ai.operations.store import OperationalConflictError

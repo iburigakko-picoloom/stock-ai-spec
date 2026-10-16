@@ -21,7 +21,7 @@ from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
 from stock_ai.operations.store import OperationalConflictError
 
-from . import forecasts, market, membership, models, personal, universe
+from . import decisions, forecasts, market, membership, models, personal, universe
 from .features import bundled_selection, calculate
 from .model_bundle import parity as bundle_parity
 from .portable_model import predict
@@ -85,6 +85,8 @@ def initialize(encoded: str = "") -> dict:
     forecasts.initialize(STATE / "mobile.sqlite3")
     forecasts.reconcile_publications(STATE / "mobile.sqlite3", _app.state.store)
     personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
+    decisions.initialize(STATE / "mobile.sqlite3")
+    decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store)
     _app.state.store.verify_integrity()
     return {"research_only": True, "order_submission": False}
 
@@ -229,6 +231,25 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         return {"status": 200, "body": models.status(STATE / "mobile.sqlite3", _app.state.store)}
     if path == "/api/v1/mobile/daily" and method == "GET":
         return {"status": 200, "body": forecasts.latest(STATE / "mobile.sqlite3")}
+    if path == "/api/v1/mobile/decision" and method == "GET":
+        return {"status": 200, "body": decisions.view(STATE / "mobile.sqlite3", _app.state.store)}
+    if path == "/api/v1/mobile/decision/generate" and method == "POST":
+        try:
+            now = datetime.now(UTC)
+            decisions.generate(
+                STATE / "mobile.sqlite3", _app.state.store, now,
+            )
+            return {"status": 200, "body": decisions.view(
+                STATE / "mobile.sqlite3", _app.state.store,
+            )}
+        except OperationalConflictError:
+            return {"status": 409, "body": {
+                "detail": "本人入力が更新されています。保存済み状態から再計算してください。"
+            }}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {
+                "detail": "原予測・市場情報・本人設定の整合を確認できず、株数提案を保存できません。"
+            }}
     if path == "/api/v1/mobile/daily/generate" and method == "POST":
         try:
             return {"status": 200, "body": forecasts.generate(
