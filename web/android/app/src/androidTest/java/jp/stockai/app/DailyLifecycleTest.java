@@ -51,6 +51,7 @@ public class DailyLifecycleTest {
             "fresh-emulator-only".equals(args.getString("stockai.lifecycle.confirm")));
         context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertEquals("jp.stockai.app.debug", context.getPackageName());
+        assertEquals(35, Build.VERSION.SDK_INT);
         assertTrue((context.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         assertTrue(Build.HARDWARE.contains("ranchu") || Build.HARDWARE.contains("goldfish"));
         phase = args.getString("stockai.lifecycle.phase");
@@ -67,7 +68,9 @@ public class DailyLifecycleTest {
         JSONObject result = owner.request(method, "/api/v1/" + path, body == null ? "null" : body.toString()).get(240, TimeUnit.SECONDS);
         assertEquals("Local API status: " + path, 200, result.getInt("status")); return result;
     }
-    JSONObject readMarker() throws Exception { return new JSONObject(Files.readString(marker.toPath())); }
+    JSONObject readMarker() throws Exception {
+        return new JSONObject(new String(Files.readAllBytes(marker.toPath()), StandardCharsets.UTF_8));
+    }
     void saveMarker(JSONObject value) throws Exception {
         AtomicFile atomic = new AtomicFile(marker);
         FileOutputStream output = atomic.startWrite();
