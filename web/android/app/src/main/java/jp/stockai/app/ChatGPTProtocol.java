@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.math.BigInteger;
 import java.net.URLDecoder;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -23,6 +24,43 @@ final class ChatGPTProtocol {
     static final String ISSUER = "https://auth.openai.com";
     static final String RESOURCE = "https://api.openai.com/v1";
     static final String SCOPES = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct";
+
+    static final class ProviderFailure extends IOException {
+        final int status;
+        final String code, shape, requestId, parameter;
+        ProviderFailure(int status, String code, String shape, String requestId, String parameter) {
+            super(code); this.status = status; this.code = code; this.shape = shape;
+            this.requestId = requestId; this.parameter = parameter;
+        }
+        boolean terminalRefresh() {
+            return status >= 400 && status < 500 && Arrays.asList("invalid_grant", "invalid_refresh_token",
+                "token_expired", "refresh_token_expired", "refresh_token_invalidated", "refresh_token_reused").contains(code);
+        }
+    }
+    static ProviderFailure failure(int status, String body, String requestId) {
+        String code = "HTTP_" + status, shape = "other", parameter = "";
+        try {
+            JSONObject value = new JSONObject(body); Object error = value.opt("error");
+            if (error instanceof String) { shape = "oauth_error"; code = (String) error; }
+            else if (error instanceof JSONObject) {
+                shape = "api_error"; code = ((JSONObject) error).optString("code", code);
+                parameter = ((JSONObject) error).optString("param", "");
+            } else if (value.has("detail")) shape = "detail";
+        } catch (Exception ignored) { }
+        if (!code.matches("[A-Za-z0-9_]{1,100}")) code = "HTTP_" + status;
+        if (!parameter.matches("[A-Za-z0-9_.\\[\\]-]{0,100}")) parameter = "";
+        if (requestId == null || !requestId.matches("[A-Za-z0-9_.-]{1,200}")) requestId = "";
+        return new ProviderFailure(status, code, shape, requestId, parameter);
+    }
+    static String revocationEndpoint(JSONObject document) throws Exception {
+        if (!ISSUER.equals(document.getString("issuer"))) throw new SecurityException("INVALID_AUTH_DISCOVERY");
+        String endpoint = document.getString("revocation_endpoint"); URI value = new URI(endpoint);
+        if (!"https".equals(value.getScheme()) || !"auth.openai.com".equalsIgnoreCase(value.getHost())
+                || (value.getPort() != -1 && value.getPort() != 443) || value.getRawUserInfo() != null
+                || value.getRawQuery() != null || value.getRawFragment() != null || value.getPath().isEmpty())
+            throw new SecurityException("INVALID_AUTH_DISCOVERY");
+        return endpoint;
+    }
 
     static String random() {
         byte[] bytes = new byte[32]; new SecureRandom().nextBytes(bytes);
@@ -97,9 +135,10 @@ final class ChatGPTProtocol {
         if (!ISSUER.equals(claims.getString("iss")) || !matches || claims.getLong("exp") <= now
                 || claims.optLong("iat", now) > now + 60 || claims.optLong("nbf", now) > now + 60
                 || claims.getString("sub").isEmpty()
-                || (nonce != null && !nonce.equals(claims.optString("nonce")))
-                || (expectedSubject != null && !expectedSubject.equals(claims.getString("sub"))))
+                || (nonce != null && !nonce.equals(claims.optString("nonce"))))
             throw new SecurityException("ID token claims mismatch");
+        if (expectedSubject != null && !expectedSubject.equals(claims.getString("sub")))
+            throw new SecurityException("SAVED_ACCOUNT_MISMATCH");
         return claims;
     }
 

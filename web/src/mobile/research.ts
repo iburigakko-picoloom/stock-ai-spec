@@ -1,5 +1,5 @@
 import { apiPost } from "../api";
-import { ChatGPT, type ResearchExecution, type ResearchRunView } from "./chatgpt";
+import { ChatGPT, chatGPTFailure, type ResearchExecution, type ResearchRunView } from "./chatgpt";
 
 interface Claim extends ResearchRunView {
   state: "ready" | "running" | "completed" | "blocked";
@@ -10,7 +10,8 @@ interface Claim extends ResearchRunView {
 const active = new Map<string, Promise<ResearchRunView>>();
 
 export function researchFailure(code: string | null | undefined): string {
-  if (code?.includes("usage_limit") || code === "HTTP_429") return "ChatGPTの利用上限に達しました。時間をおいて再試行してください。";
+  const connectionMessage = chatGPTFailure(code ?? undefined);
+  if (connectionMessage) return connectionMessage;
   if (code?.includes("unsupported") || code === "HTTP_400") return "選んだモデル・考える深さ・検索機能の対応を設定で確認してください。";
   if (code === "MODEL_SELECTION_CHANGED") return "調査開始時からモデル設定が変わりました。表示中の設定に戻すか、新しい設定で調査してください。";
   if (code?.includes("SIGN_IN") || code?.includes("TOKEN") || code === "HTTP_401") return "ChatGPTへの再ログインが必要です。設定で連携を確認してください。";

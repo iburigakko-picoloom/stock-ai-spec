@@ -4,7 +4,7 @@ import { ChatGPT, type ResearchRunView } from "./chatgpt";
 import { runResearch } from "./research";
 
 vi.mock("../api", () => ({ apiPost: vi.fn() }));
-vi.mock("./chatgpt", () => ({ ChatGPT: { respond: vi.fn(), recoverExecution: vi.fn(), forgetExecution: vi.fn() } }));
+vi.mock("./chatgpt", async importOriginal => ({ ...await importOriginal<typeof import("./chatgpt")>(), ChatGPT: { respond: vi.fn(), recoverExecution: vi.fn(), forgetExecution: vi.fn() } }));
 afterEach(() => { vi.resetAllMocks(); });
 beforeEach(() => { vi.mocked(ChatGPT.forgetExecution).mockResolvedValue(); });
 const configuration = { model: "synthetic-model", effort: "high" as const, prompt_version: "v1" };

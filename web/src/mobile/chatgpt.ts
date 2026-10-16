@@ -9,6 +9,22 @@ export interface ChatGPTStatus {
   selection: { model: string; effort: ReasoningEffort };
   models: { slug: string; displayName: string }[];
   apiFallback: false;
+  reauthorizationRequired?: boolean;
+  disconnecting?: boolean;
+  revocationConfirmed?: boolean | null;
+}
+
+export function chatGPTFailure(code: string | undefined): string | undefined {
+  if (!code) return undefined;
+  if (["invalid_grant", "invalid_refresh_token", "token_expired", "refresh_token_expired", "refresh_token_invalidated", "refresh_token_reused", "SIGN_IN_REQUIRED"].includes(code))
+    return "ChatGPTへのログインを更新してください。調査結果とモデル設定は保存されています。";
+  if (code === "subscription_sharing_user_not_eligible") return "このアカウントではChatGPTの利用枠を連携できません。利用資格やワークスペースの設定を確認してください。";
+  if (code === "subscription_sharing_usage_limit_exceeded" || code === "HTTP_429") return "このアプリのChatGPT利用上限に達しました。ChatGPTの利用状況を確認してください。";
+  if (code === "subscription_sharing_usage_unavailable" || code === "subscription_sharing_user_unavailable" || code === "HTTP_503") return "ChatGPTを一時的に利用できません。連携情報は保持しています。時間をおいて再試行してください。";
+  if (code === "PLAN_PERMISSION_REQUIRED") return "ChatGPTの利用枠を使う許可が必要です。設定画面でログインを更新してください。";
+  if (code === "SIGN_OUT_PENDING") return "ChatGPTの連携解除を処理しています。完了を待ってください。";
+  if (code === "SAVED_ACCOUNT_MISMATCH") return "登録済みのChatGPTアカウントと一致しません。同じアカウントでログインしてください。";
+  return undefined;
 }
 export interface ConnectionProbe {
   text: string;

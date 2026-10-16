@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChatGPT, type ChatGPTStatus, type ConnectionProbe, type ReasoningEffort } from "./chatgpt";
+import { ChatGPT, chatGPTFailure, type ChatGPTStatus, type ConnectionProbe, type ReasoningEffort } from "./chatgpt";
 
 const depths: [ReasoningEffort, string][] = [
   ["low", "低"], ["medium", "標準"], ["high", "高"], ["xhigh", "さらに高"], ["max", "最大"],
@@ -25,28 +25,32 @@ export function ChatGPTPanel() {
   async function run(task: () => Promise<void>) {
     setBusy(true); setMessage("");
     try { await task(); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "ChatGPTとの接続を確認してください。"); }
+    catch (error) {
+      const code = error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : undefined;
+      setMessage(chatGPTFailure(code) ?? (error instanceof Error ? error.message : "ChatGPTとの接続を確認してください。"));
+      try { setStatus(await ChatGPT.getStatus()); } catch { /* Keep the last observed state on a read failure. */ }
+    }
     finally { setBusy(false); setSigningIn(false); }
   }
   function changeModel(value: string) { setModel(value); setProbe(null); }
+  async function connect() {
+    setSigningIn(true);
+    const connected = await ChatGPT.signIn(); setStatus(connected); setProbe(null);
+    if (connected.planEnabled) {
+      const current = await ChatGPT.listModels(); setStatus(current);
+      setModel(current.selection.model); setEffort(current.selection.effort);
+      setMessage("連携しました。調査に使うモデルと考える深さを確認してください。");
+    } else setMessage("ログインできました。調査にはChatGPTの利用枠を使う許可が必要です。");
+  }
   const selectedExists = status?.models.some(item => item.slug === model) ?? false;
   return <section className="section chatgpt-panel" aria-labelledby="chatgpt-title">
     <h2 id="chatgpt-title">ChatGPTの銘柄調査</h2>
     <p>数値モデル上位20銘柄と保有株について、独立した判断と根拠を提案に添えます。</p>
     <p className="connection-status">{status?.connected
       ? `${status.accountLabel ?? "ChatGPT"} · ${status.planEnabled ? "利用枠の連携済み" : "利用枠の許可が必要"}`
-      : status ? "未連携" : "連携状態を確認しています…"}</p>
+      : status?.disconnecting ? "連携を解除しています…" : status?.reauthorizationRequired ? "ログインの更新が必要です" : status ? "未連携" : "連携状態を確認しています…"}</p>
     {(!status?.connected || !status.planEnabled) && <div className="button-stack">
-      <button className="button button--primary" disabled={!status || busy} onClick={() => void run(async () => {
-        setSigningIn(true);
-        const connected = await ChatGPT.signIn(); setStatus(connected);
-        if (connected.planEnabled) {
-          const current = await ChatGPT.listModels(); setStatus(current);
-          setModel(current.selection.model); setEffort(current.selection.effort);
-          setMessage("連携しました。調査に使うモデルを選んでください。");
-        } else setMessage("ログインできました。調査にはChatGPTの利用枠を使う許可が必要です。");
-      })}>Continue with ChatGPT</button>
-      {signingIn && <button className="button button--secondary" onClick={() => void ChatGPT.cancelSignIn()}>ログインを中止</button>}
+      <button className="button button--primary" disabled={!status || busy || status.disconnecting} onClick={() => void run(connect)}>Continue with ChatGPT</button>
     </div>}
     {status?.planEnabled && <div className="settings-content">
       <div className="button-stack">
@@ -80,15 +84,19 @@ export function ChatGPTPanel() {
       <small>{probe.model} · {depths.find(([value]) => value === probe.effort)?.[1]} · {probe.completedAt}</small>
     </div>}
     <p role="status">{busy ? (signingIn ? "OpenAIの画面でログインしてください。" : "ChatGPTへ接続しています…") : message}</p>
+    {signingIn && <div className="button-stack"><button className="button button--secondary" onClick={() => void ChatGPT.cancelSignIn().catch(() => setMessage("ログインの中止を確認できませんでした。画面を開き直してください。"))}>ログインを中止</button></div>}
     <details className="settings-disclosure">
       <summary>連携について</summary>
       <div className="settings-content">
         <p>利用枠はChatGPT・Codexと共有します。別料金のAPIへ自動切替しません。APIキーや口座残高は調査へ送りません。</p>
         <p>数値モデルの提案とChatGPTの調査は別々に保存・表示します。ここでの接続成功はモデル採用や投資判断の正しさを示すものではありません。</p>
+        {status?.connected && <div className="button-stack"><button className="button button--secondary" disabled={busy || status.disconnecting} onClick={() => void run(connect)}>ログインし直す</button></div>}
         {status?.connected && <div className="danger-zone">
           <label className="check-label"><input type="checkbox" checked={disconnectConfirmed} onChange={event => setDisconnectConfirmed(event.target.checked)} />この端末のChatGPT連携を解除する</label>
           <button className="button button--secondary" disabled={busy || !disconnectConfirmed} onClick={() => void run(async () => {
-            setStatus(await ChatGPT.signOut()); setModel(""); setProbe(null); setDisconnectConfirmed(false); setMessage("この端末のChatGPT資格情報を削除しました。");
+            const disconnected = await ChatGPT.signOut();
+            setStatus(disconnected); setModel(""); setProbe(null); setDisconnectConfirmed(false);
+            setMessage(disconnected.revocationConfirmed ? "ChatGPTのセッションを失効し、この端末の資格情報を削除しました。" : "この端末の資格情報を削除しました。OpenAI側の失効は確認できていません。ChatGPTの設定でアプリの接続を確認してください。");
           })}>確認して連携解除</button>
         </div>}
       </div>

@@ -1,12 +1,22 @@
 # Project Status
 
+## 2026-10-17 — ChatGPT再認証・更新・連携解除の復旧処理
+
+- native sessionをKeystore暗号化の単一envelopeへ整理し、検証済みclient/subjectと回転tokenの保存を分離。旧credential形式は新形式へ移行し、更新後にplan scopeが外れても新refresh tokenを先に保存してから推論を停止する。同時consumerの二重refreshを抑止。
+- 文書化されたterminal refresh errorの4xxコードだけで利用不能tokenを消去し、登録済みclient/subjectを保持。通信・5xxでは消去しない。再認証は同じclient/hostで行い、異なるsubjectや解除後に遅れて返った認証で置き換えない。
+- 連携解除で新規推論を止め、実行中接続を切断し、端末tokenを消去してから公式discoveryのrevocation endpointで失効を試す。issuer/HTTPS同一originを検証し、一時失敗だけ最大2回。失効の確認有無を画面へ返す。認証取消後の未採用grantも可能な範囲で失効を試す。
+- 接続済み状態から「ログインし直す」と中止が可能。期限切れ後のモデル・推論量と保存済み調査を維持し、利用資格・アプリ上限・一時障害・権限不足を分ける。raw provider messageを表示・記録せず、安定code等だけを暗号化保存する。
+- フロントのtypecheck/ESLint/buildと39件の試験がpass。追加native7件（permission喪失時の回転、terminal/一時障害、同時refresh、logout、owner/遅延callback、旧形式移行、診断/endpoint）を作成し、Android CIへ送る。実アカウントでのOAuth更新・失効、Xiaomi実機、バックグラウンド/初期一括取得等の完成条件は未完。実APIの推論・実注文なし。
+
 ## 2026-10-17 — ChatGPT調査の実行・回復・銘柄詳細を接続
 
 - 本人がGitHubへのpush・PR作成を明示許可。検証済みのaf2a64f/f397f07をpushし、draft PR #2を作成・本chatへ添付。run38931259021でAndroid build/instrumentationと共有コード検証が成功、releaseはskip。main反映・APK公開は行っていない。以前の送信許可待ちは解消。
 - 調査開始と段階ごとのattemptをSQLite schema5へ保存し、二重claimを抑止。同じ日・予測・設定は同じcontextを再利用し、明示的な再調査は新revisionとして保存。中断・上限・検索欠落等を未完了として残し、完了済みの独立調査を再送せず照合を続ける。
 - Native側はrequest hash、選択モデル・推論量を固定し、検索だけを許可。HTTP送信前と回答受領後をKeystore暗号化journalへ保存し、JS側が消えても回答を回収できる。共有SQLiteの保存確定後も送信済みtombstoneを残す。実行状態の観測失敗だけで終了とせず、不在を確認した回復操作は遅れて来る旧callerを封じる。
 - 銘柄詳細に元の5/20日予測、独立調査、照合、過去の調査全文・出典・設定を接続。未保有で売買提案外の予測対象も詳細を開ける。公開日時不明と数値締切後の調査時刻を分け、元の予測・株数は変えない。モデル文字列はHTMLとして実行しない。
-- Ruff全件・strict mypy65 source pass。共有API/台帳/backup/端末内dispatcherを含むPython122件、React/実行制御34件pass。headless Edgeで320/390px・文字150%の折りたたみ/出典/横溢れ/48px対象/操作間隔12pxを2件passし、320px画像を目視確認。今回追加分のAndroid CIはpush後に確認する。通常権限でのlocalhost試験を使用し、外部サービスはfixtureで代替している。
+- Ruff全件・strict mypy65 source（標準/win32）pass。共有API/台帳/backup/端末内dispatcherを含むPython122件、React/実行制御34件pass。headless Edgeで320/390px・文字150%の折りたたみ/出典/横溢れ/48px対象/操作間隔12pxを2件passし、320px画像を目視確認。通常権限でのlocalhost試験を使用し、外部サービスはfixtureで代替している。
+- 4dee41dのrun38933654578はAndroidに存在しないJSONObject.keySetの使用でnative compile失敗。43c0649でAndroid対応の同一キー検査へ修正し、run38934414537はAndroidとverifyの両jobが成功、release skip。JUnit XMLを取得してProtocol6件・ResearchJournal3件・StatePersistence3件、合計12件/失敗0/skip0を確認。証拠は`.demo-artifacts/native-research-ci-38934414537`。実機互換や実アカウント成功とは数えない。
+- 次の認証監査で、refresh後にplan scopeが外れた場合の回転token保存順、terminal refresh errorの判別とaccount/client mapping保持、接続済み状態からの再認証UI、remote session revokeの扱いを追加確認項目として特定。公式accounts/errors文書を再確認済み。まだ修正・実接続成功として扱わない。
 - 実アカウントの許可・モデル・検索能力、Xiaomi実機、OSによる停止/再起動、日次自動調査は未確認。初期一括取得、時価総額/流動性対象抽出、採用モデル、最新株数までの完成条件も未完。APIだけで実用開始できるとは判定しない。実注文なし。
 
 ## 2026-10-17 — 独立調査の2段階保存と検証
