@@ -32,10 +32,19 @@ from stock_ai.domain import (
     TradeSide,
     UserDecision,
 )
+from stock_ai.operations.chatgpt_research import (
+    ChatGPTResearchRecord,
+    ResearchPass,
+    comparison_request,
+    create_record,
+    independent_request,
+    validate_context,
+)
 from stock_ai.operations.daily import (
     CompanyResearchRecord,
     OwnerAdoptionReview,
     PredictionSnapshot,
+    content_id,
     validate_research_link,
 )
 from stock_ai.operations.manual_portfolio import ImportedManualPortfolio
@@ -123,6 +132,8 @@ _HASHED_TABLES = (
     "company_research",
     "adoption_reviews",
     "manual_portfolio_imports",
+    "chatgpt_research_passes",
+    "chatgpt_research_records",
 )
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -136,7 +147,21 @@ def _verify_hashed_row(table: str, row: sqlite3.Row) -> None:
     payload = _checked_payload(row, table)
     item: Any
     try:
-        if table == "manual_portfolio_imports":
+        if table in {"chatgpt_research_passes", "chatgpt_research_records"}:
+            item = (
+                _parse_model(ResearchPass, payload)
+                if table == "chatgpt_research_passes"
+                else _parse_model(ChatGPTResearchRecord, payload)
+            )
+            expected = {
+                "snapshot_id": item.context.prediction_snapshot_id,
+                "symbol": item.context.symbol,
+            }
+            if isinstance(item, ResearchPass):
+                expected["pass_id"] = item.pass_id
+            else:
+                expected["research_id"] = item.research_id
+        elif table == "manual_portfolio_imports":
             item = _parse_model(ImportedManualPortfolio, payload)
             expected = {
                 "export_sha256": item.export_sha256,
@@ -287,6 +312,12 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
         row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
     for table in _HASHED_TABLES:
+        if (
+            table in {"chatgpt_research_passes", "chatgpt_research_records"}
+            and schema_version < 4 and table not in tables
+        ):
+            counts[table] = 0
+            continue
         if table == "manual_portfolio_imports" and schema_version < 3 and table not in tables:
             counts[table] = 0
             continue
@@ -381,7 +412,72 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
                 PredictionSnapshot, _checked_payload(row, "prediction_snapshots")
             )
             _validate_snapshot_approval(connection, original)
+    if "chatgpt_research_passes" in tables:
+        for row in connection.execute("SELECT * FROM chatgpt_research_passes"):
+            item = _parse_model(ResearchPass, _checked_payload(row, "chatgpt_research_passes"))
+            _validate_chatgpt_pass(connection, item)
+    if "chatgpt_research_records" in tables:
+        for row in connection.execute("SELECT * FROM chatgpt_research_records"):
+            record = _parse_model(
+                ChatGPTResearchRecord, _checked_payload(row, "chatgpt_research_records")
+            )
+            _validate_chatgpt_record(connection, record)
     return counts
+
+
+def _chatgpt_snapshot(connection: sqlite3.Connection, snapshot_id: str) -> PredictionSnapshot:
+    row = connection.execute(
+        "SELECT * FROM prediction_snapshots WHERE snapshot_id = ?", (snapshot_id,)
+    ).fetchone()
+    if row is None:
+        raise OperationalIntegrityError("ChatGPT research is missing its original prediction")
+    _verify_hashed_row("prediction_snapshots", row)
+    return _parse_model(PredictionSnapshot, row["payload"])
+
+
+def _chatgpt_pass(connection: sqlite3.Connection, pass_id: str) -> ResearchPass:
+    row = connection.execute(
+        "SELECT * FROM chatgpt_research_passes WHERE pass_id = ?", (pass_id,)
+    ).fetchone()
+    if row is None:
+        raise OperationalIntegrityError("ChatGPT research is missing a saved research pass")
+    _verify_hashed_row("chatgpt_research_passes", row)
+    return _parse_model(ResearchPass, row["payload"])
+
+
+def _validate_chatgpt_pass(connection: sqlite3.Connection, item: ResearchPass) -> None:
+    snapshot = _chatgpt_snapshot(connection, item.context.prediction_snapshot_id)
+    try:
+        validate_context(item.context, snapshot)
+        if item.phase == "independent":
+            request = independent_request(item.context)
+        else:
+            assert item.independent_pass_id is not None
+            independent = _chatgpt_pass(connection, item.independent_pass_id)
+            request = comparison_request(item.context, independent, snapshot)
+            if independent.completed_at > item.started_at:
+                raise ValueError("comparison began before independent research completed")
+        if content_id(request) != item.request_sha256:
+            raise ValueError("research request differs from fixed prompt and numerical snapshot")
+    except ValueError as exc:
+        raise OperationalIntegrityError("invalid ChatGPT research pass lineage") from exc
+
+
+def _validate_chatgpt_record(
+    connection: sqlite3.Connection, record: ChatGPTResearchRecord
+) -> None:
+    snapshot = _chatgpt_snapshot(connection, record.context.prediction_snapshot_id)
+    for item in (record.independent, record.comparison):
+        saved = _chatgpt_pass(connection, item.pass_id)
+        if saved != item:
+            raise OperationalIntegrityError("ChatGPT record differs from saved research pass")
+        _validate_chatgpt_pass(connection, saved)
+    try:
+        verified = create_record(record.context, record.independent, record.comparison, snapshot)
+        if verified != record:
+            raise ValueError("record does not match original numerical prediction")
+    except ValueError as exc:
+        raise OperationalIntegrityError("invalid ChatGPT research record lineage") from exc
 
 
 def _validate_snapshot_approval(
@@ -527,7 +623,23 @@ class OperationalStore:
                     payload TEXT NOT NULL,
                     content_hash TEXT NOT NULL
                 );
-                PRAGMA user_version=3;
+                CREATE TABLE IF NOT EXISTS chatgpt_research_passes (
+                    pass_id TEXT PRIMARY KEY,
+                    snapshot_id TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    FOREIGN KEY(snapshot_id) REFERENCES prediction_snapshots(snapshot_id)
+                );
+                CREATE TABLE IF NOT EXISTS chatgpt_research_records (
+                    research_id TEXT PRIMARY KEY,
+                    snapshot_id TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    FOREIGN KEY(snapshot_id) REFERENCES prediction_snapshots(snapshot_id)
+                );
+                PRAGMA user_version=4;
 
                 CREATE TABLE IF NOT EXISTS proposals (
                     proposal_id TEXT PRIMARY KEY,
@@ -830,6 +942,75 @@ class OperationalStore:
             _parse_model(CompanyResearchRecord, _checked_payload(row, "company_research"))
             for row in rows
         )
+
+    def append_chatgpt_pass(self, item: ResearchPass) -> bool:
+        """Persist each phase so an interrupted comparison can resume its first phase."""
+        item = ResearchPass.model_validate_json(item.model_dump_json())
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            _validate_chatgpt_pass(connection, item)
+            inserted = self._insert_immutable(
+                connection,
+                table="chatgpt_research_passes",
+                identity_column="pass_id",
+                identity=item.pass_id,
+                columns={
+                    "snapshot_id": item.context.prediction_snapshot_id,
+                    "symbol": item.context.symbol,
+                },
+                payload=_canonical_payload(item),
+            )
+            connection.commit()
+            return inserted
+
+    def chatgpt_passes(self, snapshot_id: str) -> tuple[ResearchPass, ...]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM chatgpt_research_passes WHERE snapshot_id = ? ORDER BY pass_id",
+                (snapshot_id,),
+            ).fetchall()
+            result = []
+            for row in rows:
+                _verify_hashed_row("chatgpt_research_passes", row)
+                item = _parse_model(ResearchPass, row["payload"])
+                _validate_chatgpt_pass(connection, item)
+                result.append(item)
+        return tuple(sorted(result, key=lambda item: (item.started_at, item.pass_id)))
+
+    def append_chatgpt_research(self, record: ChatGPTResearchRecord) -> bool:
+        record = ChatGPTResearchRecord.model_validate_json(record.model_dump_json())
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            _validate_chatgpt_record(connection, record)
+            inserted = self._insert_immutable(
+                connection,
+                table="chatgpt_research_records",
+                identity_column="research_id",
+                identity=record.research_id,
+                columns={
+                    "snapshot_id": record.context.prediction_snapshot_id,
+                    "symbol": record.context.symbol,
+                },
+                payload=_canonical_payload(record),
+            )
+            connection.commit()
+            return inserted
+
+    def chatgpt_research(self, snapshot_id: str) -> tuple[ChatGPTResearchRecord, ...]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM chatgpt_research_records WHERE snapshot_id = ? ORDER BY research_id",
+                (snapshot_id,),
+            ).fetchall()
+            result = []
+            for row in rows:
+                _verify_hashed_row("chatgpt_research_records", row)
+                record = _parse_model(ChatGPTResearchRecord, row["payload"])
+                _validate_chatgpt_record(connection, record)
+                result.append(record)
+        return tuple(sorted(result, key=lambda item: (
+            item.comparison.completed_at, item.research_id,
+        )))
 
     def append_portfolio(self, portfolio: PortfolioState, *, created_at: datetime) -> bool:
         if created_at.tzinfo is None or created_at.utcoffset() is None:

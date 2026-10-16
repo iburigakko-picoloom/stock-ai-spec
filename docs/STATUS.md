@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-17 — 独立調査の2段階保存と検証
+
+- ChatGPTの独立企業調査と数値予測との照合を別の不変レコードとして保存する共有Python契約を追加。初段には銘柄・会社名・調査時点だけを渡し、数値順位・リターン・保有・口座入力を渡さない。照合は保存済み初段と元の予測に結び付け、元予測や推奨株数を変更しない。
+- 選択モデル・推論量・プロンプト版・実際のモデル・実行時刻・出典URL・request/response hashを保存。検索引用だけから公開日時を推測しない。未完了・拒否・上限エラー・初段の検索/引用欠落を正常な調査結果として保存しない。
+- SQLite schema4で段階ごとの保存、同一receiptの冪等性、再読込・backupでの参照整合を追加。元の数値と異なる再hash済みレコードも拒否。schema3のbackup復元と移行を検証し、モバイル用の明示source allowlistにも新モジュールを追加。
+- Ruff全件pass、strict mypy65 source pass。新規調査契約20件を含む関連79件pass。最初のsandbox試験は既存backupのhardlink作成をOSに拒否されたため中断し、同じfixture範囲を通常権限で再実行して79件passを確認した。既存のStarlette deprecationと意図的な不正入力に対するPydantic serializer warningは残る。
+- 実アカウントOAuth・Androidコンパイル・実検索・自動実行・失敗job状態の保存・画面接続は未完。公開リポジトリへのpush/draft PR作成は自動承認レビューが外部公開の明示許可未確認として拒否し、本人への許可質問は回答待ち。ローカル実装と検証を継続し、迂回送信していない。実API接続、実注文、秘密情報の公開なし。
+
 
 ## 2026-10-06 20:18 JST - D084 h20 51-feature final candidates started
 

@@ -38,6 +38,7 @@ SOURCE_FILES = [
     "operations/models.py",
     "operations/store.py",
     "operations/daily.py",
+    "operations/chatgpt_research.py",
     "operations/manual_portfolio.py",
     "operations/manual_settings.py",
     "operations/personal.py",
