@@ -72,9 +72,9 @@ async function drive(
         // completed. Inspect the specific execution before changing its state.
         result = await ChatGPT.recoverExecution({ attemptId: attempt.attempt_id });
       }
-      if (result.requestSha256 && result.requestSha256 !== claim.request_sha256) {
-        throw new Error("調査入力と受取記録が一致しません。自動再送せず停止しました。");
-      }
+    }
+    if ((result.state === "completed" || result.requestSha256) && (!claim.request_sha256 || result.requestSha256 !== claim.request_sha256)) {
+      throw new Error("調査入力と受取記録が一致しません。自動再送せず停止しました。");
     }
     const saved = await saveExecution(attempt.attempt_id, result);
     if (saved.record) return saved;

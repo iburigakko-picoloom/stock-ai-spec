@@ -128,10 +128,11 @@ final class DailyResearch {
                     if (error instanceof InterruptedException) throw error;
                     execution = provider.recover(id); // A timeout never proves non-dispatch.
                 }
-                if (execution.has("requestSha256") && !execution.getString("requestSha256").equals(claim.getString("request_sha256")))
-                    throw new IOException("ATTEMPT_REQUEST_CHANGED");
             } else throw new IOException("INVALID_RESEARCH_CLAIM");
             check();
+            if ((execution.optString("state").equals("completed") || execution.has("requestSha256"))
+                    && !execution.optString("requestSha256").equals(claim.getString("request_sha256")))
+                throw new IOException("ATTEMPT_REQUEST_CHANGED");
             if (!id.equals(execution.getString("attemptId"))) throw new IOException("INVALID_ATTEMPT_ID");
             String outcome = execution.getString("state");
             if (outcome.equals("running")) return false;

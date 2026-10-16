@@ -16,7 +16,7 @@ const base: ResearchRunView = {
 const firstAttempt = { attempt_id: "a".repeat(32), run_id: "run", phase: "independent" as const, status: "running" as const,
   started_at: "2026-10-16T11:36:00+09:00", finished_at: null, pass_id: null, error_code: null };
 const secondAttempt = { ...firstAttempt, attempt_id: "b".repeat(32), phase: "comparison" as const };
-const output = (attemptId: string) => ({ attemptId, state: "completed" as const, startedAt: "2026-10-16T11:36:00+09:00",
+const output = (attemptId: string) => ({ attemptId, requestSha256: "digest", state: "completed" as const, startedAt: "2026-10-16T11:36:00+09:00",
   completedAt: "2026-10-16T11:37:00+09:00", response: { id: "provider", status: "completed" } });
 const firstSaved = { ...base, attempts: [{ ...firstAttempt, status: "completed" as const, pass_id: "first" }] };
 const pass = { pass_id: "first", context: base.run.context, phase: "independent" as const, served_model: configuration.model,
@@ -47,14 +47,14 @@ test("each phase commits before the next request and repeated callers share one 
 
 test("a completed native execution is recovered without issuing another provider call", async () => {
   vi.mocked(apiPost).mockImplementation(async path => path.endsWith("/claim")
-    ? { ...base, state: "running", attempt: secondAttempt } : done);
+    ? { ...base, state: "running", request_sha256: "digest", attempt: secondAttempt } : done);
   vi.mocked(ChatGPT.recoverExecution).mockResolvedValue(output(secondAttempt.attempt_id));
   expect(await runResearch("recover")).toEqual(done);
   expect(ChatGPT.respond).not.toHaveBeenCalled();
 });
 
 test("an observation failure leaves the pending attempt intact", async () => {
-  vi.mocked(apiPost).mockResolvedValue({ ...base, state: "running", attempt: firstAttempt });
+  vi.mocked(apiPost).mockResolvedValue({ ...base, state: "running", request_sha256: "digest", attempt: firstAttempt });
   vi.mocked(ChatGPT.recoverExecution).mockRejectedValue(new Error("native observation unavailable"));
   await expect(runResearch("unknown")).rejects.toThrow("observation unavailable");
   expect(apiPost).toHaveBeenCalledTimes(1);
@@ -73,7 +73,7 @@ test("bridge rejection recovers the specific execution before saving a terminal 
 
 test("provider limits are recorded and never trigger paid or alternate-model inference", async () => {
   vi.mocked(apiPost).mockImplementation(async path => path.endsWith("/claim")
-    ? { ...base, state: "running", attempt: firstAttempt }
+    ? { ...base, state: "running", request_sha256: "digest", attempt: firstAttempt }
     : { ...base, attempts: [{ ...firstAttempt, status: "failed", error_code: "subscription_sharing_usage_limit_exceeded" }] });
   vi.mocked(ChatGPT.recoverExecution).mockResolvedValue({ attemptId: firstAttempt.attempt_id, state: "failed", errorCode: "subscription_sharing_usage_limit_exceeded" });
   await expect(runResearch("limited")).rejects.toThrow("利用上限");
@@ -85,7 +85,7 @@ test("provider limits are recorded and never trigger paid or alternate-model inf
 
 test("failed ledger persistence retains the native response for a later recovery", async () => {
   vi.mocked(apiPost).mockImplementation(async path => {
-    if (path.endsWith("/claim")) return { ...base, state: "running", attempt: secondAttempt };
+    if (path.endsWith("/claim")) return { ...base, state: "running", request_sha256: "digest", attempt: secondAttempt };
     throw new Error("durable write failed");
   });
   vi.mocked(ChatGPT.recoverExecution).mockResolvedValue(output(secondAttempt.attempt_id));
@@ -95,8 +95,18 @@ test("failed ledger persistence retains the native response for a later recovery
 });
 
 test("a still-running native request stays pending and is not marked failed", async () => {
-  vi.mocked(apiPost).mockResolvedValue({ ...base, state: "running", attempt: firstAttempt });
+  vi.mocked(apiPost).mockResolvedValue({ ...base, state: "running", request_sha256: "digest", attempt: firstAttempt });
   vi.mocked(ChatGPT.recoverExecution).mockResolvedValue({ attemptId: firstAttempt.attempt_id, state: "running" });
   await expect(runResearch("running")).rejects.toThrow("実行中");
   expect(apiPost).toHaveBeenCalledTimes(1);
+});
+
+
+test("recovered native output with a different input hash stays pending without receipt or acknowledgment", async () => {
+  vi.mocked(apiPost).mockResolvedValue({ ...base, state: "running", request_sha256: "digest", attempt: firstAttempt });
+  vi.mocked(ChatGPT.recoverExecution).mockResolvedValue({ ...output(firstAttempt.attempt_id), requestSha256: "foreign-request" });
+  await expect(runResearch("foreign-recovery")).rejects.toThrow("調査入力と受取記録が一致しません");
+  expect(apiPost).toHaveBeenCalledTimes(1);
+  expect(ChatGPT.respond).not.toHaveBeenCalled();
+  expect(ChatGPT.forgetExecution).not.toHaveBeenCalled();
 });

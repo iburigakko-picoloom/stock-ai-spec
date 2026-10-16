@@ -1406,13 +1406,25 @@ class OperationalStore:
             view = self._research_view(connection, run)
             if view["record"] is not None:
                 return {"state": "completed", **view}
-            for attempt in view["attempts"]:
-                if attempt["status"] == "running":
-                    return {"state": "running", "attempt": attempt, **view}
             first = next((
                 ResearchPass.model_validate(item) for item in view["passes"]
                 if item["phase"] == "independent"
             ), None)
+            for attempt in view["attempts"]:
+                if attempt["status"] == "running":
+                    if attempt["phase"] == "independent":
+                        request = independent_request(run.context)
+                    else:
+                        if first is None:
+                            raise OperationalIntegrityError(
+                                "Comparison missing independent research"
+                            )
+                        request = comparison_request(
+                            run.context, first,
+                            _chatgpt_snapshot(connection, run.context.prediction_snapshot_id),
+                        )
+                    return {"state": "running", "attempt": attempt, **view,
+                            "request_sha256": content_id(request)}
             phase: Literal["independent", "comparison"] = (
                 "independent" if first is None else "comparison"
             )

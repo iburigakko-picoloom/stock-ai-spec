@@ -52,12 +52,16 @@ def test_durable_claim_prevents_duplicate_calls_and_receipts_are_atomic(tmp_path
     repeated = store.claim_research(run_id, now=START + timedelta(minutes=1))
     assert repeated["state"] == "running"
     assert repeated["attempt"] == first["attempt"]
+    assert repeated["request_sha256"] == first["request_sha256"]
     assert "request_json" not in repeated
     result = complete_phase(store, first, 1)
     assert len(result["passes"]) == 1 and result["record"] is None
     assert complete_phase(store, first, 1) == result
     reopened = OperationalStore(store.path)
     second = reopened.claim_research(run_id, now=START + timedelta(minutes=3))
+    assert reopened.claim_research(run_id, now=START + timedelta(minutes=3))[
+        "request_sha256"
+    ] == second["request_sha256"]
     assert second["attempt"]["phase"] == "comparison"
     assert result["passes"][0]["text"] in second["request_json"]
     final = complete_phase(reopened, second, 3)

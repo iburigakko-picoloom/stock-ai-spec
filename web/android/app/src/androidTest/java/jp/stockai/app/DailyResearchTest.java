@@ -117,6 +117,15 @@ public class DailyResearchTest {
         assertEquals(2, events.stream().filter(e -> e.startsWith("send:")).count());
         assertEquals(2, events.stream().filter(e -> e.equals("ack:1000-0")).count());
     }
+    @Test public void recoveredResponseWithAnotherRequestHashIsNeverCommittedOrAcknowledged() throws Exception {
+        failCommit = true;
+        try { driver().step(); fail("failed commit accepted"); } catch (IOException expected) { }
+        failCommit = false; executions.get("1000-0").put("requestSha256", "another-request");
+        events.clear();
+        try { driver().step(); fail("foreign response accepted"); }
+        catch (IOException expected) { assertEquals("ATTEMPT_REQUEST_CHANGED", expected.getMessage()); }
+        assertFalse(events.stream().anyMatch(e -> e.endsWith("/receipt") || e.startsWith("ack:") || e.startsWith("send:")));
+    }
     @Test public void selectionChangeAndRestoredMissingRecordCannotClaimCompletion() throws Exception {
         assertTrue(driver().step()); effort = "max";
         assertFalse(driver().step()); assertEquals(1, events.stream().filter(e -> e.startsWith("send:")).count());
