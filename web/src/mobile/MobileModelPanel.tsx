@@ -72,7 +72,7 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
   const twenty = new Map(run?.outputs.find(x => x.horizon === 20 && x.task === "regression")?.values ?? []);
   const symbols = [...five.keys()].filter(symbol => twenty.has(symbol)).sort();
   return <section className="section model-panel" aria-label="端末内のモデルと予測">
-    <h2>端末で使うモデル</h2>
+    <h2>モデルと計算</h2>
     <p>確認済みの一式：{model?.approved_bundle_count ?? 0}件／端末へ取込済み：{model?.imported_bundle_count ?? 0}件</p>
     <p>5日・20日のモデル、下振れ、大幅下落確率、校正情報を一度に取り込みます。</p>
     <p>実運用の採用確認：{model?.model_adopted ? "確認済み" : "未完了・研究用"}</p>
@@ -93,11 +93,7 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
     <p role="status">{message}</p>
     {run && <div className="forecast-state">
       <p>判定時点：{timestamp(run.scope.as_of)}</p>
-      <p>確認：{timestamp(run.checked_at)}</p>
-      <p>株価・時価総額：{run.scope.universe?.latest_source_date ?? "未確認"}</p>
-      {run.snapshot && <><p>数値生成：{timestamp(run.snapshot.generated_at)}</p><p>参照情報の受領：{timestamp(run.snapshot.data_as_of)}</p></>}
       <p>推奨株数：{decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>
-      {decision && <p>株数判定の生成：{timestamp(decision.checked_at)}</p>}
       {decision?.is_active && <Link className="button button--secondary" to="/today">今日の判定を見る</Link>}
       {decision?.phase === "published" && !decision.is_active && <p>保存後に入力や計算対象が変わっています。最新の条件を確認して再実行してください。</p>}
       {decision?.phase === "computed" && <p>株数の保存が途中です。同じ計算を実行すると保存を再開します。</p>}
@@ -105,6 +101,12 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
       {run.outcome === "cash_only" && <p>対象銘柄と保有がないため、銘柄の数値予測はありません。</p>}
       {run.phase === "computed" && <p>保存の確定を確認できません。同じ計算を実行すると保存を再開します。</p>}
       {run.blocking_reasons.length > 0 && <ul>{run.blocking_reasons.map(code => <li key={code}>{reason(code)}</li>)}</ul>}
+      <details><summary>計算時刻・参照情報</summary>
+        <p>確認：{timestamp(run.checked_at)}</p>
+        <p>株価・時価総額：{run.scope.universe?.latest_source_date ?? "未確認"}</p>
+        {run.snapshot && <><p>数値生成：{timestamp(run.snapshot.generated_at)}</p><p>参照情報の受領：{timestamp(run.snapshot.data_as_of)}</p></>}
+        {decision && <p>株数判定の生成：{timestamp(decision.checked_at)}</p>}
+      </details>
       {run.excluded_candidates.length > 0 && <details><summary>履歴不足で予測を見送った候補 {run.excluded_candidates.length}社</summary>
         <p>{run.excluded_candidates.map(x => x.symbol).join("、")}</p></details>}
       {symbols.length > 0 && <details><summary>算出できた予測を見る {symbols.length}社</summary>

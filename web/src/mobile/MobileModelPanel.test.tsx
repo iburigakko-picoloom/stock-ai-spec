@@ -77,6 +77,7 @@ test("quantity save failure preserves the already saved numerical stage", async 
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("株数の保存を再開"));
+  fireEvent.click(screen.getByText("計算時刻・参照情報"));
   expect(screen.getByText(/数値生成：/)).toBeVisible();
   expect(screen.queryByRole("link", { name: "今日の判定を見る" })).not.toBeInTheDocument();
 });

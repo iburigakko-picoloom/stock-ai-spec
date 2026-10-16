@@ -6,7 +6,9 @@
 - 同じ数値計算時に固定した当日一覧、前営業日の未調整終値、20営業日の売買代金を正確なobservation IDとhashで読み出す。現在の一覧にない保有の情報も固定した過去の銘柄一覧から取得。PC/WASM比較でPandas dtypeを含むframe hashの実行環境差を確認したため、株数用の銘柄情報は元データの受領証拠を直接照合する。訂正や破損を古い予測へ混ぜない。
 - 保存前の本人入力・補足設定・約定集合・選択原予測を同じSQL transactionで再確認し、提案・archive・方針・当日状態を一度に保存。計算intentの後/共有保存の後に停止しても、同じ数値と生成時刻から再開。起動時に未保存の提案を自動生成しない。数値/株数の選択履歴を保存し、失敗後に古い予測へfallbackしない。入力変更後の提案表示と直接reviewを止め、原記録は保持する。
 - 対象株と保有が空なら、本人の現金・税・約定の整合を確認してCASH_ONLYとして正常完了。仮の銘柄予測・提案・残高変更を作らない。再試行や復元で生成時刻を更新せず、再確認時刻を分離。保存済みの本人判断を再試行で消さない。
-- ローカル検証：関連Python298件、追加した元データ照合/破損試験を含む31件、最後に加えた選択復旧を含む予測/株数/backup36件がpass。Ruff・mypy66 source（標準/win32）、フロント63件・TypeScript/ESLint/build、全WASM/市場・本人設定画面6件、既存調査画面2件もpass。PC/WASMで137株の保有を37株へ縮小し、2候補を各100株へ変更する非ゼロ費用・売却税付きの保存結果と復元が一致。source監査772 files・private keys/models/market files0、package監査29共有source・model0もpass。新規の株数15件・予測12件と台帳/API回帰をCIへ接続し、結果は確認後に追記する。
+- ローカル検証：関連Python298件、追加した元データ照合/破損試験を含む31件、最後に加えた選択復旧を含む予測/株数/backup36件がpass。Ruff・mypy66 source（標準/win32）、フロント63件・TypeScript/ESLint/build、全WASM/市場・本人設定画面6件、既存調査画面2件もpass。PC/WASMで137株の保有を37株へ縮小し、2候補を各100株へ変更する非ゼロ費用・売却税付きの保存結果と復元が一致。source監査772 files・private keys/models/market files0、package監査29共有source・model0もpass。
+- 実装62a1069の[run38963100832](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38963100832)でAndroid/verify両job成功、release skip。新規の株数15件・予測12件と台帳/API回帰を含む共有Python301件・追加platform6件、フロント63件、WASM/市場画面6件と調査画面2件がpass。native JUnit27件・失敗/error/skip0を原本で確認。source監査772 files・私有ファイル0。証拠は`.demo-artifacts/native-shares-ci-38963100832`、`share-publication-ci-verify.log`と`share-publication-ci-evidence.json`。
+- 追加の画面整理では短い見出しと判定時点・株数状態を表に出し、計算時刻・参照情報を折りたたみへ移動。TypeScript/ESLint/build・フロント63件と320/390px・文字150%の2件を再確認し、320pxのモデル/株数パネル画像を目視確認した。リンクを含む48px対象と12px間隔を維持。
 - 承認済みモデルは0件。通常の開始・毎営業日background・通知、実市場NAV/認証済み採用/holdout、実アカウントの検索・利用資格、Xiaomi実機と同署名更新は未完。研究worker再開・学習・実注文・main merge・APK公開なし。前回文書1a715ecのrun38957628011はAndroid/verify両job成功、release skipを確認。
 
 ## 2026-10-17 — 300社と全保有に対応する有限回の株数探索
