@@ -82,4 +82,45 @@ public class LocalComputeOwnerTest {
         assertEquals(original, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
         assertFalse(result(owner.request("GET", "/api/v1/health", "null")).getJSONObject("body").getBoolean("orderSubmissionAvailable"));
     }
+
+    @Test public void headlessDailyPipelineCommitsActualCoreReceiptAndResumesAfterOwnerRecreation() throws Exception {
+        String prior = java.time.LocalDate.now(DailyPipeline.JST).minusDays(1).toString();
+        java.util.List<String> events = new java.util.ArrayList<>();
+        DailyPipeline.Market fixture = new DailyPipeline.Market() {
+            public org.json.JSONObject fetch(boolean membership, String day, java.util.function.BooleanSupplier stop) throws Exception {
+                // Calendar-only synthetic closed days stay inside this isolated
+                // test database. No key, account or adopted model is supplied.
+                return new MarketDownload(owner.state.database, (endpoint, selected, cursor) -> {
+                    if (!endpoint.equals("/markets/calendar")) throw new AssertionError("holiday fetched market rows");
+                    events.add("remote:" + day);
+                    org.json.JSONObject calendar = new org.json.JSONObject().put("Date", day).put("HolDiv", "0");
+                    return new org.json.JSONObject().put("status", 200).put("received_at", java.time.Instant.now().toString())
+                        .put("body", new org.json.JSONObject().put("data", new org.json.JSONArray().put(calendar)).put("pagination_key", ""));
+                }, membership).fetch(day, 4, stop);
+            }
+            public void acknowledge(boolean membership, String day, String id) throws Exception {
+                if (!membership) {
+                    org.json.JSONObject saved = result(owner.request("GET", "/api/v1/mobile/market", "null")).getJSONObject("body");
+                    assertTrue(saved.getJSONArray("completed_dates").toString().contains(day));
+                    events.add("committed-before-ack:" + day);
+                }
+                new MarketDownload(owner.state.database, (e, d, c) -> { throw new AssertionError("ack made a request"); }, membership).acknowledge(day, id);
+            }
+        };
+        DailyPipeline.Progress progress = new DailyPipeline.Progress() {
+            public void state(String value, String day) { events.add("state:" + value); }
+            public void notice(String key, String text) { events.add("notice:" + key); }
+        };
+        DailyPipeline.Core core = (method, path, body) -> result(owner.request(method, path, body));
+        assertTrue(new DailyPipeline(core, fixture, progress, () -> false, java.time.Instant::now).tick(prior));
+        assertTrue(events.contains("committed-before-ack:" + prior));
+        int fetched = (int) events.stream().filter(e -> e.equals("remote:" + prior)).count();
+        assertEquals(1, fetched);
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        new DailyPipeline(core, fixture, progress, () -> false, java.time.Instant::now).tick(prior);
+        assertEquals(fetched, events.stream().filter(e -> e.equals("remote:" + prior)).count());
+        assertFalse(events.contains("state:numerical_saved"));
+        assertTrue(result(owner.request("GET", "/api/v1/mobile/market", "null")).getJSONObject("body")
+            .getJSONArray("completed_dates").toString().contains(prior));
+    }
 }
