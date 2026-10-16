@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-10-17 — 復元前のSQLite接続を明示的に終了
+
+- CI履歴を再確認し、ab608e6のrun38946144536で旧入力の2回目復元に`database is locked`が発生していたことを確認。Android jobは成功したがverifyは127件pass/1件failであり、このrun全体を成功とは扱わない。
+- Python SQLiteのtransaction contextだけでは接続が閉じないため、端末内の個人設定・市場・当日一覧・候補・モデル・原予測の接続を、commit/rollback後に必ずcloseする共通contextへ変更。backupのprobe・出力・入力接続も例外時にcloseする。保存schemaと原payloadは変えず、GCによる解放を待たない。
+- 開いた接続すべてへの強参照を残したまま3回の復元と各画面の読取を行い、全接続が閉じていることを検証する回帰試験を追加。関連端末内Python92件がpass。最新sourceのAndroid CIで再確認する。実注文・実API・新たな学習やholdout開封なし。
+
 ## 2026-10-17 — 校正付きモデル一式と端末内の原予測保存
 
 - private bundleへ5日/20日回帰・20日下振れ分位点・大幅下落確率の4head、凍結特徴量ID、学習/校正の時点、RMSE根拠、risk定義、同じモデル選択の本人レビューをまとめた。PCの作成コマンドは1ファイルと未承認pin案だけを作り、上書き・自己承認・新規学習・holdout開封を行わない。運用手順は`docs/MOBILE_MODEL_BUNDLE.md`。

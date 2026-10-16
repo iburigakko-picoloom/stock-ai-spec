@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 import zlib
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -12,6 +11,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from stock_ai.data.normalize import canonical_payload_hash
+
+from .storage import connect
 
 _CODE = re.compile(r"[0-9A-Z]{4}[0-9]")
 _MARKETS = frozenset(("0111", "0112", "0113"))
@@ -63,7 +64,7 @@ def _observations(path, dataset, first, last, cutoff):
         ") SELECT sequence,day,received_at,payload_hash,raw FROM versions WHERE n=1 "
         "ORDER BY received_at,sequence"
     )
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         for sequence, day, received, digest, raw in db.execute(query, values):
             records = json.loads(zlib.decompress(raw))
             if canonical_payload_hash(tuple(records)) != digest:

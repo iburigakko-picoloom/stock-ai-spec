@@ -6,7 +6,6 @@ import hashlib
 import io
 import json
 import re
-import sqlite3
 import zlib
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -19,9 +18,11 @@ from stock_ai.data.normalize import canonical_payload_hash, normalize_payload
 from stock_ai.data.production import build_production_data
 from stock_ai.data.quality import require_quality, validate_rows
 
+from .storage import connect
+
 
 def initialize(path: Path) -> None:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.execute("BEGIN IMMEDIATE")
         # v1 keyed observations only by content. Preserve a later observation
         # when a corrected value returns to an earlier value (A -> B -> A).
@@ -72,7 +73,7 @@ def initialize(path: Path) -> None:
 
 
 def plan(path: Path, payload: dict | None = None) -> dict | None:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         if payload is not None:
             first, last = date.fromisoformat(payload["first_day"]), date.fromisoformat(
                 payload["last_day"]
@@ -198,7 +199,7 @@ def ingest(path: Path, payload: dict) -> dict:
                 hashlib.sha256(normalized).hexdigest(),
             )
         )
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         # Publish a day only after every dataset passes. The previous good day
         # remains the latest if any endpoint returns 403 or fails validation.
         if "acquisitionId" in payload:
@@ -229,7 +230,7 @@ def ingest(path: Path, payload: dict) -> dict:
 
 
 def status(path: Path) -> dict:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         row = db.execute("SELECT MAX(day),COUNT(*) FROM market_days").fetchone()
         completed = [item[0] for item in db.execute("SELECT day FROM market_days ORDER BY day")]
         receipts = [{"date": day, "acquisitionId": identity} for day, identity in db.execute(
@@ -255,7 +256,7 @@ class SQLiteSource:
             raise ValueError("Aware cutoff required")
         parts = []
         total = 0
-        with sqlite3.connect(self.path) as db:
+        with connect(self.path) as db:
             # Each endpoint response is a complete daily snapshot. A correction
             # that removes a row must not resurrect it from an older response.
             rows = db.execute(
@@ -305,7 +306,7 @@ def feature_inputs(path: Path, as_of: datetime) -> dict:
     bundle = build_production_data(
         SQLiteSource(path), source_snapshot_as_of=cutoff, proposal_as_of=cutoff
     )
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         latest_receipt = db.execute(
             "SELECT MAX(received_at) FROM market_batches WHERE received_at<=?",
             (cutoff.astimezone(UTC).isoformat(timespec="microseconds"),),

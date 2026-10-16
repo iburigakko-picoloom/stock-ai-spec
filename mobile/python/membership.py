@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 import zlib
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -14,12 +13,13 @@ from stock_ai.data.contracts import DatasetName
 from stock_ai.data.quality import require_quality, validate_rows
 
 from .market import receipt_identity, receipt_time
+from .storage import connect
 
 JST = ZoneInfo("Asia/Tokyo")
 
 
 def initialize(path: Path) -> None:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.execute(
             "CREATE TABLE IF NOT EXISTS mobile_membership("
             "sequence INTEGER PRIMARY KEY,acquisition_id TEXT NOT NULL UNIQUE,"
@@ -74,7 +74,7 @@ def ingest(path: Path, payload: dict, now: datetime) -> dict:
     content = json.dumps(payload, sort_keys=True, allow_nan=False).encode()
     if len(content) > 64 * 1024 * 1024:
         raise ValueError("Membership size limit")
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         previous = db.execute(
             "SELECT payload_hash FROM mobile_membership WHERE acquisition_id=?", (acquisition,)
         ).fetchone()
@@ -91,7 +91,7 @@ def snapshot(path: Path, as_of: datetime) -> dict | None:
     if as_of.tzinfo is None:
         raise ValueError("Aware membership cutoff required")
     day = as_of.astimezone(JST).date()
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         row = db.execute(
             "SELECT acquisition_id,payload_hash,raw,received_at FROM mobile_membership "
             "WHERE day=? AND received_at<=? ORDER BY received_at DESC,sequence DESC LIMIT 1",

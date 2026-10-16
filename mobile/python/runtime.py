@@ -8,6 +8,7 @@ import io
 import json
 import sqlite3
 import zipfile
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -24,6 +25,7 @@ from . import forecasts, market, membership, models, personal, universe
 from .features import bundled_selection, calculate
 from .model_bundle import parity as bundle_parity
 from .portable_model import predict
+from .storage import connect
 
 STATE = Path("/stockai-state")
 _app = None
@@ -51,11 +53,10 @@ def initialize(encoded: str = "") -> dict:
                 if not content.startswith(b"SQLite format 3\x00"):
                     raise ValueError("Invalid SQLite backup")
                 # Verify BEFORE replacing any current state.
-                probe = sqlite3.connect(":memory:")
-                probe.deserialize(content)
-                if probe.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                    raise ValueError("Invalid SQLite integrity")
-                probe.close()
+                with closing(sqlite3.connect(":memory:")) as probe:
+                    probe.deserialize(content)
+                    if probe.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                        raise ValueError("Invalid SQLite integrity")
                 (STATE / name).write_bytes(content)
     _app = create_app(STATE / "operations.sqlite3")
 
@@ -89,22 +90,20 @@ def initialize(encoded: str = "") -> dict:
 
 
 def mobile_db():
-    return sqlite3.connect(STATE / "mobile.sqlite3")
+    return connect(STATE / "mobile.sqlite3")
 
 
 def export_state() -> str:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         for name in ("operations.sqlite3", "mobile.sqlite3"):
-            connection = sqlite3.connect(STATE / name)
             backup_path = STATE / "export.sqlite3"
-            target = sqlite3.connect(backup_path)
-            connection.backup(target)
-            target.execute("PRAGMA journal_mode=DELETE")
-            target.close()
+            with closing(sqlite3.connect(STATE / name)) as connection:
+                with closing(sqlite3.connect(backup_path)) as target:
+                    connection.backup(target)
+                    target.execute("PRAGMA journal_mode=DELETE")
             archive.writestr(name, backup_path.read_bytes())
             backup_path.unlink()
-            connection.close()
     return base64.b64encode(output.getvalue()).decode("ascii")
 
 

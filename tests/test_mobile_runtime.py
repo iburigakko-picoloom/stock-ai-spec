@@ -4,6 +4,7 @@ import asyncio
 import base64
 import io
 import json
+import sqlite3
 import zipfile
 
 import pytest
@@ -27,6 +28,30 @@ def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):
     assert response["body"]["orderSubmissionAvailable"] is False
     assert run(device, "POST", "/api/v1/orders", {})["status"] == 404
     assert run(device, "GET", "https://foreign.example/api/v1/health")["status"] == 400
+
+
+def test_all_local_connections_close_before_repeated_backup_restore(device, monkeypatch):
+    original = sqlite3.connect
+    opened = []
+
+    def track(*args, **kwargs):
+        connection = original(*args, **kwargs)
+        opened.append(connection)  # Keep strong refs: do not rely on garbage collection.
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", track)
+    try:
+        for _ in range(3):
+            device.initialize(device.export_state())
+            for endpoint in ("models", "daily", "market/plan", "market/membership",
+                             "market/universe", "personal/settings"):
+                assert run(device, "GET", "/api/v1/mobile/" + endpoint)["status"] == 200
+            for connection in opened:
+                with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+                    connection.execute("SELECT 1")
+    finally:
+        for connection in opened:
+            connection.close()
 
 
 def test_bundle_probe_never_imports_approves_or_publishes_a_prediction(device, monkeypatch):

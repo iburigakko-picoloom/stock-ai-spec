@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -15,12 +14,13 @@ from stock_ai.operations.daily import PredictionSnapshot, canonical_json, conten
 from . import market, models, universe
 from .features import bundled_selection, calculate
 from .portable_model import predict
+from .storage import connect
 
 JST = ZoneInfo("Asia/Tokyo")
 
 
 def initialize(path: Path) -> None:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.execute(
             "CREATE TABLE IF NOT EXISTS mobile_forecast_runs("
             "sequence INTEGER PRIMARY KEY,run_id TEXT NOT NULL UNIQUE,scope_hash TEXT NOT NULL "
@@ -77,7 +77,7 @@ def _publish(path: Path, store, value: dict) -> dict:
             snapshot, expected_manual_revision_id=value["scope"]["manual_revision_id"],
             expected_portfolio_id=value["scope"]["ledger_portfolio_id"],
         )
-        with sqlite3.connect(path) as db:
+        with connect(path) as db:
             db.execute("UPDATE mobile_forecast_runs SET phase='published' WHERE run_id=?",
                        (value["run_id"],))
         value["phase"] = "published"
@@ -94,7 +94,7 @@ def _save(path: Path, store, scope: dict, now: datetime, *, snapshot=None,
             "blocking_reasons": list(blocks), "data_proof": proof,
             "research_only": True, "order_submission": False}
     body["run_id"] = content_id(body)
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.execute("INSERT OR IGNORE INTO mobile_forecast_runs VALUES(NULL,?,?,?,?,?)", (
             body["run_id"], scope_hash, canonical_json(body), content_id(body),
             "computed" if snapshot is not None else outcome,
@@ -107,7 +107,7 @@ def _save(path: Path, store, scope: dict, now: datetime, *, snapshot=None,
 
 
 def latest(path: Path) -> dict | None:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         row = db.execute(
             "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_forecast_runs "
             "ORDER BY sequence DESC LIMIT 1"
@@ -116,7 +116,7 @@ def latest(path: Path) -> dict | None:
 
 
 def reconcile_publications(path: Path, store) -> None:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         rows = db.execute(
             "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_forecast_runs "
             "WHERE phase='computed' ORDER BY sequence"
@@ -150,7 +150,7 @@ def generate(path: Path, store, now: datetime) -> dict:
         return blocked("PERSONAL_HOLDINGS_UNCONFIRMED")
     if max(manual.received_at, manual.export.saved_at, ledger.as_of) > cutoff:
         return blocked("PERSONAL_INPUT_AFTER_ALPHA_CUTOFF")
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         receipt = db.execute("SELECT created_at FROM portfolio_states WHERE portfolio_id=?",
                              (ledger.portfolio_id,)).fetchone()
     if receipt is None or datetime.fromisoformat(receipt[0]) > cutoff:
@@ -202,7 +202,7 @@ def generate(path: Path, store, now: datetime) -> dict:
         raise ValueError("Source receipt after alpha cutoff")
     proof["latest_source_received_at"] = data_as_of.isoformat()
     scope["data_proof_hash"] = content_id(proof)
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         existing = db.execute(
             "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_forecast_runs "
             "WHERE scope_hash=?", (content_id(scope),)

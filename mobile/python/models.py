@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,6 +11,7 @@ from .features import bundled_selection, calculate
 from .market import feature_inputs
 from .model_bundle import approved
 from .portable_model import predict
+from .storage import connect
 
 
 def policy() -> dict:
@@ -22,7 +22,7 @@ def policy() -> dict:
 
 
 def initialize(path: Path) -> None:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.execute(
             "CREATE TABLE IF NOT EXISTS mobile_models("
             "sha256 TEXT PRIMARY KEY, payload TEXT NOT NULL, imported_at TEXT NOT NULL)"
@@ -47,7 +47,7 @@ def import_bundle(path: Path, content: str, now: datetime) -> dict:
     if now.tzinfo is None or bundle.created_at > now:
         raise ValueError("Invalid model import time")
     digest = entry["sha256"]
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         # All four heads, calibration and review are validated before a single
         # immutable write. No partial head import can become usable.
         db.execute("BEGIN IMMEDIATE")
@@ -81,7 +81,7 @@ def import_bundle(path: Path, content: str, now: datetime) -> dict:
 def load_bundle(path: Path, cutoff: datetime):
     if cutoff.tzinfo is None:
         raise ValueError("Aware model cutoff required")
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         row = db.execute(
             "SELECT b.sha256,b.payload,b.imported_at,s.selected_at FROM mobile_model_selections s "
             "LEFT JOIN mobile_model_bundles b ON b.sha256=s.sha256 "
@@ -133,7 +133,7 @@ def import_model(path: Path, content: str) -> dict:
     if model["task"] != entry["task"] or not set(model["preprocessor"]["retained"]) <= set(names):
         raise ValueError("Model feature/task mismatch")
     predict(model, [])  # Validate scalar inference contract before persistence.
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.execute(
             "INSERT OR IGNORE INTO mobile_models VALUES(?,?,?)",
             (digest, content, datetime.now(UTC).isoformat()),
@@ -142,7 +142,7 @@ def import_model(path: Path, content: str) -> dict:
 
 
 def status(path: Path, store=None) -> dict:
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         imported = {row[0] for row in db.execute("SELECT sha256 FROM mobile_models")}
         bundles = {row[0] for row in db.execute("SELECT sha256 FROM mobile_model_bundles")}
     current = policy()
@@ -184,7 +184,7 @@ def infer(path: Path, now: datetime) -> dict:
         raise ValueError("MODEL_NOT_ADOPTED")
     features = calculate(feature_inputs(path, now), bundled_selection())
     result = []
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         for item in approved:
             row = db.execute(
                 "SELECT payload FROM mobile_models WHERE sha256=?", (item["sha256"],)
