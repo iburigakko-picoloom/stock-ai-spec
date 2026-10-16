@@ -3,6 +3,7 @@ import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  build: { rolldownOptions: { input: { app: "index.html", compute: "compute.html" } } },
   server: {
     host: "127.0.0.1",
     port: 5173,
@@ -12,7 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    exclude: [...configDefaults.exclude, "e2e/**", "mobile-tests/**", "android/**"],
+    exclude: [...configDefaults.exclude, "e2e/**", "mobile-tests/**", "compute-tests/**", "android/**"],
     setupFiles: "./src/test-setup.ts",
   },
 });

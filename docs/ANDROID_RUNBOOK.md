@@ -14,6 +14,8 @@
 
 ## 端末内の構成
 
+計算はD122のapplication-owned窓口へ集約する。UIはnativeへローカルAPI要求を送り、同じAPK内の隔離WebView/Workerと1つの暗号化writerを共有する。画面側に別のPython状態・世代counterを作らない。POSTの応答はnative commit後、保存失敗時は未確定interpreterを破棄し、最後のdurable stateから再起動する。復元は元のdurable dataを保持したまま別hostで検証するが、同時に2つのWASM heapを保持しない。この共通化だけでOSのbackground実行・日次予約・通知が完成したとは扱わない。
+
 Capacitor8.5.3、Android8/API26以上、更新済みAndroid System WebViewを対象にする。Pyodide0.29.3の本体と21依存をSHA-256で固定し、すべてAPK内へ含める。初回起動時のCDN取得は不要。専用Web WorkerでPCの具体的な特徴量/費用/税/判断/台帳/APIを実行する。desktop ingestion facadeとfixture bootstrapだけをmobile namespaceへ置き換える。計算式は複製しない。現時点のPC/WASM一致試験は合成4銘柄・41/51列、小数7桁。実機での時間・RAM・大量データの能力は別途測定する。
 
 APIキーはnative Android KeystoreのAES256-GCM鍵で暗号化し、JavaからJ-Quantsへだけ送信する。キー値の読出しAPI、ブラウザー保存、ログ記録は実装しない。口座/設定/台帳/市場データは端末の非公開SQLiteとKeystore暗号化した保存領域へ置く。保存の確定応答はnative SQLite transactionのcommit後。APK更新でapplicationId、署名、保存名を変更しない。自動OSバックアップは無効にする。

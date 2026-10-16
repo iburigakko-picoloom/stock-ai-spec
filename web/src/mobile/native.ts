@@ -11,6 +11,8 @@ export interface ReleaseInfo {
   notes: string; sha256: string; url: string; size: number;
 }
 export interface StockAINative {
+  compute(input: { method: "GET" | "POST"; path: string; body: string }): Promise<{ status: number; body: unknown }>;
+  restoreState(input: { payload: string }): Promise<{ generation: number }>;
   readState(): Promise<NativeState>;
   writeState(input: NativeState): Promise<{ generation: number }>;
   keyStatus(): Promise<{ configured: boolean }>;

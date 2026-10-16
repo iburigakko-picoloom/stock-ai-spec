@@ -67,4 +67,38 @@ public class StatePersistenceTest {
         try { plugin.readStateData(); fail("tampered ciphertext accepted"); }
         catch (javax.crypto.AEADBadTagException expected) { /* authenticated encryption */ }
     }
+
+    @Test public void oldSingleEnvelopeReadsAndUpgradesWithoutChangingItsPayload() throws Exception {
+        String payload = "synthetic legacy payload";
+        plugin.db.execSQL("INSERT INTO state(id,generation,payload) VALUES(1,7,?)", new Object[]{LocalStateStore.encrypt(payload)});
+        assertEquals(payload, plugin.readStateData().getString("payload"));
+        assertEquals(8, plugin.writeStateData(7, payload));
+        assertEquals(payload, plugin.readStateData().getString("payload"));
+        assertEquals(8, plugin.readStateData().getLong("generation"));
+    }
+
+    @Test public void independentHandlesNeverMixEnvelopeAndChunksFromDifferentGenerations() throws Exception {
+        SQLiteDatabase other = SQLiteDatabase.openOrCreateDatabase(file, null);
+        LocalStateStore writer = new LocalStateStore(plugin.db), reader = new LocalStateStore(other);
+        java.util.concurrent.ExecutorService threads = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.function.IntFunction<String> payload = number -> {
+                char[] text = new char[600000]; Arrays.fill(text, (char) ('0' + number)); return new String(text);
+            };
+            writer.write(0, payload.apply(1));
+            java.util.concurrent.Future<?> writes = threads.submit(() -> {
+                try { for (int index = 2; index <= 8; index++) writer.write(index - 1, payload.apply(index)); }
+                catch (Exception error) { throw new RuntimeException(error); }
+            });
+            java.util.concurrent.Future<?> reads = threads.submit(() -> {
+                try {
+                    for (int index = 0; index < 12; index++) {
+                        com.getcapacitor.JSObject saved = reader.read();
+                        assertEquals(payload.apply((int) saved.getLong("generation")), saved.getString("payload"));
+                    }
+                } catch (Exception error) { throw new RuntimeException(error); }
+            });
+            writes.get(60, java.util.concurrent.TimeUnit.SECONDS); reads.get(60, java.util.concurrent.TimeUnit.SECONDS);
+        } finally { threads.shutdownNow(); other.close(); }
+    }
 }

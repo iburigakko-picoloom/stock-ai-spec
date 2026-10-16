@@ -88,6 +88,7 @@ jobs:
           npm run build
           npx playwright install --with-deps chromium
           npx playwright test --config playwright.mobile.config.ts
+          npx playwright test --config playwright.compute.config.ts
           npx playwright test e2e/company-research.spec.ts
       - name: Validate package contents
         run: |

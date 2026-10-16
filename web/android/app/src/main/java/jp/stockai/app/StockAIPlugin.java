@@ -3,13 +3,10 @@ package jp.stockai.app;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import androidx.core.content.FileProvider;
 import androidx.activity.result.ActivityResult;
@@ -23,86 +20,32 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
 import org.json.*;
 
 @CapacitorPlugin(name = "StockAI")
 public class StockAIPlugin extends Plugin {
     static final String REPO = "iburigakko-picoloom/stock-ai-spec";
-    static final String KEY_ALIAS = "stockai-local-v1";
     final ExecutorService executor = Executors.newSingleThreadExecutor();
     final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     SQLiteDatabase db;
     volatile JSONObject pendingUpdate;
-    static final int STATE_CHUNK_CHARACTERS = 256 * 1024;
-    static final int MAX_STATE_CHARACTERS = 128 * 1024 * 1024;
-    static final String STATE_FORMAT = "stockai-state-chunks-v1:";
-
     static String hex(byte[] bytes) {
         StringBuilder result = new StringBuilder();
         for (byte value : bytes) result.append(String.format("%02x", value & 255));
         return result.toString();
     }
 
-    byte[] encryptChunk(String text, long generation, int index) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, key());
-        cipher.updateAAD(("state:" + generation + ":" + index).getBytes(StandardCharsets.US_ASCII));
-        ByteArrayOutputStream output = new ByteArrayOutputStream(); output.write(cipher.getIV());
-        output.write(cipher.doFinal(text.getBytes(StandardCharsets.UTF_8))); return output.toByteArray();
-    }
-
-    String decryptChunk(byte[] data, long generation, int index) throws Exception {
-        if (data.length < 28 || data.length > STATE_CHUNK_CHARACTERS * 4 + 28) throw new SecurityException();
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(128, Arrays.copyOfRange(data, 0, 12)));
-        cipher.updateAAD(("state:" + generation + ":" + index).getBytes(StandardCharsets.US_ASCII));
-        return new String(cipher.doFinal(data, 12, data.length - 12), StandardCharsets.UTF_8);
-    }
-
-    JSObject readStateData() throws Exception {
-        JSObject result = new JSObject().put("generation", 0).put("payload", "");
-        try (Cursor cursor = db.rawQuery("SELECT generation,payload FROM state WHERE id=1", null)) {
-            if (cursor.moveToFirst()) {
-                long generation = cursor.getLong(0);
-                String envelope = decrypt(cursor.getBlob(1));
-                String payload = envelope;
-                if (envelope.startsWith(STATE_FORMAT)) {
-                    JSONObject metadata = new JSONObject(envelope.substring(STATE_FORMAT.length()));
-                    int length = metadata.getInt("length"), count = metadata.getInt("chunks");
-                    if (length < 0 || length > MAX_STATE_CHARACTERS || count != (length + STATE_CHUNK_CHARACTERS - 1) / STATE_CHUNK_CHARACTERS) throw new SecurityException();
-                    StringBuilder content = new StringBuilder(length); MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                    int index = 0;
-                    try (Cursor chunks = db.rawQuery("SELECT piece,payload FROM state_chunks ORDER BY piece", null)) {
-                        while (chunks.moveToNext()) {
-                            if (chunks.getInt(0) != index || index >= count) throw new SecurityException();
-                            String fragment = decryptChunk(chunks.getBlob(1), generation, index++);
-                            if (fragment.length() > STATE_CHUNK_CHARACTERS) throw new SecurityException();
-                            digest.update(fragment.getBytes(StandardCharsets.UTF_8)); content.append(fragment);
-                        }
-                    }
-                    if (index != count || content.length() != length || !hex(digest.digest()).equals(metadata.getString("sha256"))) throw new SecurityException();
-                    payload = content.toString();
-                }
-                result.put("generation", generation); result.put("payload", payload);
-            }
-        }
-        return result;
-    }
+    LocalComputeOwner owner() throws Exception { return LocalComputeOwner.get(getContext()); }
+    LocalStateStore stateStore() { return new LocalStateStore(db); }
+    JSObject readStateData() throws Exception { return stateStore().read(); }
+    long writeStateData(long generation, String payload) throws Exception { return stateStore().write(generation, payload); }
+    void initializeStateTables() { stateStore(); }
 
     @Override public void load() {
-        db = getContext().openOrCreateDatabase("stockai-device.sqlite3", 0, null);
-        initializeStateTables();
-    }
-
-    void initializeStateTables() {
-        db.execSQL("CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK(id=1), generation INTEGER NOT NULL, payload BLOB NOT NULL)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS state_chunks (piece INTEGER PRIMARY KEY, payload BLOB NOT NULL)");
+        try { db = owner().state.database; }
+        catch (Exception ignored) { throw new IllegalStateException("LOCAL_STATE_UNAVAILABLE"); }
     }
 
     interface Work { void run() throws Exception; }
@@ -119,60 +62,31 @@ public class StockAIPlugin extends Plugin {
         }});
     }
 
-    synchronized SecretKey key() throws Exception {
-        KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
-        if (!store.containsAlias(KEY_ALIAS)) {
-            KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-            generator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setKeySize(256).build());
-            generator.generateKey();
-        }
-        return (SecretKey) store.getKey(KEY_ALIAS, null);
+    byte[] encrypt(String text) throws Exception { return LocalStateStore.encrypt(text); }
+    String decrypt(byte[] data) throws Exception { return LocalStateStore.decrypt(data); }
+
+    void completeLocal(PluginCall call, java.util.concurrent.CompletableFuture<JSObject> result) {
+        result.whenComplete((value, error) -> {
+            if (error != null) call.reject("端末の計算・保存を完了できませんでした。保存済みの状態から再試行してください。", "STOCKAI_COMPUTE_FAILED");
+            else call.resolve(value);
+        });
     }
 
-    byte[] encrypt(String text) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, key());
-        byte[] encrypted = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
-        ByteArrayOutputStream output = new ByteArrayOutputStream(); output.write(cipher.getIV()); output.write(encrypted); return output.toByteArray();
-    }
-    String decrypt(byte[] data) throws Exception {
-        if (data.length < 28) throw new SecurityException();
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(128, Arrays.copyOfRange(data, 0, 12)));
-        return new String(cipher.doFinal(data, 12, data.length - 12), StandardCharsets.UTF_8);
-    }
-
-    @PluginMethod public void readState(PluginCall call) { background(call, () -> {
-        call.resolve(readStateData());
+    @PluginMethod public void compute(PluginCall call) { background(call, () -> {
+        completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
-
-    long writeStateData(long generation, String payload) throws Exception {
-        if (generation < 0 || payload == null || payload.length() > MAX_STATE_CHARACTERS) throw new IllegalArgumentException();
-        db.beginTransaction();
-        try {
-            long current = 0;
-            try (Cursor cursor = db.rawQuery("SELECT generation FROM state WHERE id=1", null)) { if (cursor.moveToFirst()) current = cursor.getLong(0); }
-            if (current != generation) throw new IllegalStateException("state conflict");
-            db.execSQL("DELETE FROM state_chunks");
-            MessageDigest digest = MessageDigest.getInstance("SHA-256"); int index = 0;
-            for (int offset = 0; offset < payload.length(); offset += STATE_CHUNK_CHARACTERS) {
-                String fragment = payload.substring(offset, Math.min(offset + STATE_CHUNK_CHARACTERS, payload.length()));
-                digest.update(fragment.getBytes(StandardCharsets.UTF_8));
-                db.execSQL("INSERT INTO state_chunks(piece,payload) VALUES(?,?)", new Object[]{index, encryptChunk(fragment, current + 1, index)});
-                index++;
-            }
-            JSONObject metadata = new JSONObject().put("length", payload.length()).put("chunks", index).put("sha256", hex(digest.digest()));
-            db.execSQL("INSERT OR REPLACE INTO state(id,generation,payload) VALUES(1,?,?)", new Object[]{current + 1, encrypt(STATE_FORMAT + metadata.toString())});
-            db.setTransactionSuccessful();
-        } finally { db.endTransaction(); }
-        return generation + 1;
-    }
-
+    @PluginMethod public void readState(PluginCall call) { background(call, () -> {
+        completeLocal(call, owner().readState());
+    }); }
+    @PluginMethod public void restoreState(PluginCall call) { background(call, () -> {
+        completeLocal(call, owner().restore(call.getString("payload"), null));
+    }); }
     @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
-        Integer generation = call.getInt("generation");
-        if (generation == null) throw new IllegalArgumentException();
-        long saved = writeStateData(generation, call.getString("payload"));
-        call.resolve(new JSObject().put("generation", saved));
+        Object raw = call.getData().opt("generation");
+        if (!(raw instanceof Number)) throw new IllegalArgumentException();
+        double value = ((Number) raw).doubleValue();
+        if (!Double.isFinite(value) || value < 0 || value > LocalStateStore.MAX_GENERATION || value != Math.rint(value)) throw new IllegalArgumentException();
+        completeLocal(call, owner().restore(call.getString("payload"), (long) value));
     }); }
 
     String apiKey() throws Exception {
