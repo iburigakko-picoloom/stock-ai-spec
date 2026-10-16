@@ -9,11 +9,26 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
     available_at_cutoff: false, is_business_day: null, acquisitionId: null,
     eligible_acquisition_id: null, after_cutoff: false,
   } }));
+  await page.route("**/api/v1/mobile/models", route => route.fulfill({ json: {
+    approved_bundle_count: 1, imported_bundle_count: 1, bundle_ready: true, model_adopted: false,
+  } }));
+  await page.route("**/api/v1/mobile/daily", route => route.fulfill({ json: {
+    run_id: "synthetic-layout", phase: "published", outcome: "forecast",
+    checked_at: "2026-10-17T11:50:00+09:00", scope: { as_of: "2026-10-17T11:30:00+09:00",
+      universe: { latest_source_date: "2026-10-16" } },
+    snapshot: { generated_at: "2026-10-17T11:50:00+09:00", data_as_of: "2026-10-17T02:15:00Z",
+      predictions: [] }, outputs: [
+      { horizon: 5, task: "regression", values: [["1234", .01]] },
+      { horizon: 20, task: "regression", values: [["1234", .04]] },
+    ], excluded_candidates: [], blocking_reasons: [],
+  } }));
   await page.goto("/mobile-tests/market-layout.html");
   await expect(page.getByRole("button", { name: "履歴の取得を開始・再開" })).toBeEnabled();
   await page.addStyleTag({ content: "html { font-size: 150%; }" });
   await page.getByText("取得範囲・訂正データ・計算の確認", { exact: true }).click();
   await expect(page.getByLabel("開始日", { exact: true })).toBeVisible();
+  await page.getByText("算出できた予測を見る 1社", { exact: true }).click();
+  await expect(page.getByRole("cell", { name: "4%" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   for (const group of await page.locator(".button-stack").all()) {
     const controls = await group.locator("button").evaluateAll(nodes => nodes.map(node => {

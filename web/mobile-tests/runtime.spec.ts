@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
 
-test("offline Python preserves input and matches PC 41/51 features and six model vectors", async ({ page, context }) => {
+test("offline Python preserves input and matches PC features, nine model vectors and four-head bundle", async ({ page, context }) => {
   const golden = JSON.parse(readFileSync(new URL("../../.demo-artifacts/android/mobile-golden.json", import.meta.url), "utf-8"));
   await context.route("https://**", route => route.abort());
   await page.route("**/mobile-test", route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Offline runtime verification</title>" }));
@@ -32,6 +32,9 @@ test("offline Python preserves input and matches PC 41/51 features and six model
     for (const vector of input.models) {
       models.push(await send({ command: "request", method: "POST", path: "/api/v1/mobile/models/parity", body: JSON.stringify({ model: vector.model, rows: vector.rows }) }));
     }
+    const bundle = await send({ command: "request", method: "POST", path: "/api/v1/mobile/models/bundle/parity", body: JSON.stringify({ content: input.bundle.content, rows: input.bundle.rows }) });
+    const bundleStatus = await send({ command: "request", method: "GET", path: "/api/v1/mobile/models" });
+    const daily = await send({ command: "request", method: "GET", path: "/api/v1/mobile/daily" });
     const portfolio = { schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: null, maximum_drawdown_percent: null, accounts: [], holdings: [] };
     const saved = await send({ command: "request", method: "POST", path: "/api/v1/mobile/portfolio", body: JSON.stringify(portfolio) });
     worker.terminate();
@@ -39,8 +42,8 @@ test("offline Python preserves input and matches PC 41/51 features and six model
     await send({ command: "initialize", state: saved.state });
     const restored = await send({ command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
     worker.terminate();
-    return { health, membership, universe, values, saved, models, insufficient, restored };
-  }, { inputs: golden.inputs, models: golden.models });
+    return { health, membership, universe, values, saved, models, bundle, bundleStatus, daily, insufficient, restored };
+  }, { inputs: golden.inputs, models: golden.models, bundle: golden.bundle });
   expect(result.health.result).toMatchObject({ status: 200, body: { orderSubmissionAvailable: false } });
   expect(result.membership.result).toMatchObject({ status: 200, body: { available_at_cutoff: false } });
   expect(result.universe.result).toMatchObject({ status: 200, body: { blocking_reasons: ["current_membership_missing"], holdings_recorded: false } });
@@ -48,6 +51,20 @@ test("offline Python preserves input and matches PC 41/51 features and six model
   expect(result.saved.state).toBeTruthy();
   expect(result.insufficient.result).toMatchObject({ status: 422 });
   expect(result.restored.result).toEqual(result.saved.result);
+  expect(result.models).toHaveLength(9);
+  expect(result.bundleStatus.result).toMatchObject({ status: 200, body: { imported_bundle_count: 0, bundle_ready: false, model_adopted: false } });
+  expect(result.daily.result).toEqual({ status: 200, body: null });
+  const probe = result.bundle.result as { status: number; body: { heads: { horizon: number; task: string; values: number[] }[] } };
+  expect(result.bundle.result).toMatchObject({ status: 200, body: { bundle_id: golden.bundle.bundle_id, sha256: golden.bundle.sha256, persisted: false, research_only: true, model_adopted: false } });
+  expect(probe.body.heads).toHaveLength(4);
+  probe.body.heads.forEach((head, index) => {
+    const expected = golden.bundle.expected[index];
+    expect([head.horizon, head.task]).toEqual([expected.horizon, expected.task]);
+    expect(head.values).toHaveLength(expected.values.length);
+    head.values.forEach((value, row) => {
+      expect(Math.abs(value - expected.values[row])).toBeLessThanOrEqual(1e-7 + 1e-6 * Math.abs(expected.values[row]));
+    });
+  });
   result.models.forEach((reply, index) => {
     const computed = reply.result as { status: number; body: { values: number[]; research_only: boolean; model_adopted: boolean } };
     expect(computed.status).toBe(200);

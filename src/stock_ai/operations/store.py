@@ -943,9 +943,31 @@ class OperationalStore:
             _verify_hashed_row("manual_portfolio_imports", row)
             return _parse_model(ImportedManualPortfolio, row["payload"])
 
-    def append_prediction_snapshot(self, snapshot: PredictionSnapshot) -> bool:
+    def append_prediction_snapshot(
+        self, snapshot: PredictionSnapshot, *, expected_manual_revision_id: str | None = None,
+        expected_portfolio_id: str | None = None,
+    ) -> bool:
         snapshot = PredictionSnapshot.model_validate_json(snapshot.model_dump_json())
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if (expected_manual_revision_id is None) != (expected_portfolio_id is None):
+                raise ValueError("Both frozen personal references are required")
+            existing = connection.execute(
+                "SELECT 1 FROM prediction_snapshots WHERE snapshot_id=?", (snapshot.snapshot_id,)
+            ).fetchone()
+            if expected_manual_revision_id is not None and existing is None:
+                manual = connection.execute(
+                    "SELECT revision_id FROM manual_portfolio_imports "
+                    "ORDER BY revision_sequence DESC LIMIT 1"
+                ).fetchone()
+                ledger = connection.execute(
+                    "SELECT portfolio_id FROM portfolio_states "
+                    "ORDER BY as_of DESC,portfolio_id DESC LIMIT 1"
+                ).fetchone()
+                if (manual is None or ledger is None
+                        or manual[0] != expected_manual_revision_id
+                        or ledger[0] != expected_portfolio_id):
+                    raise OperationalConflictError("frozen forecast personal inputs changed")
             _validate_snapshot_approval(connection, snapshot)
             inserted = self._insert_immutable(
                 connection,

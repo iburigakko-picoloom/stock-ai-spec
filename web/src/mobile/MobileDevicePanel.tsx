@@ -5,6 +5,7 @@ import { restoreMobileState } from "./runtime";
 import { MobilePersonalPanel } from "./MobilePersonalPanel";
 import { ChatGPTPanel } from "./ChatGPTPanel";
 import { MobileMarketPanel } from "./MobileMarketPanel";
+import { MobileModelPanel } from "./MobileModelPanel";
 import type { LocalPortfolio, SavedPortfolio } from "./personal";
 
 export function MobileUpdateNotice(): ReactNode {
@@ -41,7 +42,6 @@ export function MobileDevicePanel(): ReactNode {
   const [busy, setBusy] = useState(false);
   const [restorePayload, setRestorePayload] = useState<string | null>(null);
   const [confirmRestore, setConfirmRestore] = useState(false);
-  const [modelStatus, setModelStatus] = useState<{ approved_count: number; imported_count: number } | null>(null);
   useEffect(() => {
     if (!isAndroid()) return;
     void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setMessage("APIキーの保存状態を確認できません。再起動してください。"));
@@ -50,7 +50,6 @@ export function MobileDevicePanel(): ReactNode {
       setSavedPortfolio(value);
       setPortfolioLoaded(true);
     }).catch(() => setMessage("保存済みの口座入力を確認できません。再起動してから編集してください。"));
-    void apiGet<{ approved_count: number; imported_count: number }>("/api/v1/mobile/models").then(setModelStatus).catch(() => setMessage("モデルの保存状態を確認できません。再起動してください。"));
   }, []);
   if (!isAndroid()) return null;
   async function action(task: () => Promise<unknown>, success: string): Promise<void> {
@@ -110,15 +109,7 @@ export function MobileDevicePanel(): ReactNode {
     </section>
     <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
     <MobileMarketPanel configured={configured} disabled={busy} onBusy={setBusy} />
-    <section className="section"><h2>端末で使うモデル</h2>
-      <p>採用・取込条件を確認済み：{modelStatus?.approved_count ?? 0}件／端末へ取込済み：{modelStatus?.imported_count ?? 0}件</p>
-      <p>最終採用、モデルの配布条件、PCと実機の一致確認が完了したモデルだけを取り込みます。</p>
-      <button className="button" disabled={busy || !modelStatus?.approved_count} onClick={() => void action(async () => {
-        const value = await StockAI.importModel(); await apiPost("/api/v1/mobile/models/import", value);
-        setModelStatus(await apiGet("/api/v1/mobile/models"));
-      }, "採用情報とハッシュが一致するモデルを端末に保存しました。")}>確認済みモデルを取り込む</button>
-      <button className="button button--secondary" disabled={busy || !modelStatus?.imported_count} onClick={() => void action(() => apiPost("/api/v1/mobile/models/infer", {}), "端末内で研究用のモデル出力を計算しました。")}>端末内で推論を確認</button>
-    </section>
+    <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} onBusy={setBusy} />
     <section className="section"><h2>データのバックアップ</h2>
       <p>保有・設定・履歴をパスワード付きで保存します。APIキーは含めません。</p>
       <label>バックアップのパスワード（12文字以上）<input type="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /></label>

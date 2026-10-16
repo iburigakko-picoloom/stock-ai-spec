@@ -76,7 +76,7 @@ def select(path: Path, as_of: datetime, holding_symbols=(), *, current_membershi
     if as_of.tzinfo is None:
         raise ValueError("Aware candidate cutoff required")
     held = sorted(set(holding_symbols))
-    if any(not isinstance(x, str) or not re.fullmatch(r"[0-9A-Z]{4}", x) for x in held):
+    if any(not isinstance(x, str) or not re.fullmatch(r"[0-9A-Z]{4,5}", x) for x in held):
         raise ValueError("Invalid holding symbol")
     result = {"as_of": as_of.isoformat(), "policy": "cap30bn-adv20-top300-v1",
               "latest_source_date": None, "window_dates": [], "new_candidates": [],

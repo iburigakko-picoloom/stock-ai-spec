@@ -5,6 +5,9 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { MobileMarketPanel } from "/src/mobile/MobileMarketPanel.tsx";
+import { MobileModelPanel } from "/src/mobile/MobileModelPanel.tsx";
 import "/src/styles.css";
-createRoot(document.getElementById("market-test")).render(React.createElement(MobileMarketPanel, { configured: true, disabled: false, onBusy() {} }));
+createRoot(document.getElementById("market-test")).render(React.createElement(React.Fragment, null,
+  React.createElement(MobileMarketPanel, { configured: true, disabled: false, onBusy() {} }),
+  React.createElement(MobileModelPanel, { disabled: false, inputsSaved: true, onBusy() {} })));
 </script></body></html>

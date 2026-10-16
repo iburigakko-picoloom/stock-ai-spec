@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 import json
+import zipfile
 
 import pytest
 from mobile.python import runtime
@@ -24,6 +27,35 @@ def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):
     assert response["body"]["orderSubmissionAvailable"] is False
     assert run(device, "POST", "/api/v1/orders", {})["status"] == 404
     assert run(device, "GET", "https://foreign.example/api/v1/health")["status"] == 400
+
+
+def test_bundle_probe_never_imports_approves_or_publishes_a_prediction(device, monkeypatch):
+    from mobile.python.model_bundle import encoded
+
+    from tests.test_mobile_bundles import SELECTION, fixture_bundle
+
+    monkeypatch.setattr(runtime, "bundled_selection", lambda: SELECTION)
+    def database_contents():
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(device.export_state()))) as archive:
+            return {name: archive.read(name) for name in archive.namelist()}
+
+    before = database_contents()
+    bundle = fixture_bundle()
+    response = run(device, "POST", "/api/v1/mobile/models/bundle/parity", {
+        "content": encoded(bundle), "rows": {"5": [{"f1": .2}], "20": [{"f1": .3}]},
+    })
+    assert response["status"] == 200
+    assert response["body"]["bundle_id"] == bundle.bundle_id
+    assert response["body"]["persisted"] is False
+    assert response["body"]["model_adopted"] is False
+    assert len(response["body"]["heads"]) == 4
+    assert response["body"]["heads"][0]["values"] == [.01]
+    assert database_contents() == before
+    for content, rows in ((None, {}), (encoded(bundle), {"5": "bad", "20": []}),
+                          (encoded(bundle), {"5": [{}] * 1001, "20": []})):
+        assert run(device, "POST", "/api/v1/mobile/models/bundle/parity", {
+            "content": content, "rows": rows,
+        })["status"] == 422
 
 
 def test_market_plan_and_unknown_holdings_survive_portable_backup(device):

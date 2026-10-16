@@ -50,14 +50,14 @@ def acquired(tmp_path):
 def test_top300_ties_units_boundary_and_every_holding_without_narrowing_sources(acquired):
     path, days = acquired
     before = market.SQLiteSource(path).point_in_time(DatasetName.DAILY_PRICES, CUTOFF)
-    selected = universe.select(path, CUTOFF, ("1302", "ZZZZ", "1000", "ZZZZ"))
+    selected = universe.select(path, CUTOFF, ("1302", "ZZZZ", "1000", "ZZZZ", "99999"))
     assert not selected["blocking_reasons"]
     assert selected["window_dates"] == [str(day) for day in days]
     assert [x["symbol"] for x in selected["new_candidates"]] == [str(x) for x in range(1000, 1300)]
     assert selected["new_candidates"][0]["market_cap_yen"] == "30000000000"
     assert selected["new_candidates"][0]["mean_trading_value_yen"] == "100"
-    assert selected["held_only"] == ["1302", "ZZZZ"]
-    assert len(selected["decision_symbols"]) == 302
+    assert selected["held_only"] == ["1302", "99999", "ZZZZ"]
+    assert len(selected["decision_symbols"]) == 303
     after = market.SQLiteSource(path).point_in_time(DatasetName.DAILY_PRICES, CUTOFF)
     assert before.equals(after) and len(after) == 20 * 303
     assert len({x["payload_hash"] for x in selected["sources"]}) >= 22

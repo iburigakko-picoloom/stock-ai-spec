@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .features import bundled_selection, calculate
 from .market import feature_inputs
+from .model_bundle import approved
 from .portable_model import predict
 
 
@@ -26,6 +27,80 @@ def initialize(path: Path) -> None:
             "CREATE TABLE IF NOT EXISTS mobile_models("
             "sha256 TEXT PRIMARY KEY, payload TEXT NOT NULL, imported_at TEXT NOT NULL)"
         )
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS mobile_model_bundles("
+            "sha256 TEXT PRIMARY KEY,payload TEXT NOT NULL,imported_at TEXT NOT NULL)"
+        )
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS mobile_model_selections("
+            "sequence INTEGER PRIMARY KEY,sha256 TEXT NOT NULL,selected_at TEXT NOT NULL)"
+        )
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS mobile_model_repairs("
+            "sequence INTEGER PRIMARY KEY,sha256 TEXT NOT NULL,old_content_sha256 TEXT NOT NULL,"
+            "repaired_at TEXT NOT NULL)"
+        )
+
+
+def import_bundle(path: Path, content: str, now: datetime) -> dict:
+    bundle, entry = approved(content, policy(), bundled_selection)
+    if now.tzinfo is None or bundle.created_at > now:
+        raise ValueError("Invalid model import time")
+    digest = entry["sha256"]
+    with sqlite3.connect(path) as db:
+        # All four heads, calibration and review are validated before a single
+        # immutable write. No partial head import can become usable.
+        db.execute("BEGIN IMMEDIATE")
+        previous = db.execute("SELECT payload,imported_at FROM mobile_model_bundles WHERE sha256=?",
+                              (digest,)).fetchone()
+        if previous is not None and hashlib.sha256(previous[0].encode()).hexdigest() != digest:
+            if datetime.fromisoformat(previous[1]) > now:
+                raise ValueError("Model repair clock moved backward")
+            db.execute("INSERT INTO mobile_model_repairs VALUES(NULL,?,?,?)", (
+                digest, hashlib.sha256(previous[0].encode()).hexdigest(),
+                now.astimezone(UTC).isoformat(),
+            ))
+            # Restore only an exactly pinned artifact. Its renewed availability
+            # is now, so a late repair cannot backdate usable model parameters.
+            db.execute("UPDATE mobile_model_bundles SET payload=?,imported_at=? WHERE sha256=?",
+                       (content, now.astimezone(UTC).isoformat(), digest))
+        db.execute("INSERT OR IGNORE INTO mobile_model_bundles VALUES(?,?,?)",
+                   (digest, content, now.astimezone(UTC).isoformat()))
+        selected = db.execute(
+            "SELECT sha256,selected_at FROM mobile_model_selections ORDER BY sequence DESC LIMIT 1"
+        ).fetchone()
+        if selected is not None and datetime.fromisoformat(selected[1]) > now:
+            raise ValueError("Model selection clock moved backward")
+        if selected is None or selected[0] != digest:
+            db.execute("INSERT INTO mobile_model_selections VALUES(NULL,?,?)",
+                       (digest, now.astimezone(UTC).isoformat()))
+    return {"sha256": digest, "bundle_id": bundle.bundle_id,
+            "head_count": 4, "research_only": True}
+
+
+def load_bundle(path: Path, cutoff: datetime):
+    if cutoff.tzinfo is None:
+        raise ValueError("Aware model cutoff required")
+    with sqlite3.connect(path) as db:
+        row = db.execute(
+            "SELECT b.sha256,b.payload,b.imported_at,s.selected_at FROM mobile_model_selections s "
+            "LEFT JOIN mobile_model_bundles b ON b.sha256=s.sha256 "
+            "ORDER BY s.sequence DESC LIMIT 1"
+        ).fetchone()
+    current = policy()
+    pins = {x["sha256"] for x in current.get("approved_bundles", [])}
+    if row is None:
+        raise ValueError("MODEL_BUNDLE_NOT_IMPORTED")
+    digest, content, imported, selected = row
+    if digest not in pins:
+        raise ValueError("MODEL_BUNDLE_APPROVAL_REMOVED")
+    if content is None or hashlib.sha256(content.encode()).hexdigest() != digest:
+        raise ValueError("Imported bundle changed")
+    bundle, entry = approved(content, current, bundled_selection)
+    if max(datetime.fromisoformat(imported), datetime.fromisoformat(selected)) > cutoff:
+        raise ValueError("MODEL_IMPORTED_AFTER_ALPHA_CUTOFF")
+    bundle.at(cutoff)
+    return bundle, entry
 
 
 def import_model(path: Path, content: str) -> dict:
@@ -66,14 +141,38 @@ def import_model(path: Path, content: str) -> dict:
     return {"sha256": digest, "model_id": entry["model_id"], "research_only": True}
 
 
-def status(path: Path) -> dict:
+def status(path: Path, store=None) -> dict:
     with sqlite3.connect(path) as db:
         imported = {row[0] for row in db.execute("SELECT sha256 FROM mobile_models")}
-    approved = policy()["approved_models"]
+        bundles = {row[0] for row in db.execute("SELECT sha256 FROM mobile_model_bundles")}
+    current = policy()
+    approved = current["approved_models"]
+    bundle_pins = {x["sha256"] for x in current.get("approved_bundles", [])}
+    ready = False
+    adopted = False
+    reason = None
+    if bundles & bundle_pins:
+        try:
+            bundle, _ = load_bundle(path, datetime.now(UTC))
+            ready = True
+            if store is not None and bundle.adoption_review.decision == "adopt":
+                try:
+                    adopted = store.adoption_review(
+                        bundle.adoption_review.review_id
+                    ) == bundle.adoption_review
+                except KeyError:
+                    adopted = False
+        except (ValueError, KeyError, TypeError):
+            reason = "MODEL_BUNDLE_INVALID_OR_UNAVAILABLE"
     return {
         "approved_count": len(approved),
         "imported_count": len(imported),
-        "model_adopted": bool(approved),
+        "approved_bundle_count": len(bundle_pins),
+        "imported_bundle_count": len(bundles & bundle_pins),
+        # A reviewed legacy head alone is not a calibrated daily model bundle.
+        "model_adopted": adopted,
+        "bundle_ready": ready,
+        "bundle_blocking_reason": reason,
         "research_only": True,
     }
 

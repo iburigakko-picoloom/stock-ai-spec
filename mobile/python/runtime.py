@@ -20,8 +20,9 @@ from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
 from stock_ai.operations.store import OperationalConflictError
 
-from . import market, membership, models, personal, universe
+from . import forecasts, market, membership, models, personal, universe
 from .features import bundled_selection, calculate
+from .model_bundle import parity as bundle_parity
 from .portable_model import predict
 
 STATE = Path("/stockai-state")
@@ -80,6 +81,8 @@ def initialize(encoded: str = "") -> dict:
     market.initialize(STATE / "mobile.sqlite3")
     membership.initialize(STATE / "mobile.sqlite3")
     models.initialize(STATE / "mobile.sqlite3")
+    forecasts.initialize(STATE / "mobile.sqlite3")
+    forecasts.reconcile_publications(STATE / "mobile.sqlite3", _app.state.store)
     personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
     _app.state.store.verify_integrity()
     return {"research_only": True, "order_submission": False}
@@ -224,18 +227,43 @@ async def request(method: str, path: str, body: str = "null") -> dict:
     if path == "/api/v1/mobile/market" and method == "GET":
         return {"status": 200, "body": market.status(STATE / "mobile.sqlite3")}
     if path == "/api/v1/mobile/models" and method == "GET":
-        return {"status": 200, "body": models.status(STATE / "mobile.sqlite3")}
+        return {"status": 200, "body": models.status(STATE / "mobile.sqlite3", _app.state.store)}
+    if path == "/api/v1/mobile/daily" and method == "GET":
+        return {"status": 200, "body": forecasts.latest(STATE / "mobile.sqlite3")}
+    if path == "/api/v1/mobile/daily/generate" and method == "POST":
+        try:
+            return {"status": 200, "body": forecasts.generate(
+                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC)
+            )}
+        except OperationalConflictError:
+            return {"status": 409, "body": {
+                "detail": "口座・保有が更新されています。保存済みの状態を読み直してください。"
+            }}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {
+                "detail": "履歴・当日一覧・校正情報・保有の整合を確認できず、予測を更新できません。"
+            }}
     if path == "/api/v1/mobile/models/import" and method == "POST":
         try:
             return {
                 "status": 200,
-                "body": models.import_model(STATE / "mobile.sqlite3", json.loads(body)["content"]),
+                "body": models.import_bundle(
+                    STATE / "mobile.sqlite3", json.loads(body)["content"], datetime.now(UTC)
+                ),
             }
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             return {
                 "status": 422,
                 "body": {"detail": "モデルの採用・配布条件・PC/実機一致の証拠を確認できません。"},
             }
+    if path == "/api/v1/mobile/models/bundle/parity" and method == "POST":
+        try:
+            value = strict_json(body)
+            return {"status": 200, "body": bundle_parity(
+                value["content"], value["rows"], bundled_selection(),
+            )}
+        except (ValueError, KeyError, TypeError, IndexError):
+            return {"status": 422, "body": {"detail": "モデル一式の一致確認用データが不正です。"}}
     if path == "/api/v1/mobile/models/parity" and method == "POST":
         try:
             value = json.loads(body)

@@ -305,8 +305,18 @@ def feature_inputs(path: Path, as_of: datetime) -> dict:
     bundle = build_production_data(
         SQLiteSource(path), source_snapshot_as_of=cutoff, proposal_as_of=cutoff
     )
+    with sqlite3.connect(path) as db:
+        latest_receipt = db.execute(
+            "SELECT MAX(received_at) FROM market_batches WHERE received_at<=?",
+            (cutoff.astimezone(UTC).isoformat(timespec="microseconds"),),
+        ).fetchone()[0]
+    if latest_receipt is None:
+        raise ValueError("Source receipt missing")
     return {
         "as_of": cutoff.isoformat(),
+        "latest_source_received_at": latest_receipt,
+        "source_snapshot_ids": list(bundle.source_snapshot_ids),
+        "revision_policy": bundle.revision_policy.value,
         **{
             key: json.loads(frame.to_json(orient="records", date_format="iso"))
             for key, frame in [
