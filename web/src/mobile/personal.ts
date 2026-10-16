@@ -30,7 +30,7 @@ export interface PersonalSettings {
   tax_year: number | null; accounts: AccountSettings[];
   cost_assumptions: Record<keyof typeof costLabels, string | null> & { zero_commission_confirmed: boolean };
   tax_assumptions: { effective_from: string | null; taxable_rate_percent: string | null; nisa_opportunity_cost_percent: string | null };
-  research_decision_policy: "daily-decision-engine-v2"; research_conditions_reviewed: boolean;
+  research_decision_policy: "daily-decision-engine-v2" | "daily-decision-engine-v3-bounded"; research_conditions_reviewed: boolean;
 }
 export interface SavedSettings { revision_id: string; saved_at: string; settings: PersonalSettings }
 export interface SettingsResponse { saved: SavedSettings | null; current_portfolio: SavedPortfolio | null }
@@ -57,7 +57,7 @@ export function emptySettings(profile: SavedPortfolio): PersonalSettings {
     cost_assumptions: { commission_fixed_yen: null, commission_bps: null, minimum_commission_yen: null,
       zero_commission_confirmed: false, full_spread_bps: null, slippage_bps: null, impact_bps_at_full_adv: null },
     tax_assumptions: { effective_from: null, taxable_rate_percent: null, nisa_opportunity_cost_percent: null },
-    research_decision_policy: "daily-decision-engine-v2", research_conditions_reviewed: false };
+    research_decision_policy: "daily-decision-engine-v3-bounded", research_conditions_reviewed: false };
 }
 const gapLabels: Record<string, string> = {
   manual_input: "口座・保有の保存", personal_settings: "補足設定の保存", settings_outdated: "更新後の口座・保有に合わせた補足設定の見直し",

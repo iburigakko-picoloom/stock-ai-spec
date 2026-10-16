@@ -14,6 +14,7 @@ from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from mobile.pc.export_model import export_model
 from mobile.python.model_bundle import ModelBundle, encoded
+from tests.test_bounded_decision import large_scenario, propose
 from xgboost import XGBClassifier, XGBRegressor
 
 from stock_ai.features import V2_EXTENDED_MANIFEST, FeatureEngine
@@ -131,13 +132,25 @@ bundle = ModelBundle.create(
     large_loss_threshold=-.08, downside_quantile_alpha=.1, heads=heads,
 )
 bundle_content = encoded(bundle)
+bounded_state, bounded_candidates, _, bounded_engine = large_scenario(with_costs=True)
+bounded_expected = propose(bounded_engine, bounded_state, bounded_candidates)
+bounded_fixture = {
+    "synthetic_only": True, "portfolio": bounded_state.model_dump(mode="json"),
+    "candidates": [x.model_dump(mode="json") for x in bounded_candidates],
+    "config": bounded_engine.config.model_dump(mode="json"),
+    "cost_policy": bounded_engine.cost_engine.policy.model_dump(mode="json"),
+    "tax_policy": bounded_engine.tax_engine.policy.model_dump(mode="json"),
+    "generated_at": bounded_expected.generated_at.isoformat(),
+    "model_bundle_version": bounded_expected.model_bundle_version,
+    "expected": bounded_expected.model_dump(mode="json"),
+}
 destination.write_text(
     json.dumps(
         {"inputs": inputs, "expected": expected, "models": vectors,
          "bundle": {"content": bundle_content, "rows": bundle_rows,
                     "bundle_id": bundle.bundle_id,
                     "sha256": hashlib.sha256(bundle_content.encode()).hexdigest(),
-                    "expected": bundle_expected}},
+                    "expected": bundle_expected}, "bounded": bounded_fixture},
         ensure_ascii=False,
         allow_nan=False,
     ),

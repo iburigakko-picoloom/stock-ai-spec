@@ -6,8 +6,13 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { MobileMarketPanel } from "/src/mobile/MobileMarketPanel.tsx";
 import { MobileModelPanel } from "/src/mobile/MobileModelPanel.tsx";
+import { MobilePersonalPanel } from "/src/mobile/MobilePersonalPanel.tsx";
 import "/src/styles.css";
 createRoot(document.getElementById("market-test")).render(React.createElement(React.Fragment, null,
   React.createElement(MobileMarketPanel, { configured: true, disabled: false, onBusy() {} }),
-  React.createElement(MobileModelPanel, { disabled: false, inputsSaved: true, onBusy() {} })));
+  React.createElement(MobileModelPanel, { disabled: false, inputsSaved: true, onBusy() {} }),
+  React.createElement(MobilePersonalPanel, { disabled: false, profile: {
+    revision_id: "a".repeat(64), saved_at: "2026-10-17T09:00:00+09:00", portfolio: {
+      schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: null,
+      maximum_drawdown_percent: null, accounts: [], holdings: [] } } })));
 </script></body></html>

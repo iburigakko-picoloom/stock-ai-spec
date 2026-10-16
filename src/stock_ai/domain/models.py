@@ -12,15 +12,17 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from zoneinfo import ZoneInfo
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    SerializerFunctionWrapHandler,
     field_serializer,
     field_validator,
+    model_serializer,
     model_validator,
 )
 
@@ -498,6 +500,26 @@ class DailyDecisionAudit(DomainModel):
     _aware = field_validator("as_of")(_require_aware)
 
 
+class BoundedSearchAudit(DomainModel):
+    method: Literal["coordinate-exchange-v1"] = "coordinate-exchange-v1"
+    candidate_key_count: int = Field(ge=0)
+    considered_key_count: int = Field(ge=0)
+    evaluation_budget: int = Field(gt=0)
+    evaluations: int = Field(ge=0)
+    cache_hits: int = Field(ge=0)
+    passes: int = Field(ge=0)
+    budget_exhausted: bool
+    cash_baseline: Literal["feasible", "infeasible", "not_regular_lot"]
+    global_optimum_proven: Literal[False] = False
+
+    @model_validator(mode="after")
+    def covered_within_budget(self) -> Self:
+        if (self.evaluations > self.evaluation_budget
+                or self.considered_key_count != self.candidate_key_count):
+            raise ValueError("bounded search must consider every key within its budget")
+        return self
+
+
 class PortfolioProposal(DomainModel):
     proposal_id: str = Field(min_length=1)
     as_of: datetime
@@ -517,11 +539,19 @@ class PortfolioProposal(DomainModel):
     tax_policy_version: str = Field(min_length=1)
     morning_audit: MorningDecisionAudit | None = None
     daily_audit: DailyDecisionAudit | None = None
+    search_audit: BoundedSearchAudit | None = None
     is_research_only: bool = False
     no_trade_reason: str | None = None
     is_order_instruction: bool = False
 
     _validate_times = field_validator("as_of", "generated_at")(_require_aware)
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if self.search_audit is None:
+            value.pop("search_audit", None)
+        return value
 
     @field_validator("estimated_cash_after", mode="after")
     @classmethod
@@ -534,6 +564,10 @@ class PortfolioProposal(DomainModel):
 
     @model_validator(mode="after")
     def decision_support_only(self) -> Self:
+        if (self.decision_engine_version == "daily-decision-engine-v3-bounded") != (
+            self.search_audit is not None
+        ):
+            raise ValueError("bounded policy requires its explicit search audit")
         if self.is_order_instruction:
             raise ValueError("portfolio proposals can never be order instructions")
         if self.generated_at < self.as_of:
@@ -551,6 +585,9 @@ class PortfolioProposal(DomainModel):
             if not self.is_research_only or self.morning_audit.as_of != self.as_of:
                 raise ValueError("morning proposal research lineage must match proposal as_of")
         target_keys = [target.key for target in self.targets]
+        if (self.search_audit is not None
+                and self.search_audit.candidate_key_count != len(target_keys)):
+            raise ValueError("bounded audit must cover the exact proposal keys")
         line_keys = [(line.symbol, line.account_bucket_id) for line in self.lines]
         line_ids = [line.line_id for line in self.lines]
         if len(target_keys) != len(set(target_keys)):

@@ -82,6 +82,25 @@ def setup(device, *, held=False, nisa=False, complete=True):
     return store, extra
 
 
+def test_explicit_bounded_policy_compiles_without_changing_legacy_cost_tax_or_ledger(device):
+    store, old = setup(device)
+    legacy = personal.input_state(store, NOW)[3]
+    assert legacy.decision_policy.version == "daily-decision-engine-v2"
+    before_ledger = store.latest_portfolio()
+    before_saved = personal.read_settings(store)
+    selected = old.model_copy(update={
+        "research_decision_policy": "daily-decision-engine-v3-bounded",
+    })
+    personal.save_settings(store, selected, before_saved["revision_id"], NOW + timedelta(minutes=1))
+    compiled = personal.input_state(store, NOW + timedelta(minutes=1))[3]
+    assert compiled.decision_policy.version == "daily-decision-engine-v3-bounded"
+    assert compiled.cost_policy == legacy.cost_policy and compiled.tax_policy == legacy.tax_policy
+    assert store.latest_portfolio() == before_ledger
+    device.initialize(device.export_state())
+    restored = personal.input_state(device._app.state.store, NOW + timedelta(minutes=1))[3]
+    assert restored == compiled
+
+
 def preview(device, store):
     return personal.preview_initial(store, device.STATE / "mobile.sqlite3", NOW, persist=True)
 

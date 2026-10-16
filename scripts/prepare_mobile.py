@@ -34,6 +34,7 @@ SOURCE_FILES = [
     "decision/costs.py",
     "decision/tax.py",
     "decision/engine.py",
+    "decision/bounded.py",
     "decision/simulator.py",
     "operations/models.py",
     "operations/store.py",

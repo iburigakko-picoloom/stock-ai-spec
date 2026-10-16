@@ -402,7 +402,9 @@ def compare_personal(
                 "decision/engine.py",
                 "decision/costs.py",
                 "decision/tax.py",
-            )
+            ) + (("decision/bounded.py",) if request.settings is not None
+                 and request.settings.decision_policy.version == "daily-decision-engine-v3-bounded"
+                 else ())
         ),
         manual_revision_id=None if manual is None else manual.export.revision_id,
         owner_scope_hash=None if manual is None else manual.owner_scope_hash,
