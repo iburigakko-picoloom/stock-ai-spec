@@ -15,7 +15,6 @@ import java.security.spec.RSAPublicKeySpec;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Arrays;
-import java.util.HashSet;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -110,6 +109,12 @@ final class ChatGPTProtocol {
         return false;
     }
 
+    private static boolean exactKeys(JSONObject value, String... expected) {
+        if (value.length() != expected.length) return false;
+        for (String key : expected) if (!value.has(key)) return false;
+        return true;
+    }
+
     static JSONObject researchRequest(String text, String digest, String model, String effort) throws Exception {
         if (text == null || text.length() > 512000 || digest == null || !digest.matches("[0-9a-f]{64}"))
             throw new SecurityException("INVALID_RESEARCH_REQUEST");
@@ -119,13 +124,13 @@ final class ChatGPTProtocol {
         if (!MessageDigest.isEqual(actual.toString().getBytes(StandardCharsets.US_ASCII), digest.getBytes(StandardCharsets.US_ASCII)))
             throw new SecurityException("RESEARCH_REQUEST_HASH_MISMATCH");
         JSONObject body = new JSONObject(text);
-        if (!body.keySet().equals(new HashSet<>(Arrays.asList("instructions", "input", "tools", "include")))
+        if (!exactKeys(body, "instructions", "input", "tools", "include")
                 || body.getString("instructions").length() > 8000 || body.getJSONArray("input").length() != 1
                 || !body.getJSONArray("tools").toString().equals("[{\"type\":\"web_search\"}]")
                 || !body.getJSONArray("include").toString().equals("[\"web_search_call.action.sources\"]"))
             throw new SecurityException("INVALID_RESEARCH_REQUEST");
         JSONObject input = body.getJSONArray("input").getJSONObject(0);
-        if (!input.keySet().equals(new HashSet<>(Arrays.asList("role", "content")))
+        if (!exactKeys(input, "role", "content")
                 || !input.getString("role").equals("user") || input.getString("content").isEmpty()
                 || model == null || !model.matches("[a-zA-Z0-9._:-]{1,160}")
                 || !Arrays.asList("low", "medium", "high", "xhigh", "max").contains(effort))
