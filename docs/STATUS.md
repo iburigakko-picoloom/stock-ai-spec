@@ -1,5 +1,16 @@
 # Project Status
 
+## 2026-10-17 — 最新特徴量の保持と財務参照を軽量化
+
+- D127として、最新値の計算では各銘柄の元の全履歴を計算してから最後の1行だけcopyして保持する。研究用の全期間transformは維持し、日次側も同じ数式・検証・市場/業種contextを使う。財務は全行検証後に銘柄groupを一度作り、毎銘柄で全財務を走査する処理を削減。未使用category・欠損銘柄・重複index・同時刻訂正とas-of照合を維持する。PITのconcat後にparts/cacheを解放し、同じキーでsort/dedupする。sourceの検証/hash後も全入力を保持していたdictと、派生buildが終わった入力・中間表の参照も解放する。
+- 関連Python141件がpass。内訳の特徴量41件には、V0/V1/V2で全期間の末尾との値/型/順序の完全一致、入力不変、古い最終日・財務欠損・遅い業種情報・当日bar・session gap・一部銘柄の株数欠損・同時刻財務、過去不正値/重複の拒否とcategory/duplicate indexの回帰を含む。source参照解放後にもproduction/feature/market/codec72件を再確認してpass。Ruff全体、mypy66 source（標準/win32）がpass。
+- 同梱PythonとPC参照を再生成し、21依存・共有29 source・model0を維持。前回保存した41/51列のPC特徴量JSONと今回の値が完全一致し、株数提案の全lineも一致。fixtureを新規作成するたびに端末owner UUIDが変わるため、その派生revision/run ID等の全object一致は要求しない。同じfixtureの保存/復元は引き続き厳密照合する。実WASM/画面6件と配布計算ページ1件がpassし、数値・株数・100batchの移行/復元を維持した。
+- 合成5,000銘柄・300取得日で、試作の直接context→latest計算が358.03秒、最新5,000行×83列、ピーク3,610,742,784bytesで完走。contextは181.10秒、daily/financials各1,495,000行、universe1,500,000行、市場/業種各299行。最後の未確定sessionを含めないsource-vintageの試験であり、当日11:30の予測完成とは別。計測後に未使用categoryの回帰対応とsource参照解放を加えたため、最終sourceを公開CLI/CIで再確認する。旧Git a752c38のengineを同じreader/旧production・600秒/3500MiBで比較すると、特徴量計算中の373.83秒でworking set3,709,386,752bytesとなり、設定したメモリ上限3,670,016,000を超えて自己processを終了した。計算例外や実機OOMとは断定せず、完走していない結果を速度比較には使わない。
+- 公開`scripts/mobile_feature_check.py`を追加。完了した隔離合成履歴だけを使い、SQLite hashとsource hashes、段階別件数、時間とメモリを記録。Windows/Linuxで自己processだけを上限時に止め、元DB不変を確認する。12銘柄/3日のCLI smokeがpass。CIにも5,000銘柄/300日の最新特徴量検証を追加し、容量reportと特徴量reportだけをuploadする。mobile.feature_inputsの全量JSON化、実forecast、端末性能の証拠とは扱わない。最終sourceのWASM/画面6件＋配布計算ページ1件、source805/private0・package監査もpass。
+- D128としてportable backupの書込前サイズ確認を追加。暗号化後128MiBの復元上限と69byteの既存overheadを共有し、大きすぎるUTF-8 JSONはKDFと出力streamを開く前に拒否する。形式・password規則は不変。実roundtripの長さ確認と最初の超過サイズの拒否をunitへ追加。ローカルにAndroid build環境はないため、native compile/unit/既存55件とOS回復はpush後のCIで検証する。
+- 前回source a752c38の[CI38990238564](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38990238564)はAndroid/verify成功・release skip。Python317＋platform6＋guard7、frontend71、WASM/画面6＋配布計算1＋調査画面2、native JUnit55・失敗/error/skip0、OS回復3段階6呼出しがpass。容量は5,000銘柄/300日で55,690,108 base64文字、SQLite44,470,272bytes、300日復元pass。reportの8 source hashesをGitの該当sourceと照合した。原本は`.demo-artifacts/capacity-ci-38990238564`と同名log/evidence。
+- 最終sourceのCI、全量JSON変換と実forecastの大規模完走、150万行guardを超える継続履歴、実API/本人ChatGPT、採用bundle0件、Xiaomi性能/同署名更新は残る。72時間台帳gate、私有研究停止とholdout lockを維持。研究再開・実注文・merge・APK公開なし。
+
 ## 2026-10-17 — 全市場履歴の保存容量と読込メモリを縮小
 
 - 合成5,000銘柄の初期履歴で旧形式の容量不足を再現。30/60/90営業日のcheckpointで計測し、90日ではbase64が137,959,496文字となり、native上限134,217,728文字を超えた。90日が最初の超過日と断定せず、観測したcheckpointとして記録する。PCのSQLite復元成功をnative保存成功とは扱わない。

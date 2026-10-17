@@ -166,7 +166,7 @@ public class StockAIPlugin extends Plugin {
         if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("復元を取り消しました。"); return; }
         Uri uri = result.getData().getData();
         background(call, () -> {
-            byte[] content = read(getContext().getContentResolver().openInputStream(uri), 128 * 1024 * 1024);
+            byte[] content = read(getContext().getContentResolver().openInputStream(uri), BackupCrypto.MAX_ENVELOPE_BYTES);
             JSONObject value = new JSONObject(new String(BackupCrypto.decrypt(call.getString("password"), content), StandardCharsets.UTF_8));
             if (!value.has("payload") || value.length() != 2 || !value.has("generation")) throw new SecurityException();
             // Return a preview only. Restoring requires Python integrity checks

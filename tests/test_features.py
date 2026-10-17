@@ -9,6 +9,7 @@ import pytest
 from pandas.testing import assert_frame_equal
 
 from stock_ai.features import V0_MANIFEST, V1_CORE_MANIFEST, V2_EXTENDED_MANIFEST, FeatureEngine
+from stock_ai.features.engine import FINANCIAL_COLUMNS, _merge_financials
 from stock_ai.features.indicators import obv
 from stock_ai.fixtures import market_fixture
 
@@ -310,3 +311,95 @@ def test_invalid_or_empty_daily_capability_fails_with_domain_error() -> None:
             financials=financials,
             as_of=before_history,
         )
+
+
+@pytest.mark.parametrize("manifest", [V0_MANIFEST, V1_CORE_MANIFEST, V2_EXTENDED_MANIFEST])
+@pytest.mark.parametrize("scenario", [
+    "complete", "older-last-row", "financial-missing", "late-sector", "same-day",
+    "session-gap", "one-symbol-shares-missing", "duplicate-financial-time",
+])
+def test_latest_snapshot_exactly_matches_full_history_tail(manifest, scenario) -> None:
+    daily, market, sectors, financials = market_fixture(270)
+    cutoff = daily.available_at.max()
+    first = sorted(daily.symbol.unique())[0]
+    if scenario == "older-last-row":
+        final = daily.trading_date.max() - timedelta(days=5)
+        daily = daily.loc[(daily.symbol != first) | (daily.trading_date < final)].copy()
+    elif scenario == "financial-missing":
+        financials = financials.loc[financials.symbol != first].copy()
+    elif scenario == "late-sector":
+        latest = sectors.trading_date.max()
+        sectors.loc[sectors.trading_date == latest, "available_at"] += timedelta(minutes=1)
+        cutoff += timedelta(minutes=2)
+    elif scenario == "same-day":
+        latest = daily.trading_date.max()
+        cutoff = latest.tz_localize("Asia/Tokyo") + timedelta(hours=11, minutes=30)
+        for frame in (daily, market, sectors):
+            frame.loc[frame.trading_date == latest, "available_at"] = cutoff - timedelta(minutes=30)
+    elif scenario == "session-gap":
+        daily["trading_session_index"] = daily.groupby("symbol").cumcount()
+        omitted = daily.loc[daily.symbol == first].index[-10]
+        daily = daily.drop(index=omitted)
+    elif scenario == "one-symbol-shares-missing":
+        daily.loc[daily.symbol == first, "shares_outstanding"] = np.nan
+    elif scenario == "duplicate-financial-time":
+        correction = financials.iloc[[0]].copy()
+        correction["per"] = 123.0
+        financials = pd.concat([financials, correction], ignore_index=True)
+    originals = [frame.copy(deep=True) for frame in (daily, market, sectors, financials)]
+    engine = FeatureEngine(manifest)
+    history = engine.transform(daily, market, sectors, financials=financials, as_of=cutoff)
+    expected = history.groupby("symbol", sort=True).tail(1).reset_index(drop=True)
+    actual = engine.latest_snapshot(daily, market, sectors, financials=financials, as_of=cutoff)
+    assert_frame_equal(actual, expected, check_exact=True)
+    for frame, original in zip((daily, market, sectors, financials), originals, strict=True):
+        assert_frame_equal(frame, original, check_exact=True)
+
+
+@pytest.mark.parametrize("scenario", ["invalid-old-price", "duplicate-old-row",
+                                      "invalid-unrelated-financials"])
+def test_latest_snapshot_preserves_full_history_validation(scenario) -> None:
+    daily, market, sectors, financials = market_fixture(270)
+    if scenario == "invalid-old-price":
+        daily.loc[daily.index[0], "adjusted_close"] = -1
+    elif scenario == "duplicate-old-row":
+        daily = pd.concat([daily, daily.iloc[[0]]], ignore_index=True)
+    else:
+        other = financials.iloc[[0]].copy()
+        other["symbol"] = "unknown-synthetic"
+        other["per"] = np.inf
+        financials = pd.concat([financials, other], ignore_index=True)
+    engine = FeatureEngine(V2_EXTENDED_MANIFEST)
+    cutoff = daily.available_at.max()
+    with pytest.raises(ValueError) as reference:
+        engine.transform(daily, market, sectors, financials=financials, as_of=cutoff)
+    with pytest.raises(ValueError) as actual:
+        engine.latest_snapshot(daily, market, sectors, financials=financials, as_of=cutoff)
+    assert str(actual.value) == str(reference.value)
+
+
+@pytest.mark.parametrize("symbol_dtype", ["object", "category"])
+def test_financial_lookup_preserves_asof_ties_missing_symbols_and_duplicate_index(
+    symbol_dtype,
+) -> None:
+    origin = pd.Timestamp("2026-01-01", tz="UTC")
+    features = pd.DataFrame([
+        {"symbol": symbol, "available_at": origin + timedelta(days=day), "row_id": name}
+        for symbol, day, name in (("A", 3, "a3"), ("B", 2, "b2"), ("A", 1, "a1"),
+                                  ("C", 3, "c3"))
+    ])
+    financials = pd.DataFrame([
+        {"symbol": symbol, "available_at": origin + timedelta(days=day),
+         **{column: base + index for index, column in enumerate(FINANCIAL_COLUMNS)}}
+        for symbol, day, base in (("A", 2, 2.0), ("B", 1, 20.0), ("A", 0, 1.0),
+                                  ("A", 2, 3.0), ("B", 9, 99.0))
+    ], index=[0, 0, 0, 0, 0])
+    if symbol_dtype == "category":
+        financials["symbol"] = pd.Categorical(financials.symbol, categories=["A", "B", "C"])
+    result = _merge_financials(features, financials).set_index("row_id")
+    assert result.index.tolist() == ["a1", "a3", "b2", "c3"]
+    for index, column in enumerate(FINANCIAL_COLUMNS):
+        assert result.loc["a1", "fundamental." + column] == 1.0 + index
+        assert result.loc["a3", "fundamental." + column] == 3.0 + index
+        assert result.loc["b2", "fundamental." + column] == 20.0 + index
+        assert pd.isna(result.loc["c3", "fundamental." + column])

@@ -334,6 +334,8 @@ class SQLiteSource:
         if not parts:
             return pd.DataFrame()
         frame = pd.concat(parts, ignore_index=True)
+        parts.clear()
+        cache.clear()
         keys = {
             DatasetName.SECURITY_MASTER: ["effective_date", "provider_code"],
             DatasetName.DAILY_PRICES: ["trading_date", "provider_code"],
@@ -341,10 +343,14 @@ class SQLiteSource:
             DatasetName.TOPIX: ["trading_date"],
             DatasetName.FINANCIAL_SUMMARY: ["disclosure_number"],
         }[dataset]
-        frame = frame.sort_values(
-            ["available_at", "received_at", "_observation_order", "payload_hash"]
-        ).drop_duplicates(keys, keep="last")
-        return frame.drop(columns="_observation_order").sort_values(keys).reset_index(drop=True)
+        frame.sort_values(
+            ["available_at", "received_at", "_observation_order", "payload_hash"], inplace=True
+        )
+        frame.drop_duplicates(keys, keep="last", inplace=True)
+        frame.drop(columns="_observation_order", inplace=True)
+        frame.sort_values(keys, inplace=True)
+        frame.reset_index(drop=True, inplace=True)
+        return frame
 
 
 def master_references(path: Path, cutoff: datetime) -> list[dict]:

@@ -253,16 +253,17 @@ def _merge_financials(features: pd.DataFrame, financials: pd.DataFrame | None) -
         "financial data",
         allow_missing=True,
     )
-    right = financials.copy()
+    right = financials[["symbol", "available_at", *FINANCIAL_COLUMNS]].copy()
     right["available_at"] = pd.to_datetime(right["available_at"], utc=True)
+    right_groups = right.groupby("symbol", sort=False, observed=True)
     for symbol, left_group in features.groupby("symbol", sort=False):
-        right_group = right.loc[right["symbol"] == symbol, ["available_at", *FINANCIAL_COLUMNS]]
         left_group = left_group.sort_values("available_at")
-        if right_group.empty:
+        if symbol not in right_groups.indices:
             merged = left_group.copy()
             for column in FINANCIAL_COLUMNS:
                 merged[column] = np.nan
         else:
+            right_group = right_groups.get_group(symbol)[["available_at", *FINANCIAL_COLUMNS]]
             merged = pd.merge_asof(
                 left_group,
                 right_group.sort_values("available_at"),
@@ -289,6 +290,21 @@ class FeatureEngine:
         *,
         financials: pd.DataFrame | None = None,
         as_of: datetime | pd.Timestamp | None = None,
+    ) -> pd.DataFrame:
+        return self._transform(
+            daily, market_context, sector_context, financials=financials, as_of=as_of,
+            latest_only=False,
+        )
+
+    def _transform(
+        self,
+        daily: pd.DataFrame,
+        market_context: pd.DataFrame,
+        sector_context: pd.DataFrame,
+        *,
+        financials: pd.DataFrame | None,
+        as_of: datetime | pd.Timestamp | None,
+        latest_only: bool,
     ) -> pd.DataFrame:
         _require_columns(daily, DAILY_REQUIRED, "daily market data")
         _require_columns(market_context, MARKET_REQUIRED, "market context data")
@@ -402,8 +418,15 @@ class FeatureEngine:
         if daily_sector_keys - sector_keys:
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: sector context coverage is incomplete")
 
-        parts = [_compute_symbol(group) for _, group in safe_daily.groupby("symbol", sort=True)]
+        parts = []
+        for _, group in safe_daily.groupby("symbol", sort=True):
+            calculated = _compute_symbol(group)
+            # Every indicator sees the complete causal history. A daily snapshot
+            # needs only its final row, copied so it does not retain the full
+            # per-symbol result while the remaining symbols are computed.
+            parts.append(calculated.tail(1).copy() if latest_only else calculated)
         computed = pd.concat(parts, ignore_index=True)
+        parts.clear()
 
         sector_daily = safe_sector.sort_values(["sector", "trading_date"]).copy()
         for window in (5, 20, 60):
@@ -507,11 +530,12 @@ class FeatureEngine:
         as_of: datetime | pd.Timestamp,
         financials: pd.DataFrame | None = None,
     ) -> pd.DataFrame:
-        history = self.transform(
+        history = self._transform(
             daily,
             market_context,
             sector_context,
             financials=financials,
             as_of=as_of,
+            latest_only=True,
         )
         return history.groupby("symbol", as_index=False, sort=True).tail(1).reset_index(drop=True)

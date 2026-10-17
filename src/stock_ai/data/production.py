@@ -87,6 +87,8 @@ def build_production_data(
         )
     for name, frame in required_nonempty.items():
         _assert_source_vintage(frame, source_snapshot_as_of, name)
+    # Validation must not retain every full source frame through later merges.
+    del required_nonempty, frame
     source_snapshot_ids = tuple(
         (dataset.value, _source_frame_id(dataset, frame))
         for dataset, frame in (
@@ -116,24 +118,29 @@ def build_production_data(
         if len(future_sessions) == 0 or future_sessions[0].date() != local_cutoff.date():
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: next session is not authenticated")
         availability[business_dates[-1]] = pd.Timestamp(proposal_as_of).tz_convert("UTC")
+    del calendar
     universe = build_point_in_time_universe(master, business_dates=business_dates)
+    del master
     daily = _canonical_daily(
         prices,
         universe=universe,
         availability=availability,
         revision_policy=revision_policy,
     )
+    del prices
     financials, shares = _daily_financial_features(
         disclosures,
         daily=daily,
         revision_policy=revision_policy,
     )
+    del disclosures
     daily = daily.merge(
         shares,
         on=["symbol", "trading_date", "available_at"],
         how="left",
         validate="one_to_one",
     )
+    del shares
     market_context, sector_context = _aggregate_context(
         daily,
         universe=universe,
@@ -142,6 +149,7 @@ def build_production_data(
         minimum_market_coverage=minimum_market_coverage,
         revision_policy=revision_policy,
     )
+    del topix
     corporate_actions = _corporate_actions(daily)
     return ProductionDataBundle(
         source_snapshot_as_of=source_snapshot_as_of,

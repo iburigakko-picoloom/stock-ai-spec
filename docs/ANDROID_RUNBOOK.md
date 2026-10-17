@@ -69,6 +69,16 @@ CIでも同じ検証を実施し、`mobile-storage-capacity`へsource hashes付�
 
 ローカルの5,000銘柄・300営業日では55,754,616 base64文字、mobile.sqlite344,470,272bytes、300日の復元がpassした。旧形式は90営業日のcheckpointで137,959,496文字となり、native上限134,217,728文字を超えた。checkpointの容量比較であり、毎回のnative暗号化保存やXiaomiの速度/メモリ成功を意味しない。150万行の株価PIT読込のPCピークは改善後も約2.16GBで、全特徴量計算・150万行guardを超える継続履歴・実機の受入は残る。
 
+最新特徴量の直接計算は、同じ合成履歴を使って別に確認する。元SQLiteのhash不変、source hashes、段階別件数、processのピークをreportへ残す。
+
+```powershell
+.venv/Scripts/python.exe -m scripts.mobile_feature_check --source .demo-artifacts/mobile-capacity-local --report .demo-artifacts/mobile-capacity-local/latest-features.json
+```
+
+既定は600秒/3500MiBで、上限超過またはmemory観測失敗時は専用probeだけを終了する。既存reportを上書きせず、本人の保存内容やAPIへ接続しない。`--reference-history`は全期間transformから最後の行を選ぶ比較用で、明示指定する。CIの`mobile-storage-capacity`には容量と特徴量のreportだけを保存する。これはProductionDataBundleから最新FeatureEngineまでのPC計算であり、mobile JSON変換・実forecast・端末上の予測完成の証拠は別に必要である。
+
+D127の最新計算は全履歴を指標へ渡した後に最新行だけ保持し、財務をgroup参照する。市場母集団、数式や41/51列、受領時刻を省略しない。D128ではバックアップの復元上限128MiBと既存69byte overheadを保存側にも適用し、復元不能な大きさのファイルを作る前に拒否する。暗号形式は変えない。
+
 ## 自動署名配布
 
 `.github/workflows/android-apk.yml`はmainのAndroid関連変更で起動する。PRは署名Secretsを利用せずテスト/ビルドする。React、PC/Python、通信遮断WASM一致、Androidコンパイル、暗号化backup、lintを通過後、mainでのみrelease鍵で署名し、ReleasesへAPK・`update.json`・`SHA256SUMS`・署名証明を公開する。draftへassetをすべてuploadしてから公開する。
