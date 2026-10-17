@@ -6,7 +6,11 @@ import android.database.sqlite.SQLiteDatabase;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Arrays;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,6 +39,48 @@ public class StatePersistenceTest {
 
     String largeSyntheticPayload() {
         char[] text = new char[3 * 1024 * 1024 + 17]; Arrays.fill(text, 's'); return new String(text);
+    }
+
+    // Same character count as the measured 5,000-symbol / 520-session capsule.
+    // Opaque synthetic ASCII tests the native encrypted store, not SQLite restore,
+    // the WebView bridge, a real account, or an adopted model.
+    static final int HISTORY_PAYLOAD_CHARACTERS = 96_870_524;
+
+    void capacityReport(String phase, long started) throws Exception {
+        JSONObject report = new JSONObject().put("phase", phase).put("synthetic", true)
+            .put("characters", HISTORY_PAYLOAD_CHARACTERS)
+            .put("max_java_heap_bytes", Runtime.getRuntime().maxMemory())
+            .put("elapsed_seconds", (System.nanoTime() - started) / 1_000_000_000.0);
+        try (FileOutputStream output = new FileOutputStream(new File(plugin.getContext().getCacheDir(), "native-state-capacity.json"))) {
+            output.write(report.toString().getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    long writeHistorySizedPayload() throws Exception {
+        byte[] ascii = new byte[HISTORY_PAYLOAD_CHARACTERS]; Arrays.fill(ascii, (byte) 's');
+        return plugin.writeStateData(0, new String(ascii, StandardCharsets.US_ASCII));
+    }
+
+    @Test public void historySizedEncryptedPayloadSurvivesReopenAndStaleWrite() throws Exception {
+        long started = System.nanoTime(); capacityReport("writing", started);
+        assertEquals(1, writeHistorySizedPayload());
+        capacityReport("reopening", started);
+        plugin.db.close(); plugin.db = SQLiteDatabase.openOrCreateDatabase(file, null);
+        try { plugin.writeStateData(0, "stale"); fail("stale generation accepted"); }
+        catch (IllegalStateException expected) { }
+        com.getcapacitor.JSObject saved = plugin.readStateData();
+        assertEquals(1, saved.getLong("generation"));
+        String payload = saved.getString("payload");
+        assertEquals(HISTORY_PAYLOAD_CHARACTERS, payload.length());
+        MessageDigest expected = MessageDigest.getInstance("SHA-256"), actual = MessageDigest.getInstance("SHA-256");
+        byte[] block = new byte[LocalStateStore.CHUNK_CHARACTERS]; Arrays.fill(block, (byte) 's');
+        for (int start = 0; start < payload.length(); start += block.length) {
+            int end = Math.min(start + block.length, payload.length());
+            expected.update(block, 0, end - start);
+            actual.update(payload.substring(start, end).getBytes(StandardCharsets.US_ASCII));
+        }
+        assertArrayEquals(expected.digest(), actual.digest());
+        capacityReport("verified", started);
     }
 
     @Test public void payloadLargerThanCursorWindowSurvivesReopenAndRejectsStaleWrites() throws Exception {

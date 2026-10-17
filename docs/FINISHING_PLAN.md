@@ -37,6 +37,8 @@ D130では日ごとの全出所照合と必要列の保持へ進め、150万行�
 
 ## ChatGPTの実装根拠
 
+D131では原予測保存→株数保存→調査の各境界でWorkRequestを分け、同じ当日11:30の保存済み原予測から再開する。長い計算はforeground開始を待ち、拒否時は未完として回復を待つ。新しい部分完了表示は320/390px・文字150%でも操作48px/間隔12pxを確認した。約9,687万文字のnative暗号化store試験もCIへ追加したが、結果確認前に成功と扱わない。実OSのforeground許可/継続、Android16 quota、owner/WebViewの全量転送、実モデルとXiaomiは別の受入条件である。
+
 - [登録・PKCE・loopback・ID token検証](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
 - [モデル一覧・SSE完了判定](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference)
 - [経路の制限・検索能力](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)

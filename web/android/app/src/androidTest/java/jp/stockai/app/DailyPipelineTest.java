@@ -18,6 +18,9 @@ public class DailyPipelineTest {
     final List<String> events = new ArrayList<>();
     final AtomicBoolean stopped = new AtomicBoolean();
     boolean complete, partial, late, closed, failCommit, badDecision, forbid, failAck, stopAfterCommit;
+    boolean planSaved, stopAfterForecast, rolloverAfterForecast, rolloverAfterDecision, rejectForeground;
+    String decisionTime = "2026-01-06T11:30:00+09:00";
+    JSONObject forecast;
     Instant now = Instant.parse("2026-01-06T02:31:00Z");
 
     JSONObject membership() throws Exception {
@@ -27,7 +30,8 @@ public class DailyPipelineTest {
     }
     JSONObject core(String method, String path, String body) throws Exception {
         events.add(method + " " + path);
-        if (path.endsWith("/research/plan")) return new JSONObject().put("status", 422).put("body", new JSONObject());
+        if (path.endsWith("/research/plan")) return new JSONObject().put("status", planSaved ? 200 : 422)
+            .put("body", new JSONObject().put("day", today));
         JSONObject result;
         if (path.endsWith("/membership")) result = membership();
         else if (path.endsWith("/market")) result = new JSONObject().put("completed_dates", complete ? new JSONArray().put(prior) : new JSONArray())
@@ -35,9 +39,17 @@ public class DailyPipelineTest {
         else if (path.endsWith("/ingest")) {
             if (failCommit) throw new IllegalStateException("synthetic disk failure");
             complete = true; result = new JSONObject(); if (stopAfterCommit) stopped.set(true);
-        } else if (path.endsWith("/daily/generate")) result = new JSONObject().put("phase", "published");
-        else if (path.endsWith("/decision/generate")) result = new JSONObject().put("is_active", !badDecision)
-            .put("scope", new JSONObject().put("as_of", today + "T11:30:00+09:00")).put("run_id", "fixture-result");
+        } else if (path.endsWith("/daily")) return new JSONObject().put("status", 200).put("body", forecast == null ? JSONObject.NULL : forecast);
+        else if (path.endsWith("/daily/generate")) {
+            forecast = forecast("published", today + "T11:30:00+09:00"); result = forecast;
+            if (stopAfterForecast) stopped.set(true);
+            if (rolloverAfterForecast) now = now.plusSeconds(86400);
+        } else if (path.endsWith("/decision/generate")) {
+            result = new JSONObject().put("is_active", !badDecision)
+                .put("scope", new JSONObject().put("as_of", decisionTime)).put("run_id", "fixture-result");
+            planSaved = !badDecision;
+            if (rolloverAfterDecision) now = now.plusSeconds(86400);
+        }
         else throw new AssertionError(path);
         return new JSONObject().put("status", 200).put("body", result);
     }
@@ -55,9 +67,17 @@ public class DailyPipelineTest {
                 if (failAck) throw new java.io.IOException("synthetic lost acknowledgment");
             }
         }, new DailyPipeline.Progress() {
-            public void state(String value, String day) { events.add("state:" + value); }
+            public void state(String value, String day) throws Exception {
+                events.add("state:" + value);
+                if (rejectForeground && (value.equals("calculating") || value.equals("deciding"))) throw new DailyWorker.ForegroundUnavailable();
+            }
             public void notice(String key, String text) { events.add("notice:" + key); }
         }, stopped::get, () -> now);
+    }
+
+    JSONObject forecast(String phase, String asOf) throws Exception {
+        return new JSONObject().put("phase", phase).put("run_id", "fixture-forecast")
+            .put("scope", new JSONObject().put("as_of", asOf));
     }
 
     @Test public void boundedPartialPageNeverCommitsOrAcknowledges() throws Exception {
@@ -72,10 +92,11 @@ public class DailyPipelineTest {
         try { pipeline().tick(prior); fail("lost ack ignored"); } catch (java.io.IOException expected) { }
         assertTrue(events.indexOf("POST /api/v1/mobile/market/ingest") < events.indexOf("ack:false:" + prior));
         events.clear(); failAck = false;
-        assertFalse(pipeline().tick(prior));
+        assertTrue(pipeline().tick(prior));
         assertTrue(events.contains("ack:false:" + prior));
         assertFalse(events.stream().anyMatch(e -> e.startsWith("fetch:")));
-        assertTrue(events.contains("state:numerical_saved"));
+        assertTrue(events.contains("state:forecast_saved"));
+        assertFalse(events.contains("POST /api/v1/mobile/decision/generate"));
     }
     @Test public void failedNativeCommitLeavesPagesUnacknowledged() throws Exception {
         failCommit = true;
@@ -101,6 +122,7 @@ public class DailyPipelineTest {
         assertTrue(events.contains("state:closed"));
         assertFalse(events.stream().anyMatch(e -> e.contains("generate")));
         events.clear(); closed = false; badDecision = true;
+        forecast = forecast("published", today + "T11:30:00+09:00");
         assertFalse(pipeline().tick(prior));
         assertTrue(events.contains("state:inputs"));
         assertFalse(events.contains("state:numerical_saved"));
@@ -119,5 +141,89 @@ public class DailyPipelineTest {
         assertFalse(pipeline().tick(prior));
         assertTrue(events.contains("state:waiting_cutoff"));
         assertFalse(events.stream().anyMatch(e -> e.contains("generate")));
+    }
+
+    @Test public void forecastSharesAndResearchPlanUseSeparateSlicesWithoutRecomputation() throws Exception {
+        complete = true;
+        assertTrue(pipeline().tick(prior));
+        assertTrue(events.indexOf("state:calculating") < events.indexOf("POST /api/v1/mobile/daily/generate"));
+        assertTrue(events.contains("state:forecast_saved"));
+        assertFalse(events.stream().anyMatch(e -> e.contains("decision/generate") || e.contains("state:numerical_saved") || e.startsWith("notice:")));
+        JSONObject committed = forecast;
+        events.clear();
+        assertTrue(pipeline().tick(prior));
+        assertSame(committed, forecast);
+        assertFalse(events.contains("POST /api/v1/mobile/daily/generate"));
+        assertTrue(events.indexOf("state:deciding") < events.indexOf("POST /api/v1/mobile/decision/generate"));
+        assertTrue(events.contains("state:numerical_saved"));
+        assertTrue(events.contains("notice:" + today + ":fixture-result"));
+        events.clear();
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:numerical_saved"));
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ") || e.startsWith("notice:")));
+    }
+
+    @Test public void stopAfterForecastCommitResumesAtSharesAndKeepsOriginalReceipt() throws Exception {
+        complete = true; stopAfterForecast = true;
+        try { pipeline().tick(prior); fail("stop ignored"); } catch (InterruptedException expected) { }
+        assertNotNull(forecast);
+        assertFalse(events.contains("state:forecast_saved"));
+        JSONObject committed = forecast;
+        events.clear(); stopped.set(false); stopAfterForecast = false;
+        assertTrue(pipeline().tick(prior));
+        assertSame(committed, forecast);
+        assertTrue(events.contains("POST /api/v1/mobile/decision/generate"));
+        assertFalse(events.contains("POST /api/v1/mobile/daily/generate"));
+    }
+
+    @Test public void oldBlockedAndWrongCutoffReceiptsNeverProceedDirectlyToShares() throws Exception {
+        complete = true;
+        for (JSONObject saved : new JSONObject[]{forecast("published", prior + "T11:30:00+09:00"),
+                forecast("blocked", today + "T11:30:00+09:00"), forecast("published", today + "T11:29:59+09:00")}) {
+            forecast = saved; events.clear();
+            assertTrue(pipeline().tick(prior));
+            assertTrue(events.contains("POST /api/v1/mobile/daily/generate"));
+            assertFalse(events.contains("POST /api/v1/mobile/decision/generate"));
+        }
+    }
+
+    @Test public void cashOnlyAndEquivalentUtcCutoffResumeWithoutNewForecast() throws Exception {
+        complete = true; forecast = forecast("cash_only", "2026-01-06T02:30:00Z");
+        assertTrue(pipeline().tick(prior));
+        assertFalse(events.contains("POST /api/v1/mobile/daily/generate"));
+        assertTrue(events.contains("state:numerical_saved"));
+    }
+
+    @Test public void malformedSavedCutoffFailsClosedWithoutAnotherForecast() throws Exception {
+        complete = true; forecast = forecast("published", "invalid-time");
+        try { pipeline().tick(prior); fail("corrupt scope accepted"); } catch (DailyPipeline.CoreFailure expected) { }
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ")));
+    }
+
+    @Test public void wrongDecisionCutoffNeverClaimsNumericalCompletion() throws Exception {
+        complete = true; forecast = forecast("published", today + "T11:30:00+09:00");
+        decisionTime = today + "T11:29:59+09:00";
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:inputs"));
+        assertFalse(events.contains("state:numerical_saved"));
+    }
+
+    @Test public void midnightDuringEitherCommitDoesNotClaimCurrentDayCompletion() throws Exception {
+        complete = true; rolloverAfterForecast = true;
+        assertTrue(pipeline().tick(prior));
+        assertFalse(events.stream().anyMatch(e -> e.equals("state:forecast_saved") || e.equals("state:numerical_saved") || e.startsWith("notice:")));
+        now = Instant.parse("2026-01-06T14:59:00Z"); rolloverAfterForecast = false; rolloverAfterDecision = true;
+        events.clear();
+        assertTrue(pipeline().tick(prior));
+        assertFalse(events.stream().anyMatch(e -> e.equals("state:numerical_saved") || e.startsWith("notice:")));
+    }
+
+    @Test public void refusedForegroundDoesNotEnterEitherLongComputation() throws Exception {
+        complete = true; rejectForeground = true;
+        try { pipeline().tick(prior); fail("foreground refusal ignored"); } catch (DailyWorker.ForegroundUnavailable expected) { }
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ")));
+        events.clear(); forecast = forecast("published", today + "T11:30:00+09:00");
+        try { pipeline().tick(prior); fail("foreground refusal ignored"); } catch (DailyWorker.ForegroundUnavailable expected) { }
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ")));
     }
 }

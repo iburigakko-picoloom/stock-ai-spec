@@ -15,6 +15,18 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+test.each([
+  ["forecast_saved", "原予測を保存済み・株数判定待ち"],
+  ["deciding", "株数を計算しています"],
+  ["compute_wait", "Androidの計算待ち・アプリで保存状態を確認してください"],
+])("%s keeps partial progress separate from completion", async (state, label) => {
+  vi.mocked(StockAI.dailyStatus).mockResolvedValue({ ...idle, enabled: true, state });
+  render(<DailyPanel />);
+  expect(await screen.findByText(label)).toBeVisible();
+  expect(screen.queryByText("数値判定・ChatGPT調査を保存しました")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "自動処理を停止" })).toBeEnabled();
+});
+
 test("denying notification permission still starts computation once and separates research state", async () => {
   render(<DailyPanel />);
   const start = await screen.findByRole("button", { name: "開始" });

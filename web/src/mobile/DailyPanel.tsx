@@ -3,7 +3,9 @@ import { isAndroid, StockAI, type DailyStatus } from "./native";
 
 const labels: Record<string, string> = {
   idle: "未開始", queued: "開始待ち", history: "履歴を取得しています", membership: "当日の銘柄一覧を取得しています",
-  waiting_cutoff: "11:30の締切待ち", calculating: "予測・株数を計算しています", closed: "今日は休場日です",
+  waiting_cutoff: "11:30の締切待ち", calculating: "予測を計算しています", closed: "今日は休場日です",
+  forecast_saved: "原予測を保存済み・株数判定待ち", deciding: "株数を計算しています",
+  compute_wait: "Androidの計算待ち・アプリで保存状態を確認してください",
   numerical_saved: "数値判定を保存済み・ChatGPT調査は別途確認", inputs: "モデル・本人設定の確認が必要です",
   late: "11:30までの当日情報が不足しています", credentials: "APIキー・契約を確認して再開してください",
   retry: "中断・保存済みの続きから再試行待ち", paused: "停止中・取得済みのデータを保持しています",

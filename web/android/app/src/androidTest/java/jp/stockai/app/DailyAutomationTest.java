@@ -75,4 +75,28 @@ public class DailyAutomationTest {
         journal.wake();
         assertEquals(1, manager.getWorkInfosForUniqueWork(DailyAutomation.PUMP).get().size());
     }
+
+    @Test public void longCalculationNoticeAndMergedManifestDeclareDataSyncWithoutPrivateData() throws Exception {
+        androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(context);
+        assertEquals(6102, info.getNotificationId());
+        android.app.Notification notice = info.getNotification();
+        assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);
+        assertTrue((notice.flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0);
+        assertEquals("StockAI", notice.extras.getString(android.app.Notification.EXTRA_TITLE));
+        assertEquals("端末内のデータを計算・保存しています。アプリから停止できます。",
+            notice.extras.getString(android.app.Notification.EXTRA_TEXT));
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            assertEquals(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, info.getForegroundServiceType());
+            android.content.pm.ServiceInfo service = context.getPackageManager().getServiceInfo(
+                new android.content.ComponentName(context, "androidx.work.impl.foreground.SystemForegroundService"), 0);
+            assertEquals(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, service.foregroundServiceType);
+        }
+        android.content.pm.PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(),
+            android.content.pm.PackageManager.GET_PERMISSIONS);
+        java.util.List<String> permissions = java.util.Arrays.asList(installed.requestedPermissions);
+        assertTrue(permissions.contains("android.permission.FOREGROUND_SERVICE"));
+        assertTrue(permissions.contains("android.permission.FOREGROUND_SERVICE_DATA_SYNC"));
+        // This verifies construction/declarations only. Actual OS admission and
+        // Android 16 quota behavior still require separate device acceptance.
+    }
 }

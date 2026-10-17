@@ -49,6 +49,19 @@ final class DailyPipeline {
         return response.getJSONObject("body");
     }
 
+    boolean currentCutoff(JSONObject value, String day) throws CoreFailure {
+        try {
+            Instant cutoff = LocalDate.parse(day).atTime(11, 30).atZone(JST).toInstant();
+            Instant asOf = java.time.OffsetDateTime.parse(value.getJSONObject("scope").getString("as_of")).toInstant();
+            return cutoff.equals(asOf);
+        } catch (org.json.JSONException | java.time.DateTimeException error) { throw new CoreFailure(); }
+    }
+
+    boolean currentForecast(JSONObject value, String day) throws CoreFailure {
+        return value != null && currentCutoff(value, day)
+            && ("published".equals(value.optString("phase")) || "cash_only".equals(value.optString("phase")));
+    }
+
     boolean acquire(boolean membership, String day) throws Exception {
         check(); progress.state(membership ? "membership" : "history", day);
         JSONObject receipt = market.fetch(membership, day, stopped);
@@ -109,21 +122,33 @@ final class DailyPipeline {
         if (existing.getInt("status") == 200 && today.equals(existing.getJSONObject("body").optString("day"))) {
             progress.state("numerical_saved", today); return false;
         }
-        progress.state("calculating", today);
-        JSONObject numerical = api("POST", "daily/generate", new JSONObject());
-        if (!"published".equals(numerical.optString("phase")) && !"cash_only".equals(numerical.optString("phase"))) {
-            progress.state("inputs", today);
-            progress.notice(today + ":inputs", "計算に必要な情報が不足しています。モデル・本人設定を確認してください。");
-            return false;
+        JSONObject response = core.request("GET", "/api/v1/mobile/daily", "null");
+        check();
+        if (response.getInt("status") != 200 || !response.has("body")
+                || (!response.isNull("body") && !(response.get("body") instanceof JSONObject))) throw new CoreFailure();
+        JSONObject numerical = response.optJSONObject("body");
+        if (!currentForecast(numerical, today)) {
+            progress.state("calculating", today);
+            numerical = api("POST", "daily/generate", new JSONObject());
+            if (!currentForecast(numerical, today)) {
+                progress.state("inputs", today);
+                progress.notice(today + ":inputs", "計算に必要な情報が不足しています。モデル・本人設定を確認してください。");
+                return false;
+            }
+            if (!today.equals(clock.get().atZone(JST).toLocalDate().toString())) return true;
+            progress.state("forecast_saved", today);
+            return true; // Yield after the encrypted forecast commit; do not recompute it next slice.
         }
+        progress.state("deciding", today);
         JSONObject decision = api("POST", "decision/generate", new JSONObject());
-        if (!decision.optBoolean("is_active") || !decision.getJSONObject("scope").getString("as_of").startsWith(today + "T")) {
+        if (!today.equals(clock.get().atZone(JST).toLocalDate().toString())) return true;
+        if (!decision.optBoolean("is_active") || !currentCutoff(decision, today)) {
             progress.state("inputs", today);
             progress.notice(today + ":inputs", "株数の判定を完了できません。本人設定と台帳を確認してください。");
             return false;
         }
         progress.state("numerical_saved", today);
         progress.notice(today + ":" + decision.getString("run_id"), "今日の数値判定を保存しました。ChatGPT調査の状態をアプリで確認してください。");
-        return false;
+        return true; // Research gets a fresh WorkRequest and execution budget.
     }
 }

@@ -67,4 +67,22 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
   await page.getByRole("region", { name: "毎日の自動処理" }).screenshot({ path: info.outputPath(`daily-${width}.png`) });
   await page.getByRole("region", { name: "端末内のモデルと予測" }).screenshot({ path: info.outputPath(`model-decision-${width}.png`) });
   await page.getByRole("region", { name: "補足設定と初回台帳" }).screenshot({ path: info.outputPath(`personal-policy-${width}.png`) });
+  for (const [state, label] of [
+    ["forecast_saved", "原予測を保存済み・株数判定待ち"],
+    ["deciding", "株数を計算しています"],
+    ["compute_wait", "Androidの計算待ち・アプリで保存状態を確認してください"],
+  ]) {
+    await page.goto(`/mobile-tests/market-layout.html?dailyState=${state}`);
+    await page.addStyleTag({ content: "html { font-size: 150%; }" });
+    const daily = page.getByRole("region", { name: "毎日の自動処理" });
+    await expect(daily.getByRole("status")).toHaveText(label);
+    await expect(daily.getByRole("button", { name: "自動処理を停止" })).toBeEnabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const boxes = await daily.locator("button").evaluateAll(nodes => nodes.map(node => {
+      const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
+    }));
+    for (const box of boxes) expect(box.height).toBeGreaterThanOrEqual(48);
+    expect(boxes[1].top - boxes[0].bottom).toBeGreaterThanOrEqual(12);
+    await daily.screenshot({ path: info.outputPath(`daily-${state}-${width}.png`) });
+  }
 });

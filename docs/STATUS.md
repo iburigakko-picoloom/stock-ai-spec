@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-17 — 日次計算を暗号化保存の境界で分割
+
+- D131として、原予測の保存、株数判定の保存、ChatGPT調査を別のWorkRequestへ分ける。当日11:30と同じInstantのpublished/cash_only原予測はGETで再利用し、次の実行で特徴量から作り直さない。株数側の本人設定・台帳・モデル・凍結市場照合は共有coreで維持する。破損時刻は停止し、旧日/未完成の原予測は完了扱いにしない。停止後のcommit回復、各commit中の日付変更、株数の締切時刻も検証対象へ追加。
+- 長い計算の直前にWorkManagerのforeground開始を待ち、dataSync service/type/permissionsと内容固定のprivate通知を宣言する。拒否時は計算を開始せず、既存のJST1日3回の再試行とcompute_wait表示を使う。Android16のjob quotaや端末の省電力を回避できる保証ではなく、実OSによる開始・継続とXiaomi性能は未確認。
+- 合成520日capsuleと同じ96,870,524文字のASCIIを、既存native暗号化storeで保存・DB再open・stale generation拒否・全内容digest照合する試験を追加。phase/最大Java heap/経過秒のreportだけをCIへ収集する。これはopaque文字列のstore試験で、実SQLite復元・owner/WebView bridge・毎回commit・モデル込みforecastの完走と区別する。Android環境はローカルにないため、nativeの実行結果はpush後のCIで確認する。
+- frontend74件、TypeScript/ESLint/build、320/390px・文字150%の画面2件がpass。新しい途中状態3種の横overflowなし、48px操作/12px間隔を実測し、320pxの計算待ち画面を目視した。source809/private0・package42 entriesの監査もpass。数値/特徴量と私有研究には変更なし。
+- 前回71dab9fのCI39000933106ではAndroid成功、native55件の失敗/error/skip0を原本XMLで照合した。verifyは520日容量検証中で、全job成功とはまだ扱わない。今回のnative追加試験、実API/本人ChatGPT、承認bundle0件、Xiaomi・自然配送・同署名更新、さらに長い継続履歴は未完。72時間台帳gate・私有研究停止・holdout lockを維持。実注文・merge・APK公開なし。
+
 ## 2026-10-17 — 日ごとの全出所照合と2年分の履歴を検証
 
 - 前回fe42d06の[CI38997118387](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38997118387)はAndroid/verify成功・release skip。共有Python360＋platform6＋controller guard7、frontend71、WASM/画面7＋配布計算1＋調査画面2がpass。native JUnit55・失敗/error/skip0、backup crypto4件、OS回復3段階6呼出しも原本を照合した。5,000銘柄/300営業日の保存は55,966,652 base64文字、SQLite44,544,000bytes、復元300日pass。実アプリ入力→特徴量は342.01秒・ピーク3,553,357,824bytes。reportのsource hashesをGitの該当commitと照合し、全5,000銘柄の特徴量JSON hashがPC/Linuxで一致した。原本は`.demo-artifacts/mobile-frame-ci-38997118387`と同名log/evidence。

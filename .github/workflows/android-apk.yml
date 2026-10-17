@@ -192,8 +192,14 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Android persistence tests
+        id: native_tests
         working-directory: web/android
         run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest
+      - name: Native encrypted store capacity evidence
+        if: always() && (steps.native_tests.outcome == 'success' || steps.native_tests.outcome == 'failure')
+        run: |
+          mkdir -p .demo-artifacts/android-state-capacity
+          adb shell run-as jp.stockai.app.debug cat cache/native-state-capacity.json > .demo-artifacts/android-state-capacity/report.json
       - name: Real worker recovery and OS dispatch evidence
         timeout-minutes: 20
         env:
@@ -218,6 +224,7 @@ jobs:
             web/android/app/build/reports/tests
             web/android/app/build/reports/androidTests
             web/android/app/build/outputs/androidTest-results
+            .demo-artifacts/android-state-capacity/report.json
             .demo-artifacts/android-lifecycle/lifecycle-report.json
             .demo-artifacts/android-lifecycle/*.txt
           if-no-files-found: ignore
