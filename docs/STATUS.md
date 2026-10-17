@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 再開し、停止したWorkerの計算要求を取り消す
+
+- 本人の再開指示後、D157停止時の84実装fileのhash一致とremote/PRの6bc561cを確認し、現sourceの全Python回帰を開始。Python実装を固定したままAndroidの中断復旧を修正する。全回帰の完了/coverageはまだ未確認。
+- 6bc561cのCI39047625666はverify/android-historyがsuccess、androidはrebootの元受領pending1でfailure。通信遮断WASM14件、compute11件、画面6件、通常native78件は成功。5,000銘柄/520日の全量B1復元は178.244秒/Java heap192MiBで成功したが、OS復旧の成功へ読み替えない。旧失敗と原本を保持する。
+- D158。CompletableFutureの取消しがownerの待機/実行中の仕事へ伝わらず、停止したWorkerの要求が残る不備を修正。取消し前に未開始なら実行せず枠を一度返し、実行中はその要求の待機を中断して未確定host/stagingを破棄する。DailyWorkerは停止通知/待機中断/期限超過で自分のcore要求だけを取り消す。確定済み保存を巻き戻さず、別callerやChatGPTの受領journalを取り消さない。
+- 実際のowner.submitをcompileした隔離JVM試験で、取消し済み要求の実行/実行中の未中断/64件の枠未解放の3失敗を再現し、修正後3成功。Android API依存部は限定stubで、native成功の証拠にはしない。実SQLiteの取消し済みPOST不変、隣接caller、枠上限、Worker停止通知の4試験を追加。コンパイル/native/OS受入は次CIで確認する。reboot不具合の原因全体が確定したとは扱わない。
+- 実市場の税引前最小比較は企業行動/PIT/約定/受渡し根拠待ち。完全な個人税引後NAV、最終モデル固定/未使用期間評価/採用、本人ChatGPT/Xiaomi/同署名更新も未完。再学習・holdout開封・採用・実注文・main merge・製品APK公開なし。
+
 ## 2026-10-18 — NISA残枠/税年の引継ぎを修正し、本人依頼で停止
 
 - D157。NISAの手動実約定を反映しても購入残枠が減らなかった不備を修正。実約定代金だけを一度減算し、未約定分/手数料は枠消費に加えず、未入力は保持、既知残枠は0を下限とする。売却で即時回復しない。実約定と次状態、CSV残高照合の税年をJSTに統一し、UTC表記でも同じ年の損益を保持する。

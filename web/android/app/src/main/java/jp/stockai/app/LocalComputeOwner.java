@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
 
@@ -59,17 +60,33 @@ final class LocalComputeOwner {
             queued.decrementAndGet(); result.completeExceptionally(new IllegalStateException("COMPUTE_QUEUE_UNAVAILABLE"));
             return result;
         }
-        try { queue.execute(() -> {
+        // Cancelling a caller must also remove its work or interrupt its own
+        // interpreter wait. A stopped Worker must not leave an orphan ahead
+        // of its replacement. Count queued/running work exactly once.
+        AtomicInteger phase = new AtomicInteger(); // queued=0, running=1, released=2
+        FutureTask<Void> task = new FutureTask<>(() -> {
+            if (!phase.compareAndSet(0, 1)) return null;
             try {
-                if (Looper.myLooper() == Looper.getMainLooper()) throw new IllegalStateException("COMPUTE_ON_MAIN_THREAD");
-                result.complete(operation.run());
+                if (!result.isCancelled()) {
+                    if (Looper.myLooper() == Looper.getMainLooper()) throw new IllegalStateException("COMPUTE_ON_MAIN_THREAD");
+                    result.complete(operation.run());
+                }
             } catch (Exception error) {
                 // The plugin always exposes a fixed error. Internal causes aid
                 // isolated native tests; worker diagnostics contain only enums.
                 result.completeExceptionally(new IllegalStateException("COMPUTE_OPERATION_FAILED", error));
-            } finally { queued.decrementAndGet(); }
-        }); } catch (java.util.concurrent.RejectedExecutionException ignored) {
-            queued.decrementAndGet(); result.completeExceptionally(new IllegalStateException("COMPUTE_QUEUE_UNAVAILABLE"));
+            } finally { phase.set(2); queued.decrementAndGet(); }
+            return null;
+        });
+        result.whenComplete((value, error) -> {
+            if (result.isCancelled()) {
+                task.cancel(true);
+                if (phase.compareAndSet(0, 2)) queued.decrementAndGet();
+            }
+        });
+        try { queue.execute(task); } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            if (phase.compareAndSet(0, 2)) queued.decrementAndGet();
+            result.completeExceptionally(new IllegalStateException("COMPUTE_QUEUE_UNAVAILABLE"));
         }
         return result;
     }

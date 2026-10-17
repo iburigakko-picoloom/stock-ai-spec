@@ -11,13 +11,33 @@ import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import androidx.work.ForegroundInfo;
+import com.getcapacitor.JSObject;
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.json.JSONObject;
 
 /** WorkManager persists requests across process loss/reboot; page receipts persist each slice. */
 public final class DailyWorker extends Worker {
+    private CompletableFuture<JSObject> activeCore;
     public DailyWorker(@NonNull Context context, @NonNull WorkerParameters parameters) { super(context, parameters); }
+
+    private JSObject coreRequest(LocalComputeOwner owner, String method, String path, String body) throws Exception {
+        CompletableFuture<JSObject> request;
+        synchronized (this) {
+            if (isStopped()) throw new InterruptedException();
+            request = owner.request(method, path, body); activeCore = request;
+        }
+        try { return request.get(660, TimeUnit.SECONDS); }
+        catch (InterruptedException | TimeoutException error) { request.cancel(true); throw error; }
+        finally { synchronized (this) { if (activeCore == request) activeCore = null; } }
+    }
+
+    @Override public void onStopped() {
+        super.onStopped();
+        synchronized (this) { if (activeCore != null) activeCore.cancel(true); }
+    }
 
     static final class ForegroundUnavailable extends Exception { }
 
@@ -60,7 +80,7 @@ public final class DailyWorker extends Worker {
                 };
                 MarketClient client = new MarketClient(context, owner.state.database);
                 DailyPipeline pipeline = new DailyPipeline(
-                    (method, path, body) -> owner.request(method, path, body).get(660, TimeUnit.SECONDS),
+                    (method, path, body) -> coreRequest(owner, method, path, body),
                     new DailyPipeline.Market() {
                         public JSONObject fetch(boolean membership, String day, java.util.function.BooleanSupplier stop) throws Exception {
                             return client.download(membership).fetch(day, 4, stop);
@@ -78,7 +98,7 @@ public final class DailyWorker extends Worker {
                     ChatGPTClient chatgpt = ChatGPTClient.get(context);
                     NativeSecrets secrets = new NativeSecrets(context);
                     DailyResearch research = new DailyResearch(
-                        (method, path, body) -> owner.request(method, path, body).get(660, TimeUnit.SECONDS),
+                        (method, path, body) -> coreRequest(owner, method, path, body),
                         new DailyResearch.Provider() {
                             public JSONObject selection() throws Exception { return chatgpt.researchSelection(); }
                             public JSONObject respond(String id, String request, String hash, String model, String effort) throws Exception {

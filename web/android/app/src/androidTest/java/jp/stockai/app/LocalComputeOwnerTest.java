@@ -35,6 +35,117 @@ public class LocalComputeOwnerTest {
 
     static <T> T result(CompletableFuture<T> value) throws Exception { return value.get(300, TimeUnit.SECONDS); }
 
+    private java.util.concurrent.ExecutorService ownerQueue() throws Exception {
+        java.lang.reflect.Field field = LocalComputeOwner.class.getDeclaredField("queue");
+        field.setAccessible(true); return (java.util.concurrent.ExecutorService) field.get(owner);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> CompletableFuture<T> queuedOperation(LocalComputeOwner.Operation<T> operation) throws Exception {
+        java.lang.reflect.Method method = LocalComputeOwner.class.getDeclaredMethod("submit", LocalComputeOwner.Operation.class);
+        method.setAccessible(true); return (CompletableFuture<T>) method.invoke(owner, operation);
+    }
+
+    @Test public void cancelledQueuedWriteCannotChangeTheCommittedProfile() throws Exception {
+        JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
+        long generation = owner.state.currentGeneration();
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        ownerQueue().execute(() -> {
+            entered.countDown();
+            try { release.await(); } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            CompletableFuture<JSObject> cancelled = owner.request("POST", "/api/v1/mobile/portfolio", revisedProfile(saved).toString());
+            assertTrue(cancelled.cancel(true));
+            release.countDown();
+            assertEquals(generation, result(owner.readState()).getLong("generation"));
+            assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        } finally { release.countDown(); }
+    }
+
+    @Test public void cancelledRunningOperationInterruptsOnlyItsOwnQueueTask() throws Exception {
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch interrupted = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        CompletableFuture<Void> running = queuedOperation(() -> {
+            entered.countDown();
+            try { release.await(); } catch (InterruptedException error) { interrupted.countDown(); throw error; }
+            return null;
+        });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            CompletableFuture<Integer> neighbour = queuedOperation(() -> 17);
+            assertTrue(running.cancel(true));
+            assertTrue(interrupted.await(10, TimeUnit.SECONDS));
+            assertEquals(Integer.valueOf(17), neighbour.get(10, TimeUnit.SECONDS));
+            assertTrue(running.isCancelled());
+        } finally { release.countDown(); }
+    }
+
+    @Test public void cancellationReleasesQueuedCapacityWithoutRunningCancelledOperations() throws Exception {
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        ownerQueue().execute(() -> {
+            entered.countDown();
+            try { release.await(); } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            java.util.List<CompletableFuture<Integer>> pending = new java.util.ArrayList<>();
+            for (int index = 0; index < 64; index++) pending.add(queuedOperation(calls::incrementAndGet));
+            try { queuedOperation(() -> 99).get(10, TimeUnit.SECONDS); fail("queue limit ignored"); }
+            catch (java.util.concurrent.ExecutionException expected) { }
+            for (CompletableFuture<Integer> request : pending) assertTrue(request.cancel(true));
+            CompletableFuture<Integer> next = queuedOperation(() -> 23);
+            release.countDown();
+            assertEquals(Integer.valueOf(23), next.get(10, TimeUnit.SECONDS));
+            assertEquals(0, calls.get());
+        } finally { release.countDown(); }
+    }
+
+    @Test public void workerStopCallbackCancelsItsPendingCoreWriteAndPreservesOtherCallers() throws Exception {
+        JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
+        long generation = owner.state.currentGeneration();
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService caller = java.util.concurrent.Executors.newSingleThreadExecutor();
+        DailyWorker worker = androidx.work.testing.TestWorkerBuilder.from(context, DailyWorker.class, caller).build();
+        java.lang.reflect.Method request = DailyWorker.class.getDeclaredMethod("coreRequest", LocalComputeOwner.class, String.class, String.class, String.class);
+        request.setAccessible(true);
+        java.lang.reflect.Field active = DailyWorker.class.getDeclaredField("activeCore"); active.setAccessible(true);
+        ownerQueue().execute(() -> {
+            entered.countDown();
+            try { release.await(); } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            java.util.concurrent.Future<Object> waiting = caller.submit(() -> {
+                try { return request.invoke(worker, owner, "POST", "/api/v1/mobile/portfolio", revisedProfile(saved).toString()); }
+                catch (java.lang.reflect.InvocationTargetException error) { throw (Exception) error.getCause(); }
+            });
+            CompletableFuture<?> pending = null;
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (pending == null && System.nanoTime() < deadline) {
+                synchronized (worker) { pending = (CompletableFuture<?>) active.get(worker); }
+                if (pending == null) Thread.sleep(10);
+            }
+            assertNotNull(pending);
+            CompletableFuture<JSObject> neighbour = owner.readState();
+            worker.onStopped();
+            assertTrue(pending.isCancelled());
+            try { waiting.get(10, TimeUnit.SECONDS); fail("stopped worker kept waiting"); }
+            catch (java.util.concurrent.ExecutionException expected) {
+                assertTrue(expected.getCause() instanceof java.util.concurrent.CancellationException);
+            }
+            release.countDown();
+            assertEquals(generation, result(neighbour).getLong("generation"));
+            assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        } finally { release.countDown(); caller.shutdownNow(); }
+    }
+
     static String emptyProfile() {
         return "{\"schema_version\":\"manual-portfolio-v1\",\"holdings_status\":\"none\",\"investment_budget_yen\":null,\"maximum_drawdown_percent\":null,\"accounts\":[],\"holdings\":[]}";
     }
