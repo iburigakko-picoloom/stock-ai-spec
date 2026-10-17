@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-17 — Workerへ状態byteの所有権を渡しrendererの段階を記録
+
+- 8aa8b23のCI39027359084はverify/Android success、android-history failure、release skipで全job終了。共有Python482件＋controller57件＋platform6件、React74件、同梱WASM7件・compute host5件・研究UI2件がpass。native74件（追加転送8件、fail/error/skip0）・opaque96,870,524文字6.988秒/192MiB・OS復旧3段階もpass。Linux全量特徴量は297.991秒/peak3,037,462,528bytes、5,000銘柄/520session・5/20日43/53列・全値SHA7ee2812d...9e580dffを維持。
+- 同runで新しく生成した96,781,956文字の有効capsuleと全11sourceをGit8aa8b23へ照合し保存した。実native全量試験ではseeding後のinitializing-ownerでWebView rendererが終了し、onRenderProcessGone→COMPUTE_HOST_CLOSEDとなった（試験20.288秒）。前のJava JSON OOM stackはなく、crash bufferも空で、rendererのcrash/OS killと終了段階の区別はまだ不明。全量受入をpassにせず、`native-full-history-ci-39027359084`の原本とfull logを保持。
+- D147として、hostで全capsuleの文字列を蓄積/joinしWorkerへcloneする処理を、単一のASCII byte配列へbounded encode→ArrayBufferの所有権転送へ変更。戻り側もbyte所有権を渡し、hostは256KiBずつ文字列化してnativeへ渡す。全長を検証してからbyte配列を生成する。Worker内の元のPython初期化・検証・export、128MiB文字/byte上限、認証済み入力/暗号化spool/原子commit、旧ASCII capsuleと直接Workerの文字列入出力を維持。これはコピーを減らす変更であり、未観測のrenderer終了原因をメモリ不足と断定しない。
+- 固定stage enumを記録し、renderer終了時にcrash/killと最終stageを内部例外へ残す。debugのみJava使用量/システム空き/low-memoryを記録。guard済みemulatorのLMK/renderer行だけを500行以内に保存し、一般console/アプリpayloadを除く。controller/privacy境界58件が2.07秒、Ruff・TypeScript/build/lintがpass。hostの新しいページでの実Python復元とbyte所有権のdetach・可変長chunk・欠落/認証/非ASCII/上限超過/出力拒否/全長String応答拒否8件がpass。同梱WASMのPC特徴量/9モデルvector・4head/300候補＋保有の株数・入力/復元・320/390px拡大文字layout7件も2.3分でpass。原本は`renderer-transfer-final-{host,mobile,controller}-tests`。最後のnative出力上限guard追加後もhost8件が24.8秒でpassし、TypeScript/build/package監査もpass（`renderer-transfer-current-host-tests.log`）。Java/全量nativeの再受入はCIで確認する。私有研究/holdout/本人gate/承認bundle0・実注文なし・main merge/製品APK公開なしを維持。
+
 ## 2026-10-17 — native ownerの全量状態を暗号化chunkで往復する
 
 - e6dad9fのCI39023474559はverify/Androidがsuccess、native-historyがfailure、releaseはskipで終了。全量SQLiteの準備・APK/source・転送hash・暗号化seed後、initializing-ownerでJava heap不足となった。入力96,781,956文字、heap上限201,326,592bytes、75,497,488bytesの追加確保に失敗し、stackはJSONObject/JSONStringer→ComputeHost.requestを指す。opaque保存だけの成功と区別し、実native全量受入は未達。原本は`native-full-history-ci-39023474559/native-history-evidence`と同名history log。

@@ -46,6 +46,25 @@ def validate_fixture(folder: Path) -> dict:
     return report
 
 
+def renderer_diagnostics(output: str) -> str:
+    stages = (
+        "reading-input|posting-input|decoding-input|interpreter|packages|archive|state|"
+        "request|export|staging-output"
+    )
+    selected = [line for line in output.splitlines() if "CONSOLE" not in line and (
+        re.search(
+            rf"StockAIComputeStage[^:]*: phase=({stages}) java_used=\d+ "
+            r"available=\d+ low_memory=(true|false)$", line
+        ) or re.search(
+            r"(?:lmkd|lowmemorykiller)\s*[:(]|"
+            r"(?:ActivityManager|chromium|libc|crash_dump64).*"
+            r"(?:sandboxed_process|low memory|lowmemory|out of memory|Out of memory|"
+            r"allocation failure|Fatal signal)", line
+        )
+    )]
+    return "\n".join(selected[-500:])
+
+
 class HistoryController(Controller):
     def stream(self, arguments: list[str], *, source=None, destination=None) -> None:
         if not self.guarded:
@@ -180,6 +199,12 @@ class HistoryController(Controller):
             )
         ]
         (self.output / "capacity-stack.txt").write_text("\n".join(lines), encoding="utf-8")
+        # Fixed stage enums/aggregate memory and emulator-only renderer/LMK
+        # events; never retain general WebView console or application payloads.
+        renderer = self.adb("logcat", "-d", "-v", "brief", required=False).decode(errors="replace")
+        (self.output / "renderer-memory.txt").write_text(
+            renderer_diagnostics(renderer), encoding="utf-8"
+        )
         try:
             self.report["latest_native_phase"] = json.loads(
                 self.adb("exec-out", "run-as", PACKAGE, "cat", "files/native-history-proof.json")

@@ -348,6 +348,7 @@ jobs:
             .demo-artifacts/android-history/instrumentation.txt
             .demo-artifacts/android-history/events.txt
             .demo-artifacts/android-history/capacity-stack.txt
+            .demo-artifacts/android-history/renderer-memory.txt
           if-no-files-found: ignore
           retention-days: 3
       - name: Stop emulator

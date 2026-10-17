@@ -36,6 +36,7 @@ final class ComputeHost {
     private LocalStateStore.PendingWrite outgoing;
     private long expectedGeneration;
     private boolean stateExpected;
+    private String transferPhase = "idle";
     private volatile long requestId;
     private volatile boolean closed;
     private volatile boolean assetUnavailable;
@@ -106,6 +107,12 @@ final class ComputeHost {
                         if (request.isForMainFrame()) ready.completeExceptionally(new IllegalStateException("COMPUTE_HOST_UNAVAILABLE"));
                     }
                     @Override public boolean onRenderProcessGone(WebView source, android.webkit.RenderProcessGoneDetail detail) {
+                        synchronized (transferLock) {
+                            IllegalStateException failure = new IllegalStateException(
+                                "COMPUTE_RENDERER_" + (detail.didCrash() ? "CRASHED" : "KILLED") + "_STAGE_" + transferPhase);
+                            ready.completeExceptionally(failure);
+                            if (pending != null) pending.completeExceptionally(failure);
+                        }
                         ComputeHost.this.close(); return true;
                     }
                 });
@@ -132,6 +139,7 @@ final class ComputeHost {
             if (closed || pending != null) throw new IllegalStateException("COMPUTE_HOST_BUSY_OR_CLOSED");
             identity = ++requestId;
             pending = response; incoming = source; expectedGeneration = generation;
+            transferPhase = "dispatch";
             stateExpected = source != null || "POST".equals(command.optString("method"));
         }
         try {
@@ -179,6 +187,21 @@ final class ComputeHost {
             if (pending != null) pending.completeExceptionally(new IllegalStateException("COMPUTE_STATE_TRANSFER_FAILED", error));
         }
         @JavascriptInterface public void ready() { if (!closed) ready.complete(null); }
+        @JavascriptInterface public void progress(String identity, String phase) {
+            synchronized (transferLock) {
+                if (!active(identity) || phase == null
+                        || !phase.matches("reading-input|posting-input|decoding-input|interpreter|packages|archive|state|request|export|staging-output")) return;
+                transferPhase = phase;
+                if ((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                    android.app.ActivityManager.MemoryInfo memory = new android.app.ActivityManager.MemoryInfo();
+                    ((android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
+                    Runtime runtime = Runtime.getRuntime();
+                    android.util.Log.i("StockAIComputeStage", "phase=" + phase + " java_used="
+                        + (runtime.totalMemory() - runtime.freeMemory()) + " available=" + memory.availMem
+                        + " low_memory=" + memory.lowMemory);
+                }
+            }
+        }
         @JavascriptInterface public String inputChunk(String identity, double index) {
             synchronized (transferLock) {
                 if (!active(identity)) return null;

@@ -124,3 +124,20 @@ def test_native_fixture_rejects_arbitrary_source_paths_without_reading_payload(t
     (tmp_path / "report.json").write_text(json.dumps(report))
     with pytest.raises(ValueError, match="Invalid synthetic"):
         validate_fixture(tmp_path)
+
+
+def test_renderer_diagnostics_keep_fixed_stages_and_system_memory_events_only() -> None:
+    from scripts.android_history_check import renderer_diagnostics
+
+    phase = "I/StockAIComputeStage( 123): phase=state java_used=100 available=200 low_memory=false"
+    killed = (
+        "I/lmkd( 12): Killing 'com.android.webview:sandboxed_process0' (123), oom_score_adj=900"
+    )
+    output = "\n".join([
+        phase, killed,
+        'I/chromium(123): [INFO:CONSOLE] "private account out of memory"',
+        "I/StockAIComputeStage(123): phase=private-account",
+        "I/StockAI(123): private-account",
+    ])
+    assert renderer_diagnostics(output).splitlines() == [phase, killed]
+    assert len(renderer_diagnostics("\n".join([phase] * 501)).splitlines()) == 500
