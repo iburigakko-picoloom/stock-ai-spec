@@ -13,6 +13,7 @@ import re
 import zlib
 from itertools import pairwise
 from json.encoder import encode_basestring_ascii
+from typing import NamedTuple
 
 import pandas as pd
 from pandas._libs.json import ujson_loads
@@ -26,6 +27,12 @@ MAX_BLOCK = 128 * 1024 * 1024
 
 class Number(str):
     """Retain the original Pandas JSON numeric spelling, including exponents."""
+
+
+class _VerifiedColumn(NamedTuple):
+    compressed: bytes
+    tokens: tuple[str, ...]
+    utf8_bytes: int
 
 
 def initialize(db):
@@ -136,7 +143,7 @@ def pack_table(db, original, raw):
     return _document("table", len(rows), columns, schema=schema)
 
 
-def _read(db, payload, kind, raw=None, *, profile_only=False):
+def _read(db, payload, kind, raw=None, *, profile_only=False, cache=None):
     document = json.loads(_inflate(payload[len(PREFIX):]))
     expected = {"kind", "rows", "columns"}
     if kind == "table":
@@ -151,10 +158,11 @@ def _read(db, payload, kind, raw=None, *, profile_only=False):
         raise ValueError("Invalid market column document")
     if not isinstance(columns, list):
         raise ValueError("Invalid market columns")
-    names, values, presence, cache, seen = [], [], [], {}, set()
+    names, values, presence, references, seen = [], [], [], {}, set()
     expanded = len(document.get("schema", "")) + 2 * count
     limit = MAX_BLOCK if kind == "table" else 64 * 1024 * 1024
     for column in columns:
+        known_strings = False
         name = column["name"]
         if not isinstance(name, str) or name in seen:
             raise ValueError("Invalid market column name")
@@ -174,6 +182,7 @@ def _read(db, payload, kind, raw=None, *, profile_only=False):
             if expanded > limit:
                 raise ValueError("Expanded market records exceed storage limit")
             items = [column["constant"]] * length
+            known_strings = True
         elif (tags == {"raw_hashes"} and kind == "table" and name == "source_record_hash"
               and column["raw_hashes"] is True):
             if profile_only:
@@ -189,22 +198,43 @@ def _read(db, payload, kind, raw=None, *, profile_only=False):
             digest = column["ref"]
             if not isinstance(digest, str) or not re.fullmatch("[0-9a-f]{64}", digest):
                 raise ValueError("Invalid market column reference")
-            if digest not in cache:
+            if digest not in references:
                 stored = db.execute("SELECT payload FROM market_columns WHERE digest=?",
                                     (digest,)).fetchone()
                 if stored is None:
                     raise ValueError("Market column missing")
-                encoded = _inflate(stored[0])
-                if hashlib.sha256(encoded).hexdigest() != digest:
-                    raise ValueError("Market column changed")
-                cache[digest] = json.loads(encoded)
-            items = cache[digest]
-            if isinstance(items, list) and all(type(item) is str for item in items):
-                expanded += sum(len(item.encode()) for item in items)
+                key = ("tokens", digest)
+                verified = cache.get(key) if cache is not None else None
+                # Read the DB bytes every time, including cache hits. A changed
+                # or removed column cannot hide behind a previous valid read.
+                if isinstance(verified, _VerifiedColumn) and verified.compressed == stored[0]:
+                    cache.move_to_end(key)
+                else:
+                    encoded = _inflate(stored[0])
+                    if hashlib.sha256(encoded).hexdigest() != digest:
+                        raise ValueError("Market column changed")
+                    verified = json.loads(encoded)
+                    if isinstance(verified, list) and all(type(item) is str for item in verified):
+                        verified = _VerifiedColumn(
+                            stored[0], tuple(verified), sum(len(item.encode()) for item in verified)
+                        )
+                        if cache is not None:
+                            cache[key] = verified
+                            cache.move_to_end(key)
+                            if len(cache) > 128:
+                                cache.popitem(last=False)
+                references[digest] = verified
+            verified = references[digest]
+            if isinstance(verified, _VerifiedColumn):
+                items = verified.tokens
+                expanded += verified.utf8_bytes
+                known_strings = True
+            else:
+                items = verified
         else:
             raise ValueError("Invalid market column encoding")
-        if (not isinstance(items, list) or len(items) != length
-                or any(type(item) is not str for item in items)):
+        if ((not known_strings and not isinstance(items, list)) or len(items) != length
+                or (not known_strings and any(type(item) is not str for item in items))):
             raise ValueError("Invalid market column length/value")
         expanded += (len(encode_basestring_ascii(name)) + 2) * length
         if expanded > limit:
@@ -216,13 +246,13 @@ def _read(db, payload, kind, raw=None, *, profile_only=False):
     return document, names, values, presence
 
 
-def records(db, payload):
+def records(db, payload, *, cache=None):
     if not payload.startswith(PREFIX):
         result = json.loads(_inflate(payload, 64 * 1024 * 1024))
         if not isinstance(result, list):
             raise ValueError("Invalid legacy market records")
         return result
-    document, names, values, presence = _read(db, payload, "records")
+    document, names, values, presence = _read(db, payload, "records", cache=cache)
     if all(indexes is None for indexes in presence):
         # One JSON parse avoids a separate parser call for every scalar cell.
         wrapped = _table("{}", names, values, document["rows"])
@@ -256,8 +286,8 @@ def frame(db, payload, raw, expected, cache):
     """
     if not payload.startswith(PREFIX):
         return pd.read_json(io.BytesIO(table(db, payload, raw, expected)), orient="table")
-    source = records(db, raw)
-    document, names, values, _ = _read(db, payload, "table", source)
+    source = records(db, raw, cache=cache)
+    document, names, values, _ = _read(db, payload, "table", source, cache=cache)
     decoded = _table(document["schema"], names, values, document["rows"])
     if hashlib.sha256(decoded).hexdigest() != expected:
         raise ValueError("Stored normalized data changed")
@@ -318,7 +348,7 @@ def dtype_profile(db, payload, raw, expected, cache):
     """
     if not payload.startswith(PREFIX):
         return frame_profile(frame(db, payload, raw, expected, cache))
-    document, names, values, _ = _read(db, payload, "table", profile_only=True)
+    document, names, values, _ = _read(db, payload, "table", profile_only=True, cache=cache)
     if document["rows"] == 0:
         return frame_profile(frame(db, payload, raw, expected, cache))
     schema = ujson_loads(document["schema"], precise_float=False)

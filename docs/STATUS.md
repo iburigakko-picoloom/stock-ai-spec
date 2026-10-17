@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-17 — 同一圧縮byteの検証済み列を有界で再利用
+
+- D140として、PIT読込の同じ参照列について、展開済みtokenとUTF-8展開長をimmutableなtupleへ保持する。各文書で同じdigestの現行BLOBをSQLiteから再読込し、圧縮byteが完全一致した場合だけ再利用する。変更時は展開・digest・型を再検証し、削除/改変/余分な圧縮データを拒否する。既存のscalar cacheと合計128entryまでとし、wire形式・raw record hash・正規化row JSON/hash・全source ID・列/行数/展開サイズ検証を維持。型検証済みの定数/immutable tokenで不要な同型走査を繰り返さない。
+- codec18件がpass。再読込後の改変/削除/末尾データ拒否、毎回のDB照会、同値の再圧縮、128entry上限、profileからframeへの一致、raw/normalized hashの再検証とcache hit時の展開上限を含む。関連mobile60件も67.78秒でpass。b5dcd81の元codecと、全5datasetの各20バッチ・計100バッチ202,060行でraw records・normalized bytes・dtype profile・全frame値/型/index/列順が完全一致し、元DBも不変。原本は`.demo-artifacts/verified-token-codec-tests.xml`、`verified-token-related-tests.xml`、`verified-token-codec-legacy-parity.json`。
+- Ruff全体、mypy通常/win32各66file、archive/golden再生成・TypeScript/build・source809/private0監査がpass。共有29＋mobile15fileをworking raw bytesと照合した`verified-token-archive-proof.json`を保持。実WASMの入力/特徴量/復元を確認中で、全量の速度改善は未確定。600秒/3500MiB、保存上限・私有研究停止・holdout lock・承認bundle0件・72時間台帳gateを維持し、実注文・merge・APK公開なし。
+- 同梱WASMのPIT入力・PC特徴量・復元・出所1件が1.2分でpassし、package42 entries監査もpass。20バッチずつ（各10万行）のWASM診断はmaster5.451秒・price5.135秒、全体22.30秒・peak1,775,624,192bytes。以前の診断master5.020秒・price7.462秒と比べ一律の改善ではなく、全量の時間を示さない。元DB/capsule不変・model0。原本は`verified-token-wasm-test.log`と`mobile-native-history-capsule-20261017/wasm-codec-verified-token-sample`。同じ600秒/3500MiBで全量WASMを単独実行中。
+- D140の全量WASMは入力470.559秒（前回540.810秒）、全5source IDも前回と完全一致。daily/financial各260万行・市場/業種各520行を維持し、財務展開55.842秒・所属区間8.069秒だった。peak3,244,048,384bytesは予算内だが、特徴量中に600秒の計算予算へ達し、全体611.382秒でtime停止。完成特徴量/hashはなく、全体の完走は未解決。原本は`mobile-native-history-capsule-20261017/wasm-features-verified-token-cache`、archive SHA35ee24ff...1cbcb65be。実装とこの失敗を保存し、残る結合/計算の重複を調べる。D140単独の全量PC結果はまだない。
+
 ## 2026-10-17 — PIT所属区間と最終日ドローダウンの繰返し計算を削減
 
 - D138として、PIT所属区間を全銘柄でまとめて構築する。暦の重複日を先に除き、銘柄境界と営業日gapから区間を作り、翌営業日のISO表現は日ごとに1回だけ生成する。期間外の日が1件でもある銘柄の全履歴除外、null/未使用category、欠けた全体snapshotの拒否、上場・廃止・再上場、型・列順・入力不変を維持。48bbf5bの元関数と162条件で全値/型/index/列順・例外が一致。独立した所属区間12条件を含むproduction35件がpass。原本は`.demo-artifacts/universe-interval-parity.json`と`universe-interval-tests.xml`。
@@ -7,6 +15,8 @@
 - Ruff全体、mypy通常/win32各66file、同梱archive更新（共有29file・model0）、PC golden再生成、TypeScript/build、source809/private0・package42 entries監査がpass。変更後の関連mobile61件（入力・特徴量・出所・予測・codec）も89.27秒でpass。同梱WASMでPIT入力・PC特徴量・出所・復元1件が1.5分でpass。原本は`universe-drawdown-mobile-tests.xml`と`universe-drawdown-wasm-test.log`。全量結果は次項へ記録。私有研究の再開・学習・採用、holdout解除、実注文・merge・APK公開なし。
 - D138/D139の全量WASMは所属区間7.554秒、全入力540.810秒で完成。daily/financial各260万行・市場/業種各520行・全5source IDを保持したが、特徴量中に600秒の計算予算へ達し、全体614.294秒でtime停止した。peak3,303,972,864bytesは3500MiB内。完成特徴量や数値不一致の証拠はない。原本は`mobile-native-history-capsule-20261017/wasm-features-vector-universe-final-drawdown`。archive SHA d51420dd...1f4027fcの共有29＋mobile15fileをworking raw bytesと完全照合した`final-window-archive-proof.json`を保持。full PCの同じ予算・従来全量hashとの比較を別processで単独実行中。
 - 単独のWindows全量PCは455.158秒・peak2,804,809,728bytesでpass。入力262.982秒、全5source ID・daily/financial各260万行・市場/業種各520行、5/20日各5,000行（43/53列）を維持し、全特徴量JSON SHA7ee2812d...9e580dffは修正前と完全一致。元DBのSHAも不変。原本は`mobile-two-year-capacity-candidate-20261017/latest-features-vector-universe-final-drawdown.json`と`vector-universe-final-drawdown-capacity.log`。WASM失敗はarchiveの全44source・配布distと元capsuleの不変を`final-window-wasm-proof.json`へ照合し、PCの成功へ読み替えない。
+- b5dcd81をpushし、CI39014212881で検証中。PC reportの7sourceはworking raw hashとGit b5dcd81の改行正規化後の内容へ完全照合し、`mobile-two-year-capacity-candidate-20261017/final-window-source-proof.json`を保持。
+- 同CIのAndroid jobはsuccess。JUnit原本66件・fail/error/skip0、96,870,524文字のopaque storeは6.840秒・Java最大heap201,326,592bytesでpass。OS回復も3段階で元WorkInfo SUCCEEDED・ACK・本人入力/実受領を保持し、generation5/8/11・pending0。processだけ画面起動と元job1の制約付き配送、rebootとforce-stop後の明示再表示は追加配送なし。3段階ともD137の待機中再試行追跡は発動していない。全量Java owner、foreground計算、実API/model/ChatGPT、自然起動時刻・Xiaomiの成功へ読み替えない。原本は`.demo-artifacts/final-window-ci-39014212881/android-test-reports`。verifyは継続中。
 
 ## 2026-10-17 — 通信条件で中断した元処理を既存の観測窓内で追跡
 
@@ -14,6 +24,7 @@
 - D137として、初回のrun -sをまだ送っていない場合だけ、同じ200秒のACK窓で10秒ごとに元UUID・現行generationの再試行を照合する。ENQUEUEDで、OS get-job-stateが単独のreadyを返す場合だけ、未使用の1回を同じrun -sで送る。既に試行済み（拒否を含む）なら追加しない。元のWorkInfo SUCCEEDED・受領/本人入力照合、90/3/200秒、job消失raceの再照合上限、CI/device guardと介入表示を維持。再enqueue・強制run・時刻/電源policy変更なし。アプリの予約/実行処理は変更しない。
 - controller45件がpass。backoff中は観測しready後だけ元のjob8を配送、既送信/拒否後の追加禁止、曖昧なready flags・RUNNING/SUCCEEDED/BLOCKED・FAILED/CANCELLED・guard、元の期限とACK後の無介入、待機中に配送した場合の正しいdelivery表示を検証。Ruff全体もpass。手動unforcedの200秒・介入なしも独立して検証し、時間窓は延長しない。実OS成功は次のCIで確認する。
 - 48bbf5bのCI39011858077はAndroid job success。JUnit原本66件・fail/error/skip0、96,870,524文字のopaque保存/再読込は6.989秒・Java最大heap201,326,592bytesでpass。実OS回復3段階もpassし、元WorkInfo SUCCEEDED・ACK・receipt/本人入力を照合。processは短い画面起動と元job1への制約付き配送、rebootとforce-stop後の明示再表示は追加配送なしで完了。generation5/8/11・pending0、research batch3/中断予約3/tombstone6/変更要求拒否27・資格情報なし。今回のrebootは早期に自然完了し、D137の待機中再試行追跡は発動していない。観測窓内の成功を自然起動時刻保証やXiaomi/全量Java owner/実provider/model成功へ読み替えない。原本は`.demo-artifacts/native-retry-ci-39011858077/android-test-reports`と同名Android log。verifyは実行中。
+- 同CI39011858077は全job終了し、Android success・verify failure・release skip。Linuxの520日保存/復元は784.916秒（96,781,956文字・SQLite76,980,224bytes・復元0.535秒）でpass。全量入力375.983秒・全5source ID・daily/financial各260万行・市場/業種各520行まで完了したが、特徴量中600.028秒でtime停止。peak3,260,878,848bytesは3500MiB内で完成値なし。7source raw hashとcapacity reportをGit48bbf5bへ完全照合済み。原本は同folderの`mobile-storage-capacity`、`verify-source-proof.json`、同名verify log。旧runの完了確認後にb5dcd81をpushした。
 - fa45b94のCI39009796098は全job終了、Android/verify failure・release skip。520日保存/復元は767.49秒・96,781,956文字・SQLite76,980,224bytes・復元0.517秒でpass。Linux全量入力は348.48秒で完成し、全5source ID・260万行・市場/業種各520行を保持。peak3,241,566,208bytesは3500MiB予算内だったが、特徴量中に600.232秒でtime予算へ到達し完成値なし。reportの7source raw hashをGitfa45b94のbyteと完全照合。原本は同CI folderの`mobile-storage-capacity`、`verify-source-proof.json`とverify log/jobs JSON。48bbf5bをpushし、同じcoreでOS受入controllerを更新したCI39011858077を開始した。
 
 ## 2026-10-17 — PIT価格構築の不要な中間データを解放

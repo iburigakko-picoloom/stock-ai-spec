@@ -219,3 +219,91 @@ def test_empty_table_materialization_keeps_pandas_empty_schema_semantics(tmp_pat
             market_codec.pack_records(db, []), hashlib.sha256(original).hexdigest(), OrderedDict())
     pd.testing.assert_frame_equal(actual, pd.read_json(io.BytesIO(original), orient="table"),
                                   check_exact=True)
+
+
+@pytest.mark.parametrize("change", ["missing", "changed", "trailing-data"])
+def test_cached_reference_still_reads_db_and_rejects_later_corruption(
+    tmp_path, change, monkeypatch,
+):
+    original = [{"value": '合成/株 "😀"'}, {"value": "different"}]
+    cache = OrderedDict()
+    with sqlite3.connect(tmp_path / "values.sqlite3") as db:
+        market_codec.initialize(db)
+        encoded = market_codec.pack_records(db, original)
+        compressed = db.execute("SELECT payload FROM market_columns").fetchone()[0]
+        inflate = market_codec._inflate
+        calls = []
+
+        def observed(value, limit=market_codec.MAX_BLOCK):
+            if value == compressed:
+                calls.append(value)
+            return inflate(value, limit)
+
+        monkeypatch.setattr(market_codec, "_inflate", observed)
+        queries = []
+        db.set_trace_callback(queries.append)
+        assert market_codec.records(db, encoded, cache=cache) == original
+        assert market_codec.records(db, encoded, cache=cache) == original
+        assert len(calls) == 1
+        assert sum(query.startswith("SELECT payload FROM market_columns") for query in queries) == 2
+        if change == "missing":
+            db.execute("DELETE FROM market_columns")
+        elif change == "changed":
+            db.execute("UPDATE market_columns SET payload=?", (zlib.compress(b'["3","4"]'),))
+        else:
+            db.execute("UPDATE market_columns SET payload=?", (compressed + b"extra",))
+        with pytest.raises(ValueError):
+            market_codec.records(db, encoded, cache=cache)
+
+
+def test_cached_reference_accepts_equivalent_recompression_and_keeps_cache_bounded(tmp_path):
+    cache = OrderedDict()
+    with sqlite3.connect(tmp_path / "values.sqlite3") as db:
+        market_codec.initialize(db)
+        for index in range(150):
+            original = [{"value": index}, {"value": index + 1}]
+            encoded = market_codec.pack_records(db, original)
+            assert market_codec.records(db, encoded, cache=cache) == original
+            assert len(cache) <= 128
+        digest, compressed = db.execute(
+            "SELECT digest,payload FROM market_columns ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()
+        equivalent = zlib.compress(zlib.decompress(compressed), level=0)
+        assert equivalent != compressed
+        db.execute("UPDATE market_columns SET payload=? WHERE digest=?", (equivalent, digest))
+        assert market_codec.records(db, encoded, cache=cache) == original
+        assert len(cache) == 128
+
+
+def test_profile_cache_preserves_frame_values_and_checks_each_snapshot_hash(tmp_path):
+    raw = [{"row": 1}, {"row": 2}]
+    source = pd.DataFrame({"value": [1.25, -0.0], "text": ["合成", "other"],
+                           "source_record_hash": [record_hash_v1(row) for row in raw]})
+    original = source.to_json(orient="table", date_format="iso").encode()
+    expected = hashlib.sha256(original).hexdigest()
+    cache = OrderedDict()
+    with sqlite3.connect(tmp_path / "values.sqlite3") as db:
+        market_codec.initialize(db)
+        records = market_codec.pack_records(db, raw)
+        compact = market_codec.pack_table(db, original, raw)
+        market_codec.dtype_profile(db, compact, records, expected, cache)
+        actual = market_codec.frame(db, compact, records, expected, cache)
+        pd.testing.assert_frame_equal(actual, pd.read_json(io.BytesIO(original), orient="table"),
+                                      check_exact=True)
+        with pytest.raises(ValueError, match="Stored normalized data changed"):
+            market_codec.frame(db, compact, records, "0" * 64, cache)
+        changed_raw = market_codec.pack_records(db, [{"row": 3}, {"row": 4}])
+        with pytest.raises(ValueError, match="Stored normalized data changed"):
+            market_codec.frame(db, compact, changed_raw, expected, cache)
+
+
+def test_cached_reference_keeps_current_expanded_size_limit(tmp_path, monkeypatch):
+    cache = OrderedDict()
+    with sqlite3.connect(tmp_path / "values.sqlite3") as db:
+        market_codec.initialize(db)
+        column = market_codec._column(db, ['"' + 'a' * 100 + '"', '"' + 'b' * 100 + '"'])
+        compact = market_codec._document("table", 2, [{"name": "value", **column}], schema="{}")
+        market_codec._read(db, compact, "table", cache=cache)
+        monkeypatch.setattr(market_codec, "MAX_BLOCK", 128)
+        with pytest.raises(ValueError, match="Expanded market records"):
+            market_codec._read(db, compact, "table", cache=cache)
