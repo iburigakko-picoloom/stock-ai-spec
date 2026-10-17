@@ -18,6 +18,35 @@ from stock_ai.data.normalize import record_hash_v1
 from tests.test_mobile_market import legacy_rows, payload
 
 
+def test_table_assembly_preserves_frozen_json_spelling_and_escaping():
+    actual = market_codec._table(
+        '{"fields":[]}', ["number", "label"],
+        [["-0.0", "1.23000e+17"], ['"a\\/b"', '"\\u96ea"']], 2,
+    )
+    expected = (
+        b'{"schema":{"fields":[]},"data":[{"number":-0.0,"label":"a\\/b"},'
+        b'{"number":1.23000e+17,"label":"\\u96ea"}]}'
+    )
+    assert actual == expected
+    assert market_codec._table("{}", ['a"b'], [["null"]], 1) == (
+        b'{"schema":{},"data":[{"a\\"b":null}]}'
+    )
+
+
+def test_table_assembly_keeps_empty_columns_and_requested_row_count():
+    assert market_codec._table("{}", [], [], 2) == b'{"schema":{},"data":[{},{}]}'
+    assert market_codec._table("{}", ["value"], [["1", "2"]], 1) == (
+        b'{"schema":{},"data":[{"value":1}]}'
+    )
+    assert market_codec._table("{}", ["value"], [[]], 0) == b'{"schema":{},"data":[]}'
+    with pytest.raises(IndexError):
+        market_codec._table("{}", ["value"], [["1"]], 2)
+    with pytest.raises(ValueError):
+        market_codec._table("{}", ["value"], [], 1)
+    with pytest.raises(TypeError):
+        market_codec._table("{}", ["value"], [["1"]], 1.0)
+
+
 def test_scalar_types_missing_fields_unicode_and_nested_values_are_lossless(tmp_path):
     with sqlite3.connect(tmp_path / "values.sqlite3") as db:
         market_codec.initialize(db)

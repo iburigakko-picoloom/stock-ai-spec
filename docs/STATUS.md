@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-17 — 検証済みJSON列の組立でセルごとの処理を削減
+
+- D145として、同じ長さの検証済みlist/tuple列は列のzipと標準map/addでJSON行を作る。数値の表記・escaped key・schema・列/行順と全byteを保つ。空列・別container/count型・要求行数による切詰め・不一致は既存indexed処理を残し、戻り値と例外を保つ。raw record/normalized hash・現行DB列の再読込・128cache・PIT/source ID・式や容量/600秒/3500MiBは変更しない。
+- frozen e6dad9fとの31条件で戻りbyteとfallback例外の型/文言が完全一致。全5datasetの100バッチ202,060行でもraw records・normalized bytes・dtype profile・全frame値/型/index/列順・元DB不変が一致。公開codec20件が2.52秒、関連mobile54件が80.24秒、同梱WASMのPC数値/9モデルvector・4head/300候補＋保有株数/復元5件が2.0分でpass。原本は`table-map-function-parity.json`、`table-map-codec-legacy-parity.json`、`table-map-codec-tests.xml`、`table-map-mobile-tests.xml`、`table-map-wasm-tests.log`。
+- 先に隔離した候補のPC16条件が全byte一致。20回の組立だけを測った14列は0.179→0.120秒、40列は0.485→0.341秒。同じWASM内の各20バッチ/10万行の入力診断はmaster5.885→4.137秒、price5.514→5.323秒で、組立部分は1.187→0.658秒/1.126→0.751秒。順序やwarmupの影響もあり全量改善の根拠にはせず、Source DB/capsule不変・model0を確認。原本は`table-map-candidate-pc.json`と`wasm-table-map-sample/report.json`（診断worker hash固定）。既存のraw読込は一括JSON parseを使っており、今回の変更は文字列の組立のみ。
+- Ruff全体、archive/golden再生成（共有29＋mobile15file・model0）、TypeScript/build、source813/private0・package42 entries監査がpass。archiveの全44source working raw bytesを`table-map-archive-proof.json`へ照合した。新しい全量WASM/PCは次に同じ予算で測る。前の実測archive SHA5ae041ff...7c326799は`archive-matching-session-matrix-5ae041ff.zip`として保存。私有研究停止/holdout lock/承認bundle0/本人gateを維持し、実注文・main merge・製品APK公開なし。
+
 ## 2026-10-17 — 有効な全市場SQLiteをnative ownerで検証する工程を追加
 
 - D144として、同じCI runで作った5000銘柄/520sessionの合成初回取得から、有効なSQLite capsuleを作る。生成時の8sourceを現行byteと照合し、元DBを変更せずcopyを現行runtimeで正規化する。再復元後の全mobile17tableの定義・主キー順のtyped-cell hashを照合し、model0・520日を確認する。出所が異なるローカルの旧fixtureは`Capacity source changed`で拒否した。この拒否を新しいfixtureの成功とは扱わず、新規生成からの確認はCIへ残す。
@@ -10,6 +17,7 @@
 - 現行sourceからのローカル新規5000銘柄/520session生成→fixture作成→PC再復元も598.694秒でpass。96,870,524文字・model0・全17tableの定義/typed-cellが完全一致し、元DB不変。validatorも同じfixtureを受理。生成時8sourceとfixture/owner等9sourceの重複を除く13fileをworking raw byteとGit99dbfa5の改行正規化後へ照合し、capsuleとentrypoint hashを固定した。原本は`native-history-fresh-source-20261017/preparation-proof.json`、`fixture/report.json`、`source-proof.json`。これはPCでの準備/復元の成功であり、CIのJava全量受入はまだない。
 - 99dbfa5のCI39022265932はJava compileと通常native66件（fail/error/skip0）、opaque storeとprocess復旧がpassしたが、rebootで失敗。元UUIDのjob7がRUNNING後にreason7で中断し、同UUIDのRETRY/ENQUEUED job8となった。get-job-stateはwaitingのまま、200秒の観測後もgeneration7/pending1/queuedでACKがない。dumpには期限を過ぎたearliestとTIMING_DELAY未充足/Ready trueの両表示があり、原因解消としない。原本は`native-full-history-ci-39022265932`と同名Android log、`partial-native-evidence.json`。verifyは継続させ、未完の全量計算/Java bridgeを成功扱いにしない。
 - 独立した全量native jobの実行条件を、Android job全体のsuccessから「同runのcompiled APK upload成功」へ変更する。OS配送が失敗しても追加の全量SQLite証拠を採取できる一方、releaseは従来verify/Androidと新native-historyすべてsuccessを必要とする。OS受入・90/3/200秒・一度だけの制約充足dispatch・exact-ready guardは変更せず、別試験の成功で失敗を隠さない。workflow YAMLでoutput/実行条件と全release依存関係を照合済み。
+- 99dbfa5のCI39022265932は全job終了、verify success・Android failure・native-history/release skip。Linux全量計算は202.913秒・peak3,157,757,952bytesでpassし、全5source・daily/financial各260万行・市場/業種各520行・5/20日各5,000行（43/53列）・全特徴量JSON SHA7ee2812d...9e580dffを維持。7source raw bytesと容量report hashをGit99dbfa5へ照合した`verify-source-proof.json`を保持。e6dad9fのCI39023474559ではAndroid jobがsuccess、verifyは全量保存を実行中で、新しいJava全量受入は未確定。
 
 ## 2026-10-17 — 同じ取引日履歴の銘柄を有界でまとめて計算
 

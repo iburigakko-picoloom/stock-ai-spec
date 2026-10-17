@@ -13,6 +13,7 @@ import re
 import zlib
 from itertools import pairwise
 from json.encoder import encode_basestring_ascii
+from operator import add
 from typing import NamedTuple
 
 import pandas as pd
@@ -112,10 +113,18 @@ def pack_records(db, records):
 
 def _table(schema, names, values, count):
     keys = [encode_basestring_ascii(name) + ":" for name in names]
-    rows = (
-        "{" + ",".join(key + column[index] for key, column in zip(keys, values, strict=True)) + "}"
-        for index in range(count)
-    )
+    if (keys and type(count) is int and type(values) in (list, tuple)
+            and len(keys) == len(values)
+            and all(type(column) in (list, tuple) and len(column) == count for column in values)):
+        rows = ("{" + ",".join(map(add, keys, row)) + "}"
+                for row in zip(*values, strict=True))
+    else:
+        # Preserve the existing empty-column, requested-count and error semantics.
+        rows = (
+            "{" + ",".join(key + column[index]
+                           for key, column in zip(keys, values, strict=True)) + "}"
+            for index in range(count)
+        )
     return ('{"schema":' + schema + ',"data":[' + ",".join(rows) + "]}").encode()
 
 
