@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -368,6 +368,73 @@ describe("Goal 5 PWA", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "記録済み約定を実保有へ反映" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === "/api/v1/portfolio/apply-executions")).toBe(true));
+  });
+
+  it("keeps execution inputs after validation errors and corrects the same form", async () => {
+    let attempts = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/v1/today") return jsonResponse(today);
+      if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
+        lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
+      if (url.includes("/executions")) return ++attempts === 1
+        ? new Response(JSON.stringify({ detail: "約定単価を確認してください" }), { status: 422,
+          headers: { "Content-Type": "application/json" } }) : jsonResponse({ ok: true });
+      throw new Error(`unexpected URL ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
+    render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
+    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    await userEvent.clear(card.getByLabelText("平均約定単価"));
+    await userEvent.type(card.getByLabelText("平均約定単価"), "1234");
+    await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
+    await screen.findByText("約定単価を確認してください");
+    expect(card.getByLabelText("平均約定単価")).toBeInTheDocument();
+    expect(card.getByLabelText("平均約定単価")).toHaveValue("1234");
+    await userEvent.clear(card.getByLabelText("平均約定単価"));
+    await userEvent.type(card.getByLabelText("平均約定単価"), "1235");
+    await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
+    await screen.findByText("購入会社の実行結果を記録しました。");
+    expect(attempts).toBe(2);
+  });
+
+  it("blocks concurrent execution writes and retries a lost acknowledgment with the same identity", async () => {
+    let rejectFirst!: (error: Error) => void;
+    const bodies: Record<string, unknown>[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/v1/today") return jsonResponse(today);
+      if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
+        lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
+      if (url.includes("/executions")) {
+        bodies.push(JSON.parse(String(init?.body)));
+        if (bodies.length === 1) return new Promise<Response>((_, reject) => { rejectFirst = reject; });
+        return jsonResponse({ ok: true });
+      }
+      throw new Error(`unexpected URL ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const uuid = vi.fn(() => "one-record"); vi.stubGlobal("crypto", { randomUUID: uuid });
+    render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
+    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    const button = card.getByRole("button", { name: "この結果を記録" });
+    await userEvent.click(button);
+    expect(button).toBeDisabled();
+    expect(card.getByLabelText("平均約定単価")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "記録済み約定を実保有へ反映" })).toBeDisabled();
+    await userEvent.dblClick(button);
+    expect(bodies).toHaveLength(1);
+    await act(async () => { rejectFirst(new Error("保存応答を受け取れませんでした")); });
+    await screen.findByText("保存応答を受け取れませんでした");
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    await screen.findByText("購入会社の実行結果を記録しました。");
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toEqual(bodies[0]);
+    expect(uuid).toHaveBeenCalledTimes(1);
+    expect(card.getByRole("button", { name: "記録済み" })).toBeDisabled();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/orders"))).toBe(false);
   });
 
   it("renders the formal capital and model settings routes without Notifications API", async () => {

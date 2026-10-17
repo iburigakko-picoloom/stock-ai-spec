@@ -2021,6 +2021,7 @@ class OperationalStore:
         execution: ExecutionRecord,
         *,
         confirm_difference: bool = False,
+        update_daily_status: bool = False,
     ) -> bool:
         payload = _canonical_payload(execution)
         with self._connect() as connection:
@@ -2041,6 +2042,25 @@ class OperationalStore:
                 },
                 payload=payload,
             )
+            if inserted and update_daily_status:
+                proposal = self.proposal(self.decision(execution.decision_id).proposal_id)
+                day = proposal.as_of.astimezone(JST).date()
+                previous = self.daily_status(day)
+                execution_state = (
+                    PipelineState.EXECUTION_PENDING
+                    if execution.status in {
+                        ExecutionStatus.NOT_ORDERED, ExecutionStatus.OPEN,
+                        ExecutionStatus.PARTIALLY_FILLED,
+                    }
+                    else PipelineState.EXECUTION_RECORDED
+                )
+                _write_daily_status(connection, DailyOperationStatus(
+                    business_date=day, pipeline_state=execution_state,
+                    updated_at=execution.executed_at,
+                    data_as_of=None if previous is None else previous.data_as_of,
+                    morning_data_as_of=None if previous is None else previous.morning_data_as_of,
+                    proposal_id=proposal.proposal_id,
+                ))
             connection.commit()
         return inserted
 
@@ -2075,7 +2095,8 @@ class OperationalStore:
         existing_filled = sum(
             item.filled_shares
             for item in self.executions(decision_id=execution.decision_id)
-            if item.symbol == execution.symbol
+            if item.execution_id != execution.execution_id
+            and item.symbol == execution.symbol
             and item.account_bucket_id == execution.account_bucket_id
             and item.side is execution.side
         )

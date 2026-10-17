@@ -26,7 +26,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from stock_ai.domain import (
     ExecutionRecord,
-    ExecutionStatus,
     PortfolioProposal,
     UserDecision,
     UserDecisionLine,
@@ -708,28 +707,8 @@ def create_app(
                 "source": "manual",
             }
         )
-        store.append_execution(execution, confirm_difference=body.confirm_difference)
-        proposal = store.proposal(store.decision(decision_id).proposal_id)
-        execution_state = (
-            PipelineState.EXECUTION_PENDING
-            if execution.status
-            in {
-                ExecutionStatus.NOT_ORDERED,
-                ExecutionStatus.OPEN,
-                ExecutionStatus.PARTIALLY_FILLED,
-            }
-            else PipelineState.EXECUTION_RECORDED
-        )
-        previous = store.daily_status(proposal.as_of.astimezone(JST).date())
-        store.set_daily_status(
-            DailyOperationStatus(
-                business_date=proposal.as_of.astimezone(JST).date(),
-                pipeline_state=execution_state,
-                updated_at=execution.executed_at,
-                data_as_of=None if previous is None else previous.data_as_of,
-                morning_data_as_of=None if previous is None else previous.morning_data_as_of,
-                proposal_id=proposal.proposal_id,
-            )
+        store.append_execution(
+            execution, confirm_difference=body.confirm_difference, update_daily_status=True,
         )
         return jsonable_encoder(execution, by_alias=True)
 

@@ -119,7 +119,31 @@ def test_proposal_decision_execution_and_next_day_are_separate(tmp_path: Path) -
             ),
             confirm_difference=True,
         )
-    assert store.append_execution(execution)
+    prior_status = store.daily_status(AS_OF.date())
+    with store._connect() as connection:
+        connection.execute("CREATE TRIGGER reject_status BEFORE INSERT ON daily_status "
+                           "BEGIN SELECT RAISE(ABORT, 'synthetic status failure'); END")
+        connection.commit()
+    with pytest.raises(sqlite3.IntegrityError, match="synthetic status failure"):
+        store.append_execution(execution, update_daily_status=True)
+    assert store.executions() == ()
+    assert store.daily_status(AS_OF.date()) == prior_status
+    with store._connect() as connection:
+        connection.execute("DROP TRIGGER reject_status")
+        connection.commit()
+    assert store.append_execution(execution, update_daily_status=True)
+    saved_status = store.daily_status(AS_OF.date())
+    assert saved_status is not None
+    later_status = saved_status.model_copy(update={"updated_at": AS_OF + timedelta(hours=2)})
+    store.set_daily_status(later_status)
+    # A lost acknowledgment must be retryable with the same immutable record.
+    assert store.append_execution(execution, update_daily_status=True) is False
+    assert store.daily_status(AS_OF.date()) == later_status
+    with pytest.raises(OperationalConflictError, match="different content"):
+        store.append_execution(execution.model_copy(update={"actual_commission": Decimal("1")}))
+    assert store.executions(decision_id=decision.decision_id) == (execution,)
+    with pytest.raises(OperationalConflictError, match="explicit confirmation"):
+        store.append_execution(execution.model_copy(update={"execution_id": "second-fill"}))
     next_state = store.apply_unapplied_executions(
         next_as_of=AS_OF + timedelta(days=1),
         next_portfolio_id="next-day",

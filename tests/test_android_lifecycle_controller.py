@@ -8,6 +8,15 @@ from scripts.android_lifecycle_check import NAMESPACE, PACKAGE, Controller, Deli
 WORK_ID = "e71b412b-e7e1-42dc-9308-17c6573f93dd"
 
 
+def test_compute_stage_diagnostics_keep_complete_fixed_records_only():
+    from scripts.android_lifecycle_check import compute_stages
+
+    line = "I/StockAIComputeStage( 12): phase=state java_used=123 available=456 low_memory=false"
+    assert compute_stages(line + " private payload") == ""
+    assert compute_stages(line.replace("phase=state", "phase=private")) == ""
+    assert compute_stages("\n".join([line] * 501)).splitlines() == [line] * 500
+
+
 def marker(job=5):
     return {"work_id": WORK_ID, "system_job": {"namespace": NAMESPACE, "id": job}}
 
@@ -66,6 +75,11 @@ def test_diagnostics_observe_original_completion_without_dispatch_or_instrumenta
     def shell(*args, **kwargs):
         calls.append(args)
         assert args[0] in ("dumpsys", "logcat")
+        if "StockAIComputeStage:I" in args:
+            return ("I/StockAIComputeStage( 12): phase=state java_used=123 available=456 "
+                    "low_memory=false\nI/StockAIComputeStage( 12): private payload\n"
+                    "I/CONSOLE: StockAIComputeStage: phase=state java_used=1 available=1 "
+                    "low_memory=false")
         return "fixture metadata"
 
     monkeypatch.setattr(controller, "shell", shell)
@@ -91,6 +105,9 @@ def test_diagnostics_observe_original_completion_without_dispatch_or_instrumenta
     assert observation["original_work"]["work_id"] == WORK_ID
     assert observation["original_work"]["work_state"] == 2
     assert observation["native"]["pending_pages"] == 1
+    assert (controller.output / "failure-compute-stages.txt").read_text() == (
+        "I/StockAIComputeStage( 12): phase=state java_used=123 available=456 low_memory=false"
+    )
     assert calls[-1] == (
         "logcat",
         "-d",

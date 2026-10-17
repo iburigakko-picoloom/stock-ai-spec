@@ -24,6 +24,16 @@ DATABASE = "databases/stockai-device.sqlite3"
 NAMESPACE = "androidx.work.systemjobscheduler"
 
 
+def compute_stages(output: str) -> str:
+    phases = ("reading-input|posting-input|decoding-input|interpreter|packages|archive|state|"
+              "request|export|export-archive|export-chunks|staging-output")
+    pattern = (rf"StockAIComputeStage[^:]*: phase=({phases}) java_used=\d+ "
+               r"available=\d+ low_memory=(true|false)$")
+    selected = [line for line in output.splitlines()
+                if "CONSOLE" not in line and re.search(pattern, line)]
+    return "\n".join(selected[-500:])
+
+
 class DeliveryDeferred(RuntimeError):
     """A readable pending receipt was not delivered within the observation window."""
 
@@ -422,6 +432,11 @@ class Controller:
         for service in ("power", "jobscheduler", "activity"):
             value = self.shell("dumpsys", service, required=False)
             (self.output / f"{name}-{service}.txt").write_text(value, encoding="utf-8")
+        value = self.shell("logcat", "-d", "-v", "brief", "-s",
+                           "StockAIComputeStage:I", "*:S", required=False)
+        (self.output / f"{name}-compute-stages.txt").write_text(
+            compute_stages(value), encoding="utf-8",
+        )
         # WorkManager metadata and fatal stacks from this disposable fixture;
         # no broad logcat or provider/account payloads are collected.
         value = self.shell(

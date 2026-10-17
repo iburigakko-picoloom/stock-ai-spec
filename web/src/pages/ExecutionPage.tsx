@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "../api";
 import { DecisionSteps, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
@@ -54,6 +54,12 @@ export function ExecutionPage(): ReactNode {
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [recorded, setRecorded] = useState<Record<string, boolean>>({});
+  const [applied, setApplied] = useState(false);
+  const pending = useRef(false);
+  const attempts = useRef(new Map<string, { key: string; id: string; confirmed: boolean }>());
   const tomorrow = new Date(Date.now() + 86_400_000);
   const [nextAsOf, setNextAsOf] = useState(localDateTimeValue(tomorrow));
   const proposal = today.data?.proposal;
@@ -65,12 +71,12 @@ export function ExecutionPage(): ReactNode {
     }
     apiGet<SavedDecision | null>(`/api/v1/proposals/${proposal.proposalId}/decision`)
       .then((value) => setDecision(value))
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "判断を取得できません"))
+      .catch((reason: unknown) => setLoadError(reason instanceof Error ? reason.message : "判断を取得できません"))
       .finally(() => setLoadingDecision(false));
   }, [proposal]);
 
   if (today.loading || loadingDecision) return <StatePanel title="実行結果入力を準備しています" />;
-  if (today.error || error) return <StatePanel tone="error" title="入力を準備できません" detail={today.error || error} />;
+  if (today.error || loadError) return <StatePanel tone="error" title="入力を準備できません" detail={today.error || loadError} />;
   if (!proposal || !decision) return <StatePanel title="実行待ちの保存済み判断がありません" />;
 
   const savedDecision = decision;
@@ -91,17 +97,20 @@ export function ExecutionPage(): ReactNode {
 
   function patchEntry(line: ProposalLine, patch: Partial<EntryState>): void {
     setEntries((current) => ({ ...current, [line.lineId]: { ...entryFor(line), ...patch } }));
+    setRecorded(current => ({ ...current, [line.lineId]: false }));
   }
 
   async function record(line: ProposalLine): Promise<void> {
+    if (pending.current) return;
+    pending.current = true; setBusy(true);
     const entry = entryFor(line);
+    setEntries(current => ({ ...current, [line.lineId]: entry }));
     const zeroFill = ["not_ordered", "open"].includes(entry.status)
       || (["cancelled", "expired"].includes(entry.status) && entry.filledShares === 0);
     setError(null);
     setMessage(null);
     try {
-      await apiPost(`/api/v1/decisions/${savedDecision.decision_id}/executions`, {
-        executionId: `execution-${crypto.randomUUID()}`,
+      const body = {
         executedAt: new Date(entry.executedAt).toISOString(),
         symbol: line.symbol,
         accountBucketId: line.accountBucketId,
@@ -113,15 +122,30 @@ export function ExecutionPage(): ReactNode {
         actualCommission: zeroFill ? "0" : entry.commission,
         actualOtherCost: zeroFill ? "0" : entry.otherCost,
         taxWithheld: zeroFill ? "0" : entry.taxWithheld,
-        confirmDifference: entry.confirmDifference,
-      });
+      };
+      const key = JSON.stringify([savedDecision.decision_id, body]);
+      let attempt = attempts.current.get(line.lineId);
+      if (!attempt || attempt.key !== key) {
+        attempt = { key, id: `execution-${crypto.randomUUID()}`, confirmed: false };
+        attempts.current.set(line.lineId, attempt);
+      }
+      if (!attempt.confirmed) {
+        await apiPost(`/api/v1/decisions/${savedDecision.decision_id}/executions`, {
+          ...body, executionId: attempt.id, confirmDifference: entry.confirmDifference,
+        });
+        attempt.confirmed = true;
+      }
+      setRecorded(current => ({ ...current, [line.lineId]: true }));
+      setApplied(false);
       setMessage(`${line.companyName}の実行結果を記録しました。`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "実行結果を記録できませんでした");
-    }
+    } finally { pending.current = false; setBusy(false); }
   }
 
   async function applyRecorded(): Promise<void> {
+    if (pending.current || applied) return;
+    pending.current = true; setBusy(true);
     setError(null);
     setMessage(null);
     try {
@@ -130,9 +154,10 @@ export function ExecutionPage(): ReactNode {
         nextPortfolioId: `actual-${crypto.randomUUID()}`,
       });
       setMessage("記録済み約定から次の実保有状態を追加しました。");
+      setApplied(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "次の実保有状態へ反映できませんでした");
-    }
+    } finally { pending.current = false; setBusy(false); }
   }
 
   return (
@@ -147,6 +172,7 @@ export function ExecutionPage(): ReactNode {
         return (
           <section className="execution-card" key={line.lineId}>
             <div className="execution-card__title"><div><strong>{line.companyName}</strong><span>{line.accountBucketId}</span></div><b>{target > line.currentShares ? "BUY" : "SELL"} {orderedShares}株</b></div>
+            <fieldset className="execution-fields" disabled={busy}>
             <label>実行状態<select value={entry.status} onChange={(event) => patchEntry(line, { status: event.target.value })}>
               <option value="not_ordered">未注文</option><option value="open">注文済み・未約定</option><option value="partially_filled">一部約定</option><option value="filled">全約定</option><option value="cancelled">取消</option><option value="expired">失効</option>
             </select></label>
@@ -164,15 +190,16 @@ export function ExecutionPage(): ReactNode {
             </div>}
             <p className="reference">参考価格 {yen(line.referencePrice)} / 判断 {line.currentShares}株 → {target}株</p>
             <label className="checkbox"><input type="checkbox" checked={entry.confirmDifference} onChange={(event) => patchEntry(line, { confirmDifference: event.target.checked })} />保存済み判断と異なる実行を明示確認する</label>
-            <button className="button button--secondary" onClick={() => void record(line)}>この結果を記録</button>
+            </fieldset>
+            <button className="button button--secondary" disabled={busy || recorded[line.lineId]} onClick={() => void record(line)}>{recorded[line.lineId] ? "記録済み" : "この結果を記録"}</button>
           </section>
         );
       })}
       <section className="section preview-panel">
         <h2>翌日以降の実保有へ反映</h2>
         <p className="explain">すべての手動注文結果を記録した後、反映時点を確認して実行します。提案株数ではなく、記録済み約定だけを使用します。</p>
-        <label>次の保有状態の時点<input type="datetime-local" value={nextAsOf} onChange={(event) => setNextAsOf(event.target.value)} /></label>
-        <button className="button button--primary" onClick={() => void applyRecorded()}>記録済み約定を実保有へ反映</button>
+        <label>次の保有状態の時点<input type="datetime-local" value={nextAsOf} disabled={busy} onChange={(event) => { setNextAsOf(event.target.value); setApplied(false); }} /></label>
+        <button className="button button--primary" disabled={busy || applied} onClick={() => void applyRecorded()}>{applied ? "実保有へ反映済み" : "記録済み約定を実保有へ反映"}</button>
       </section>
       {message && <StatePanel title={message} detail="翌日状態は確定した実約定だけから更新されます。" />}
       {error && <StatePanel tone="error" title="記録できませんでした" detail={error} />}
