@@ -7,6 +7,7 @@ import json
 import sqlite3
 import zlib
 from collections import OrderedDict
+from contextlib import closing
 from datetime import datetime
 
 import pandas as pd
@@ -178,7 +179,8 @@ def test_export_cannot_save_a_compressible_database_that_its_restore_rejects(tmp
     limit = max((tmp_path / name).stat().st_size
                 for name in ("mobile.sqlite3", "operations.sqlite3"))
     monkeypatch.setattr(runtime, "MAX_DATABASE_BYTES", limit + 4096)
-    with sqlite3.connect(tmp_path / "mobile.sqlite3") as db:
+    # Commit and release the test-owned handle before restoring SQLite files.
+    with closing(sqlite3.connect(tmp_path / "mobile.sqlite3")) as db, db:
         db.execute("CREATE TABLE synthetic_large(payload BLOB)")
         db.execute("INSERT INTO synthetic_large VALUES(zeroblob(?))", (limit + 8192,))
     with pytest.raises(ValueError, match="mobile storage limit"):

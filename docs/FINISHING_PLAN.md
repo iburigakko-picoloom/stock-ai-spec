@@ -51,8 +51,8 @@ Androidと本人アカウントでの利用資格・検索能力は実接続で�
 ## 直近の検証と残件（D156まで）
 
 - D153の分割入力は6b250b9/CI39040635265の全量Android gateでsuccess。96,781,956文字、B1書出し/認証preview/復元、計算環境の再作成、17table/520営業日/元input不変を145.577秒・192MiB heapで確認。APKの44Python sourceとGit byte一致も確認。合成市場・model0のemulator受入でありXiaomi/実市場/モデル入りの運用は別に残す。
-- 同CIの通常native78件はpass。OSはprocess復旧後、reboot段階で元予約pending1のACKを元期限内に確認できずfailure、force-stopは未到達。全体failure/release skipを保持する。D156で固定段階だけの診断を追加し、元のwork identity/dispatch/時間/heap条件のまま再検証する。
-- D154はChatGPTの未対応設定・権限・中断の案内を統一。D155は手動約定の入力エラー保持、画面内の同一ID再送、二重操作防止と約定/処理状況の一括保存を修正。React89件、browser6件、API/会計/費用税48件等がpass。後続6974b11の全回帰とWASMは実行中。
+- 同CIの通常native78件はpass。OSはprocess復旧後、reboot段階で元予約pending1のACKを元期限内に確認できずfailure、force-stopは未到達。全体failure/release skipを保持する。D156で固定段階だけの診断を追加した最新7120bd6/CI39043557490は通常native78件とOS3段階がpass。processは画面wake/条件充足dispatch、reboot/force-stopはunforced。前回の失敗原因・反復安定性・実機の自然再開は未確認。最新の全量特徴量/全量nativeは結果待ち。
+- D154はChatGPTの未対応設定・権限・中断の案内を統一。D155は手動約定の入力エラー保持、画面内の同一ID再送、二重操作防止と約定/処理状況の一括保存を修正。React89件、browser6件、API/会計/費用税48件、通信遮断WASM13件/compute11件がpass。同じ84実装fileの全回帰は1,227成功/1失敗（1,228件・1,149.40秒）。容量超過後の復元を妨げたテスト所有の未close接続だけを修正し、全assertionを維持したcodec/runtime51件が16.92秒でpass。合算coverage87.265%/基準85%。単回全件passと読み替えない。
 - 実市場NAVは保存予測/生終値/根拠を照合して既存会計へ接続し、配当の訂正・削除・予想/決定・当時の利用可能性を照合する入口を実装。配当24件を含む116試験は合成入力。実source、企業行動全体の網羅、執行/受渡し、PIT根拠が揃う最小運用比較は未完。個人税は別工程で進める。
 - 個人税はD152で、申告上の前年繰越と売却時の源泉徴収現金を分離。税影響が0円でも徴収見込みを買付余力から控除し、推定還付を即時資金にしない。普通/限定探索とoffline WASMで確認し、既存の現金詳細へ併記する。完全な個人税引後NAVと実際の年次/支払根拠は残る。
 - モデル/売買規則/採用基準の開発期間での固定、単回の未使用期間評価、本人レビュー、実機一致は残る。承認bundle0件、実API/ChatGPTアカウント、Xiaomi/同署名更新と継続履歴も未完。ここまでのコード/試験完成を「API入力だけで完成」と扱わない。

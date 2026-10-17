@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-18 — 最新sourceの全回帰とOS復旧3段階を照合
+
+- 6974b11/7120bd6の実装84fileを固定した全Python回帰は1,228件中1,227成功/1失敗、1,149.40秒。失敗は容量超過を拒否した後の復元で、テスト自身のSQLite接続が未closeのためWindowsのファイル置換が拒否された。容量上限・全assertion・実装を維持し、テスト所有接続をcommit後に明示close。容量/codec/runtime51件は16.92秒で成功。部分実行だけのcoverage guard失敗も保存し、同じ84fileの全回帰とcoverageを合算して87.265%/基準85%を確認した。全回帰一回で全件成功したとは扱わない。原本とhash照合は`execution-recovery-final-verification.json`。
+- 最新CI39043557490のAndroid jobがsuccess。通常native78件はfail/error/skip0。OSのprocess/reboot/force-stopは世代5/8/11・pending0で通過し、中断した調査と元予約の保存を確認。processは画面wakeと条件充足jobのdispatchを使用し、reboot/force-stopはunforced。前回6b250b9のreboot失敗原因は未確定で、反復安定性や実機の自然再開は別に残す。
+- 同runのAPK SHA256 c8703a8f359e1cf7d42e401a755a796b9b128776c4acd6c07a9877684221f315。44同梱Python sourceをmerge d04171e/branch7120bd6/現実装へ照合、29共有source hashも一致。verifyの全量特徴量と新しいandroid-historyは結果待ち。過去6b250b9の全量B1成功を最新sourceの全量成功に置き換えない。
+- 実市場NAVは386営業日/42区間・保存予測の照合まで。企業行動網羅、当時の入力、約定/単元/受渡しの根拠不足で評価可能区間0、税引前の実損益比較は未実行。最小比較条件と不足根拠/解消方法は既存`market-nav-readiness-20261017`へ固定済み。再学習・holdout開封・採用・実注文なし。
+
 ## 2026-10-18 — Android全量B1復旧と17テーブル照合が成功
 
 - 6b250b9のCI39040635265はverifyとandroid-historyがsuccess。API35 emulatorで5,000銘柄/520営業日・96,781,956文字の実SQLite capsuleを初期化/保存し、計算環境を再作成、B1書出し/認証preview/本人確認相当のrestore/再作成/全状態照合まで145.577秒で完走した。Java heap192MiB、元の容量/期限を維持。B1 envelope96,782,902bytes、復元profile一致、全17tableのschema/typed cell一致、520営業日、元input不変を原本reportで確認。
