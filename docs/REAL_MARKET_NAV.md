@@ -27,4 +27,6 @@ $env:PYTHONPATH='.;src'
 
 最初の1本と18候補・単純戦略・ensembleで、期間・銘柄の利用条件・初期資産・売買規則・費用・受渡しを統一する。開発期間でモデル・売買規則・採用基準を固定し、その後に既存の単回holdout手順へ進む。本CLIはholdout境界以後の宣言された市場/予測fileを開く前に拒否し、採用可能とは表示しない。個人税は独立工程として追加する。
 
+配当通知の入口は[配当データ接続](DIVIDEND_DATA.md)。保存済みV2通知の訂正・削除・予想/決定・利用可能時刻を照合し、条件が揃う決定配当だけを既存NavActionへ変換する。この処理単独では企業行動の全期間網羅を成立させない。
+
 公式仕様を2026-10-17に確認：日足の調整価格は後続イベントで再計算され、ULは高値の上限到達を示す。特別気配、当時の取得可能時刻、訂正前データは日足だけでは補えない。[J-Quants日足仕様](https://jpx-jquants.com/ja/spec/eq-bars-daily)。配当の通知系列・訂正削除・予想/決定を区別し、権利落日・金額・支払開始予定日を確認する。通知時刻をJ-Quantsでの取得可能時刻へ読み替えない。[配当仕様](https://jpx-jquants.com/ja/spec/fin-dividend)。T+2の受渡制度と口座の買付余力解放は別に扱う。[JPX受渡制度](https://www.jpx.co.jp/equities/clearing-settlement/tplus2-settlement-cycle/index.html)。

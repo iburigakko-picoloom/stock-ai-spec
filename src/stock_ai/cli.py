@@ -1858,6 +1858,29 @@ def evaluate_market_strategy_command(
         raise typer.Exit(2)
 
 
+@research_app.command("project-dividends")
+def project_dividends_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/dividend-projections"
+    ),
+) -> None:
+    """Audit pinned J-Quants V2 notices; never infer missing availability or cash timing."""
+    from stock_ai.ml.dividends import DividendRequest, write_dividend_projection
+
+    try:
+        request = DividendRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_dividend_projection(request, output_root)
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+        typer.echo(f"dividend projection blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"status": result["status"], "projection_path": str(path),
+                           "actions": len(result["actions"])}))
+    if result["status"] != "COMPLETE":
+        raise typer.Exit(2)
+
+
 @research_app.command("evaluate-daily-strategy")
 def evaluate_daily_strategy_command(
     input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],

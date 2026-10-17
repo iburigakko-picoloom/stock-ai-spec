@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-10-17 — 配当の訂正系列と時点を既存NAVへ接続
+
+- D151として`research project-dividends`を追加。保存したV2配当通知の元byte/期間を固定し、RefNo/CARefNo、新規/訂正/削除、予想/決定を照合する。独立した利用可能時刻と実入金根拠がある決定額だけを既存NavActionへ渡す。通知時刻・支払開始予定日を当時の取得可能時刻・実入金時刻へ読み替えない。
+- 後日の訂正・削除・権利落日変更で過去の権利を消さず、ledger追加調整が必要なものはBLOCKEDとする。金額不明・曖昧な系列/順序・資本払戻し等・ページ未完を止め、部分イベントを完全な入力として返さない。企業行動全体や無イベント期間の網羅は別の未完条件。仕様は`docs/DIVIDEND_DATA.md`。
+- 配当24件と既存NAV接続/会計/判断を合わせ116件が22.47秒でpass。100株×5円の未収500円、権利落ちで100→95円の価格、入金前後ともNAV10,000円を独立手値で確認した。将来訂正の遮断、後日削除/日付変更、予想と決定の二重計上防止、分割前後の株数基準の根拠欠落を含む合成試験で、実市場成績ではない。実sourceの取得/当時根拠、全企業行動、最小運用比較、最終採用は未完。追加学習・holdout開封・実注文なし。
+
 ## 2026-10-17 — native完了callbackとWeb試験のdispatch戻り値を分離
 
 - 8cea2d0のCI39034897974はAndroid success。JUnit原本78件・fail/error/skip0、96,870,524文字のopaque暗号化storeは7.105秒/192MiBでpass。元WorkRequestによるprocess/reboot/force-stop後の明示再openの3段階もpass、generation5/8/11・pending0、本人入力/実受領/調査記録を保持。processは画面起動と制約付き元job配送、rebootと再openは追加dispatchなし。原本は`streamed-backup-ci-39034897974/android-test-reports`。
