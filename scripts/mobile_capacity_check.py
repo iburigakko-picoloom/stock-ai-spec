@@ -159,7 +159,7 @@ def main():
     output = args.output.resolve()
     if not output.is_relative_to(ROOT / ".demo-artifacts") or output == ROOT / ".demo-artifacts":
         raise ValueError("Probe output must be a fresh isolated .demo-artifacts subdirectory")
-    if not 1 <= args.symbols <= 5000 or not 1 <= args.sessions <= 300 or args.checkpoint < 1:
+    if not 1 <= args.symbols <= 5000 or not 1 <= args.sessions <= 525 or args.checkpoint < 1:
         raise ValueError("Bounded synthetic storage dimensions required")
     cutoff = initial_cutoff(args.sessions) if args.initial_download else None
     receipt = cutoff - timedelta(minutes=30) if cutoff is not None else None

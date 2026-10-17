@@ -35,6 +35,14 @@ for name, _ in records['source_snapshot_ids']:
     rows = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
     legacy_ids.append((name, hashlib.sha256(metadata + rows).hexdigest()))
 assert legacy_ids == records['source_snapshot_ids']
+source = market.SQLiteSource(path).point_in_time(DatasetName.DAILY_PRICES, cutoff)
+closed = source.loc[
+    source.provider_code.astype(str).str.fullmatch(r'[0-9A-Z]{4}0')
+    & (pd.to_datetime(source.trading_date).dt.date < cutoff.date())]
+latest_day = pd.to_datetime(closed.trading_date).max()
+expected_prices = closed.loc[pd.to_datetime(closed.trading_date) == latest_day].reset_index(drop=True)
+latest_prices = market.SQLiteSource(path).latest_closed_prices(cutoff)
+pd.testing.assert_frame_equal(latest_prices, expected_prices, check_exact=True)
 for field in ('as_of', 'latest_source_received_at', 'source_snapshot_ids', 'revision_policy'):
     assert records[field] == frames[field]
 for field in ('daily', 'market', 'sector', 'financials'):
@@ -54,7 +62,8 @@ assert models.status(path, runtime._app.state.store)['imported_bundle_count'] ==
 json.dumps({'result':result, 'source_ids':records['source_snapshot_ids'],
             'daily_rows':len(frames['daily']), 'records_exact':True,
             'source_unchanged':True, 'restored_exact':True, 'model_count':0,
-            'legacy_source_ids_exact':True, 'na_hash':hash(pd.NA)})
+            'legacy_source_ids_exact':True, 'na_hash':hash(pd.NA),
+            'latest_closed_price_rows':len(latest_prices)})
 `)));
     self.postMessage(output);
   } catch (error) { self.postMessage({ error: String(error) }); }

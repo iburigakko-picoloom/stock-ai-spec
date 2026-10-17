@@ -110,7 +110,7 @@ def main():
         or capacity.get("status") != "passed"
         or capacity.get("seed") != 20261017
         or not 1 <= capacity.get("symbols", 0) <= 5000
-        or not 1 <= capacity.get("requested_sessions", 0) <= 300
+        or not 1 <= capacity.get("requested_sessions", 0) <= 525
     ):
         raise ValueError("A completed synthetic capacity probe is required")
     path = source / "mobile.sqlite3"

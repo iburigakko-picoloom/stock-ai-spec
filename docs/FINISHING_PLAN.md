@@ -33,6 +33,8 @@
 
 全市場の最新特徴量はD127で保持量と財務参照を見直した。V0/V1/V2の全期間末尾との完全一致、41/51列の既存PC参照を維持する。直接計算だけでは全量mobile JSON変換の容量問題を捕捉できなかったため、D129で出所ID確定後の必要列DataFrameと同じJSON精度の列変換へ接続し、source hashも同じbyte列を分割して計算する。CIは5,000銘柄・300営業日の合成初回受領からアプリ入力変換/特徴量計算までを確認する。実forecast、native暗号化commitとXiaomiの完走は別に残る。D128でportable backupの保存前にも既存復元容量を確認する。
 
+D130では日ごとの全出所照合と必要列の保持へ進め、150万行の元readerを必要としないアプリ経路を追加。型・全ID・全履歴・市場/業種母集団を保ち、合成5,000銘柄/520営業日・260万行の保存/復元と5/20日特徴量をPCで確認した。特徴量581.23秒・ピーク3,384,135,680bytes、capsule96,870,524文字で既存予算内。CIも520日へ拡大する。モデルを含む実forecast、native毎回commit、Xiaomi、さらに長い継続履歴は未完のまま残す。
+
 ## ChatGPTの実装根拠
 
 - [登録・PKCE・loopback・ID token検証](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)

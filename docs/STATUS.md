@@ -1,5 +1,16 @@
 # Project Status
 
+## 2026-10-17 — 日ごとの全出所照合と2年分の履歴を検証
+
+- 前回fe42d06の[CI38997118387](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38997118387)はAndroid/verify成功・release skip。共有Python360＋platform6＋controller guard7、frontend71、WASM/画面7＋配布計算1＋調査画面2がpass。native JUnit55・失敗/error/skip0、backup crypto4件、OS回復3段階6呼出しも原本を照合した。5,000銘柄/300営業日の保存は55,966,652 base64文字、SQLite44,544,000bytes、復元300日pass。実アプリ入力→特徴量は342.01秒・ピーク3,553,357,824bytes。reportのsource hashesをGitの該当commitと照合し、全5,000銘柄の特徴量JSON hashがPC/Linuxで一致した。原本は`.demo-artifacts/mobile-frame-ci-38997118387`と同名log/evidence。
+- D130として、全市場のmaster/priceを日ごとの完全snapshotから読み、全出所の元のschema/row hashと訂正順を確認後に、計算で使う列だけ保持する。型の昇格とall-nullを先に調べ、同じSQLite transactionの後段で全batchの元normalized hashと必要なraw由来hashを検証する。型確認の代表値を特徴量や出所IDへ使わない。返すprojectionのobject/contentも照合し、変更を拒否。weakrefで参照済みの大きな入力を保持し続けない。
+- 元の全量readerの150万行guard、native128MiB文字、SQLite256MiB/fileとbackupの容量上限は維持。アプリの入力は別の768MiBの保持array予算で制限し、全銘柄/全期間/市場・業種を残す。保持array予算はRSSやXiaomi性能の保証ではない。初回台帳の価格は同じ最新の確定日・元record hashとdtypeを使い、全過去価格を一つの表にしない。確定済み台帳のための不要な初期価格再読込も省き、72時間の本人確認や保存済み台帳を更新しない。
+- 合成5,000銘柄/520営業日・各260万行の保存/復元がpass。最終capsule96,870,524 base64文字、SQLite76,980,224bytes、全体805.33秒・最終export4.407秒・復元520日1.131秒。保存はcheckpointごとで、nativeの毎回暗号化や実機の速度を示さない。原本は`.demo-artifacts/mobile-two-year-capacity-candidate-20261017`。
+- 全量照合を2回行う最初の試作は、300日でも入力507.92秒の後、600.78秒で時間予算を超えて停止（ピーク2,432,221,184bytes）。520日の試作も512.52秒、入力作成中3,745,316,864bytesでメモリ予算超過。上限を増やさず、最初の確認を暫定の型情報へ限定し、後段の全照合を維持。使用しない前場等の列や不要な再castも保持しない。最終sourceの520日入力は347.04秒、全特徴量は581.23秒・ピーク3,384,135,680bytesでpass。daily/financials各260万行、市場/業種各520行を使い、5/20日とも5,000銘柄を出力。元DB hash不変を確認し、600秒/3500MiBを維持した。原本`latest-features-light-profile.json`の全source hashesも最終working filesと照合した。
+- PCの日次読込24件は、旧形式/column形式、型昇格、欠損/旧schema、順不同受領、同時刻の重複、行/日全体の訂正削除、未使用列を含む全ID、入力変更、保持予算、WAL同時訂正、受領境界、最新確定日と元価格hashを検証。codec/feature/本人台帳を含む72件がpass。最適化前の関連139件に加え、最終WASM/画面7＋配布計算1がpass。WASMでも最新確定日価格の元の型/全record hashを旧全量readerと厳密照合し、records/frames・全5source ID・復元を維持。Ruff、mypy66 source（標準/win32）とTypeScript/ESLint/build、package42 entries/private0もpass。既存41/51列のPC特徴量JSONと株数の全lineも完全一致。
+- 最終sourceでも合成5,000銘柄/300日を再計算し、5/20日の全特徴量JSON hashが既存PC/Linux参照`625092...15076`と完全一致。入力の全5source IDを元の全量SQLiteSourceと別途読み直して厳密照合し、元DB不変も確認した。参照読込を含む全体466.31秒、入力182.61秒・ピーク2,070,798,336bytes。速度比較の値には使わない。原本は`.demo-artifacts/mobile-timely-feature-history-20261017/mobile-stream-source-final-frames-and-features.json`。source監査809 files/private0もpassし、未commitの私有差分は保持した。
+- push後CIは検証待ち。CIは5,000銘柄/520日のアプリ経路へ拡大する。さらに長い継続履歴、採用bundle0件、実API/本人ChatGPT、Xiaomi性能・自然配送時刻・同署名更新は残る。台帳継続利用の回答待ち、私有研究停止とholdout lockを維持。研究再開・実注文・merge・APK公開なし。
+
 ## 2026-10-17 — アプリの全市場入力変換を容量検証へ含める
 
 - a4752f3の[CI38993271780](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38993271780)はAndroid成功・verify失敗・release skip。全市場の直接context作成中168.62秒で3,696,422,912bytesとなり、3500MiBのprobe予算を超えた。検証前段のPython346＋platform6＋guard7、frontend71、WASM/画面6＋配布計算1＋調査画面2はpass。native JUnit55・失敗/error/skip0とOS回復3段階6呼出しも原本で確認したが、全job成功とは扱わない。

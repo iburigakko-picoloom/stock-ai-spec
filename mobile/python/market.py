@@ -5,16 +5,18 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import weakref
 from collections import OrderedDict
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from typing import ClassVar
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from stock_ai.data.contracts import ENDPOINT_SCHEMAS, DatasetName, FetchedPayload
 from stock_ai.data.normalize import canonical_payload_hash, normalize_payload
-from stock_ai.data.production import build_production_data
+from stock_ai.data.production import _source_frame_id, build_production_data
 from stock_ai.data.quality import require_quality, validate_rows
 
 from . import market_codec
@@ -300,6 +302,33 @@ def compact_legacy(path: Path, budget: int = 5) -> int:
     return len(rows) + len(valuations)
 
 
+def _daily_snapshots(db, dataset, as_of, *, descending=False):
+    return db.execute(
+        "WITH versions AS (SELECT sequence,day,raw,normalized,normalized_hash,"
+        "ROW_NUMBER() OVER(PARTITION BY day ORDER BY received_at DESC,sequence DESC) n "
+        "FROM market_batches WHERE dataset=? AND received_at<=?) "
+        "SELECT sequence,day,raw,normalized,normalized_hash FROM versions WHERE n=1 "
+        + ("ORDER BY day DESC" if descending else "ORDER BY day"),
+        (dataset.value, as_of.astimezone(UTC).isoformat(timespec="microseconds")),
+    )
+
+
+def _canonical_daily_part(frame, common, keys, sequence, day):
+    if not frame.dtypes.equals(common):
+        frame = frame.reindex(columns=common.index).astype(common.to_dict())
+    if not pd.to_datetime(frame[keys[0]]).dt.date.astype(str).eq(day).all():
+        raise ValueError("Stored daily source contains a different snapshot date")
+    if frame.duplicated(keys).any():
+        frame["_observation_order"] = sequence
+        frame.sort_values(
+            ["available_at", "received_at", "_observation_order", "payload_hash"], inplace=True
+        )
+        frame.drop_duplicates(keys, keep="last", inplace=True)
+        frame.drop(columns="_observation_order", inplace=True)
+    frame.sort_values(keys, inplace=True)
+    return frame
+
+
 class SQLiteSource:
     def __init__(self, path: Path):
         self.path = path
@@ -353,6 +382,139 @@ class SQLiteSource:
         frame.reset_index(drop=True, inplace=True)
         return frame
 
+    def latest_closed_prices(self, as_of):
+        """The same latest common-issue rows, without assembling all historical prices."""
+        if not as_of.tzinfo:
+            raise ValueError("Aware cutoff required")
+        kind = DatasetName.DAILY_PRICES
+        cache, profiles = OrderedDict(), []
+        local_day = as_of.astimezone(ZoneInfo("Asia/Tokyo")).date()
+        with connect(self.path) as db:
+            db.execute("BEGIN")
+            for _, _, raw, normalized, expected in _daily_snapshots(db, kind, as_of):
+                frame = market_codec.frame(db, normalized, raw, expected, cache)
+                if not frame.empty:
+                    profiles.append(market_codec.frame_profile(frame))
+            if not profiles:
+                return pd.DataFrame()
+            common = pd.concat(profiles, ignore_index=True).dtypes
+            profiles.clear()
+            for sequence, day, raw, normalized, expected in _daily_snapshots(
+                db, kind, as_of, descending=True
+            ):
+                frame = market_codec.frame(db, normalized, raw, expected, cache)
+                if frame.empty:
+                    continue
+                frame = _canonical_daily_part(
+                    frame, common, ["trading_date", "provider_code"], sequence, day
+                )
+                if date.fromisoformat(day) >= local_day:
+                    continue
+                frame = frame.loc[frame.provider_code.astype(str).str.fullmatch(r"[0-9A-Z]{4}0")]
+                if not frame.empty:
+                    return frame.reset_index(drop=True)
+        return pd.DataFrame()
+
+
+class FeatureSource(SQLiteSource):
+    """Verify full daily sources in batches; retain only production input columns."""
+
+    # Array retention budget, not an assertion about total process/phone memory.
+    MAX_ARRAY_BYTES = 768 * 1024 * 1024
+    MASTER_COLUMNS = frozenset({
+        "effective_date", "provider_code", "symbol", "company_name", "sector_33_code",
+        "sector_33_name", "market_code", "market_name", "available_at",
+    })
+    PRICE_COLUMNS = frozenset({
+        "trading_date", "provider_code", "symbol", "raw_open", "raw_high", "raw_low", "raw_close",
+        "raw_volume", "trading_value", "adjustment_factor", "research_open", "research_high",
+        "research_low", "research_close", "research_volume", "ex_rights_type", "adjustment_source",
+        "adjustment_version", "available_at",
+    })
+    KEYS: ClassVar[dict[DatasetName, list[str]]] = {
+        DatasetName.SECURITY_MASTER: ["effective_date", "provider_code"],
+        DatasetName.DAILY_PRICES: ["trading_date", "provider_code"],
+    }
+
+    def __init__(self, path):
+        super().__init__(path)
+        self._identities = {}
+        self._retained = []
+
+    def point_in_time(self, dataset, as_of):
+        if dataset not in self.KEYS:
+            return super().point_in_time(dataset, as_of)
+        if not as_of.tzinfo:
+            raise ValueError("Aware cutoff required")
+        cache, profiles, parts = OrderedDict(), [], []
+        self._retained = [item for item in self._retained if item[0]() is not None]
+        retained = sum(item[1] for item in self._retained)
+        array_bytes = 0
+        projected_digest, projected_schema = None, None
+        with connect(self.path) as db:
+            # Both passes must observe the same immutable selection, even if a
+            # separate connection receives a correction during the read.
+            db.execute("BEGIN")
+            for _, _, raw, normalized, expected in _daily_snapshots(db, dataset, as_of):
+                profile = market_codec.dtype_profile(db, normalized, raw, expected, cache)
+                if not profile.empty:
+                    profiles.append(profile)
+            if not profiles:
+                self._identities.pop(dataset, None)
+                return pd.DataFrame()
+            common = pd.concat(profiles, ignore_index=True).dtypes
+            profiles.clear()
+            schema = tuple((str(name), str(dtype)) for name, dtype in common.items())
+            metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True)
+            identity = hashlib.sha256(metadata.encode())
+            keys = self.KEYS[dataset]
+            for sequence, day, raw, normalized, expected in _daily_snapshots(db, dataset, as_of):
+                frame = market_codec.frame(db, normalized, raw, expected, cache)
+                if frame.empty:
+                    continue
+                frame = _canonical_daily_part(frame, common, keys, sequence, day)
+                identity.update(pd.util.hash_pandas_object(frame, index=False).to_numpy().tobytes())
+                columns = (
+                    self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
+                    else self.PRICE_COLUMNS
+                )
+                projected = frame.loc[:, [name for name in frame if name in columns]].copy()
+                array_bytes += int(projected.memory_usage(index=True, deep=False).sum())
+                if retained + array_bytes > self.MAX_ARRAY_BYTES:
+                    raise ValueError("MOBILE_MEMORY_LIMIT: projected source arrays exceed budget")
+                if projected_digest is None:
+                    projected_schema = tuple(
+                        (str(name), str(dtype)) for name, dtype in projected.dtypes.items()
+                    )
+                    header = json.dumps(
+                        {"dataset": dataset.value, "schema": projected_schema}, sort_keys=True
+                    )
+                    projected_digest = hashlib.sha256(header.encode())
+                projected_digest.update(
+                    pd.util.hash_pandas_object(projected, index=False).to_numpy().tobytes()
+                )
+                parts.append(projected)
+        del frame, projected
+        cache.clear()
+        result = pd.concat(parts, ignore_index=True)
+        parts.clear()
+        actual_schema = tuple((str(name), str(dtype)) for name, dtype in result.dtypes.items())
+        if actual_schema != projected_schema:
+            raise ValueError("Projected PIT schema changed while assembling its snapshot")
+        frozen = projected_digest.hexdigest()
+        self._identities[dataset] = (weakref.ref(result), identity.hexdigest(), frozen, array_bytes)
+        self._retained.append((weakref.ref(result), array_bytes))
+        return result
+
+    def source_frame_id(self, dataset, frame):
+        if dataset not in self.KEYS:
+            return _source_frame_id(dataset, frame)
+        frozen = self._identities.get(dataset)
+        if (frozen is None or frozen[0]() is not frame
+                or _source_frame_id(dataset, frame) != frozen[2]):
+            raise ValueError("Projected PIT source changed after its full identity was frozen")
+        return frozen[1]
+
 
 def master_references(path: Path, cutoff: datetime) -> list[dict]:
     """Freeze raw observation identities without hashing runtime-dependent Pandas dtypes."""
@@ -376,7 +538,8 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False) -> dict
     if as_of < cutoff:
         raise ValueError("11:30 input cutoff is not closed")
     bundle = build_production_data(
-        SQLiteSource(path), source_snapshot_as_of=cutoff, proposal_as_of=cutoff
+        FeatureSource(path) if as_frames else SQLiteSource(path),
+        source_snapshot_as_of=cutoff, proposal_as_of=cutoff
     )
     with connect(path) as db:
         latest_receipt = db.execute(

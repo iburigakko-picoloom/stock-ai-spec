@@ -62,7 +62,7 @@ D126の可逆column形式は、raw/正規化の元の値・型・byte/hash・受
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-local --symbols 5000 --sessions 300 --checkpoint 100 --initial-download
+.venv/Scripts/python.exe -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-local --symbols 5000 --sessions 520 --checkpoint 130 --initial-download
 ```
 
 CIでも同じ検証を実施し、`mobile-storage-capacity`へsource hashes付きreportだけを保存する。合成の平日カレンダー・財務開示を使ったPCのingest/export/restoreであり、取得済み市場データ、学習、holdout、本人端末の保存内容には触れない。SQLiteやcapsuleはartifactへuploadしない。
@@ -80,6 +80,10 @@ CIでも同じ検証を実施し、`mobile-storage-capacity`へsource hashes付�
 D127の最新計算は全履歴を指標へ渡した後に最新行だけ保持し、財務をgroup参照する。市場母集団、数式や41/51列、受領時刻を省略しない。D128ではバックアップの復元上限128MiBと既存69byte overheadを保存側にも適用し、復元不能な大きさのファイルを作る前に拒否する。暗号形式は変えない。
 
 D129では全sourceのID確定後、計算で参照する列だけをDataFrameで渡す。元のrecords JSONと同じ小数精度・ISO時刻・型推定を列ごとに再現し、重複する文字列と日時の値を共有する。既存records経路は残す。source IDは従来と同じ順序のrow hashを10,000行ずつ連結して計算し、ID定義・元データ・全市場/業種母集団を変更しない。小規模PCとWASMでrecords/framesの完全一致と復元後の出所不変を確認し、大規模PC試験と区別する。
+
+D130のアプリ経路はmaster/priceを日単位で読む。型確認の後、同じSQLite snapshotの全batchを完全検証して元の全出所IDを求め、必要な列だけを保持する。全量readerの150万行guardを増やさず、保持arrayの合計を768MiBに制限する。これは総RSSの上限ではない。初期台帳の価格も同じ最新確定日と元record hashから読み、確定済み台帳に対する初期価格の再読込を省く。現行の72時間本人確認は維持する。
+
+合成5,000銘柄/520営業日・260万行のPC計測では、capsule96,870,524文字、SQLite76,980,224bytes、520日復元がpass。最終アプリ入力→5/20日各5,000銘柄の特徴量は581.23秒・ピーク3,384,135,680bytesでpassし、元DBも不変。上限600秒/3500MiBは維持した。実際のモデル一式・毎回native保存・OS配送・Xiaomiでの時間/メモリと、さらに長い継続履歴は別に受け入れる。privateモデルは同梱しない。
 
 ## 自動署名配布
 

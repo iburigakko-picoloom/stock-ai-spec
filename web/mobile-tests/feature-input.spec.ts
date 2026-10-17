@@ -9,7 +9,7 @@ test("initial-history DataFrames match records precision, PC features and restor
   const output = await page.evaluate(async data => {
     const worker = new Worker("/mobile-tests/feature-input-worker.ts", { type: "module" });
     try {
-      return await new Promise<{ error?: string; records_exact: boolean; source_unchanged: boolean; restored_exact: boolean; model_count: number; legacy_source_ids_exact: boolean; na_hash: number; source_ids: string[][]; daily_rows: number; result: { as_of: string; features: Record<string, Record<string, unknown>[]> } }>((resolve, reject) => {
+      return await new Promise<{ error?: string; records_exact: boolean; source_unchanged: boolean; restored_exact: boolean; model_count: number; legacy_source_ids_exact: boolean; latest_closed_price_rows: number; na_hash: number; source_ids: string[][]; daily_rows: number; result: { as_of: string; features: Record<string, Record<string, unknown>[]> } }>((resolve, reject) => {
         worker.onmessage = event => resolve(event.data);
         worker.onerror = event => reject(new Error(event.message));
         worker.postMessage(data);
@@ -19,6 +19,7 @@ test("initial-history DataFrames match records precision, PC features and restor
   expect(output.error).toBeUndefined();
   expect(output).toMatchObject({ records_exact: true, source_unchanged: true, restored_exact: true, model_count: 0, daily_rows: 1080 });
   expect(output.legacy_source_ids_exact).toBe(true);
+  expect(output.latest_closed_price_rows).toBe(4);
   expect(output.na_hash).toBe(fixture.wasm_na_hash);
   expect(output.source_ids).toEqual(fixture.wasm_source_ids);
   expect(output.result.as_of).toBe(fixture.cutoff);

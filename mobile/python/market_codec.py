@@ -136,7 +136,7 @@ def pack_table(db, original, raw):
     return _document("table", len(rows), columns, schema=schema)
 
 
-def _read(db, payload, kind, raw=None):
+def _read(db, payload, kind, raw=None, *, profile_only=False):
     document = json.loads(_inflate(payload[len(PREFIX):]))
     expected = {"kind", "rows", "columns"}
     if kind == "table":
@@ -176,9 +176,14 @@ def _read(db, payload, kind, raw=None):
             items = [column["constant"]] * length
         elif (tags == {"raw_hashes"} and kind == "table" and name == "source_record_hash"
               and column["raw_hashes"] is True):
-            if raw is None or len(raw) != count:
-                raise ValueError("Raw market records missing")
-            items = [_token(record_hash_v1(row)) for row in raw]
+            if profile_only:
+                # Only dtype/all-null evidence; full hash verification follows
+                # in frame() in the caller's same SQLite snapshot.
+                items = [_token("0" * 64)] * count
+            else:
+                if raw is None or len(raw) != count:
+                    raise ValueError("Raw market records missing")
+                items = [_token(record_hash_v1(row)) for row in raw]
             expanded += sum(len(item) for item in items)
         elif tags == {"ref"}:
             digest = column["ref"]
@@ -287,3 +292,56 @@ def frame(db, payload, raw, expected, cache):
             else name for name in result.index.names
         ]
     return result
+
+
+def frame_profile(frame):
+    """Preserve dtype/all-null concat evidence without retaining a source batch."""
+    if frame.empty:
+        return frame
+    profile = frame.iloc[:1].copy()
+    missing = profile.isna().iloc[0]
+    for name in missing[missing].index:
+        column = frame[name]
+        present = column.notna().to_numpy()
+        if present.any():
+            profile[name] = column.iloc[[int(present.argmax())]].array
+    return profile.reset_index(drop=True)
+
+
+def dtype_profile(db, payload, raw, expected, cache):
+    """Provisional dtype evidence; callers must fully verify every batch after it.
+
+    Compact profiles avoid reconstructing raw row hashes twice. They never
+    supply source values or identities. FeatureSource always calls frame() for
+    every selected batch in a second pass of the same SQLite transaction.
+    Legacy and empty tables use the full verified reader here as well.
+    """
+    if not payload.startswith(PREFIX):
+        return frame_profile(frame(db, payload, raw, expected, cache))
+    document, names, values, _ = _read(db, payload, "table", profile_only=True)
+    if document["rows"] == 0:
+        return frame_profile(frame(db, payload, raw, expected, cache))
+    schema = ujson_loads(document["schema"], precise_float=False)
+    order = [field["name"] for field in schema["fields"]]
+    dtypes = {field["name"]: convert_json_field_to_pandas_type(field) for field in schema["fields"]}
+    tokens = {name: next((item for item in items if item != "null"), "null")
+              for name, items in zip(names, values, strict=True)}
+    columns = {name: [ujson_loads(token, precise_float=False)] for name, token in tokens.items()}
+    result = pd.DataFrame(columns, columns=order).astype(dtypes)
+    # A legacy numeric/date spelling such as a quoted NaN/NaT can become null
+    # only after the schema cast. Find non-null evidence with that same cast.
+    for name, items in zip(names, values, strict=True):
+        if tokens[name] == "null" or not result[name].isna().all():
+            continue
+        seen = {"null", tokens[name]}
+        for token in items:
+            if token in seen:
+                continue
+            seen.add(token)
+            candidate = pd.Series([ujson_loads(token, precise_float=False)]).astype(dtypes[name])
+            if not candidate.isna().all():
+                result[name] = candidate.array
+                break
+    if "primaryKey" in schema:
+        result = result.set_index(schema["primaryKey"])
+    return result.reset_index(drop=True)

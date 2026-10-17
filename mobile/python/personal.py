@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from stock_ai.data.contracts import DatasetName
 from stock_ai.domain import PortfolioState
 from stock_ai.operations.daily import content_id
 from stock_ai.operations.manual_portfolio import (
@@ -191,7 +190,7 @@ def input_state(store, now):
 def reference_prices(market_path, symbols, now):
     if not symbols:
         return {"date": None, "prices": {}, "source_hash": None}
-    frame = SQLiteSource(market_path).point_in_time(DatasetName.DAILY_PRICES, now)
+    frame = SQLiteSource(market_path).latest_closed_prices(now)
     if frame.empty:
         raise ValueError("held_prices_missing")
     frame = frame.loc[
@@ -222,12 +221,13 @@ def reference_prices(market_path, symbols, now):
 def preview_initial(store, market_path, now, *, persist):
     profile, saved, gaps, compiled = input_state(store, now)
     gaps = list(gaps)
-    if store.latest_portfolio() is not None:
+    ledger_exists = store.latest_portfolio() is not None
+    if ledger_exists:
         gaps.append("ledger_already_initialized")
     if store.executions():
         gaps.append("executions_already_recorded")
     prices = {"date": None, "prices": {}, "source_hash": None}
-    if profile is not None:
+    if profile is not None and not ledger_exists:
         try:
             prices = reference_prices(
                 market_path, ManualPortfolio.model_validate(profile["portfolio"]).holding_symbols,

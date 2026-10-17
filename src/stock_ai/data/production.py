@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, time
 from itertools import pairwise
-from typing import Final, Protocol
+from typing import Final, Protocol, runtime_checkable
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -24,6 +24,13 @@ class PointInTimeCatalog(Protocol):
     """Read-only input boundary shared by desktop DuckDB and mobile SQLite."""
 
     def point_in_time(self, dataset: DatasetName, as_of: datetime) -> pd.DataFrame: ...
+
+
+@runtime_checkable
+class SourceIdentityCatalog(Protocol):
+    """A trusted adapter may return verified projections of complete PIT sources."""
+
+    def source_frame_id(self, dataset: DatasetName, frame: pd.DataFrame) -> str: ...
 
 
 _JST: Final = ZoneInfo("Asia/Tokyo")
@@ -89,8 +96,11 @@ def build_production_data(
         _assert_source_vintage(frame, source_snapshot_as_of, name)
     # Validation must not retain every full source frame through later merges.
     del required_nonempty, frame
+    identity = (
+        catalog.source_frame_id if isinstance(catalog, SourceIdentityCatalog) else _source_frame_id
+    )
     source_snapshot_ids = tuple(
-        (dataset.value, _source_frame_id(dataset, frame))
+        (dataset.value, identity(dataset, frame))
         for dataset, frame in (
             (DatasetName.SECURITY_MASTER, master),
             (DatasetName.DAILY_PRICES, prices),
