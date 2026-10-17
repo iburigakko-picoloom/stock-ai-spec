@@ -3049,12 +3049,13 @@ class OperationalStore:
             for item in self.executions()
             if item.filled_shares > 0 and item.executed_at <= imported_as_of
         )
+        tax_year = imported_as_of.astimezone(JST).year
         tax_states = tuple(
             state
-            if state.tax_year == imported_as_of.year
+            if state.tax_year == tax_year
             else TaxState(
                 account_bucket_id=state.account_bucket_id,
-                tax_year=imported_as_of.year,
+                tax_year=tax_year,
                 loss_carryforward_user_input=state.loss_carryforward_user_input,
                 nisa_annual_capacity_user_input=state.nisa_annual_capacity_user_input,
                 nisa_lifetime_capacity_user_input=state.nisa_lifetime_capacity_user_input,

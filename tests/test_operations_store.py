@@ -6,6 +6,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -35,6 +36,7 @@ from stock_ai.operations import (
 )
 from tests.conftest import (
     AS_OF,
+    account_components,
     candidate,
     decision_engine,
     decision_policy_snapshot,
@@ -647,9 +649,15 @@ def test_daily_status_requires_an_archived_same_day_proposal(tmp_path: Path) -> 
         )
 
 
-def test_position_reconciliation_never_overwrites_without_confirmation(tmp_path: Path) -> None:
+@pytest.mark.parametrize("imported_as_of", [
+    AS_OF + timedelta(hours=4),
+    datetime(2027, 1, 1, 0, 30, tzinfo=ZoneInfo("Asia/Tokyo")),
+    datetime.fromisoformat("2026-12-31T15:30:00+00:00"),
+])
+def test_position_reconciliation_never_overwrites_without_confirmation(
+    tmp_path: Path, imported_as_of: datetime,
+) -> None:
     store, _ = _proposal_store(tmp_path)
-    imported_as_of = AS_OF + timedelta(hours=4)
     csv_text = "\n".join(
         (
             "as_of,record_type,symbol,account_bucket_id,shares,"
@@ -683,7 +691,72 @@ def test_position_reconciliation_never_overwrites_without_confirmation(tmp_path:
     )
     assert reconciled.positions[0].symbol == "B"
     assert reconciled.cash[0].available_cash == Decimal("300000")
+    imported_year = imported_as_of.astimezone(ZoneInfo("Asia/Tokyo")).year
+    assert reconciled.tax_states[0].tax_year == imported_year
     assert store.latest_portfolio() == reconciled
+
+
+def _nisa_execution_store(tmp_path: Path) -> tuple[OperationalStore, ExecutionRecord]:
+    store = OperationalStore(tmp_path / "operations.sqlite3")
+    account, bucket, cash, tax = account_components(nisa=True, cash=Decimal("500000"))
+    state = portfolio().model_copy(update={
+        "accounts": (account,), "account_buckets": (bucket,), "cash": (cash,),
+        "tax_states": (tax.model_copy(update={
+            "nisa_annual_capacity_user_input": Decimal("150000"),
+            "nisa_lifetime_capacity_user_input": Decimal("250000"),
+        }),),
+    })
+    engine = decision_engine()
+    proposal = engine.propose(
+        portfolio=state, candidates=(candidate("B", .20),), generated_at=AS_OF,
+        model_bundle_version="test-model-v1", purchase_limits={"bucket": Decimal("150000")},
+    )
+    line = proposal.lines[0]
+    assert line.recommended_shares == 100
+    store.append_portfolio(state, created_at=AS_OF)
+    store.archive_proposal(proposal, archived_at=AS_OF,
+                           decision_policy=decision_policy_snapshot(proposal, engine.config))
+    store.save_decision(UserDecision(
+        decision_id="nisa-decision", proposal_id=proposal.proposal_id, version=1,
+        saved_at=AS_OF + timedelta(minutes=3),
+        lines=(UserDecisionLine(proposal_line_id=line.line_id, selected_target_shares=100),),
+    ))
+    return store, ExecutionRecord(
+        execution_id="nisa-execution", decision_id="nisa-decision",
+        executed_at=AS_OF + timedelta(hours=1), symbol="B", account_bucket_id="bucket",
+        status=ExecutionStatus.FILLED, side=TradeSide.BUY, ordered_shares=100, filled_shares=100,
+        average_fill_price=Decimal("1000"), actual_commission=Decimal("100"),
+        actual_other_cost=Decimal("50"), source="manual",
+    )
+
+
+def test_nisa_purchase_capacity_persists_once_and_constrains_the_next_decision(
+    tmp_path: Path,
+) -> None:
+    store, execution = _nisa_execution_store(tmp_path)
+    assert store.append_execution(execution)
+    assert not store.append_execution(execution)
+    next_as_of = AS_OF + timedelta(days=1)
+    state = store.apply_unapplied_executions(
+        next_as_of=next_as_of, next_portfolio_id="nisa-next", created_at=next_as_of,
+    )
+    restored = OperationalStore(tmp_path / "operations.sqlite3").latest_portfolio()
+    assert restored == state
+    assert restored.cash[0].available_cash == Decimal("399850")
+    assert restored.positions[0].average_acquisition_price == Decimal("1001.5")
+    tax = restored.tax_states[0]
+    assert tax.nisa_annual_capacity_user_input == Decimal("50000")
+    assert tax.nisa_lifetime_capacity_user_input == Decimal("150000")
+    second = store.apply_unapplied_executions(
+        next_as_of=next_as_of + timedelta(days=1), next_portfolio_id="nisa-unchanged",
+        created_at=next_as_of + timedelta(days=1),
+    )
+    assert second.tax_states == state.tax_states and second.cash == state.cash
+    proposal = decision_engine().propose(
+        portfolio=second, candidates=(candidate("B", .20),), generated_at=second.as_of,
+        model_bundle_version="test-model-v1", purchase_limits={"bucket": Decimal("50000")},
+    )
+    assert proposal.lines[0].recommended_shares == 100
 
 
 def test_daily_automation_archives_before_notification_and_is_idempotent(

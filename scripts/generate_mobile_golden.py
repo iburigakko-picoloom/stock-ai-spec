@@ -9,7 +9,7 @@ import json
 import tempfile
 import zipfile
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -26,6 +26,7 @@ from tests.test_mobile_bundles import SELECTION
 from tests.test_mobile_decisions import NOW
 from tests.test_mobile_decisions import ready as decision_ready
 from tests.test_mobile_features import timely_history
+from tests.test_operations_store import _nisa_execution_store
 from xgboost import XGBClassifier, XGBRegressor
 
 from stock_ai.domain import Position
@@ -207,6 +208,26 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
             "expected": decisions.generate(path, store, NOW),
         }
 with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    from mobile.python import runtime
+
+    store, execution = _nisa_execution_store(Path(temporary))
+    with MonkeyPatch.context() as patch:
+        patch.setattr(runtime, "STATE", Path(temporary))
+        runtime.initialize()
+        state = runtime.export_state()
+        store.append_execution(execution)
+        next_as_of = AS_OF + timedelta(days=1)
+        applied = store.apply_unapplied_executions(
+            next_as_of=next_as_of, next_portfolio_id="nisa-next", created_at=next_as_of,
+        )
+        manual_execution_fixture = {
+            "synthetic_only": True, "state": state, "decision_id": execution.decision_id,
+            "execution": execution.model_dump(mode="json", exclude={"decision_id", "source"}),
+            "apply": {"next_as_of": next_as_of.isoformat(), "next_portfolio_id": "nisa-next"},
+            "expected": applied.model_dump(mode="json"),
+        }
+
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
     from mobile.python import features, market
 
     path = Path(temporary) / "mobile.sqlite3"
@@ -255,7 +276,7 @@ destination.write_text(
                     "sha256": hashlib.sha256(bundle_content.encode()).hexdigest(),
                     "expected": bundle_expected}, "bounded": bounded_fixture,
          "decision": decision_fixture, "feature_inputs": feature_input_fixture,
-         "withholding": withholding_fixtures},
+         "withholding": withholding_fixtures, "manual_execution": manual_execution_fixture},
         ensure_ascii=False,
         allow_nan=False,
     ),

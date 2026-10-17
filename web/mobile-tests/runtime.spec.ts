@@ -1,6 +1,64 @@
 import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
 
+test("offline manual fill consumes NISA notional once and preserves capacity after restore", async ({ page, context }) => {
+  const fixture = JSON.parse(readFileSync(new URL("../../.demo-artifacts/android/mobile-golden.json", import.meta.url), "utf-8")).manual_execution;
+  expect(fixture.synthetic_only).toBe(true);
+  await context.route("https://**", route => route.abort());
+  await page.route("**/execution-test", route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Synthetic manual NISA fill</title>" }));
+  await page.goto("/execution-test");
+  const output = await page.evaluate(async input => {
+    type Reply = { state?: string; result: { status: number; body: unknown }; error?: string };
+    let worker = new Worker("/src/mobile/compute-worker.ts", { type: "module" });
+    let sequence = 0;
+    function send(value: Record<string, unknown>): Promise<Reply> {
+      return new Promise((resolve, reject) => {
+        const id = ++sequence;
+        worker.onmessage = event => {
+          if (event.data.id === id) {
+            if (event.data.error) reject(new Error(event.data.error));
+            else resolve(event.data);
+          }
+        };
+        worker.onerror = event => reject(new Error(event.message));
+        worker.postMessage({ ...value, id });
+      });
+    }
+    const request = (method: string, path: string, body?: unknown) => send({
+      command: "request", method, path, body: JSON.stringify(body ?? null),
+    });
+    try {
+      await send({ command: "initialize", state: input.state });
+      const path = `/api/v1/decisions/${input.decision_id}/executions`;
+      const record = await request("POST", path, input.execution);
+      const replay = await request("POST", path, input.execution);
+      const applied = await request("POST", "/api/v1/portfolio/apply-executions", input.apply);
+      if (!applied.state) throw new Error("applied state missing");
+      const repeated = await request("POST", "/api/v1/portfolio/apply-executions", input.apply).then(
+        reply => ({ reply, error: null }),
+        error => ({ reply: null, error: String(error) }),
+      );
+      const settings = await request("GET", "/api/v1/settings");
+      worker.terminate();
+      worker = new Worker("/src/mobile/compute-worker.ts", { type: "module" });
+      await send({ command: "initialize", state: applied.state });
+      const restored = await request("GET", "/api/v1/settings");
+      const health = await request("GET", "/api/v1/health");
+      return { record, replay, applied, repeated, settings, restored, health };
+    } finally { worker.terminate(); }
+  }, fixture);
+  expect(output.record.result.status).toBe(201);
+  expect(output.replay.result).toEqual(output.record.result);
+  expect(output.applied.result).toEqual({ status: 200, body: fixture.expected });
+  expect(output.repeated.reply).toBeNull();
+  expect(output.repeated.error).toContain("next_as_of must be later than the current portfolio as_of");
+  expect(output.settings.result).toMatchObject({ status: 200, body: { accounts: [{
+    accountType: "nisa", nisaAnnualCapacity: "50000", nisaLifetimeCapacity: "150000",
+  }] } });
+  expect(output.restored.result).toEqual(output.settings.result);
+  expect(output.health.result).toMatchObject({ status: 200, body: { orderSubmissionAvailable: false } });
+});
+
 test("offline Python preserves input and matches PC features, nine model vectors and four-head bundle", async ({ page, context }) => {
   const golden = JSON.parse(readFileSync(new URL("../../.demo-artifacts/android/mobile-golden.json", import.meta.url), "utf-8"));
   await context.route("https://**", route => route.abort());

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from stock_ai.domain import (
+    AccountType,
     CashState,
     ExecutionRecord,
     PortfolioState,
@@ -13,6 +15,12 @@ from stock_ai.domain import (
     TaxState,
     TradeSide,
 )
+
+JST = ZoneInfo("Asia/Tokyo")
+
+
+def _remaining_purchase_capacity(value: Decimal | None, notional: Decimal) -> Decimal | None:
+    return None if value is None else max(Decimal("0"), value - notional)
 
 
 def _start_tax_year(state: TaxState, year: int) -> TaxState:
@@ -54,6 +62,7 @@ def apply_executions(
     positions = portfolio.position_map()
     cash = {item.account_bucket_id: item for item in portfolio.cash}
     tax_states = portfolio.tax_state_map()
+    buckets = {bucket.bucket_id: bucket for bucket in portfolio.account_buckets}
     applied_execution_ids = list(portfolio.applied_execution_ids)
     for execution in sorted(executions, key=lambda item: (item.executed_at, item.execution_id)):
         if execution.filled_shares == 0:
@@ -69,8 +78,9 @@ def apply_executions(
         expenses = execution.actual_commission + execution.actual_other_cost
         position = positions.get(key)
         tax_state = tax_states[execution.account_bucket_id]
-        if execution.executed_at.year != tax_state.tax_year:
-            tax_state = _start_tax_year(tax_state, execution.executed_at.year)
+        execution_year = execution.executed_at.astimezone(JST).year
+        if execution_year != tax_state.tax_year:
+            tax_state = _start_tax_year(tax_state, execution_year)
             tax_states[execution.account_bucket_id] = tax_state
         if execution.side is TradeSide.BUY:
             total_outflow = notional + expenses + execution.tax_withheld
@@ -102,6 +112,18 @@ def apply_executions(
                 available_cash=existing_cash.available_cash - total_outflow,
                 reserved_cash=max(Decimal("0"), existing_cash.reserved_cash - total_outflow),
             )
+            if buckets[execution.account_bucket_id].account_type is AccountType.NISA:
+                # The declared basis is remaining purchase notional. Actual
+                # partial fills consume capacity once; expenses do not consume it.
+                # Keep unknown inputs unknown and never credit capacity on a sale.
+                tax_states[execution.account_bucket_id] = tax_state.model_copy(update={
+                    "nisa_annual_capacity_user_input": _remaining_purchase_capacity(
+                        tax_state.nisa_annual_capacity_user_input, notional,
+                    ),
+                    "nisa_lifetime_capacity_user_input": _remaining_purchase_capacity(
+                        tax_state.nisa_lifetime_capacity_user_input, notional,
+                    ),
+                })
         else:
             if position is None or execution.filled_shares > position.shares:
                 raise ValueError("recorded sell execution exceeds held shares")
@@ -143,9 +165,10 @@ def apply_executions(
 
     # A state dated in the new year must not carry the prior year's YTD totals,
     # even when the transition contained only prior-year executions.
+    next_year = next_as_of.astimezone(JST).year
     tax_states = {
         bucket_id: (
-            state if state.tax_year == next_as_of.year else _start_tax_year(state, next_as_of.year)
+            state if state.tax_year == next_year else _start_tax_year(state, next_year)
         )
         for bucket_id, state in tax_states.items()
     }
