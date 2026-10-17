@@ -308,11 +308,15 @@ class Controller:
                 {
                     "phase": phase,
                     "prepared_pid": prepared["pid"],
+                    "prepared_generation": prepared["generation"],
+                    "original_work_id": prepared["work_id"],
+                    "original_system_job": prepared["system_job"],
                     **observed,
                     "verified_pid": verified["verified_pid"],
                     "preserved_targets": len(verified["targets"]),
                     "notification_permission": "denied",
                     "activity_destroyed": verified["activity_destroyed"],
+                    "research_recovery": verified["research_recovery"],
                 }
             )
             self.write_report()

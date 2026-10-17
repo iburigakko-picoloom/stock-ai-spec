@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-17 — ChatGPTの受領・再送抑止をOS中断後に照合
+
+- 既存の使い捨てemulator受入へ、調査予約・完成応答・ACK済み記録の3状態を追加。予約はactiveのまま残し、releaseによる中断の模擬ではなく、実process kill・kernel reboot・force-stopで失わせる。各段階の前に新しい3件を準備し、以前の記録も含めて確認する。合成データはtest APKにだけ存在し、provider credentials・モデル採用・アプリ本体のfixture transportは追加しない。
+- OS中断後に実際のapplication-owned ChatGPTClientへ同じattemptを2回ずつ渡し、不明予約がinterrupted、完成済みが元の応答/時刻のまま、ACK済みが応答を除いたまま返ることを検証する。要求bodyは意図的にdispatch不能な文字列とし、回復がtransport処理へ進んだ場合は失敗させる。hash・model・effortの変更は同じ予約で拒否し、拒否後も元の受領を保持する。完成応答のACK後と次のOS中断でも再送しないことを検証する。
+- controllerの結果へ元のWorkRequest/system job ID・準備時世代・調査の照合件数を追加。自然配送と画面起動/全制約付きOS配送の条件は前回のまま区別する。Ruffとguard7件がローカルpass。新しいnative検証はCI待ちで、実アカウントのHTTP/SSE中断や検索成功の証拠とは扱わない。
+- 前回実装a9c615cのrun38983024280はAndroid/verify成功。モデル採用0件、実API/本人アカウント、自然起動時刻、Xiaomiの性能/同署名更新と72時間台帳運用の確認は引き続き残る。私有研究/学習の再開・実注文・merge・APK公開なし。
+
 ## 2026-10-17 — 画面オフ・実プロセス終了・端末再起動の受入試験を追加
 
 - GitHubの専用API35エミュレーターを確認してからdebug APKを初期化するcontrollerと、test APK専用のfixture準備/検証を追加。実機・CI外・異なるSDKでの拒否と、拒否後に診断コマンドも送らない4件がローカルpass。RuffとCLI helpもpass。アプリ本体へfixture transport・モデル採用・時刻変更・test APIを追加しない。

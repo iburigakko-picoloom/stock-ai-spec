@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -117,6 +118,78 @@ public class DailyLifecycleTest {
     Object keep(String name) throws Exception { return field(type("androidx.work." + name), "KEEP"); }
     Object automation() throws Exception { return construct(type("DailyAutomation"), context, database); }
     JSONObject automationRow(Object value) throws Exception { return (JSONObject) call(value, "row"); }
+
+    static final String RESEARCH_BODY = "lifecycle fixture: must never be dispatched";
+    static final String RESEARCH_MODEL = "fixture-model", RESEARCH_EFFORT = "high";
+    static String researchDigest() throws Exception {
+        StringBuilder result = new StringBuilder();
+        for (byte item : MessageDigest.getInstance("SHA-256").digest(RESEARCH_BODY.getBytes(StandardCharsets.UTF_8)))
+            result.append(String.format(java.util.Locale.ROOT, "%02x", item & 0xff));
+        return result.toString();
+    }
+    void prepareResearch(JSONObject proof) throws Exception {
+        Object journal = construct(type("ResearchJournal"), context);
+        JSONArray batches = proof.optJSONArray("research_batches");
+        if (batches == null) { batches = new JSONArray(); proof.put("research_batches", batches); }
+        JSONArray batch = new JSONArray();
+        for (String state : new String[]{"running", "completed", "acknowledged"}) {
+            String id = UUID.randomUUID().toString().replace("-", "");
+            assertTrue(((JSONObject) call(journal, "begin", id, researchDigest(), RESEARCH_MODEL, RESEARCH_EFFORT)).getBoolean("dispatch"));
+            if (!state.equals("running")) {
+                call(journal, "complete", id, new JSONObject().put("id", "fixture-response-" + id).put("status", "completed"));
+                call(journal, "release", id);
+                if (state.equals("acknowledged")) call(journal, "acknowledge", id);
+            }
+            // Leave the running reservation active. Only actual process loss,
+            // not a simulated release, may remove it before verification.
+            batch.put(new JSONObject().put("id", id).put("initial_state", state)
+                .put("receipt", call(journal, "current", id)));
+        }
+        batches.put(batch);
+    }
+    void verifyResearch(JSONObject proof) throws Exception {
+        Object journal = construct(type("ResearchJournal"), context);
+        Object client = call(type("ChatGPTClient"), "get", context);
+        JSONArray batches = proof.getJSONArray("research_batches");
+        int rejected = 0;
+        for (int b = 0; b < batches.length(); b++) {
+            JSONArray batch = batches.getJSONArray(b);
+            for (int n = 0; n < batch.length(); n++) {
+                JSONObject item = batch.getJSONObject(n), expected = new JSONObject(item.getJSONObject("receipt").toString());
+                String id = item.getString("id");
+                if (item.getString("initial_state").equals("running"))
+                    expected.put("state", "interrupted").put("errorCode", "PROCESS_INTERRUPTED");
+                // This deliberately invalid request body must never reach the
+                // transport parser. No credentials or network fixture exists.
+                for (int repeat = 0; repeat < 2; repeat++) {
+                    JSONObject reused = (JSONObject) await(call(client, "respond", id, RESEARCH_BODY, researchDigest(), RESEARCH_MODEL, RESEARCH_EFFORT));
+                    assertEquals(expected.toString(), reused.toString());
+                }
+                for (int changed = 0; changed < 3; changed++) {
+                    try {
+                        await(call(client, "respond", id, RESEARCH_BODY,
+                            changed == 0 ? new String(new char[64]).replace('\0', 'b') : researchDigest(),
+                            changed == 1 ? "changed-fixture-model" : RESEARCH_MODEL,
+                            changed == 2 ? "low" : RESEARCH_EFFORT));
+                        fail("Changed research request reused an accepted reservation");
+                    } catch (java.util.concurrent.ExecutionException error) {
+                        assertEquals("ATTEMPT_REQUEST_CHANGED", error.getCause().getMessage()); rejected++;
+                    }
+                }
+                assertEquals(expected.toString(), ((JSONObject) call(journal, "current", id)).toString());
+                if (expected.getString("state").equals("completed")) {
+                    call(journal, "acknowledge", id);
+                    JSONObject acknowledged = (JSONObject) await(call(client, "respond", id, RESEARCH_BODY, researchDigest(), RESEARCH_MODEL, RESEARCH_EFFORT));
+                    assertEquals("acknowledged", acknowledged.getString("state")); assertFalse(acknowledged.has("response"));
+                    item.put("receipt", acknowledged);
+                } else if (expected.getString("state").equals("acknowledged")) assertFalse(expected.has("response"));
+            }
+        }
+        assertEquals(9 * batches.length(), rejected);
+        proof.put("research_recovery", new JSONObject().put("batches", batches.length())
+            .put("interrupted_reservations", batches.length()).put("retained_tombstones", 2 * batches.length())
+            .put("changed_request_rejections", rejected).put("credentials_absent", true));
+    }
 
     interface Remote { JSONObject fetch(String endpoint, String day, String cursor) throws Exception; }
     Object download(boolean membership, Remote remote) throws Exception {
@@ -231,6 +304,7 @@ public class DailyLifecycleTest {
             .put("generation", call(state, "currentGeneration")).put("work_id", call(request, "getId").toString())
             .put("system_job", new JSONObject().put("namespace", namespace).put("id", systemJob.getId()))
             .put("watch_id", call(watch, "getId").toString()).put("prepared_at", Instant.now().toString());
+        prepareResearch(proof);
         saveMarker(proof);
     }
 
@@ -262,6 +336,7 @@ public class DailyLifecycleTest {
         }
         assertEquals(2, count("SELECT COUNT(*) FROM market_download_pages WHERE id=?", proof.getString("partial_id")));
         verifyOriginalReceipts(proof);
+        verifyResearch(proof);
         assertTrue(api("GET", "mobile/daily", null).isNull("body"));
         assertTrue(api("GET", "mobile/decision", null).isNull("body"));
         assertFalse(api("GET", "health", null).getJSONObject("body").getBoolean("orderSubmissionAvailable"));
