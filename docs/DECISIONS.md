@@ -1319,3 +1319,15 @@ Only run an existing mapped original job with all constraints satisfied. If that
 Daily financial expansion may index the sorted disclosure frame by symbol once and select groups by positional row indices, instead of scanning every disclosure for every symbol. Preserve disclosure ordering, actual receipt times, both historical revision policies, same-timestamp tie handling, missing-symbol behavior, asof joins, numeric formulas, output types/order and the original input frames. Clear the temporary per-symbol frame list after concatenation before making the two output projections. Keep the full market population, history, source identity definition and verification, feature formulas, model/adoption gates and existing capacity/time budgets.
 
 Verify correction ties, categorical/unused symbols, duplicate source indices and missing financials in public tests. Compare the exact previously committed function on deterministic fixtures, then check all full-market latest features and source identities under the unchanged resource guards. A small fixture parity test or input-only performance profile does not establish full-market WASM, native bridge, forecast or phone acceptance.
+
+### D135 — decode numeric columns without per-scalar row containers (2026-10-17)
+
+The mobile input transport may read a single column through Series values JSON instead of constructing a one-column DataFrame JSON with one nested row per scalar. Preserve the shipped records JSON's exact scalar values, inference, precision and null behavior, including nullable numeric/bool, large values, nonfinite input, Decimal and nested values. Keep the existing string/date deduplication and fallback cases, all input frames, source identities, frozen feature selections, formulas and forecast/decision gates.
+
+Use the independent records reference and PC/WASM feature/quantity/restore comparisons. Measure large deterministic numeric columns in isolated processes against the exact prior function and distinguish that narrow memory/CPU result from full-market or phone acceptance. Retain failed full-market attempts and unchanged resource limits.
+
+### D136 — release completed PIT join and OHLC inspection frames (2026-10-17)
+
+After the daily-price membership join finishes, drop its no-longer-used membership frame. After constructing the no-trade mask, drop the OHLC/OHLCV inspection frames before adjustment reconstruction and later copies. Change only temporary reference lifetimes; preserve input copies, provider-code joins, adjustment reconstruction, missing/no-trade behavior, validation, source identities, formulas and full market/sector populations.
+
+Run the production and mobile numerical/source regressions, then measure the complete synthetic history under the unchanged limits. Keep the preceding Linux memory-budget failure and WASM time-budget failure as separate evidence; successful small tests or a Windows result do not establish their resolution.

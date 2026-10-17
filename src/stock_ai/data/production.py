@@ -415,6 +415,7 @@ def _canonical_daily(
         how="inner",
         validate="one_to_one",
     )
+    del members
     if frame.duplicated(["trading_date", "symbol"]).any():
         raise ValueError("PIT-universe daily prices contain duplicate trading_date/symbol rows")
     raw_ohlc = frame.reindex(columns=["raw_open", "raw_high", "raw_low", "raw_close"])
@@ -432,6 +433,7 @@ def _canonical_daily(
         & adjusted_ohlcv.isna().all(axis=1)
         & frame.reindex(columns=["raw_volume", "trading_value"]).isna().all(axis=1)
     )
+    del raw_ohlc, adjusted_ohlcv
     frame = _reconstruct_bulk_adjusted_prices(frame)
     frame = frame.loc[~no_trade].copy()
     frame["revision_available_at"] = pd.to_datetime(frame["available_at"], utc=True)

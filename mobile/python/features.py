@@ -50,9 +50,9 @@ def _json_records_frame(source: pd.DataFrame) -> pd.DataFrame:
             columns[name] = pd.Series([values[code] for code in codes])
             del codes, unique, encoded, parsed, values
         else:
-            rows = json.loads(source[[name]].to_json(orient="values", date_format="iso"))
-            columns[name] = pd.Series([row[0] for row in rows])
-            del rows
+            values = json.loads(column.to_json(orient="values", date_format="iso"))
+            columns[name] = pd.Series(values)
+            del values
     return pd.DataFrame(columns, copy=False)
 
 
