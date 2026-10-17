@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-18 — 同じAPKで全量復元・通常native・OS復旧を確認
+
+- 7120bd6/CI39043557490はverify/android/android-historyすべてsuccess、release skip。merge d04171eの同じAPKで通常native78件・OS3段階・全量B1復元が通過した。後続5f94d53はテスト所有SQLite接続のcloseと検証記録だけで、84実装fileと44同梱Python sourceは変わらない。
+- 全量入力は同runの5,000銘柄/520営業日・96,781,956文字、SHA256 cd19d865f4bd2f7788b43604617db4dd8e80ede8ae0c915042a71a262a466898。192MiB Java heapで初期化/本人入力保存/owner再作成/B1書出し/認証preview/復元/owner再作成/照合まで206.165秒。原本fixtureと結果の17table schema/全typed-cell digest、520日、model0、APK2本のhashと15fixture sourceを照合した。元input不変、previewにpayloadを出さないこと、profile回復と世代7を確認。
+- 同runのPC全市場特徴量は178.160秒・peak3,074,953,216bytes。5/20日の43/53列、5sourceと各260万行・市場/業種520行を保ち、全特徴量JSON SHA7ee2812d93a23d3891b9c62ac4687bad17f7d13c0b482f0053746c959e580dffは既存と一致。PC/容量のsource hashとGit/現sourceも照合。原本は`execution-recovery-ci-39043557490`、全回帰再確認を含む照合receiptは`execution-recovery-final-verification.json`。
+- これは合成市場・未採用model0のAPI35 emulator/PCの受入。前回reboot失敗の原因・反復安定性、本人ChatGPTアカウント、実市場の税引前比較/最終採用、個人税引後NAV、Xiaomi/同署名更新/継続履歴は残る。後続5f94d53のCI39044951650は実行中。実市場比較に必要な配当データの契約/保存済み原本の用意を本人へ確認中。追加学習・holdout開封・採用・実注文なし。
+
 ## 2026-10-18 — 最新sourceの全回帰とOS復旧3段階を照合
 
 - 6974b11/7120bd6の実装84fileを固定した全Python回帰は1,228件中1,227成功/1失敗、1,149.40秒。失敗は容量超過を拒否した後の復元で、テスト自身のSQLite接続が未closeのためWindowsのファイル置換が拒否された。容量上限・全assertion・実装を維持し、テスト所有接続をcommit後に明示close。容量/codec/runtime51件は16.92秒で成功。部分実行だけのcoverage guard失敗も保存し、同じ84fileの全回帰とcoverageを合算して87.265%/基準85%を確認した。全回帰一回で全件成功したとは扱わない。原本とhash照合は`execution-recovery-final-verification.json`。
