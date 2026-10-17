@@ -100,13 +100,18 @@ def test_universe_intervals_preserve_gaps_and_exclude_invalid_symbol_history(
     pdt.assert_frame_equal(master, before)
 
 
+@pytest.mark.parametrize("integer_close", [False, True])
+@pytest.mark.parametrize("utc_cutoffs", [False, True])
 @pytest.mark.parametrize("categorical", [False, True])
 @pytest.mark.parametrize("duplicate_index", [False, True])
 @pytest.mark.parametrize("policy", list(HistoricalRevisionPolicy))
 def test_financial_expansion_is_symbol_independent_and_preserves_inputs(
+    integer_close: bool,
+    utc_cutoffs: bool,
     categorical: bool,
     duplicate_index: bool,
     policy: HistoricalRevisionPolicy,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     frames, dates = _source_frames(periods=30)
     disclosures = frames[DatasetName.FINANCIAL_SUMMARY].copy()
@@ -136,6 +141,20 @@ def test_financial_expansion_is_symbol_independent_and_preserves_inputs(
             for index, day in enumerate(dates[:4])
         ]
     ).iloc[::-1]
+    if integer_close:
+        daily["close"] = daily["close"].astype("int64")
+    if utc_cutoffs:
+        daily["available_at"] = pd.to_datetime(daily["available_at"], utc=True).astype(
+            "datetime64[ns, UTC]"
+        )
+    batch_calls = []
+    original_batch = production_module._batch_daily_financials
+
+    def observed_batch(*args, **kwargs):
+        batch_calls.append(1)
+        return original_batch(*args, **kwargs)
+
+    monkeypatch.setattr(production_module, "_batch_daily_financials", observed_batch)
     before_daily, before_disclosures = daily.copy(deep=True), disclosures.copy(deep=True)
     actual = production_module._daily_financial_features(
         disclosures, daily=daily, revision_policy=policy
@@ -143,7 +162,8 @@ def test_financial_expansion_is_symbol_independent_and_preserves_inputs(
     independent = [
         production_module._daily_financial_features(
             disclosures.loc[disclosures.symbol == symbol].copy(),
-            daily=group.copy(),
+            # Object timestamps use the unchanged per-symbol compatibility path.
+            daily=group.assign(available_at=group["available_at"].astype(object)),
             revision_policy=policy,
         )
         for symbol, group in daily.groupby("symbol", sort=True)
@@ -155,6 +175,7 @@ def test_financial_expansion_is_symbol_independent_and_preserves_inputs(
     assert missing["financial_available_at"].isna().all() and missing["per"].isna().all()
     pdt.assert_frame_equal(daily, before_daily, check_exact=True)
     pdt.assert_frame_equal(disclosures, before_disclosures, check_exact=True)
+    assert len(batch_calls) == int(utc_cutoffs)
 
 
 def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> None:

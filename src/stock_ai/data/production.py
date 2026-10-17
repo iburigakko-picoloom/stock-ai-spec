@@ -670,7 +670,6 @@ def _daily_financial_features(
     right["forecast_revision"] = _safe_ratio(right["forecast_eps"], previous_forecast) - 1
     right.loc[previous_forecast.isna(), "forecast_revision"] = np.nan
 
-    parts: list[pd.DataFrame] = []
     right_columns = [
         "available_at",
         "revision_available_at",
@@ -686,6 +685,48 @@ def _daily_financial_features(
         "shares_outstanding",
         "shares_outstanding_missing_reason",
     ]
+    merged_financials = _join_daily_financials(daily, right, right_columns)
+    feature_columns = [
+        "symbol",
+        "trading_date",
+        "available_at",
+        "financial_available_at",
+        "financial_revision_available_at",
+        "disclosure_number",
+        *_FINANCIAL_FEATURES,
+    ]
+    features = merged_financials[feature_columns].copy()
+    shares = merged_financials[
+        [
+            "symbol",
+            "trading_date",
+            "available_at",
+            "shares_outstanding",
+            "shares_outstanding_missing_reason",
+        ]
+    ].copy()
+    return features, shares
+
+
+def _join_daily_financials(
+    daily: pd.DataFrame, right: pd.DataFrame, right_columns: list[str],
+) -> pd.DataFrame:
+    # Batch unique UTC cutoffs, plain 64-bit closes and non-null string
+    # symbols. Keep legacy semantics for other
+    # callers, including categorical empty groups and unstable cutoff ties.
+    if (
+        not daily.empty
+        and {"symbol", "available_at", "close"} <= set(daily)
+        and not isinstance(daily["symbol"].dtype, pd.CategoricalDtype)
+        and pd.api.types.is_string_dtype(daily["symbol"])
+        and daily["symbol"].notna().all()
+        and str(daily["available_at"].dtype) == "datetime64[ns, UTC]"
+        and daily["available_at"].notna().all()
+        and str(daily["close"].dtype) in {"float64", "int64"}
+        and not daily.duplicated(["symbol", "available_at"]).any()
+    ):
+        return _batch_daily_financials(daily, right, right_columns)
+    parts: list[pd.DataFrame] = []
     source_rows = right.groupby("symbol", sort=False, observed=True).indices
     for symbol, left in daily.groupby("symbol", sort=True):
         locations = source_rows.get(symbol)
@@ -732,26 +773,59 @@ def _daily_financial_features(
         parts.append(merged)
     merged_financials = pd.concat(parts, ignore_index=True)
     parts.clear()
-    feature_columns = [
-        "symbol",
-        "trading_date",
-        "available_at",
-        "financial_available_at",
-        "financial_revision_available_at",
-        "disclosure_number",
-        *_FINANCIAL_FEATURES,
-    ]
-    features = merged_financials[feature_columns].copy()
-    shares = merged_financials[
-        [
-            "symbol",
-            "trading_date",
-            "available_at",
-            "shares_outstanding",
-            "shares_outstanding_missing_reason",
-        ]
-    ].copy()
-    return features, shares
+    return merged_financials
+
+
+def _batch_daily_financials(
+    daily: pd.DataFrame, right: pd.DataFrame, right_columns: list[str],
+) -> pd.DataFrame:
+    left = daily[["symbol", "trading_date", "available_at", "close"]].copy()
+    codes, labels = pd.factorize(left["symbol"], sort=False)
+    left["__financial_symbol"] = codes.astype("int64")
+    left["available_at"] = pd.to_datetime(left["available_at"], utc=True).astype(
+        "datetime64[ns, UTC]"
+    )
+    mapping = {symbol: index for index, symbol in enumerate(labels)}
+    source = right.loc[:, right_columns].copy()
+    source["__financial_symbol"] = (
+        right["symbol"].astype(object).map(mapping).fillna(-1).astype("int64").to_numpy()
+    )
+    source = source.loc[source["__financial_symbol"] >= 0]
+    known = left["__financial_symbol"].isin(source["__financial_symbol"])
+    parts = []
+    if known.any():
+        source = source.sort_values(["available_at", "disclosure_number"]).drop_duplicates(
+            ["__financial_symbol", "available_at"], keep="last"
+        ).rename(columns={
+            "available_at": "financial_available_at",
+            "revision_available_at": "financial_revision_available_at",
+        })
+        parts.append(pd.merge_asof(
+            left.loc[known].sort_values("available_at"), source,
+            left_on="available_at", right_on="financial_available_at",
+            by="__financial_symbol", direction="backward", allow_exact_matches=True,
+        ))
+    if not known.all():
+        missing = left.loc[~known].copy()
+        for column in right_columns[1:]:
+            missing[column] = np.nan
+        missing["financial_available_at"] = pd.NaT
+        missing["financial_revision_available_at"] = pd.NaT
+        parts.append(missing)
+        del missing
+    del left, source, known, codes
+    # Preserve the missing-source partition's original concat dtype behavior.
+    for merged in parts:
+        merged["per"] = merged["close"] / merged["forecast_eps"].where(
+            merged["forecast_eps"].notna() & (merged["forecast_eps"] != 0), merged["eps"],
+        )
+        merged["pbr"] = _safe_ratio(merged["close"], merged["effective_bps"])
+    result = parts[0] if len(parts) == 1 else pd.concat(parts, ignore_index=True)
+    parts.clear()
+    del merged
+    result.drop(columns="__financial_symbol", inplace=True)
+    result.sort_values(["symbol", "available_at"], ignore_index=True, inplace=True)
+    return result
 
 
 def _point_in_time_year_over_year(frame: pd.DataFrame, value_column: str) -> pd.Series:

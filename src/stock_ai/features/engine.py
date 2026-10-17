@@ -106,7 +106,7 @@ def _compute_contiguous_symbol(group: pd.DataFrame, *, latest_only: bool = False
     volume = group["adjusted_volume"].astype(float)
     trading_value = group["trading_value"].astype(float)
 
-    output = group[["symbol", "sector", "trading_date", "available_at"]].copy()
+    output = {name: group[name] for name in ("symbol", "sector", "trading_date", "available_at")}
     output["close"] = group["close"].astype(float)
     output["adjusted_close"] = close
     output["adjusted_open"] = adjusted_open
@@ -240,7 +240,9 @@ def _compute_contiguous_symbol(group: pd.DataFrame, *, latest_only: bool = False
         prior_low = low.shift(1).rolling(window, min_periods=window).min()
         output[f"breakout.above_{window}d_high"] = (close > prior_high).where(prior_high.notna())
         output[f"breakout.below_{window}d_low"] = (close < prior_low).where(prior_low.notna())
-    return output
+    result = pd.DataFrame(output, index=group.index)
+    result.attrs = group.attrs
+    return result.set_flags(allows_duplicate_labels=group.flags["allows_duplicate_labels"])
 
 
 def _maximum_drawdown(values: np.ndarray) -> float:
