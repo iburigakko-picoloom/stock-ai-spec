@@ -56,6 +56,50 @@ from stock_ai.research import run_research_decision_e2e
 JST = ZoneInfo("Asia/Tokyo")
 
 
+@pytest.mark.parametrize("symbol_dtype", ["object", "string", "category"])
+@pytest.mark.parametrize("duplicate_index", [False, True])
+@pytest.mark.parametrize("timezone", [None, "Asia/Tokyo"])
+def test_universe_intervals_preserve_gaps_and_exclude_invalid_symbol_history(
+    symbol_dtype: str, duplicate_index: bool, timezone: str | None,
+) -> None:
+    dates = pd.bdate_range("2026-01-05", periods=7, tz=timezone)
+    rows = []
+    for symbol, sessions in [("A", [0, 1, 3, 4, 6]), ("B", list(range(7))),
+                             ("outside", [1, 2, 7]), (None, [0])]:
+        for session in sessions:
+            rows.append({
+                "effective_date": dates[session] if session < 7 else dates[-1] + timedelta(days=1),
+                "provider_code": "10000", "symbol": symbol, "company_name": "Example",
+                "sector_33_code": "10", "sector_33_name": "Sector", "market_code": "0111",
+                "market_name": "Prime", "available_at": "2026-02-01T00:00:00Z",
+            })
+    master = pd.DataFrame(rows).sample(frac=1, random_state=19)
+    if symbol_dtype == "category":
+        master["symbol"] = pd.Categorical(master.symbol, categories=["B", "A", "outside", "unused"])
+    else:
+        master["symbol"] = master.symbol.astype(symbol_dtype)
+    if duplicate_index:
+        master.index = [0] * len(master)
+    before = master.copy(deep=True)
+
+    actual = production_module.build_point_in_time_universe(master, business_dates=dates)
+
+    assert set(actual.symbol) == {"A", "B"}
+    a = actual.loc[actual.symbol == "A"]
+    assert list(a.effective_date) == [dates[i] for i in [0, 1, 3, 4, 6]]
+    assert list(a.valid_from) == [dates[i] for i in [0, 0, 3, 3, 6]]
+    assert list(a.valid_to.iloc[:-1]) == [dates[i] for i in [2, 2, 5, 5]]
+    assert pd.isna(a.valid_to.iloc[-1])
+    b = actual.loc[actual.symbol == "B"]
+    assert list(b.effective_date) == list(dates)
+    assert (b.valid_from == dates[0]).all()
+    assert b.valid_to.isna().all()
+    pdt.assert_series_equal(actual.listing_date, actual.valid_from, check_names=False)
+    pdt.assert_series_equal(actual.delisting_date, actual.valid_to, check_names=False)
+    assert actual.is_member.all()
+    pdt.assert_frame_equal(master, before)
+
+
 @pytest.mark.parametrize("categorical", [False, True])
 @pytest.mark.parametrize("duplicate_index", [False, True])
 @pytest.mark.parametrize("policy", list(HistoricalRevisionPolicy))

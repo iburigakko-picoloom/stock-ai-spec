@@ -9,7 +9,7 @@ import pytest
 from pandas.testing import assert_frame_equal
 
 from stock_ai.features import V0_MANIFEST, V1_CORE_MANIFEST, V2_EXTENDED_MANIFEST, FeatureEngine
-from stock_ai.features.engine import FINANCIAL_COLUMNS, _merge_financials
+from stock_ai.features.engine import FINANCIAL_COLUMNS, _compute_symbol, _merge_financials
 from stock_ai.features.indicators import obv
 from stock_ai.fixtures import market_fixture
 
@@ -354,6 +354,32 @@ def test_latest_snapshot_exactly_matches_full_history_tail(manifest, scenario) -
     assert_frame_equal(actual, expected, check_exact=True)
     for frame, original in zip((daily, market, sectors, financials), originals, strict=True):
         assert_frame_equal(frame, original, check_exact=True)
+
+
+@pytest.mark.parametrize("periods", [1, 59, 60, 61, 119, 120, 121, 520])
+@pytest.mark.parametrize("scenario", ["complete", "gap", "missing-price"])
+def test_latest_symbol_drawdown_matches_full_rolling_history(periods, scenario) -> None:
+    random = np.random.default_rng(867 + periods)
+    close = np.exp(np.cumsum(random.normal(0, .08, periods))) * 100
+    group = pd.DataFrame({
+        "symbol": "A", "sector": "10",
+        "trading_date": pd.bdate_range("2024-01-01", periods=periods),
+        "available_at": pd.Timestamp("2026-01-01", tz="UTC"), "adjusted_close": close,
+        "adjusted_high": close * 1.03, "adjusted_low": close * .97,
+        "close": close, "adjusted_volume": 1234., "trading_value": close * 1234,
+    })
+    if scenario == "gap":
+        group["trading_session_index"] = np.arange(periods)
+        group.loc[group.index >= periods // 3, "trading_session_index"] += 2
+    elif scenario == "missing-price":
+        group.loc[group.index[-min(periods, 5)], "adjusted_close"] = np.nan
+    before = group.copy(deep=True)
+
+    expected = _compute_symbol(group).tail(1).reset_index(drop=True)
+    actual = _compute_symbol(group, latest_only=True).tail(1).reset_index(drop=True)
+
+    assert_frame_equal(actual, expected, check_exact=True)
+    assert_frame_equal(group, before, check_exact=True)
 
 
 @pytest.mark.parametrize("scenario", ["invalid-old-price", "duplicate-old-row",

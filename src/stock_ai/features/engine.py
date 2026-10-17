@@ -78,21 +78,22 @@ def _require_finite_numeric(
             raise ValueError(f"{label} column {column} must contain finite numeric values")
 
 
-def _compute_symbol(group: pd.DataFrame) -> pd.DataFrame:
+def _compute_symbol(group: pd.DataFrame, *, latest_only: bool = False) -> pd.DataFrame:
     group = group.sort_values("trading_date").copy()
     if "trading_session_index" not in group:
-        return _compute_contiguous_symbol(group)
+        return _compute_contiguous_symbol(group, latest_only=latest_only)
     session_index = pd.to_numeric(group["trading_session_index"], errors="coerce")
     if session_index.isna().any():
         raise ValueError("trading_session_index must be present for every production row")
     segment = session_index.diff().ne(1).cumsum()
     return pd.concat(
-        [_compute_contiguous_symbol(part) for _, part in group.groupby(segment, sort=False)],
+        [_compute_contiguous_symbol(part, latest_only=latest_only)
+         for _, part in group.groupby(segment, sort=False)],
         ignore_index=True,
     )
 
 
-def _compute_contiguous_symbol(group: pd.DataFrame) -> pd.DataFrame:
+def _compute_contiguous_symbol(group: pd.DataFrame, *, latest_only: bool = False) -> pd.DataFrame:
     group = group.sort_values("trading_date").copy()
     close = group["adjusted_close"].astype(float)
     adjusted_open = (
@@ -183,9 +184,16 @@ def _compute_contiguous_symbol(group: pd.DataFrame) -> pd.DataFrame:
         0.5
     ) * np.sqrt(252)
     for window in (60, 120):
-        output[f"risk.max_drawdown_{window}d"] = close.rolling(window, min_periods=window).apply(
-            _maximum_drawdown, raw=True
-        )
+        if latest_only:
+            # Only the final row leaves a latest snapshot. Evaluate its exact
+            # complete trailing window; recurrent indicators still see history.
+            drawdown = pd.Series(np.nan, index=close.index, dtype=float)
+            trailing = close.iloc[-window:].to_numpy()
+            if len(trailing) == window and np.isfinite(trailing).all():
+                drawdown.iloc[-1] = _maximum_drawdown(trailing)
+        else:
+            drawdown = close.rolling(window, min_periods=window).apply(_maximum_drawdown, raw=True)
+        output[f"risk.max_drawdown_{window}d"] = drawdown
     output["risk.return_skew_60d"] = one_day_return.rolling(60, min_periods=60).skew()
     output["risk.return_quantile_10_60d"] = one_day_return.rolling(60, min_periods=60).quantile(
         0.10
@@ -420,7 +428,7 @@ class FeatureEngine:
 
         parts = []
         for _, group in safe_daily.groupby("symbol", sort=True):
-            calculated = _compute_symbol(group)
+            calculated = _compute_symbol(group, latest_only=latest_only)
             # Every indicator sees the complete causal history. A daily snapshot
             # needs only its final row, copied so it does not retain the full
             # per-symbol result while the remaining symbols are computed.

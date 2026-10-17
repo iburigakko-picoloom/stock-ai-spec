@@ -234,7 +234,7 @@ def build_point_in_time_universe(
         raise ValueError("security master has duplicate date/symbol membership")
 
     required_dates = set(pd.DatetimeIndex(business_dates).normalize())
-    observed_dates = set(frame["effective_date"])
+    observed_dates = set(frame["effective_date"].unique())
     missing_dates = required_dates - observed_dates
     if missing_dates:
         first = min(missing_dates).date()
@@ -245,32 +245,39 @@ def build_point_in_time_universe(
 
     ordered_dates = pd.DatetimeIndex(sorted(required_dates))
     date_position = {value: index for index, value in enumerate(ordered_dates)}
-    parts: list[pd.DataFrame] = []
-    for _symbol, group in frame.groupby("symbol", sort=True):
-        member = group.sort_values("effective_date").copy()
-        positions = member["effective_date"].map(date_position)
-        if positions.isna().any():
-            continue
-        interval_id = positions.astype(int).diff().ne(1).cumsum()
-        member["valid_from"] = member.groupby(interval_id)["effective_date"].transform("min")
-        member["last_member_date"] = member.groupby(interval_id)["effective_date"].transform("max")
-        next_position = member["last_member_date"].map(date_position).astype(int) + 1
-        member["valid_to"] = pd.Series(
-            [
-                ordered_dates[position].isoformat() if position < len(ordered_dates) else pd.NA
-                for position in next_position
-            ],
-            index=member.index,
-            dtype="string",
-        )
-        member["listing_date"] = member["valid_from"]
-        member["delisting_date"] = member["valid_to"]
-        member["is_member"] = True
-        member["eligibility_rule"] = "TSE common issue: market 0111/0112/0113 and code suffix 0"
-        parts.append(member)
-    if not parts:
+    positions = frame["effective_date"].map(date_position)
+    # As before, one date outside the requested calendar excludes that symbol's
+    # entire history. Null symbols never participate in membership intervals.
+    outside_symbols = frame.loc[positions.isna(), "symbol"]
+    member = frame.loc[
+        frame["symbol"].notna() & ~frame["symbol"].isin(outside_symbols)
+    ].sort_values(["symbol", "effective_date"])
+    # Preserve the previous empty result for unused categorical groups.
+    if member.empty and not (
+        isinstance(frame["symbol"].dtype, pd.CategoricalDtype)
+        and (frame["symbol"].value_counts() == 0).any()
+    ):
         raise ValueError("BLOCKED_BY_DATA_CAPABILITY: universe interval construction is empty")
-    universe = pd.concat(parts, ignore_index=True)
+    del frame, outside_symbols
+    member = member.reset_index(drop=True)
+    positions = member["effective_date"].map(date_position).astype(int)
+    same_symbol = member["symbol"].eq(member["symbol"].shift()).fillna(False)
+    interval_id = (~same_symbol | positions.diff().ne(1)).cumsum()
+    intervals = member.groupby(interval_id)["effective_date"]
+    member["valid_from"] = intervals.transform("min")
+    member["last_member_date"] = intervals.transform("max")
+    # Format each calendar successor once, preserving the existing ISO parser
+    # and its timezone/missing-value behavior without a Python loop per row.
+    successors = {
+        day: ordered_dates[index + 1].isoformat() if index + 1 < len(ordered_dates) else pd.NA
+        for index, day in enumerate(ordered_dates)
+    }
+    member["valid_to"] = member["last_member_date"].map(successors).astype("string")
+    member["listing_date"] = member["valid_from"]
+    member["delisting_date"] = member["valid_to"]
+    member["is_member"] = True
+    member["eligibility_rule"] = "TSE common issue: market 0111/0112/0113 and code suffix 0"
+    universe = member
     universe["valid_to"] = pd.to_datetime(universe["valid_to"], errors="coerce")
     universe["delisting_date"] = pd.to_datetime(universe["delisting_date"], errors="coerce")
     columns = [
