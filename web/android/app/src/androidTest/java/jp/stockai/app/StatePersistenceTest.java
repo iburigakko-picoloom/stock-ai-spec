@@ -51,19 +51,27 @@ public class StatePersistenceTest {
             .put("characters", HISTORY_PAYLOAD_CHARACTERS)
             .put("max_java_heap_bytes", Runtime.getRuntime().maxMemory())
             .put("elapsed_seconds", (System.nanoTime() - started) / 1_000_000_000.0);
+        // Gradle uninstalls the disposable target after connected tests. Keep
+        // metadata in a dedicated log tag so the controller can collect it.
+        android.util.Log.i("StockAIStateCapacity", report.toString());
         try (FileOutputStream output = new FileOutputStream(new File(plugin.getContext().getCacheDir(), "native-state-capacity.json"))) {
             output.write(report.toString().getBytes(StandardCharsets.UTF_8));
         }
     }
 
-    long writeHistorySizedPayload() throws Exception {
+    String historySizedPayload() {
         byte[] ascii = new byte[HISTORY_PAYLOAD_CHARACTERS]; Arrays.fill(ascii, (byte) 's');
-        return plugin.writeStateData(0, new String(ascii, StandardCharsets.US_ASCII));
+        // Android's US_ASCII String constructor first allocates a full char[].
+        // Its UTF-8 constructor handles these ASCII bytes without that copy.
+        return new String(ascii, StandardCharsets.UTF_8);
     }
 
     @Test public void historySizedEncryptedPayloadSurvivesReopenAndStaleWrite() throws Exception {
-        long started = System.nanoTime(); capacityReport("writing", started);
-        assertEquals(1, writeHistorySizedPayload());
+        long started = System.nanoTime(); capacityReport("creating-payload", started);
+        String original = historySizedPayload();
+        capacityReport("writing", started);
+        assertEquals(1, plugin.writeStateData(0, original));
+        original = null; // Retain no test-generated original during native read.
         capacityReport("reopening", started);
         plugin.db.close(); plugin.db = SQLiteDatabase.openOrCreateDatabase(file, null);
         try { plugin.writeStateData(0, "stale"); fail("stale generation accepted"); }
@@ -77,7 +85,7 @@ public class StatePersistenceTest {
         for (int start = 0; start < payload.length(); start += block.length) {
             int end = Math.min(start + block.length, payload.length());
             expected.update(block, 0, end - start);
-            actual.update(payload.substring(start, end).getBytes(StandardCharsets.US_ASCII));
+            actual.update(payload.substring(start, end).getBytes(StandardCharsets.UTF_8));
         }
         assertArrayEquals(expected.digest(), actual.digest());
         capacityReport("verified", started);
@@ -121,6 +129,14 @@ public class StatePersistenceTest {
         assertEquals(8, plugin.writeStateData(7, payload));
         assertEquals(payload, plugin.readStateData().getString("payload"));
         assertEquals(8, plugin.readStateData().getLong("generation"));
+    }
+
+    @Test public void nonAsciiAfterAsciiChunksKeepsExistingUtf8Payload() throws Exception {
+        char[] prefix = new char[LocalStateStore.CHUNK_CHARACTERS + 17]; Arrays.fill(prefix, 'a');
+        String payload = new String(prefix) + "日本語 αβγ 😀";
+        assertEquals(1, plugin.writeStateData(0, payload));
+        assertEquals(payload, plugin.readStateData().getString("payload"));
+        assertEquals(1, plugin.readStateData().getLong("generation"));
     }
 
     @Test public void independentHandlesNeverMixEnvelopeAndChunksFromDifferentGenerations() throws Exception {

@@ -201,7 +201,18 @@ jobs:
         if: always() && (steps.native_tests.outcome == 'success' || steps.native_tests.outcome == 'failure')
         run: |
           mkdir -p .demo-artifacts/android-state-capacity
-          adb shell run-as jp.stockai.app.debug cat cache/native-state-capacity.json > .demo-artifacts/android-state-capacity/report.json
+          # connected tests uninstall the target; the dedicated metadata-only
+          # log tag outlives its private cache directory.
+          adb logcat -d -v raw -s StockAIStateCapacity:I '*:S' > .demo-artifacts/android-state-capacity/events.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          folder = Path('.demo-artifacts/android-state-capacity')
+          rows = [json.loads(line) for line in (folder / 'events.txt').read_text().splitlines() if line.startswith('{')]
+          if not rows or any(row.get('synthetic') is not True or row.get('characters') != 96870524 for row in rows):
+              raise ValueError('Native synthetic capacity metadata missing')
+          (folder / 'report.json').write_text(json.dumps({'events': rows, 'latest': rows[-1]}, indent=2))
+          PY
       - name: Real worker recovery and OS dispatch evidence
         timeout-minutes: 20
         env:
@@ -227,6 +238,7 @@ jobs:
             web/android/app/build/reports/androidTests
             web/android/app/build/outputs/androidTest-results
             .demo-artifacts/android-state-capacity/report.json
+            .demo-artifacts/android-state-capacity/events.txt
             .demo-artifacts/android-lifecycle/lifecycle-report.json
             .demo-artifacts/android-lifecycle/*.txt
           if-no-files-found: ignore
