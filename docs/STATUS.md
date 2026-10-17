@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-10-17 — 実市場receiptと保存予測を既存NAVへ接続
+
+- D148として`research evaluate-market-strategy`を追加。固定した市場receipt・保存済み日別予測・feature selection/dataset identityを照合し、独立した企業行動・時点・執行/受渡し・費用根拠が揃う場合だけ既存の状態付きDecision Engineと税引前NAV/HOLDへ渡す。原予測の改変、調整価格、誤った終値、非単位係数の未解決、無約定との矛盾、holdout期間を拒否する。
+- 前提不足は根拠付きBLOCKEDと実測時間を保存し、成績を生成しない。個人税と最終モデル採用は別工程。条件を緩めず、開発期間でモデル・売買規則・採用基準を固定してから既存の単回最終評価へ進む。仕様は`docs/REAL_MARKET_NAV.md`。
+- 接続と既存の日次会計/判断92件が5.53秒でpass、型検査とRuff全体もpass。保存予測との全項目一致、根拠欠落/改変、企業行動網羅、将来候補の早期除外防止、HOLDと費用、CLIのBLOCKED保存を合成入力で検証。実市場の成績や採用の成功ではない。私有データの確認結果はローカルに保持し、公開PRへ市場行/原予測/本人情報を追加しない。追加学習・holdout開封・実注文なし。
+
 ## 2026-10-17 — Workerへ状態byteの所有権を渡しrendererの段階を記録
 
 - 8aa8b23のCI39027359084はverify/Android success、android-history failure、release skipで全job終了。共有Python482件＋controller57件＋platform6件、React74件、同梱WASM7件・compute host5件・研究UI2件がpass。native74件（追加転送8件、fail/error/skip0）・opaque96,870,524文字6.988秒/192MiB・OS復旧3段階もpass。Linux全量特徴量は297.991秒/peak3,037,462,528bytes、5,000銘柄/520session・5/20日43/53列・全値SHA7ee2812d...9e580dffを維持。

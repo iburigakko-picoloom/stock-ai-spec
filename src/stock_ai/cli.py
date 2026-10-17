@@ -1835,6 +1835,29 @@ def evaluate_nav_command(
     )
 
 
+@research_app.command("evaluate-market-strategy")
+def evaluate_market_strategy_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/market-nav"
+    ),
+) -> None:
+    """Connect pinned raw market receipts to pre-tax strategy/HOLD accounting."""
+    from stock_ai.ml.market_nav import MarketStrategyRequest, write_market_strategy
+
+    try:
+        request = MarketStrategyRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_market_strategy(request, output_root)
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+        typer.echo(f"market NAV evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"status": result["status"], "evaluation_path": str(path),
+                           "elapsed_seconds": result["elapsed_seconds"]}))
+    if result["status"] != "COMPLETE":
+        raise typer.Exit(2)
+
+
 @research_app.command("evaluate-daily-strategy")
 def evaluate_daily_strategy_command(
     input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
