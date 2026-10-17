@@ -37,12 +37,35 @@ test("denied plan permission never triggers models or paid inference", async () 
 
 test("interrupted probe is not displayed as completed and preserves selected settings", async () => {
   vi.mocked(ChatGPT.getStatus).mockResolvedValue({ ...connected, selection: { model: "synthetic-model", effort: "medium" } });
-  vi.mocked(ChatGPT.probe).mockRejectedValue(new Error("RESPONSE_INTERRUPTED"));
+  vi.mocked(ChatGPT.probe).mockRejectedValue(Object.assign(new Error("private-provider-detail"), { code: "RESPONSE_INTERRUPTED" }));
   render(<ChatGPTPanel />);
   const button = await screen.findByRole("button", { name: "検索付きで接続を確認" });
-  fireEvent.click(button); await screen.findByText("RESPONSE_INTERRUPTED");
+  fireEvent.click(button); await screen.findByText("ChatGPTの回答が完了する前に中断しました。保存済みの結果と設定は保持しています。接続を確認して、中断した段階から再試行してください。");
+  expect(screen.queryByText("private-provider-detail")).not.toBeInTheDocument();
   expect(screen.queryByText("接続確認の結果")).not.toBeInTheDocument();
   expect(screen.getByRole("combobox", { name: "調査モデル" })).toHaveValue("synthetic-model");
+});
+
+for (const [code, message] of [
+  ["subscription_sharing_unsupported_capability", "指定したモデル・考える深さ・検索機能の組合せに対応していません。設定を見直して、検索付きの接続確認をしてください。"],
+  ["subscription_sharing_route_not_supported", "このアプリのChatGPT接続方式を確認する必要があります。再ログインや同じ操作の繰り返しでは解消しません。連携情報は保持しています。"],
+  ["HTTP_401", "ChatGPTの本人認証・利用許可を確認できません。設定で連携状態を確認してください。連携情報は保持しており、ログインし直す操作は自動で繰り返しません。"],
+  ["chatpass_v2_scope_not_authorized", "ChatGPT連携の利用権限を確認できません。設定で連携状態を確認してください。モデルの自動変更や別料金APIへの切替は行いません。"],
+  ["SEARCH_OR_CITATION_UNCONFIRMED", "検索の実行・出典・回答の完了を確認できませんでした。調査結果は未完了です。設定で選択したモデルの検索対応を確認してください。"],
+]) test(`connection failure ${code} preserves settings without automatic requests or reauthorization`, async () => {
+  vi.mocked(ChatGPT.getStatus).mockResolvedValue({ ...connected, selection: { model: "synthetic-model", effort: "high" } });
+  vi.mocked(ChatGPT.probe).mockRejectedValue(Object.assign(new Error("private-provider-detail"), { code }));
+  render(<ChatGPTPanel />);
+  fireEvent.click(await screen.findByRole("button", { name: "検索付きで接続を確認" }));
+  await screen.findByText(message);
+  expect(screen.queryByText("private-provider-detail")).not.toBeInTheDocument();
+  expect(screen.queryByText("接続確認の結果")).not.toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: "調査モデル" })).toHaveValue("synthetic-model");
+  expect(screen.getByRole("combobox", { name: "考える深さ" })).toHaveValue("high");
+  expect(ChatGPT.probe).toHaveBeenCalledTimes(1);
+  expect(ChatGPT.saveSelection).not.toHaveBeenCalled();
+  expect(ChatGPT.signIn).not.toHaveBeenCalled();
+  expect(ChatGPT.signOut).not.toHaveBeenCalled();
 });
 
 test("an expired saved session offers reauthorization and keeps its selected model", async () => {

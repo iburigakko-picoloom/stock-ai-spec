@@ -21,6 +21,14 @@ export function chatGPTFailure(code: string | undefined): string | undefined {
   if (code === "subscription_sharing_user_not_eligible") return "このアカウントではChatGPTの利用枠を連携できません。利用資格やワークスペースの設定を確認してください。";
   if (code === "subscription_sharing_usage_limit_exceeded" || code === "HTTP_429") return "このアプリのChatGPT利用上限に達しました。ChatGPTの利用状況を確認してください。";
   if (code === "subscription_sharing_usage_unavailable" || code === "subscription_sharing_user_unavailable" || code === "HTTP_503") return "ChatGPTを一時的に利用できません。連携情報は保持しています。時間をおいて再試行してください。";
+  if (code === "subscription_sharing_unsupported_capability") return "指定したモデル・考える深さ・検索機能の組合せに対応していません。設定を見直して、検索付きの接続確認をしてください。";
+  if (code === "subscription_sharing_route_not_supported" || code === "invalid_client") return "このアプリのChatGPT接続方式を確認する必要があります。再ログインや同じ操作の繰り返しでは解消しません。連携情報は保持しています。";
+  if (code === "chatpass_v2_scope_not_authorized" || code === "chatpass_v2_invalid_authorization_context" || code === "HTTP_403") return "ChatGPT連携の利用権限を確認できません。設定で連携状態を確認してください。モデルの自動変更や別料金APIへの切替は行いません。";
+  if (code === "subscription_sharing_invalid_user" || code === "HTTP_401") return "ChatGPTの本人認証・利用許可を確認できません。設定で連携状態を確認してください。連携情報は保持しており、ログインし直す操作は自動で繰り返しません。";
+  if (code === "SEARCH_OR_CITATION_UNCONFIRMED" || code === "INVALID_RESEARCH_RESPONSE") return "検索の実行・出典・回答の完了を確認できませんでした。調査結果は未完了です。設定で選択したモデルの検索対応を確認してください。";
+  if (code === "RESPONSE_INTERRUPTED" || code === "RESPONSE_INCOMPLETE" || code === "RESEARCH_TIMEOUT" || code === "RESPONSE_TIMEOUT") return "ChatGPTの回答が完了する前に中断しました。保存済みの結果と設定は保持しています。接続を確認して、中断した段階から再試行してください。";
+  if (code === "AUTHORIZATION_DENIED") return "ChatGPT連携の許可が完了しませんでした。利用枠を使う場合は、設定からログインして許可してください。";
+  if (code === "AUTHORIZATION_CANCELLED_OR_EXPIRED") return "ログインを中止したか、受付時間が過ぎました。保存済みの設定は保持しています。";
   if (code === "PLAN_PERMISSION_REQUIRED") return "ChatGPTの利用枠を使う許可が必要です。設定画面でログインを更新してください。";
   if (code === "SIGN_OUT_PENDING") return "ChatGPTの連携解除を処理しています。完了を待ってください。";
   if (code === "SAVED_ACCOUNT_MISMATCH") return "登録済みのChatGPTアカウントと一致しません。同じアカウントでログインしてください。";
