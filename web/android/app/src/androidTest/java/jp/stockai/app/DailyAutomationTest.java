@@ -89,7 +89,7 @@ public class DailyAutomationTest {
             assertEquals(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, info.getForegroundServiceType());
             android.content.pm.ServiceInfo service = context.getPackageManager().getServiceInfo(
                 new android.content.ComponentName(context, "androidx.work.impl.foreground.SystemForegroundService"), 0);
-            assertEquals(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, service.foregroundServiceType);
+            assertEquals(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, service.getForegroundServiceType());
         }
         android.content.pm.PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(),
             android.content.pm.PackageManager.GET_PERMISSIONS);
