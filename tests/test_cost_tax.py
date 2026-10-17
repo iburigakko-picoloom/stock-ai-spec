@@ -202,3 +202,90 @@ def test_withholding_and_nisa_opportunity_are_separate_from_economic_tax() -> No
 def test_zero_commission_policy_must_be_explicitly_confirmed() -> None:
     with pytest.raises(ValueError, match="zero commission requires an explicit confirmed policy"):
         CostPolicy(policy_id="zero", version="v1")
+
+
+@pytest.mark.parametrize("mode,expected_cash", [
+    (WithholdingMode.WITHHOLDING, Decimal("2000")),
+    (WithholdingMode.UNKNOWN, Decimal("2000")),
+    (WithholdingMode.NO_WITHHOLDING, Decimal("0")),
+])
+def test_prior_year_filing_loss_does_not_release_broker_withholding(mode, expected_cash):
+    _, bucket, _, state = account_components()
+    bucket = bucket.model_copy(update={"withholding_mode": mode})
+    state = state.model_copy(update={"loss_carryforward_user_input": Decimal("10000")})
+    engine = SimpleJapanTaxEngine(TaxPolicy(
+        policy_id="tax", version="test", effective_from=date(2026, 1, 1),
+        taxable_rate=Decimal("0.20"),
+    ))
+    position = Position(symbol="A", account_bucket_id=bucket.bucket_id, shares=100,
+                        average_acquisition_price=Decimal("900"), market_price=Decimal("1000"))
+    estimate = engine.estimate_sale(account_bucket=bucket, position=position, sell_shares=100,
+                                    expected_sell_price=Decimal("1000"), tax_state=state)
+    assert estimate.realized_pnl == 10000
+    assert estimate.immediate_tax_effect == 0
+    assert estimate.estimated_cash_withholding == expected_cash
+    assert state.loss_carryforward_user_input == 10000  # Input remains immutable.
+
+
+def test_current_year_loss_reduces_withholding_without_using_prior_year_loss():
+    _, bucket, _, state = account_components()
+    state = state.model_copy(update={"realized_loss_ytd": Decimal("5000"),
+                                     "loss_carryforward_user_input": Decimal("10000")})
+    engine = SimpleJapanTaxEngine(TaxPolicy(
+        policy_id="tax", version="test", effective_from=date(2026, 1, 1),
+        taxable_rate=Decimal("0.20"),
+    ))
+    position = Position(symbol="A", account_bucket_id=bucket.bucket_id, shares=100,
+                        average_acquisition_price=Decimal("900"), market_price=Decimal("1000"))
+    estimate = engine.estimate_sale(account_bucket=bucket, position=position, sell_shares=100,
+                                    expected_sell_price=Decimal("1000"), tax_state=state)
+    assert estimate.immediate_tax_effect == 0 and estimate.estimated_cash_withholding == 1000
+
+
+def test_mixed_sales_allocate_cash_tax_once_and_do_not_book_an_estimated_refund():
+    _, bucket, _, state = account_components()
+    state = state.model_copy(update={"loss_carryforward_user_input": Decimal("10000")})
+    engine = SimpleJapanTaxEngine(TaxPolicy(
+        policy_id="tax", version="test", effective_from=date(2026, 1, 1),
+        taxable_rate=Decimal("0.20"),
+    ))
+    sales = tuple(SaleTaxInput(
+        allocation_id=symbol,
+        position=Position(symbol=symbol, account_bucket_id=bucket.bucket_id, shares=100,
+                          average_acquisition_price=Decimal(basis), market_price=Decimal("1000")),
+        sell_shares=100, expected_sell_price=Decimal("1000"),
+    ) for symbol, basis in (("gain", "800"), ("loss", "1100")))
+    estimates = engine.estimate_sales(account_bucket=bucket, sales=sales, tax_state=state)
+    assert sum(e.immediate_tax_effect for e in estimates.values()) == 0
+    assert estimates["gain"].estimated_cash_withholding == 2000
+    assert estimates["loss"].estimated_cash_withholding == 0
+    # A later loss may reduce the estimate, but is not a cash receipt.
+    later = state.model_copy(update={"realized_gain_ytd": Decimal("30000")})
+    loss = engine.estimate_sales(account_bucket=bucket, sales=(sales[1],), tax_state=later)
+    assert loss["loss"].immediate_tax_effect == -2000
+    assert loss["loss"].estimated_cash_withholding == 0
+
+
+@pytest.mark.parametrize("losses", [False, True])
+def test_repeating_decimal_allocation_never_withholds_negative_cash_from_a_loss(losses):
+    _, bucket, _, state = account_components()
+    state = state.model_copy(update={
+        "loss_carryforward_user_input": Decimal(0 if losses else 10000),
+        "realized_gain_ytd": Decimal(10000 if losses else 0),
+    })
+    sales = tuple(SaleTaxInput(
+        allocation_id=symbol,
+        position=Position(symbol=symbol, account_bucket_id=bucket.bucket_id, shares=100,
+                          average_acquisition_price=Decimal(basis), market_price=Decimal(1000)),
+        sell_shares=100, expected_sell_price=Decimal(1000),
+    ) for symbol, basis in (("A", 1100 if losses else 900), ("B", 1100 if losses else 900),
+                           ("C", 1100 if losses else 900), ("z-last", 800 if losses else 1200)))
+    engine = SimpleJapanTaxEngine(TaxPolicy(
+        policy_id="tax", version="test", effective_from=date(2026, 1, 1),
+        taxable_rate=Decimal(".20"),
+    ))
+    estimates = engine.estimate_sales(account_bucket=bucket, sales=sales, tax_state=state)
+    assert sum(e.immediate_tax_effect for e in estimates.values()) == (-2000 if losses else 0)
+    assert sum(e.estimated_cash_withholding for e in estimates.values()) == (0 if losses else 2000)
+    assert all(e.estimated_cash_withholding >= 0 for e in estimates.values())
+    assert estimates["z-last"].estimated_cash_withholding == 0

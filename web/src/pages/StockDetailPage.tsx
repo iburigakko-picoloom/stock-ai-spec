@@ -59,6 +59,7 @@ export function StockDetailPage(): ReactNode {
         <dl className="summary-list">
           <div><dt>この口座行のコスト</dt><dd>-{yen(line.estimatedTransactionCost)}</dd></div>
           <div><dt>この口座行の推定税影響</dt><dd>{yen(line.estimatedTaxEffect)}</dd></div>
+          <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(line.estimatedTaxCashWithholding)}</dd></div>
         </dl>
       </section>)}
       {data.proposal && <section className="section counterfactual">

@@ -204,6 +204,7 @@ def _line_view(line: Any) -> dict[str, object]:
         "proposedExpectedValue": str(line.proposed_expected_value),
         "estimatedTransactionCost": str(line.transaction_cost.total),
         "estimatedTaxEffect": str(line.estimated_tax_effect),
+        "estimatedTaxCashWithholding": str(line.estimated_tax_cash_withholding),
         "netExpectedImprovement": str(line.net_expected_improvement),
         "downsideLevel": line.downside_risk,
         "uncertaintyLevel": line.uncertainty,
@@ -248,6 +249,9 @@ def _proposal_view(proposal: PortfolioProposal) -> dict[str, object]:
         ),
         "estimatedTaxEffect": str(
             sum((line.estimated_tax_effect for line in proposal.lines), Decimal("0"))
+        ),
+        "estimatedTaxCashWithholding": str(
+            sum((line.estimated_tax_cash_withholding for line in proposal.lines), Decimal("0"))
         ),
         "estimatedCashAfter": {
             key: str(value) for key, value in proposal.estimated_cash_after.items()

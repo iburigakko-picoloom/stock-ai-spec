@@ -53,6 +53,35 @@ def test_insufficient_cash_results_in_skip() -> None:
     assert proposal.lines[0].recommended_shares == 0
 
 
+@pytest.mark.parametrize("version", ["decision-engine-v1", "daily-decision-engine-v3-bounded"])
+def test_filing_loss_relief_cannot_fund_an_unaffordable_replacement(version):
+    held = Position(symbol="A", account_bucket_id="bucket", shares=100,
+                    average_acquisition_price=Decimal("900"), market_price=Decimal("1000"))
+    state = portfolio((held,), cash=Decimal("0"))
+    state = state.model_copy(update={"tax_states": (
+        state.tax_states[0].model_copy(update={"loss_carryforward_user_input": Decimal("10000")}),
+    )})
+    engine = decision_engine(tax_rate=Decimal("0.20"))
+    engine.config = engine.config.model_copy(update={
+        "version": version, "horizon_weights": (Decimal(0), Decimal(0), Decimal(1)),
+    })
+    proposal = engine.propose(
+        portfolio=state, candidates=(candidate("A", -0.10), candidate("B", 0.50)),
+        generated_at=AS_OF, model_bundle_version="test-model-v1",
+    )
+    lines = {line.symbol: line for line in proposal.lines}
+    assert lines["A"].recommended_shares == 0
+    assert lines["A"].estimated_tax_effect == 0
+    assert lines["A"].estimated_tax_cash_withholding == 2000
+    assert lines["B"].recommended_shares == 0
+    assert proposal.estimated_cash_after["bucket"] == 98000
+    from stock_ai.operations.api import _proposal_view
+
+    view = _proposal_view(proposal)
+    assert Decimal(view["estimatedTaxCashWithholding"]) == 2000
+    assert Decimal(view["estimatedTaxEffect"]) == 0
+
+
 def test_target_is_rounded_to_100_share_lots_without_exceeding_cash() -> None:
     state = portfolio(cash=Decimal("250000"))
     proposal = decision_engine().propose(

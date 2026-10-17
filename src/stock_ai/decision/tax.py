@@ -4,11 +4,41 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from fractions import Fraction
 from typing import Protocol, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from stock_ai.domain import AccountBucket, AccountType, Position, TaxState, WithholdingMode
+
+
+def _allocate_amount(total: Decimal, weights: dict[str, Decimal]) -> dict[str, Decimal]:
+    """Preserve the aggregate's decimal quantum; this is not broker yen rounding."""
+    parts = total.copy_abs().as_tuple()
+    exponent = parts.exponent
+    if not isinstance(exponent, int):
+        raise ValueError("tax allocation requires a finite total")
+    units = int("".join(str(digit) for digit in parts.digits))
+    sign = 1 if total < 0 else 0
+
+    def amount(value: int) -> Decimal:
+        return Decimal((sign, tuple(int(digit) for digit in str(value)), exponent))
+
+    allocated = {key: amount(0) for key in weights}
+    positive = sorted(key for key, weight in weights.items() if weight > 0)
+    if not positive:
+        if units:
+            raise ValueError("nonzero tax allocation requires positive weights")
+        return allocated
+    weight_total = sum((Fraction(weights[key]) for key in positive), Fraction(0))
+    remaining = units
+    for key in positive[:-1]:
+        ratio = Fraction(weights[key]) / weight_total
+        share = units * ratio.numerator // ratio.denominator
+        allocated[key] = amount(share)
+        remaining -= share
+    allocated[positive[-1]] = amount(remaining)
+    return allocated
 
 
 class TaxPolicy(BaseModel):
@@ -135,6 +165,7 @@ class SimpleJapanTaxEngine:
         }
         realized_pnl = sum(realized.values(), Decimal("0"))
         total_proceeds = sum(proceeds.values(), Decimal("0"))
+        total_cash_withholding = Decimal("0")
         if account_bucket.account_type is AccountType.NISA:
             total_tax_effect = Decimal("0")
             total_opportunity_cost = total_proceeds * self.policy.nisa_opportunity_cost_rate
@@ -152,7 +183,21 @@ class SimpleJapanTaxEngine:
                 )
             else:
                 available_loss_offset = tax_state.loss_carryforward_user_input - net_realized_ytd
-            assumption_list = ["estimated tax only; final filing and withholding may differ"]
+            assumption_list = [
+                "estimated tax only; final filing and withholding may differ",
+                "prior-year loss carryforward affects filing estimates, not broker withholding",
+                "estimated loss relief is not an immediately spendable cash refund",
+            ]
+            if account_bucket.withholding_mode in {
+                WithholdingMode.WITHHOLDING, WithholdingMode.UNKNOWN,
+            }:
+                # Broker withholding is based on this bucket's current-year
+                # results. Prior-year carryforward requires a separate filing.
+                taxable_before = max(Decimal("0"), net_realized_ytd)
+                taxable_after = max(Decimal("0"), net_realized_ytd + realized_pnl)
+                total_cash_withholding = max(
+                    Decimal("0"), (taxable_after - taxable_before) * self.policy.taxable_rate
+                )
             if realized_pnl >= 0:
                 taxable_gain = max(Decimal("0"), realized_pnl - available_loss_offset)
                 total_tax_effect = taxable_gain * self.policy.taxable_rate
@@ -180,38 +225,11 @@ class SimpleJapanTaxEngine:
             allocation_weights = {key: proceeds[key] for key in realized}
             weight_total = sum(allocation_weights.values(), Decimal("0"))
         ordered_ids = sorted(realized)
-        allocated: dict[str, Decimal] = {}
-        remaining = total_tax_effect
-        for allocation_id in ordered_ids[:-1]:
-            share = (
-                total_tax_effect * allocation_weights[allocation_id] / weight_total
-                if weight_total
-                else Decimal("0")
-            )
-            allocated[allocation_id] = share
-            remaining -= share
-        allocated[ordered_ids[-1]] = remaining
-        allocated_opportunity = {
-            allocation_id: (
-                total_opportunity_cost * proceeds[allocation_id] / total_proceeds
-                if total_proceeds
-                else Decimal("0")
-            )
-            for allocation_id in ordered_ids
-        }
-        cash_withholding = {
-            allocation_id: (
-                max(Decimal("0"), allocated[allocation_id])
-                if account_bucket.withholding_mode is WithholdingMode.WITHHOLDING
-                else Decimal("0")
-            )
-            for allocation_id in ordered_ids
-        }
-        if account_bucket.withholding_mode is WithholdingMode.UNKNOWN:
-            cash_withholding = {
-                allocation_id: max(Decimal("0"), allocated[allocation_id])
-                for allocation_id in ordered_ids
-            }
+        allocated = _allocate_amount(total_tax_effect, allocation_weights)
+        allocated_opportunity = _allocate_amount(total_opportunity_cost, proceeds)
+        # Allocate withholding independently: filing relief may make the
+        # economic tax effect zero while the sale still loses cash to tax.
+        cash_withholding = _allocate_amount(total_cash_withholding, allocation_weights)
         return {
             allocation_id: TaxEstimate(
                 realized_pnl=realized[allocation_id],

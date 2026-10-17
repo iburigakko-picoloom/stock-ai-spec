@@ -85,8 +85,10 @@ export function TodayPage(): ReactNode {
             <details className="metadata-details"><summary>口座別の現金・推定改善を確認</summary>
               <dl className="summary-list">
                 {Object.entries(proposal.estimatedCashAfter).map(([bucket, cash]) => <div key={bucket}><dt>{bucket}</dt><dd>{yen(cash)}</dd></div>)}
+                <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(proposal.estimatedTaxCashWithholding)}</dd></div>
                 <div><dt>何もしない場合に対する推定純改善</dt><dd className={Number(proposal.netImprovement) < 0 ? "text-negative" : undefined}>{yen(proposal.netImprovement)}</dd></div>
               </dl>
+              <p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p>
               <p className="explain">推定値です。将来の利益や実際の約定価格を保証しません。</p>
             </details>
           </section>

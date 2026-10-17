@@ -193,6 +193,20 @@ describe("Goal 5 PWA", () => {
     expect(screen.getByText("-200円")).toHaveClass("text-negative");
   });
 
+  it("separates zero filing tax from cash withheld in the cash details", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: {
+      ...proposal, estimatedTaxEffect: "0", estimatedTaxCashWithholding: "2000",
+      estimatedCashAfter: { bucket: "98000" },
+    } })));
+    render(<MemoryRouter><TodayPage /></MemoryRouter>);
+    const details = await screen.findByText("口座別の現金・推定改善を確認");
+    expect(details.closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(details);
+    expect(within(details.closest("details")!).getByText("2,000円")).toBeVisible();
+    expect(within(screen.getByText("推定税影響").parentElement!).getByText("0円"))
+      .toBeInTheDocument();
+  });
+
   it("does not display a zero return before the first Paper observation", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ observations: 0, proposal_return: 0 })));
     render(<MemoryRouter><ValidationPage /></MemoryRouter>);

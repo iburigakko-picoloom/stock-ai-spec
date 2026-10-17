@@ -10,6 +10,7 @@ import tempfile
 import zipfile
 from copy import deepcopy
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +20,7 @@ from lightgbm import LGBMClassifier, LGBMRegressor
 from mobile.pc.export_model import export_model
 from mobile.python.model_bundle import ModelBundle, encoded
 from pytest import MonkeyPatch
+from tests.conftest import AS_OF, candidate, decision_engine, portfolio
 from tests.test_bounded_decision import large_scenario, propose
 from tests.test_mobile_bundles import SELECTION
 from tests.test_mobile_decisions import NOW
@@ -26,9 +28,11 @@ from tests.test_mobile_decisions import ready as decision_ready
 from tests.test_mobile_features import timely_history
 from xgboost import XGBClassifier, XGBRegressor
 
+from stock_ai.domain import Position
 from stock_ai.features import V2_EXTENDED_MANIFEST, FeatureEngine
 from stock_ai.fixtures import market_fixture
 from stock_ai.ml.advanced import FoldPreprocessor
+from stock_ai.operations.api import _proposal_view
 from stock_ai.operations.daily import OwnerAdoptionReview, canonical_json
 
 root = Path(__file__).resolve().parents[1]
@@ -153,6 +157,44 @@ bounded_fixture = {
     "model_bundle_version": bounded_expected.model_bundle_version,
     "expected": bounded_expected.model_dump(mode="json"),
 }
+withholding_fixtures = []
+for version, mixed in (("decision-engine-v1", False),
+                       ("daily-decision-engine-v3-bounded", False),
+                       ("daily-decision-engine-v3-bounded", True)):
+    held = Position(symbol="A", account_bucket_id="bucket", shares=100,
+                    average_acquisition_price=Decimal(900), market_price=Decimal(1000))
+    positions = tuple(Position(
+        symbol=symbol, account_bucket_id="bucket", shares=100,
+        average_acquisition_price=Decimal(basis), market_price=Decimal(1000),
+    ) for symbol, basis in (("A", 900), ("B", 900), ("C", 900), ("z-loss", 1200)))
+    tax_state = portfolio(positions if mixed else (held,), cash=Decimal(0))
+    tax_state = tax_state.model_copy(update={"tax_states": (
+        tax_state.tax_states[0].model_copy(update={"loss_carryforward_user_input": Decimal(10000)}),
+    )})
+    tax_engine = decision_engine(tax_rate=Decimal(".20"))
+    tax_engine.config = tax_engine.config.model_copy(update={
+        "version": version, "horizon_weights": (Decimal(0), Decimal(0), Decimal(1)),
+    })
+    tax_candidates = (tuple(candidate(p.symbol, -.10) for p in positions) if mixed
+                      else (candidate("A", -.10), candidate("B", .50)))
+    expected_tax = tax_engine.propose(portfolio=tax_state, candidates=tax_candidates,
+                                      generated_at=AS_OF, model_bundle_version="test-model-v1")
+    assert expected_tax.estimated_cash_after["bucket"] == (398000 if mixed else 98000)
+    assert next(x for x in expected_tax.lines if x.symbol == "B").recommended_shares == 0
+    api_proposal = _proposal_view(expected_tax)
+    api_proposal["isResearchOnly"] = True  # Explicit browser fixture, never a published proposal.
+    withholding_fixtures.append({
+        "synthetic_only": True, "portfolio": tax_state.model_dump(mode="json"),
+        "candidates": [x.model_dump(mode="json") for x in tax_candidates],
+        "config": tax_engine.config.model_dump(mode="json"),
+        "cost_policy": tax_engine.cost_engine.policy.model_dump(mode="json"),
+        "tax_policy": tax_engine.tax_engine.policy.model_dump(mode="json"),
+        "generated_at": AS_OF.isoformat(), "model_bundle_version": "test-model-v1",
+        "expected": expected_tax.model_dump(mode="json"),
+        "today": {"businessDate": AS_OF.date().isoformat(), "pipelineState": "PROPOSAL_READY",
+                  "isStale": False, "blockingReason": None, "runtimeMode": "fixture",
+                  "proposal": api_proposal},
+    })
 with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
     with MonkeyPatch.context() as patch:
         device, path, store, _, policy = decision_ready.__wrapped__(Path(temporary), patch)
@@ -212,7 +254,8 @@ destination.write_text(
                     "bundle_id": bundle.bundle_id,
                     "sha256": hashlib.sha256(bundle_content.encode()).hexdigest(),
                     "expected": bundle_expected}, "bounded": bounded_fixture,
-         "decision": decision_fixture, "feature_inputs": feature_input_fixture},
+         "decision": decision_fixture, "feature_inputs": feature_input_fixture,
+         "withholding": withholding_fixtures},
         ensure_ascii=False,
         allow_nan=False,
     ),

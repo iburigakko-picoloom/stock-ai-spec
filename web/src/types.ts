@@ -17,6 +17,7 @@ export interface ProposalLine {
   proposedExpectedValue: string;
   estimatedTransactionCost: string;
   estimatedTaxEffect: string;
+  estimatedTaxCashWithholding?: string;
   netExpectedImprovement: string;
   downsideLevel: number;
   uncertaintyLevel: number;
@@ -38,6 +39,7 @@ export interface DailyProposal {
   estimatedBuyValue: string;
   estimatedTransactionCost: string;
   estimatedTaxEffect: string;
+  estimatedTaxCashWithholding?: string;
   estimatedCashAfter: Record<string, string>;
   changeCount: number;
   holdExpectedValue: string;
