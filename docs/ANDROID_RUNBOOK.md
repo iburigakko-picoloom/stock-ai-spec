@@ -113,6 +113,8 @@ $clear = [Security.Cryptography.ProtectedData]::Unprotect($protected, $null, [Se
 
 ## アプリ内更新とデータ復元
 
+D153では、nativeから受け取る保存状態をPythonへ256KiBずつ渡して一時ZIPへ復号し、SQLiteを分割展開して全memberのintegrity確認後に復元する。全量base64文字列とSQLiteのdeserializeによる重複保持をnative入力経路から除く。暗号形式・世代競合/確定保存・容量/時間上限は維持する。0a5d342の全量Android試験はB1書出し/認証previewまで進み、復元時renderer crashで未完。新経路のPC一致だけで全量Android/実機受入を成功扱いにしない。
+
 起動時に固定GitHubリポジトリの最新版を確認する。版と変更内容を表示し、本人のタップ後にAPKを取得する。HTTPSの許可host、サイズ、SHA-256、applicationId、増加versionCode、インストール済み署名との一致を検証し、Androidのインストール確認画面へ渡す。端末側の提供元許可が必要な場合は設定画面を開き、戻ってから再度更新を押す。通信失敗では既存アプリと保存内容を維持する。
 
 端末バックアップは本人が選んだファイルへ、12文字以上のパスワードからPBKDF2-HMAC-SHA256/210000回で鍵を導出してAES256-GCMで暗号化する。APIキーは含めない。復元はファイル選択→復号→明示確認→別workerでSQLite/台帳検証→native保存確定の順。パスワードを忘れたバックアップは復元できない。

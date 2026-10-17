@@ -9,7 +9,7 @@ let python: {
 } | null = null;
 let stage = "interpreter";
 
-async function initialize(state: string, progress: (phase: string) => void): Promise<void> {
+async function initialize(state: string | ArrayBuffer, progress: (phase: string) => void): Promise<void> {
   stage = "interpreter";
   progress(stage);
   // Vite must leave the offline interpreter module URL unchanged.
@@ -24,14 +24,34 @@ async function initialize(state: string, progress: (phase: string) => void): Pro
   progress(stage);
   const archive = new Uint8Array(await (await fetch("/python/stock_ai.zip")).arrayBuffer());
   python.unpackArchive(archive, "zip", { extractDir: "/stockai-code" });
-  python.globals.set("saved_state", state);
   const build = await (await fetch("/python/build-info.json")).json();
   python.globals.set("source_commit", build.source_commit);
   stage = "state";
   progress(stage);
-  try {
-    await python.runPythonAsync("import sys, os\nsys.path.insert(0, '/stockai-code')\nos.environ['STOCK_AI_CODE_COMMIT'] = source_commit\nfrom stock_ai.mobile import runtime\nruntime.initialize(saved_state)");
-  } finally { python.globals.set("saved_state", null); }
+  await python.runPythonAsync("import sys, os\nsys.path.insert(0, '/stockai-code')\nos.environ['STOCK_AI_CODE_COMMIT'] = source_commit\nfrom stock_ai.mobile import runtime");
+  if (typeof state === "string") {
+    python.globals.set("saved_state", state);
+    try { await python.runPythonAsync("runtime.initialize(saved_state)"); }
+    finally { python.globals.set("saved_state", null); }
+  } else {
+    const bytes = new Uint8Array(state);
+    python.globals.set("state_length", bytes.length);
+    await python.runPythonAsync("_native_import = runtime.StateImport(state_length)");
+    try {
+      progress("decoding-input");
+      const decoder = new TextDecoder("utf-8", { fatal: true });
+      for (let offset = 0, index = 0; offset < bytes.length; offset += 256 * 1024, index++) {
+        python.globals.set("state_fragment", decoder.decode(bytes.subarray(offset, offset + 256 * 1024)));
+        python.globals.set("state_index", index);
+        await python.runPythonAsync("_native_import.append(state_index, state_fragment)");
+      }
+      python.globals.set("state_fragment", null);
+      await python.runPythonAsync("_native_import.finish()");
+    } finally {
+      python.globals.set("state_fragment", null);
+      await python.runPythonAsync("_native_import.close()\n_native_import = None");
+    }
+  }
 }
 
 // Serialize every operation, including startup, so no update can overtake an
@@ -82,12 +102,10 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
     try {
       if (input.command === "initialize") {
         if (input.state_bytes !== undefined) {
-          stage = "state"; progress("decoding-input");
+          stage = "state";
           if (!(input.state_bytes instanceof ArrayBuffer) || input.state_bytes.byteLength > 128 * 1024 * 1024 || input.state !== undefined) throw new TypeError("Invalid state transfer");
-          input.state = new TextDecoder("utf-8", { fatal: true }).decode(input.state_bytes);
-          delete input.state_bytes;
         }
-        try { await initialize(input.state || "", progress); }
+        try { await initialize(input.state_bytes ?? input.state ?? "", progress); }
         finally { delete input.state; delete input.state_bytes; }
       }
       if (!python) throw new Error("端末内の計算環境が未起動です。");

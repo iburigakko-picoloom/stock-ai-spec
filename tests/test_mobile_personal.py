@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -108,7 +109,9 @@ def preview(device, store):
 def test_legacy_saved_input_migrates_without_changing_payload_or_creating_ledger(device):
     path = device.STATE / "mobile.sqlite3"
     original = json.dumps(EMPTY)
-    with sqlite3.connect(path) as db:
+    # A connection context commits a transaction but does not close the handle.
+    # Release test-owned handles before replacing the validated SQLite files.
+    with closing(sqlite3.connect(path)) as db, db:
         db.execute("INSERT INTO manual_inputs(saved_at,payload) VALUES(?,?)",
                    (NOW.isoformat(), original))
     device.initialize(device.export_state())
@@ -117,7 +120,7 @@ def test_legacy_saved_input_migrates_without_changing_payload_or_creating_ledger
     assert migrated["portfolio"] == EMPTY
     assert store.latest_manual_portfolio().portfolio.model_dump(mode="json") == EMPTY
     assert store.latest_portfolio() is None
-    with sqlite3.connect(path) as db:
+    with closing(sqlite3.connect(path)) as db:
         assert db.execute("SELECT payload FROM manual_inputs").fetchone()[0] == original
     device.initialize(device.export_state())
     assert personal.portfolio_view(device._app.state.store) == migrated

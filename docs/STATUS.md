@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-17 — 全量バックアップ復元のPython入力を分割
+
+- D153としてnativeのbyte bufferを全量文字列へ変換せず、256KiBずつ厳格なbase64検証/復号をして一時ZIPへ保存する。SQLiteも全量read/deserializeを避け、分割展開とread-onlyのintegrity検査を通す。全member検証後にだけ置換し、不完全/順序違い/改変/重複名/path/容量超過/中断時は一時内容を破棄する。既存の単一文字列backup、native世代CAS/暗号化commit、B1形式と認証、全容量/時間/heap条件を維持する。
+- runtime/controller53件が13.28秒でpass。複数chunkのtyped cell保持、各decodeの256KiB制限、全量deserialize禁止、2番目のDB不正で先のDBも置換しないことを確認。同じCI由来の96,781,956文字・370chunkを現sourceでPC復元し、17tableのschema/全typed cell一致、入力不変を確認（復元1.278秒）。PC結果をAndroid成功と扱わない。
+- 現workerの通信遮断WASM13件が4.9分、compute-host11件が24.7秒でpass。2,572,952文字を本番workerへ所有権付きbyte bufferで渡し、復元後のPC特徴量/参照元一致を確認した。関連個人入力/判断/市場とruntime/controllerは重複除外162ケースを確認。最初の結合試験は108成功/1失敗で、旧移行テスト自身の未close SQLite接続がWindowsの置換を妨げたため、transaction確定に加えて2つの試験用接続を明示closeした。全assertionを維持し、同じ個人入力/runtime/controller76件が21.58秒でpass。Ruff・両OS型検査68file・Web build/lint・公開範囲検査もpass。
+- 0a5d342の失敗証拠を保持し、同じ全量capsule・B1復元・owner再作成・全17table照合のAndroid gateで再検証する。PC/WASMでの成功をAndroid受入へ読み替えない。実市場の不足根拠、税引前の最小比較、最終採用/実機は残る。追加学習・holdout開封・実注文なし。
+
 ## 2026-10-17 — 申告上の損失繰越と売却時の現金を分離
 
 - D152として既存の推定税影響を維持し、口座内の当年確定損益による源泉徴収見込みを別計算にした。前年の損失繰越で申告上の推定税額が0円でも、証券会社で差し引かれる見込み額を買付余力から控除する。推定還付を即時の現金入金にしない。整数単位の配賦で合計金額を保持し、端数を損失行へ負の源泉徴収として載せない。

@@ -7,6 +7,7 @@ import inspect
 import io
 import json
 import sqlite3
+import tempfile
 import zipfile
 from contextlib import closing
 from datetime import UTC, datetime
@@ -39,26 +40,88 @@ def _async_call(fn):
     return invoke
 
 
+def _restore_archive(archive: zipfile.ZipFile) -> None:
+    names = archive.namelist()
+    if set(names) - {"operations.sqlite3", "mobile.sqlite3"} or len(names) != len(set(names)):
+        raise ValueError("Unexpected backup file")
+    # Validate both snapshots on disk before replacing either current database.
+    with tempfile.TemporaryDirectory(prefix="state-import-", dir=STATE) as folder:
+        staged = Path(folder)
+        for name in names:
+            info = archive.getinfo(name)
+            if info.file_size > MAX_DATABASE_BYTES:
+                raise ValueError("Backup exceeds mobile storage limit")
+            target = staged / name
+            length = 0
+            with archive.open(name) as source, target.open("wb") as output:
+                while chunk := source.read(64 * 1024):
+                    length += len(chunk)
+                    if length > MAX_DATABASE_BYTES:
+                        raise ValueError("Backup exceeds mobile storage limit")
+                    output.write(chunk)
+            with target.open("rb") as content:
+                if content.read(16) != b"SQLite format 3\x00":
+                    raise ValueError("Invalid SQLite backup")
+            uri = target.resolve().as_uri() + "?mode=ro&immutable=1"
+            with closing(sqlite3.connect(uri, uri=True)) as probe:
+                if probe.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                    raise ValueError("Invalid SQLite integrity")
+        for name in names:
+            (staged / name).replace(STATE / name)
+
+
+class StateImport:
+    """Decode native fragments into one temporary ZIP without a full Python string."""
+
+    def __init__(self, length: int):
+        if type(length) is not int or not 0 <= length <= 128 * 1024 * 1024 or length % 4:
+            raise ValueError("Invalid native state length")
+        self.length = length
+        self._received = 0
+        self._index = 0
+        self._closed = False
+        self._archive = tempfile.TemporaryFile()
+
+    def append(self, index: int, fragment: str) -> None:
+        try:
+            remaining = self.length - self._received
+            if (self._closed or type(index) is not int or index != self._index
+                    or not isinstance(fragment, str) or not remaining
+                    or len(fragment) != min(256 * 1024, remaining)
+                    or ("=" in fragment and len(fragment) != remaining)):
+                raise ValueError("Invalid native state fragment")
+            self._archive.write(base64.b64decode(fragment, validate=True))
+            self._received += len(fragment)
+            self._index += 1
+        except BaseException:
+            self.close()
+            raise
+
+    def finish(self) -> dict:
+        try:
+            if self._closed or self._received != self.length:
+                raise ValueError("Incomplete native state")
+            STATE.mkdir(exist_ok=True)
+            if self.length:
+                self._archive.seek(0)
+                with zipfile.ZipFile(self._archive) as archive:
+                    _restore_archive(archive)
+            return initialize()
+        finally:
+            self.close()
+
+    def close(self) -> None:
+        if not self._closed:
+            self._closed = True
+            self._archive.close()
+
+
 def initialize(encoded: str = "") -> dict:
     global _app
     STATE.mkdir(exist_ok=True)
     if encoded:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded, validate=True))) as archive:
-            if set(archive.namelist()) - {"operations.sqlite3", "mobile.sqlite3"}:
-                raise ValueError("Unexpected backup file")
-            for name in archive.namelist():
-                info = archive.getinfo(name)
-                if info.file_size > MAX_DATABASE_BYTES:
-                    raise ValueError("Backup exceeds mobile storage limit")
-                content = archive.read(name)
-                if not content.startswith(b"SQLite format 3\x00"):
-                    raise ValueError("Invalid SQLite backup")
-                # Verify BEFORE replacing any current state.
-                with closing(sqlite3.connect(":memory:")) as probe:
-                    probe.deserialize(content)
-                    if probe.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                        raise ValueError("Invalid SQLite integrity")
-                (STATE / name).write_bytes(content)
+            _restore_archive(archive)
     _app = create_app(STATE / "operations.sqlite3")
 
     # WASM has no Python threads. Run the already-validated synchronous route

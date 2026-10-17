@@ -31,6 +31,130 @@ def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):
     assert run(device, "GET", "https://foreign.example/api/v1/health")["status"] == 400
 
 
+def test_native_import_restores_typed_tables_without_full_string_or_deserialize(
+    device, monkeypatch,
+):
+    import random
+
+    from scripts.mobile_native_history_fixture import table_snapshot
+
+    with closing(sqlite3.connect(device.STATE / "mobile.sqlite3")) as db:
+        db.execute("CREATE TABLE imported_types(i INTEGER, f REAL, s TEXT, b BLOB, n)")
+        db.execute("INSERT INTO imported_types VALUES(?, ?, ?, ?, ?)",
+                   (7, 0.25, "日本語", random.Random(42).randbytes(600_000), None))
+        db.commit()
+    payload = device.export_state()
+    expected = table_snapshot(device.STATE / "mobile.sqlite3")
+    monkeypatch.setattr(device, "STATE", device.STATE.parent / "native-import")
+    # Neither native import nor snapshot validation may assemble a full state
+    # string or deserialize a second copy of the complete SQLite file.
+    original = device.base64.b64decode
+    seen = []
+
+    def bounded_decode(value, **kwargs):
+        assert len(value) <= 256 * 1024
+        seen.append(len(value))
+        return original(value, **kwargs)
+
+    monkeypatch.setattr(device.base64, "b64decode", bounded_decode)
+    original_connect = sqlite3.connect
+
+    class FileOnly(sqlite3.Connection):
+        def deserialize(self, *args, **kwargs):
+            raise AssertionError("native restore must validate the SQLite file on disk")
+
+    monkeypatch.setattr(sqlite3, "connect", lambda *a, **kw:
+                        original_connect(*a, **kw, factory=FileOnly))
+    stream = device.StateImport(len(payload))
+    for index, start in enumerate(range(0, len(payload), 256 * 1024)):
+        stream.append(index, payload[start:start + 256 * 1024])
+    stream.finish()
+    assert len(seen) > 2
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == expected
+    assert not list(device.STATE.glob("state-import-*"))
+    assert stream._archive.closed
+    assert run(device, "GET", "/api/v1/health")["body"]["orderSubmissionAvailable"] is False
+
+
+@pytest.mark.parametrize("failure", [
+    "order", "short", "nonascii", "invalid", "early-padding", "missing", "extra",
+])
+def test_native_import_rejects_invalid_fragments_and_cleans_quarantine(device, failure):
+    from scripts.mobile_native_history_fixture import table_snapshot
+
+    before = table_snapshot(device.STATE / "mobile.sqlite3")
+    stream = device.StateImport(2 * 256 * 1024)
+    with pytest.raises((ValueError, UnicodeError)):
+        if failure == "missing":
+            stream.finish()
+        elif failure == "extra":
+            stream.append(0, "A" * (256 * 1024))
+            stream.append(1, "A" * (256 * 1024))
+            stream.append(2, "AAAA")
+        else:
+            fragments = {"short": "AAAA", "nonascii": "あ" * (256 * 1024),
+                         "invalid": "!" * (256 * 1024),
+                         "early-padding": "A" * (256 * 1024 - 2) + "=="}
+            fragment = fragments.get(failure, "A" * (256 * 1024))
+            stream.append(1 if failure == "order" else 0, fragment)
+    assert stream._archive.closed
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == before
+    assert not list(device.STATE.glob("state-import-*"))
+
+
+@pytest.mark.parametrize("length", [-4, 3, 128 * 1024 * 1024 + 4, True])
+def test_native_import_rejects_invalid_length_before_allocating(length):
+    with pytest.raises(ValueError, match="length"):
+        runtime.StateImport(length)
+
+
+@pytest.mark.parametrize("failure", [
+    "second-database", "duplicate", "path", "truncated", "database-limit",
+])
+def test_native_import_authenticates_every_snapshot_before_replacing_any(
+    device, monkeypatch, failure,
+):
+    before = {name: (device.STATE / name).read_bytes()
+              for name in ("operations.sqlite3", "mobile.sqlite3")}
+    candidate = device.STATE.parent / "candidate.sqlite3"
+    with closing(sqlite3.connect(candidate)) as db:
+        db.execute("CREATE TABLE must_not_replace_current(value)")
+        db.commit()
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("operations.sqlite3", candidate.read_bytes())
+        member = "../outside.sqlite3" if failure == "path" else "mobile.sqlite3"
+        content = (b"invalid second snapshot" if failure == "second-database"
+                   else before["mobile.sqlite3"])
+        archive.writestr(member, content)
+        if failure == "duplicate":
+            with pytest.warns(UserWarning, match="Duplicate"):
+                archive.writestr("operations.sqlite3", candidate.read_bytes())
+    raw = output.getvalue()[:-10] if failure == "truncated" else output.getvalue()
+    payload = base64.b64encode(raw).decode("ascii")
+    if failure == "database-limit":
+        monkeypatch.setattr(device, "MAX_DATABASE_BYTES", 1)
+    stream = device.StateImport(len(payload))
+    for index, start in enumerate(range(0, len(payload), 256 * 1024)):
+        stream.append(index, payload[start:start + 256 * 1024])
+    with pytest.raises((ValueError, zipfile.BadZipFile)):
+        stream.finish()
+    assert stream._archive.closed
+    assert before == {name: (device.STATE / name).read_bytes() for name in before}
+    assert not list(device.STATE.glob("state-import-*"))
+    assert not (device.STATE.parent / "outside.sqlite3").exists()
+
+
+def test_aborted_native_import_closes_and_cannot_resume(device):
+    stream = device.StateImport(4)
+    stream.close()
+    stream.close()
+    with pytest.raises(ValueError):
+        stream.append(0, "AAAA")
+    assert stream._archive.closed
+    assert run(device, "GET", "/api/v1/health")["status"] == 200
+
+
 def test_native_export_chunks_preserve_exact_snapshots_and_restore(device, monkeypatch):
     import random
 
