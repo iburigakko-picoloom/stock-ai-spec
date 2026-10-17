@@ -15,6 +15,7 @@ import uuid
 import zipfile
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from mobile.python import market, runtime
 
@@ -23,7 +24,21 @@ from stock_ai.data.contracts import DatasetName
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def make_payload(day, session, count, rng):
+def initial_cutoff(sessions):
+    day = date(2024, 1, 2)
+    completed = 0
+    while completed < sessions:
+        if day.weekday() < 5:
+            completed += 1
+        day += timedelta(days=1)
+    while day.weekday() >= 5:
+        day += timedelta(days=1)
+    return datetime.combine(
+        day, datetime.min.time().replace(hour=11, minute=30), ZoneInfo("Asia/Tokyo")
+    )
+
+
+def make_payload(day, session, count, rng, *, initial_receipt=None):
     stamp = day.isoformat()
     datasets = {kind.value: [] for kind in DatasetName}
     for index in range(count):
@@ -90,7 +105,13 @@ def make_payload(day, session, count, rng):
                     "TrShFY": 0,
                 }
             )
-    datasets["trading_calendar"] = [{"Date": stamp, "HolDiv": "1"}]
+    datasets["trading_calendar"] = [
+        {
+            "Date": str(day + timedelta(days=offset)),
+            "HolDiv": "1" if (day + timedelta(days=offset)).weekday() < 5 else "0",
+        }
+        for offset in range(22 if initial_receipt is not None else 1)
+    ]
     datasets["topix"] = [{"Date": stamp, "O": 2000, "H": 2010, "L": 1990, "C": 2001}]
     valuations = [
         {
@@ -101,7 +122,9 @@ def make_payload(day, session, count, rng):
         for index in range(count)
     ]
     received = (
-        datetime.combine(day, datetime.min.time(), UTC) + timedelta(days=1, hours=8)
+        initial_receipt
+        if initial_receipt is not None
+        else datetime.combine(day, datetime.min.time(), UTC) + timedelta(days=1, hours=8)
     ).isoformat()
     pages = [
         {
@@ -129,6 +152,7 @@ def main():
     parser.add_argument("--symbols", type=int, default=5000)
     parser.add_argument("--sessions", type=int, default=300)
     parser.add_argument("--checkpoint", type=int, default=30)
+    parser.add_argument("--initial-download", action="store_true")
     args = parser.parse_args()
     if Path.cwd().resolve() != ROOT:
         raise ValueError("Run this verification module from the repository root")
@@ -137,6 +161,8 @@ def main():
         raise ValueError("Probe output must be a fresh isolated .demo-artifacts subdirectory")
     if not 1 <= args.symbols <= 5000 or not 1 <= args.sessions <= 300 or args.checkpoint < 1:
         raise ValueError("Bounded synthetic storage dimensions required")
+    cutoff = initial_cutoff(args.sessions) if args.initial_download else None
+    receipt = cutoff - timedelta(minutes=30) if cutoff is not None else None
     output.mkdir(parents=True, exist_ok=False)
     runtime.STATE = output
     runtime.initialize()
@@ -152,6 +178,8 @@ def main():
         "symbols": args.symbols,
         "requested_sessions": args.sessions,
         "seed": 20261017,
+        "receipt_mode": "initial-download" if args.initial_download else "dated-fixture",
+        "feature_cutoff": cutoff.isoformat() if cutoff is not None else None,
         "native_max_base64_characters": int(matched[1]) * 1024 * 1024,
         "restore_max_sqlite_bytes": runtime.MAX_DATABASE_BYTES,
         "export_policy": "checkpoint exports only; not every Android commit",
@@ -182,7 +210,7 @@ def main():
         while day.weekday() >= 5:
             day += timedelta(days=1)
         tick = time.perf_counter()
-        value = make_payload(day, session, args.symbols, rng)
+        value = make_payload(day, session, args.symbols, rng, initial_receipt=receipt)
         market.ingest(output / "mobile.sqlite3", value)
         del value
         gc.collect()

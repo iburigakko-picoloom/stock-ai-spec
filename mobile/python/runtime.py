@@ -340,7 +340,7 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             }
     if path == "/api/v1/mobile/features/latest" and method == "POST":
         try:
-            inputs = market.feature_inputs(STATE / "mobile.sqlite3", datetime.now(UTC))
+            inputs = market.feature_inputs(STATE / "mobile.sqlite3", datetime.now(UTC), True)
             return {"status": 200, "body": calculate(inputs, bundled_selection())}
         except (ValueError, KeyError):
             return {

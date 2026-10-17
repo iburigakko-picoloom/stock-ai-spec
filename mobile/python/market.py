@@ -18,6 +18,7 @@ from stock_ai.data.production import build_production_data
 from stock_ai.data.quality import require_quality, validate_rows
 
 from . import market_codec
+from .features import model_input_frame
 from .storage import connect
 
 
@@ -368,7 +369,7 @@ def master_references(path: Path, cutoff: datetime) -> list[dict]:
              "received_at": row[2], "payload_hash": row[3]} for row in rows]
 
 
-def feature_inputs(path: Path, as_of: datetime) -> dict:
+def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False) -> dict:
     cutoff = datetime.combine(
         as_of.astimezone(ZoneInfo("Asia/Tokyo")).date(), time(11, 30), ZoneInfo("Asia/Tokyo")
     )
@@ -390,7 +391,8 @@ def feature_inputs(path: Path, as_of: datetime) -> dict:
         "source_snapshot_ids": list(bundle.source_snapshot_ids),
         "revision_policy": bundle.revision_policy.value,
         **{
-            key: json.loads(frame.to_json(orient="records", date_format="iso"))
+            key: (model_input_frame(key, frame) if as_frames else
+                  json.loads(frame.to_json(orient="records", date_format="iso")))
             for key, frame in [
                 ("daily", bundle.daily),
                 ("market", bundle.market_context),

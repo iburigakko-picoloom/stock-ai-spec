@@ -31,7 +31,7 @@
 
 全市場の容量はD126で検証を追加。旧形式は合成5,000銘柄・90営業日のcheckpointでnative payload上限を超えたため、原データと正規化byte/hashを保つcolumn形式へ変更した。300営業日・150万株価行でpayload55,754,616文字とPC復元がpassし、旧450batchの凍結内容も一致。PCのPIT読込ピークは約3.63GB→約2.16GB。native暗号化の毎回commit、全特徴量計算、Xiaomi性能、150万行guardを超える継続履歴の受入は別に残る。市場母集団を上位300社へ縮めて容量問題を回避しない。
 
-全市場の最新特徴量はD127で保持量と財務参照を見直した。V0/V1/V2の全期間末尾との完全一致、41/51列の既存PC参照、WASMの数値/株数/保存復元を確認し、直接context→latestの5,000銘柄規模をCIへ追加する。全量mobile JSON変換、実forecastとXiaomiの完走は別に残る。D128でportable backupの保存前にも既存復元容量を確認する。
+全市場の最新特徴量はD127で保持量と財務参照を見直した。V0/V1/V2の全期間末尾との完全一致、41/51列の既存PC参照を維持する。直接計算だけでは全量mobile JSON変換の容量問題を捕捉できなかったため、D129で出所ID確定後の必要列DataFrameと同じJSON精度の列変換へ接続し、source hashも同じbyte列を分割して計算する。CIは5,000銘柄・300営業日の合成初回受領からアプリ入力変換/特徴量計算までを確認する。実forecast、native暗号化commitとXiaomiの完走は別に残る。D128でportable backupの保存前にも既存復元容量を確認する。
 
 ## ChatGPTの実装根拠
 

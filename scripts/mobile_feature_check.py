@@ -11,10 +11,12 @@ import sqlite3
 import sys
 import threading
 import time
+import zipfile
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
+from mobile.python import features, market
 from mobile.python.market import SQLiteSource
 
 from stock_ai.data.production import build_production_data
@@ -83,7 +85,9 @@ def main():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--seconds", type=int, default=600)
     parser.add_argument("--memory-mib", type=int, default=3500)
-    parser.add_argument("--reference-history", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--reference-history", action="store_true")
+    modes.add_argument("--mobile-pipeline", action="store_true")
     args = parser.parse_args()
     source, output = args.source.resolve(), args.report.resolve()
     isolated = ROOT / ".demo-artifacts"
@@ -115,14 +119,30 @@ def main():
         count, latest = db.execute("SELECT COUNT(*),MAX(received_at) FROM market_days").fetchone()
     if count != capacity["requested_sessions"]:
         raise ValueError("Synthetic history count changed")
-    cutoff = datetime.fromisoformat(latest)
+    if args.mobile_pipeline:
+        if capacity.get("receipt_mode") != "initial-download" or not capacity.get("feature_cutoff"):
+            raise ValueError("Mobile pipeline requires the synthetic initial-download fixture")
+        cutoff = datetime.fromisoformat(capacity["feature_cutoff"])
+        with zipfile.ZipFile(ROOT / "web/public/python/stock_ai.zip") as archive:
+            selection_json = archive.read("feature-selection.json")
+            selection = json.loads(selection_json)
+    else:
+        cutoff = datetime.fromisoformat(latest)
     current, peak = memory_bytes()
     report = {
         "synthetic_only": True,
         "scope": (
-            "PC source context and FeatureEngine; not mobile JSON/forecast or phone performance"
+            "PC mobile feature-input conversion/calculation; not model/forecast or phone"
+            if args.mobile_pipeline
+            else "PC source context/FeatureEngine; excludes mobile JSON, forecasts and phone"
         ),
-        "mode": "full-history-reference" if args.reference_history else "latest",
+        "mode": (
+            "mobile-pipeline"
+            if args.mobile_pipeline
+            else "full-history-reference"
+            if args.reference_history
+            else "latest"
+        ),
         "status": "running",
         "phase": "source-context",
         "symbols": capacity["symbols"],
@@ -141,12 +161,18 @@ def main():
                 "scripts/mobile_feature_check.py",
                 "mobile/python/market.py",
                 "mobile/python/market_codec.py",
+                "mobile/python/features.py",
                 "src/stock_ai/data/production.py",
                 "src/stock_ai/features/engine.py",
                 "src/stock_ai/features/indicators.py",
             )
         },
     }
+    if args.mobile_pipeline:
+        report.update(
+            feature_selection_sha256=hashlib.sha256(selection_json).hexdigest(),
+            feature_selection_id=selection["feature_selection_id"],
+        )
     started = time.perf_counter()
     lock = threading.RLock()
 
@@ -186,42 +212,67 @@ def main():
     print(json.dumps({"phase": report["phase"], "pid": os.getpid()}), flush=True)
     threading.Thread(target=guard, daemon=True).start()
     try:
-        bundle = build_production_data(SQLiteSource(path), source_snapshot_as_of=cutoff)
+        if args.mobile_pipeline:
+            inputs = market.feature_inputs(path, cutoff, True)
+            counts = {
+                "daily_rows": len(inputs["daily"]),
+                "financial_rows": len(inputs["financials"]),
+                "market_rows": len(inputs["market"]),
+                "sector_rows": len(inputs["sector"]),
+            }
+            source_ids = len(inputs["source_snapshot_ids"])
+        else:
+            bundle = build_production_data(SQLiteSource(path), source_snapshot_as_of=cutoff)
+            counts = {
+                "daily_rows": len(bundle.daily),
+                "financial_rows": len(bundle.financials),
+                "universe_rows": len(bundle.universe),
+                "market_rows": len(bundle.market_context),
+                "sector_rows": len(bundle.sector_context),
+            }
+            source_ids = len(bundle.source_snapshot_ids)
         with lock:
             report["checkpoints"].append(
                 {
                     "phase": "source-context",
-                    "daily_rows": len(bundle.daily),
-                    "financial_rows": len(bundle.financials),
-                    "universe_rows": len(bundle.universe),
-                    "market_rows": len(bundle.market_context),
-                    "sector_rows": len(bundle.sector_context),
+                    **counts,
+                    "source_ids": source_ids,
                     "elapsed_seconds": time.perf_counter() - started,
                     "peak_working_set_bytes": memory_bytes()[1],
                 }
             )
             report["phase"] = "features"
             save()
-        engine = FeatureEngine(V2_EXTENDED_MANIFEST)
-        function = engine.transform if args.reference_history else engine.latest_snapshot
-        values = function(
-            bundle.daily,
-            bundle.market_context,
-            bundle.sector_context,
-            financials=bundle.financials,
-            as_of=cutoff,
-        )
-        if args.reference_history:
-            values = values.groupby("symbol", sort=True).tail(1).reset_index(drop=True)
-        assert values.symbol.nunique() == len(values) == capacity["symbols"]
+        if args.mobile_pipeline:
+            values = features.calculate(inputs, selection)
+            assert values["as_of"] == cutoff.isoformat()
+            assert all(len(values["features"][str(h)]) == capacity["symbols"] for h in (5, 20))
+            feature_rows = capacity["symbols"]
+            feature_columns = {h: len(rows[0]) for h, rows in values["features"].items()}
+            encoded = json.dumps(values, sort_keys=True, allow_nan=False).encode()
+        else:
+            engine = FeatureEngine(V2_EXTENDED_MANIFEST)
+            function = engine.transform if args.reference_history else engine.latest_snapshot
+            values = function(
+                bundle.daily,
+                bundle.market_context,
+                bundle.sector_context,
+                financials=bundle.financials,
+                as_of=cutoff,
+            )
+            if args.reference_history:
+                values = values.groupby("symbol", sort=True).tail(1).reset_index(drop=True)
+            assert values.symbol.nunique() == len(values) == capacity["symbols"]
+            feature_rows, feature_columns = len(values), len(values.columns)
+            encoded = values.to_json(orient="table").encode()
         assert digest(path) == before, "Synthetic source was modified"
-        feature_digest = hashlib.sha256(values.to_json(orient="table").encode()).hexdigest()
+        feature_digest = hashlib.sha256(encoded).hexdigest()
         current, peak = memory_bytes()
         with lock:
             report.update(
                 status="passed",
-                feature_rows=len(values),
-                feature_columns=len(values.columns),
+                feature_rows=feature_rows,
+                feature_columns=feature_columns,
                 current_working_set_bytes=current,
                 peak_working_set_bytes=peak,
                 feature_json_sha256=feature_digest,

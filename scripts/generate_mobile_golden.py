@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import io
 import json
 import tempfile
+import zipfile
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +23,7 @@ from tests.test_bounded_decision import large_scenario, propose
 from tests.test_mobile_bundles import SELECTION
 from tests.test_mobile_decisions import NOW
 from tests.test_mobile_decisions import ready as decision_ready
+from tests.test_mobile_features import timely_history
 from xgboost import XGBClassifier, XGBRegressor
 
 from stock_ai.features import V2_EXTENDED_MANIFEST, FeatureEngine
@@ -160,6 +164,47 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
             "selection": SELECTION, "now": NOW.isoformat(),
             "expected": decisions.generate(path, store, NOW),
         }
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    from mobile.python import features, market
+
+    path = Path(temporary) / "mobile.sqlite3"
+    cutoff = timely_history(path)
+    records = market.feature_inputs(path, cutoff)
+    frames = market.feature_inputs(path, cutoff, True)
+    feature_expected = features.calculate(records, selection)
+    assert features.calculate(frames, selection) == feature_expected
+    # The shipped Pandas v1 row identity includes hash(pd.NA): 64-bit PC and
+    # wasm32 differ for the master's all-missing nullable round-lot column.
+    # Predict the old wasm32 identity from the exact PC source, without
+    # changing production identities or ignoring that column in the test.
+    from pandas.core.util.hashing import combine_hash_arrays
+
+    from stock_ai.data.contracts import DatasetName
+
+    master = market.SQLiteSource(path).point_in_time(DatasetName.SECURITY_MASTER, cutoff)
+    master = master.sort_values(["effective_date", "provider_code"]).reset_index(drop=True)
+    assert str(master.round_lot_size.dtype) == "Int64" and master.round_lot_size.isna().all()
+    hashes = [pd.util.hash_pandas_object(master[name], index=False).to_numpy() for name in master]
+    wasm_na_hash = 2**31 - 1
+    hashes[list(master).index("round_lot_size")][:] = wasm_na_hash
+    schema = tuple((str(name), str(dtype)) for name, dtype in master.dtypes.items())
+    metadata = json.dumps({"dataset": "security_master", "schema": schema}, sort_keys=True).encode()
+    wasm_master_id = hashlib.sha256(
+        metadata + combine_hash_arrays(iter(hashes), len(hashes)).tobytes()
+    ).hexdigest()
+    wasm_source_ids = [
+        [name, wasm_master_id if name == "security_master" else digest]
+        for name, digest in records["source_snapshot_ids"]
+    ]
+    archive_bytes = io.BytesIO()
+    with zipfile.ZipFile(archive_bytes, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.write(path, "mobile.sqlite3")
+    feature_input_fixture = {
+        "synthetic_only": True, "state": base64.b64encode(archive_bytes.getvalue()).decode(),
+        "cutoff": cutoff.isoformat(), "selection": selection, "expected": feature_expected,
+        "source_ids": records["source_snapshot_ids"], "daily_rows": len(frames["daily"]),
+        "wasm_source_ids": wasm_source_ids, "wasm_na_hash": wasm_na_hash,
+    }
 destination.write_text(
     json.dumps(
         {"inputs": inputs, "expected": expected, "models": vectors,
@@ -167,7 +212,7 @@ destination.write_text(
                     "bundle_id": bundle.bundle_id,
                     "sha256": hashlib.sha256(bundle_content.encode()).hexdigest(),
                     "expected": bundle_expected}, "bounded": bounded_fixture,
-         "decision": decision_fixture},
+         "decision": decision_fixture, "feature_inputs": feature_input_fixture},
         ensure_ascii=False,
         allow_nan=False,
     ),

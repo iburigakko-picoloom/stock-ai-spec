@@ -62,22 +62,24 @@ D126の可逆column形式は、raw/正規化の元の値・型・byte/hash・受
 
 ```powershell
 $env:PYTHONPATH = 'src'
-.venv/Scripts/python.exe -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-local --symbols 5000 --sessions 300 --checkpoint 100
+.venv/Scripts/python.exe -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-local --symbols 5000 --sessions 300 --checkpoint 100 --initial-download
 ```
 
 CIでも同じ検証を実施し、`mobile-storage-capacity`へsource hashes付きreportだけを保存する。合成の平日カレンダー・財務開示を使ったPCのingest/export/restoreであり、取得済み市場データ、学習、holdout、本人端末の保存内容には触れない。SQLiteやcapsuleはartifactへuploadしない。
 
 ローカルの5,000銘柄・300営業日では55,754,616 base64文字、mobile.sqlite344,470,272bytes、300日の復元がpassした。旧形式は90営業日のcheckpointで137,959,496文字となり、native上限134,217,728文字を超えた。checkpointの容量比較であり、毎回のnative暗号化保存やXiaomiの速度/メモリ成功を意味しない。150万行の株価PIT読込のPCピークは改善後も約2.16GBで、全特徴量計算・150万行guardを超える継続履歴・実機の受入は残る。
 
-最新特徴量の直接計算は、同じ合成履歴を使って別に確認する。元SQLiteのhash不変、source hashes、段階別件数、processのピークをreportへ残す。
+最新特徴量は、同じ合成履歴を使って別に確認する。`--initial-download`は全履歴を仮の判定日11:00に受領し、その日の11:30で計算する専用fixture。祝日を含まない合成カレンダーであり、実APIの受領証拠にしない。元SQLiteのhash不変、source hashes、段階別件数、processのピークをreportへ残す。
 
 ```powershell
-.venv/Scripts/python.exe -m scripts.mobile_feature_check --source .demo-artifacts/mobile-capacity-local --report .demo-artifacts/mobile-capacity-local/latest-features.json
+.venv/Scripts/python.exe -m scripts.mobile_feature_check --source .demo-artifacts/mobile-capacity-local --report .demo-artifacts/mobile-capacity-local/latest-features.json --mobile-pipeline
 ```
 
-既定は600秒/3500MiBで、上限超過またはmemory観測失敗時は専用probeだけを終了する。既存reportを上書きせず、本人の保存内容やAPIへ接続しない。`--reference-history`は全期間transformから最後の行を選ぶ比較用で、明示指定する。CIの`mobile-storage-capacity`には容量と特徴量のreportだけを保存する。これはProductionDataBundleから最新FeatureEngineまでのPC計算であり、mobile JSON変換・実forecast・端末上の予測完成の証拠は別に必要である。
+既定は600秒/3500MiBで、上限超過またはmemory観測失敗時は専用probeだけを終了する。自己processのthreadによる観測であり、GILを保持する処理の間は上限を超えてから停止する可能性がある。OSの強制memory capとは扱わない。既存reportを上書きせず、本人の保存内容やAPIへ接続しない。`--mobile-pipeline`はアプリと同じfeature_inputs→calculate、指定なしは直接ProductionDataBundle→latest、`--reference-history`は全期間transformから最後の行を選ぶ比較用。CIではmobile経路を使い、`mobile-storage-capacity`へ容量と特徴量のreportだけを保存する。モデル推論・株数生成・native暗号化commit・端末上の予測完成は別の受入である。
 
 D127の最新計算は全履歴を指標へ渡した後に最新行だけ保持し、財務をgroup参照する。市場母集団、数式や41/51列、受領時刻を省略しない。D128ではバックアップの復元上限128MiBと既存69byte overheadを保存側にも適用し、復元不能な大きさのファイルを作る前に拒否する。暗号形式は変えない。
+
+D129では全sourceのID確定後、計算で参照する列だけをDataFrameで渡す。元のrecords JSONと同じ小数精度・ISO時刻・型推定を列ごとに再現し、重複する文字列と日時の値を共有する。既存records経路は残す。source IDは従来と同じ順序のrow hashを10,000行ずつ連結して計算し、ID定義・元データ・全市場/業種母集団を変更しない。小規模PCとWASMでrecords/framesの完全一致と復元後の出所不変を確認し、大規模PC試験と区別する。
 
 ## 自動署名配布
 

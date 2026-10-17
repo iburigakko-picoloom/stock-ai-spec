@@ -180,8 +180,15 @@ def _source_frame_id(dataset: DatasetName, frame: pd.DataFrame) -> str:
     metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True).encode(
         "utf-8"
     )
-    rows = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
-    return hashlib.sha256(metadata + rows).hexdigest()
+    digest = hashlib.sha256(metadata)
+    # Preserve the exact ordered row-hash byte stream without factorizing
+    # high-cardinality text columns for the whole market at once.
+    for start in range(0, len(canonical), 10000):
+        rows = pd.util.hash_pandas_object(
+            canonical.iloc[start:start + 10000], index=False
+        ).to_numpy().tobytes()
+        digest.update(rows)
+    return digest.hexdigest()
 
 
 def build_point_in_time_universe(

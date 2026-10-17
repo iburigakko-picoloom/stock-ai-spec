@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -1205,3 +1206,26 @@ def _source_frames(periods: int = 280) -> tuple[dict[DatasetName, pd.DataFrame],
         "announced_at"
     ].astype("datetime64[us, UTC]")
     return frames, dates
+def test_source_frame_identity_keeps_the_original_hash_across_chunk_boundaries():
+    rows = 20037
+    frame = pd.DataFrame({
+        "trading_date": [pd.Timestamp("2025-01-02") + timedelta(days=i // 5000)
+                         for i in range(rows)],
+        "provider_code": [f"{i % 5000:04d}0" for i in range(rows)],
+        "source_record_hash": [hashlib.sha256(str(i).encode()).hexdigest() for i in range(rows)],
+        "label": ["合成/😀", None, "0123"] * (rows // 3),
+        "number": pd.Series([None, -0.0, 1.23e17] * (rows // 3), dtype="Float64"),
+        "flag": pd.Series([True, None, False] * (rows // 3), dtype="boolean"),
+        "category": pd.Categorical(["A", "B", None] * (rows // 3), categories=["A", "B", "unused"]),
+        "available_at": pd.date_range("2026-01-01", periods=rows, freq="1234567ns", tz="UTC"),
+    }).sample(frac=1, random_state=17)
+    for original in (frame, frame.iloc[:0]):
+        canonical = original.sort_values(["trading_date", "provider_code"]).reset_index(drop=True)
+        schema = tuple((str(column), str(dtype)) for column, dtype in canonical.dtypes.items())
+        metadata = json.dumps(
+            {"dataset": "daily_prices", "schema": schema}, sort_keys=True
+        ).encode()
+        # Frozen v1 identity definition, computed in one allocation as before.
+        row_bytes = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
+        expected = hashlib.sha256(metadata + row_bytes).hexdigest()
+        assert production_module._source_frame_id(DatasetName.DAILY_PRICES, original) == expected

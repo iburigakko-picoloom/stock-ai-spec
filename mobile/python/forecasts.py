@@ -225,7 +225,7 @@ def generate(path: Path, store, now: datetime) -> dict:
                  calibration=bundle.calibration.model_dump(mode="json"))
     if not selection["decision_symbols"]:
         return _save(path, store, scope, now, outcome="cash_only")
-    inputs = market.feature_inputs(path, now)
+    inputs = market.feature_inputs(path, now, True)
     features = calculate(inputs, bundled_selection())
     if inputs["as_of"] != cutoff.isoformat() or features["as_of"] != cutoff.isoformat():
         raise ValueError("Feature cutoff mismatch")

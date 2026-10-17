@@ -1,5 +1,15 @@
 # Project Status
 
+## 2026-10-17 — アプリの全市場入力変換を容量検証へ含める
+
+- a4752f3の[CI38993271780](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38993271780)はAndroid成功・verify失敗・release skip。全市場の直接context作成中168.62秒で3,696,422,912bytesとなり、3500MiBのprobe予算を超えた。検証前段のPython346＋platform6＋guard7、frontend71、WASM/画面6＋配布計算1＋調査画面2はpass。native JUnit55・失敗/error/skip0とOS回復3段階6呼出しも原本で確認したが、全job成功とは扱わない。
+- 実際の初回受領を模した合成5,000銘柄・300営業日を別の隔離DBへ準備。全履歴を仮の11:00に受領し、同日11:30で計算する。旧アプリ経路は全表のrecords JSON展開中に7,408,648,192bytesとなり201.58秒でprobe停止。単にDataFrameへ変えた試行も3,708,919,808bytes、文字列共有追加だけの試行も3,883,712,512bytesで停止した。thread監視はC処理がGILを保持すると超過を後から検知し、上限での強制封じ込めを示さない。元DBのhash不変を各停止時に確認した。原本は`.demo-artifacts/mobile-timely-feature-history-20261017`。
+- D129として、全sourceのID確定後に計算で使う列だけをDataFrameで渡し、従来と同じrecords JSONの小数10桁・ISO時刻・型推定を列ごとに再現。重複する文字列/日時を共有する。全銘柄・全期間・全市場/業種contextと入力検証は残す。通常のruntimeとforecastを接続し、既存records interfaceも残す。source hashは同じcanonical schema/row bytesを10,000行ずつSHA256へ渡す。IDや精度を変更しない。
+- 新しいPC入力比較13件＋production15件の28件、runtime/forecast/market/codec/featureの回帰79件がpass。型/欠損/文字/日時/精度と入力不変、4シナリオの全特徴量JSON、初回270営業日の元ID・受領・締切と20,037行の旧hash定義一致を確認。既存41/51列のPC特徴量JSONと株数提案の全lineも完全一致。Ruff全体、mypy66 source（標準/win32）、TypeScript/ESLint、フロント71件/build、source808/private0・package42 entries監査がpass。
+- 新規WASM入力試験は初回にsecurity_masterのPCとWASMのID差で失敗。既存Pandasのnullable Int64欠損がhash(pd.NA)を使い、PCの2305843009213693951とwasm32の2147483647で異なることを特定した。PC上で同じ全source列と旧hash結合を使い、欠損hashだけwasm32へ置き換えると観測IDが完全一致。production IDを移行せず、テストではこの既存差を予測した厳密な全5source IDと、WASM内で元の全量hash定義・records/frames・復元後IDの一致を確認した。修正後のWASM/画面は全7件pass。
+- 最終sourceの全量経路が541.66秒・ピーク3,538,374,656bytesでpass。daily/financials各1,500,000行、市場/業種各300行、5/20日とも5,000銘柄の出力を得て、元SQLite SHA256も不変。入力完了307.64秒、600秒/3500MiBを引き上げず確認した。同時に別試験も動いていたPC計測であり、速度保証や旧経路との速度比較には使わない。原本`mobile-projected-frames-and-features.json`には最終source hashesを記録した。公開CLIの最終4銘柄/270日smokeもpass。配布計算ページ1件と調査画面2件もpass。push後CIは検証待ち。
+- 公開容量CLIに`--initial-download`、特徴量CLIに`--mobile-pipeline`を追加し、CIを実際のアプリ入力変換→calculateへ変更。モデル推論・株数生成・native毎回commit・Xiaomiの完走と区別する。承認bundle0件、実API/本人ChatGPT、自然配送時刻、同署名更新、150万行guardを超える継続履歴、72時間台帳の利用設計は残る。私有研究停止・holdout lockを維持し、研究再開・実注文・merge・APK公開なし。
+
 ## 2026-10-17 — 最新特徴量の保持と財務参照を軽量化
 
 - D127として、最新値の計算では各銘柄の元の全履歴を計算してから最後の1行だけcopyして保持する。研究用の全期間transformは維持し、日次側も同じ数式・検証・市場/業種contextを使う。財務は全行検証後に銘柄groupを一度作り、毎銘柄で全財務を走査する処理を削減。未使用category・欠損銘柄・重複index・同時刻訂正とas-of照合を維持する。PITのconcat後にparts/cacheを解放し、同じキーでsort/dedupする。sourceの検証/hash後も全入力を保持していたdictと、派生buildが終わった入力・中間表の参照も解放する。
