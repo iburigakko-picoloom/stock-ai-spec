@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from scripts.android_history_check import HistoryController, validate_fixture
-from scripts.mobile_native_history_fixture import FORMAT, isolated, prepare, table_snapshot
+from scripts.mobile_native_history_fixture import FORMAT, ROOT, isolated, prepare, table_snapshot
 
 
 def test_table_proof_covers_schema_types_all_cells_and_input_immutability(tmp_path) -> None:
@@ -96,11 +96,17 @@ def test_native_stream_requires_the_existing_disposable_device_guard(tmp_path, m
         controller.guard()
 
 
-def test_native_fixture_preparation_refuses_paths_outside_isolated_workspace(tmp_path) -> None:
+def test_native_fixture_preparation_refuses_paths_outside_isolated_workspace() -> None:
+    # CI deliberately places pytest's basetemp inside .demo-artifacts.
+    outside = ROOT.parent / "stockai-native-outside-isolated-test"
     with pytest.raises(ValueError, match="isolated"):
-        isolated(tmp_path)
+        isolated(outside)
     with pytest.raises(ValueError, match="isolated"):
-        prepare(tmp_path, Path("."))
+        prepare(outside, Path("."))
+    with pytest.raises(ValueError, match="isolated"):
+        isolated(ROOT / ".demo-artifacts")
+    inside = ROOT / ".demo-artifacts/native-path-contract-only"
+    assert isolated(inside) == inside.resolve()
 
 
 def test_native_fixture_rejects_arbitrary_source_paths_without_reading_payload(tmp_path) -> None:

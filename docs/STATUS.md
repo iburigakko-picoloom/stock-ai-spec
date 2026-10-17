@@ -6,6 +6,7 @@
 - controller専用Android testを追加。巨大なtest用Stringを作らず、既存の256KiB/AES-GCM/AAD形式で隔離native DBへ投入し、その後はproduction ownerによる全量読込・Java/JSON/実WASM復元・空の本人入力POST・owner再生成を通す。最終暗号化chunkを小分けにexportし、PC再復元で全17tableと本人入力を再照合する。準備/初期化/commit/再生成等のphaseとheap上限、容量stackを区別して残す。production store/bridgeは変更せず、192MiB heap・128MiB文字・timeoutを維持。
 - GitHub専用の既存使い捨てAPI35 guardを再利用し、実機・別AVD・非debug packageを対象にしない。MainActivityを起動せず、同runのdebug/test APKと合成capsuleだけを3日保持のartifactで渡す別jobを追加。通常native suiteの66件は保ち、新jobをreleaseの必要条件へ追加。fixture/artifact未生成や未完は成功扱いにしない。
 - fixture metadata/外部path拒否・未guard通信拒否・SQLiteの全cell型/空table/schema/index/rowid非依存・既存OS controllerを含む57件が2.06秒でpass。Ruff全体とworkflow YAML/needs/read-only権限/通常suite除外/元と同じemulator設定の照合もpass。原本は`native-history-controller-tests.xml`。Javaのコンパイル・現行sourceからの全量fixture生成・実native bridgeの成否はpush後CIで確認する。私有研究・holdout・実注文・承認bundle/本人gateに変更なし。main merge・製品APK公開なし。
+- 6dfb59cのCI39021803626はverify/Android failure・native-history/release skipで全job終了。verifyではCIのbasetemp自体が`.demo-artifacts`内にあるため、「tmp_pathは隔離外」というtestの誤った前提が1件失敗（56pass）。隔離外・隔離root・許可した子pathを明示するtestへ修正し、CIと同じworkspace内basetempで57件が1.68秒でpass。guardやtestを削除/緩和していない。AndroidはKotlin/ASM等のMaven依存解決で失敗し、Java compile/native試験へ未到達。依存version/取得先は変えず、同じ公式POMのHEADが200を返すことを別途記録した。原本は`native-full-history-ci-39021803626-failed.log`、`native-history-ci-path-fix-tests.xml`と`maven-central-head-after-ci-39021803626.json`。旧fixtureのsource拒否を維持し、現行sourceからの合成520日生成→正規化→全17table/復元をローカルでも新規実行中。
 
 ## 2026-10-17 — 同じ取引日履歴の銘柄を有界でまとめて計算
 
@@ -14,6 +15,7 @@
 - Ruff全体、mypy通常/win32各66file、同梱archive/golden再生成（共有29＋mobile15file・model0）、TypeScript/buildがpass。全44sourceのworking raw bytesをarchiveと照合した`matrix-indicator-archive-proof.json`を保持。同梱WASMと全量の測定は継続中。5000銘柄/520session・全特徴量・600秒/3500MiB、承認bundle0件、私有研究停止・holdout lock・本人台帳gateを維持。実注文・merge・APK公開なし。
 - 同梱WASMのPC特徴量/9モデルvector・4head bundle/300候補＋保有の株数/復元5件が2.1分でpass。原本は`matrix-wasm-tests-allowed.log`。最初のrestricted実行はloopback socket拒否を確認し、所有を再確認したtest process treeだけを停止した環境中断であり、数値不一致として扱わない。source809/private0・package42 entries監査もpass。全量WASM/PCは次に同じ予算で測る。
 - 5736d30の全量同梱WASMがpass。計算595.194秒（起動等を含む全体607.779秒）・入力493.425秒・最大owned browser process peak3,321,311,232bytesで600秒/3500MiB内。daily/financial各260万行・市場/業種各520行・全5source ID・5/20日各5,000行（43/53列）を維持し、保存した全17,541,784bytesの特徴量JSON SHA7ee2812d...9e580dffはPCと完全一致。元DB/capsule不変、全5source IDも前版と完全一致。archive SHA5ae041ff...7c326799と44sourceのGit5736d30照合、診断worker hashを`wasm-features-matching-session-matrix/provenance-proof.json`へ固定。計算予算の余裕は約4.8秒であり、反復安定性・native・モデル/実機の性能は示さない。同sourceの全量Windows PCは測定中。
+- 同じ5736d30計算sourceのWindows全量も265.134秒・peak2,799,427,584bytesでpass。入力209.865秒、全5source・daily/financial各260万行・市場/業種各520行・5/20日各5,000行（43/53列）を維持し、保存した全特徴量JSON SHA7ee2812d...9e580dffが旧PC/全量WASMと完全一致。元DB不変、7sourceのworking raw hashとGit5736d30の改行正規化後の内容、数値capture wrapperも`matching-session-matrix-source-proof.json`へ照合済み。原本は`latest-features-matching-session-matrix.json`。5736d30のCI39020805252はAndroid successの原本を保存し、全量native試験を優先してverifyを明示cancel、全job terminal cancelledを確認。native66件・opaque store6.860秒・OS復旧3段階の範囲はpassだが、途中の容量artifactと未完verifyは成功扱いにしない。
 
 ## 2026-10-17 — 財務結合と特徴量表の構築をまとめて実行
 
