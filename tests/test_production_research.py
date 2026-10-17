@@ -56,6 +56,63 @@ from stock_ai.research import run_research_decision_e2e
 JST = ZoneInfo("Asia/Tokyo")
 
 
+@pytest.mark.parametrize("categorical", [False, True])
+@pytest.mark.parametrize("duplicate_index", [False, True])
+@pytest.mark.parametrize("policy", list(HistoricalRevisionPolicy))
+def test_financial_expansion_is_symbol_independent_and_preserves_inputs(
+    categorical: bool,
+    duplicate_index: bool,
+    policy: HistoricalRevisionPolicy,
+) -> None:
+    frames, dates = _source_frames(periods=30)
+    disclosures = frames[DatasetName.FINANCIAL_SUMMARY].copy()
+    disclosures["available_at"] = disclosures["announced_at"]
+    correction = disclosures.loc[disclosures.symbol == "A"].copy()
+    correction["disclosure_number"] = "disc-A-z-correction"
+    correction["forecast_eps"] = 121.0
+    correction["available_at"] = correction["available_at"] + pd.Timedelta(days=2)
+    disclosures = pd.concat([disclosures, correction], ignore_index=True).iloc[[2, 3, 0, 1]]
+    if categorical:
+        disclosures["symbol"] = pd.Categorical(
+            disclosures.symbol, categories=["C", "A", "B", "unused"]
+        )
+    if duplicate_index:
+        disclosures.index = [7] * len(disclosures)
+    daily = pd.DataFrame(
+        [
+            {
+                "symbol": symbol,
+                "trading_date": day,
+                "available_at": pd.Timestamp(day)
+                .tz_localize("Asia/Tokyo")
+                .replace(hour=11, minute=30),
+                "close": 1100.0 + index,
+            }
+            for symbol in ("B", "A", "missing", "C")
+            for index, day in enumerate(dates[:4])
+        ]
+    ).iloc[::-1]
+    before_daily, before_disclosures = daily.copy(deep=True), disclosures.copy(deep=True)
+    actual = production_module._daily_financial_features(
+        disclosures, daily=daily, revision_policy=policy
+    )
+    independent = [
+        production_module._daily_financial_features(
+            disclosures.loc[disclosures.symbol == symbol].copy(),
+            daily=group.copy(),
+            revision_policy=policy,
+        )
+        for symbol, group in daily.groupby("symbol", sort=True)
+    ]
+    for index in (0, 1):
+        expected = pd.concat([part[index] for part in independent], ignore_index=True)
+        pdt.assert_frame_equal(actual[index], expected, check_exact=True)
+    missing = actual[0].loc[actual[0].symbol == "missing"]
+    assert missing["financial_available_at"].isna().all() and missing["per"].isna().all()
+    pdt.assert_frame_equal(daily, before_daily, check_exact=True)
+    pdt.assert_frame_equal(disclosures, before_disclosures, check_exact=True)
+
+
 def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> None:
     dates = pd.to_datetime(["2024-01-10", "2024-01-11", "2024-01-12", "2024-01-13"])
     frame = pd.DataFrame(

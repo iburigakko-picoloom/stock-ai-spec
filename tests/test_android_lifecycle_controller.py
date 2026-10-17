@@ -55,6 +55,75 @@ def test_non_ci_execution_never_invokes_adb_even_for_diagnostics(tmp_path, monke
     assert report["status"] == "failed"
 
 
+def test_diagnostics_observe_original_completion_without_dispatch_or_instrumentation(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    calls = []
+
+    def shell(*args, **kwargs):
+        calls.append(args)
+        assert args[0] in ("dumpsys", "logcat")
+        return "fixture metadata"
+
+    monkeypatch.setattr(controller, "shell", shell)
+    with pytest.raises(RuntimeError, match="guard"):
+        controller.diagnostics("failure")
+    assert calls == []
+    controller.guarded = True
+    prepared = {**marker(), "phase": "reboot", "targets": [{"id": "fixture-acquisition"}]}
+    monkeypatch.setattr(controller, "marker", lambda: prepared)
+    monkeypatch.setattr(
+        controller,
+        "snapshot",
+        lambda acquisition: {
+            "pending_pages": 1,
+            "enabled": True,
+            "state": "queued",
+            "first_day": "2026-10-15",
+        },
+    )
+    work_snapshot(tmp_path, monkeypatch, controller, state=2, mappings=())
+    controller.diagnostics("failure")
+    observation = json.loads((controller.output / "failure-original-work.txt").read_text())
+    assert observation["original_work"]["work_id"] == WORK_ID
+    assert observation["original_work"]["work_state"] == 2
+    assert observation["native"]["pending_pages"] == 1
+    assert calls[-1] == (
+        "logcat",
+        "-d",
+        "-v",
+        "threadtime",
+        "-s",
+        "WM-WorkerWrapper:D",
+        "WM-SystemJobService:D",
+        "WM-Processor:D",
+        "AndroidRuntime:E",
+        "*:S",
+    )
+
+
+def test_diagnostic_observation_failure_cannot_report_success_or_expose_details(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    controller.guarded = True
+    monkeypatch.setattr(controller, "shell", lambda *a, **k: "")
+
+    def unreadable():
+        raise RuntimeError("details must not enter metadata")
+
+    monkeypatch.setattr(controller, "marker", unreadable)
+    controller.diagnostics("failure")
+    observation = json.loads((controller.output / "failure-original-work.txt").read_text())
+    assert observation == {"observation_error_type": "RuntimeError"}
+    assert controller.report["status"] == "running"
+
+
 @pytest.mark.parametrize(
     "serial,qemu,sdk",
     [

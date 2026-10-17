@@ -149,13 +149,19 @@ class Controller:
                 "SELECT COUNT(*) FROM market_download_pages WHERE id=?", (acquisition,)
             ).fetchone()[0]
             row = connection.execute(
-                "SELECT state,updated_at FROM daily_automation WHERE id=1"
+                "SELECT state,updated_at,enabled,first_day,day,failures,retry_at "
+                "FROM daily_automation WHERE id=1"
             ).fetchone()
         return {
             "generation": generation,
             "pending_pages": pending,
             "state": row[0],
             "updated_at": row[1],
+            "enabled": bool(row[2]),
+            "first_day": row[3],
+            "day": row[4],
+            "failures": row[5],
+            "retry_at": row[6],
         }
 
     def wait_ack(self, marker: dict, *, seconds: int = 200) -> dict:
@@ -327,9 +333,47 @@ class Controller:
         return matched[1] == "true"
 
     def diagnostics(self, name: str) -> None:
+        if not self.guarded:
+            raise RuntimeError("Diagnostics require the disposable-emulator guard")
         for service in ("power", "jobscheduler", "activity"):
             value = self.shell("dumpsys", service, required=False)
             (self.output / f"{name}-{service}.txt").write_text(value, encoding="utf-8")
+        # WorkManager metadata and fatal stacks from this disposable fixture;
+        # no broad logcat or provider/account payloads are collected.
+        value = self.shell(
+            "logcat",
+            "-d",
+            "-v",
+            "threadtime",
+            "-s",
+            "WM-WorkerWrapper:D",
+            "WM-SystemJobService:D",
+            "WM-Processor:D",
+            "AndroidRuntime:E",
+            "*:S",
+            required=False,
+        )
+        (self.output / f"{name}-worker-logcat.txt").write_text(value, encoding="utf-8")
+        try:
+            prepared = self.marker()
+            observation = {
+                "phase": prepared["phase"],
+                "native": self.snapshot(prepared["targets"][-1]["id"]),
+                "original_work": self.current_system_job(prepared),
+            }
+        except (
+            KeyError,
+            ValueError,
+            sqlite3.Error,
+            OSError,
+            RuntimeError,
+            IndexError,
+            TypeError,
+        ) as error:
+            observation = {"observation_error_type": type(error).__name__}
+        (self.output / f"{name}-original-work.txt").write_text(
+            json.dumps(observation, indent=2), encoding="utf-8"
+        )
 
     def execute(self) -> None:
         self.guard()

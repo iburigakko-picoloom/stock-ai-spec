@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-17 — 財務展開の繰返し走査を除去し、OS失敗の観測を追加
+
+- D134として、日次財務の展開で銘柄ごとに全開示を再走査せず、最初に作った銘柄別の行位置から選ぶ。重複indexにも位置で対応し、結合後は一時frameのlistを解放する。開示の採用順・実受領・revision policy・asof結合・PER/PBR・特徴量・株数の計算式は変更しない。全市場の銘柄数/履歴、完全なsource ID照合と観測予算も維持。
+- 修正前80b6a0bの財務関数そのものと、訂正・同時刻・欠損銘柄・空開示・category/未使用category・重複index・両revision policyを含む16条件で全値/型/index/列順が完全一致し、入力も不変。公開の追加回帰8件を含むproduction23件、mobile入力/特徴量等78件、同梱WASMのPC数値/復元/出所/画面7件がpass。Ruff全体、mypy通常/win32各66file、archive再生成（共有29file・model0）、buildとsource809/private0・package42 entries監査もpass。原本は`.demo-artifacts/financial-lookup-legacy-parity.json`、`production-financial-lookup-tests.xml`、`financial-source-related-tests.xml`。全量PC試験は入力構築425.95秒の後、特徴量中600.009秒でtime予算に達した。peak3,388,895,232bytesは予算内だが完成値はなく、DB不変を別途確認。原本は`mobile-two-year-capacity-candidate-20261017/latest-features-grouped-financial.json`。別のテストと並行していたため、同じ600秒/3500MiBで単独再測定中。高速化の効果は未確定。
+- 直前の詳細WASM profileは入力構築まで599.16秒で終了した診断であり、全特徴量の完走ではない。master176.91秒・price218.32秒・財務source41,280行10.16秒、保持済みsourceの再照合master4.13秒/price3.92秒、universe52.78秒・canonical daily10.29秒・日次財務展開95.42秒・市場/業種集約2.74秒を観測。最大process peak3,631,489,024bytes、DB/capsule不変。入力だけのreportに特徴量hashがないため`pc_feature_json_exact:false`という汎用欄があるが、数値不一致を示さない。出所照合を省略して高速化する根拠にはしない。原本は`mobile-native-history-capsule-20261017/wasm-context-detailed-profile`。
+- 80b6a0bのCI39006289086はAndroid jobがfailure、verifyは継続中。native66件fail/error/skip0と96,870,524文字のopaque storeは9.023秒・Java heap上限201,326,592bytesでpass。process回復もpassしたが、rebootでは元UUIDの現行job6（準備時5）がRUNNINGと照合された後、200秒の追加観測でもpending page1・native generation7・state queuedのままでACKがなく失敗。元処理の開始は確認できたが、回復完了とは扱わず、原因は未確定。log/XML/metadataを`.demo-artifacts/scheduler-mapping-ci-39006289086`と同名Android logへ保持。e677d19の旧CI39005376172は修正版を優先して明示cancelし、terminal cancelledを確認済み。
+- guarded emulatorの診断へ、現在のenabled/履歴開始日/再試行状態と元WorkSpecの再観測を追加。選択したWorkManager log tagとfatal stackだけを保存し、device DBの書換え・instrumentation・追加dispatchを行わない。診断のguardと観測失敗の扱いを含むcontroller25件がpass。元ACK/WorkInfo SUCCEEDED条件、90/3/200秒の窓、明示した画面wake/sleepの条件は維持。全市場WASM・native owner/Java全量・実API/本人ChatGPT・承認bundle0件・72時間台帳gate・Xiaomi等の残件、私有研究停止とholdout lockは継続。実注文・merge・APK公開なし。
+
 ## 2026-10-17 — OS受入で元のWorkRequestの現行mappingを観測
 
 - D133として、使い捨てAPI35 emulatorの受入controllerで、元WorkRequest UUIDとWorkSpecの現行generationからSystemIdInfoを読む。WorkManager DBとWALをPCの隔離領域へコピーしてread-onlyで照合し、元DailyWorkerの1件に対応する現在のscheduler IDだけを使う。準備時の番号を永続IDとみなさず、別UUID・旧generation・異なるworker・曖昧なmappingを拒否する。アプリの予約/実行処理は変更しない。

@@ -677,8 +677,11 @@ def _daily_financial_features(
         "shares_outstanding",
         "shares_outstanding_missing_reason",
     ]
+    source_rows = right.groupby("symbol", sort=False, observed=True).indices
     for symbol, left in daily.groupby("symbol", sort=True):
-        source = right.loc[right["symbol"] == symbol, right_columns].copy()
+        locations = source_rows.get(symbol)
+        source = right.iloc[locations] if locations is not None else right.iloc[:0]
+        source = source.loc[:, right_columns].copy()
         left_columns = left[["symbol", "trading_date", "available_at", "close"]].sort_values(
             "available_at"
         )
@@ -719,6 +722,7 @@ def _daily_financial_features(
         merged["pbr"] = _safe_ratio(merged["close"], merged["effective_bps"])
         parts.append(merged)
     merged_financials = pd.concat(parts, ignore_index=True)
+    parts.clear()
     feature_columns = [
         "symbol",
         "trading_date",
