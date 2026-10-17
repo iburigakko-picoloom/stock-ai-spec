@@ -28,4 +28,10 @@ test("production compute entry boots offline under the native CSP and returns du
   expect(saved.error).toBeUndefined();
   expect(saved.result).toMatchObject({ status: 200, body: { portfolio: { holdings_status: "none" } } });
   expect(saved.state).toBeTruthy();
+  const invalid = await send(4, { command: "request", method: "POST", path: "/api/v1/mobile/portfolio", body: "{" });
+  expect(invalid.result?.status).toBe(422);
+  expect(invalid.state).toBeTruthy();
+  const afterFailure = await send(5, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
+  expect(afterFailure.result).toEqual(saved.result);
+  expect(afterFailure.state).toBeNull();
 });

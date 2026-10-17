@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-17 — native大容量のbaseline確認とWASM入力buffer解放
+
+- 9e38ab5のCI39004033183では、元のLocalStateStoreを変更せずnative66件がfail/error/skip0でpass。96,870,524文字の暗号化保存・DB再open・stale generation拒否・全内容digest照合が4.357秒、Java heap上限201,326,592bytesのAPI35 emulatorでpassした。生成時のUS_ASCIIによる余分なchar配列が先の失敗原因であり、production readerの大容量失敗ではなかった。隔離したASCII reader候補は採用しない。専用log tagからcreating-payload/writing/reopening/verifiedの4段階を原本で確認。opaque文字列のstore証拠であり、owner/Java bridge・実SQLite・毎回commit・モデル/実機とは区別する。
+- 同CIのAndroid job全体は、その後のOS回復reboot段階で失敗。process段階のACK・不変receipt・調査回復はpassしたが、rebootでは保存時のscheduler job5に対するrunが見つからず終了した。diagnosticsには同namespace/packageのjob4/7があるが、元WorkRequest UUIDとの対応は未照合。別jobを勝手に実行して成功扱いにせず、現行のWorkManager mappingと同じUUIDを観測する必要がある。verify jobは継続中で、workflow成功とは扱わない。原本は`.demo-artifacts/native-capacity-baseline-ci-39004033183`と同名log。
+- 合成5,000銘柄/520日を同梱WASMのfeature_inputs(as_frames=True)で検証すると、source-context中509.79秒に専用browserの最大process working set3,686,281,216bytesで観測予算3,670,016,000bytesを超え、controllerがそのbrowserだけを終了した。WASM/OSのOOMや特徴量完成を示さない。元capsuleは隔離copyから読み込んだもの。PCの成功をこのWASM経路の成功とは読み替えない。原本`.demo-artifacts/mobile-native-history-capsule-20261017/wasm-features`。
+- D132として、復元後のPython global saved_stateとworker messageのstate、要求処理後のPython request_bodyとmessage bodyを成功/例外の両方で解放。DBと返すresponse/state、request順序、alpha・株数・調査の内容を変更しない。TypeScript/ESLint/build、配布版compute hostの1件（不正JSONの422後も元入力を保持して次のGETが成功）を確認した。
+- 変更後も実SQLite capsule96,870,524文字で復元→合成入力POST→新contextへ再初期化が49.46秒でpass。520日と全受領記録、全mobile17table/10,407行の定義・typed-cell hashが元DBと完全一致し、同梱mobile15 sourceも一致した。元DB/capsule不変、注文能力false、model0。原本は`compute-host-released-buffers/report.json`と`market-proof.json`。desktop速度比較やJava/実機の証拠には使わない。解放後の全量特徴量はデータセット別の観測を加えた別probeで実行中（session50881）で、現時点では完走未確認。採用bundle0件、実API/ChatGPT、72時間台帳設計、Xiaomi・自然配送・同署名更新・継続履歴は未完。
+
 ## 2026-10-17 — 日次計算を暗号化保存の境界で分割
 
 - D131として、原予測の保存、株数判定の保存、ChatGPT調査を別のWorkRequestへ分ける。当日11:30と同じInstantのpublished/cash_only原予測はGETで再利用し、次の実行で特徴量から作り直さない。株数側の本人設定・台帳・モデル・凍結市場照合は共有coreで維持する。破損時刻は停止し、旧日/未完成の原予測は完了扱いにしない。停止後のcommit回復、各commit中の日付変更、株数の締切時刻も検証対象へ追加。

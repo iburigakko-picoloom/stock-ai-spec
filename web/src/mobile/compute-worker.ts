@@ -25,7 +25,9 @@ async function initialize(state: string): Promise<void> {
   const build = await (await fetch("/python/build-info.json")).json();
   python.globals.set("source_commit", build.source_commit);
   stage = "state";
-  await python.runPythonAsync("import sys, os\nsys.path.insert(0, '/stockai-code')\nos.environ['STOCK_AI_CODE_COMMIT'] = source_commit\nfrom stock_ai.mobile import runtime\nruntime.initialize(saved_state)");
+  try {
+    await python.runPythonAsync("import sys, os\nsys.path.insert(0, '/stockai-code')\nos.environ['STOCK_AI_CODE_COMMIT'] = source_commit\nfrom stock_ai.mobile import runtime\nruntime.initialize(saved_state)");
+  } finally { python.globals.set("saved_state", null); }
 }
 
 // Serialize every operation, including startup, so no update can overtake an
@@ -35,7 +37,10 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; state?: str
   const input = event.data;
   queue = queue.then(async () => {
     try {
-      if (input.command === "initialize") await initialize(input.state || "");
+      if (input.command === "initialize") {
+        try { await initialize(input.state || ""); }
+        finally { delete input.state; }
+      }
       if (!python) throw new Error("端末内の計算環境が未起動です。");
       let result: unknown = null;
       if (input.command === "request") {
@@ -43,7 +48,9 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; state?: str
         python.globals.set("method", input.method);
         python.globals.set("request_path", input.path);
         python.globals.set("request_body", input.body || "null");
-        result = JSON.parse(String(await python.runPythonAsync("import json\njson.dumps(await runtime.request(method, request_path, request_body), ensure_ascii=False)")));
+        try {
+          result = JSON.parse(String(await python.runPythonAsync("import json\njson.dumps(await runtime.request(method, request_path, request_body), ensure_ascii=False)")));
+        } finally { python.globals.set("request_body", null); delete input.body; }
       }
       const state = input.command === "initialize" || input.method === "POST"
         ? String(await python.runPythonAsync("runtime.export_state()")) : null;
