@@ -2,10 +2,12 @@
 
 ## 2026-10-18 — 再開し、停止したWorkerの計算要求を取り消す
 
-- 本人の再開指示後、D157停止時の84実装fileのhash一致とremote/PRの6bc561cを確認し、現sourceの全Python回帰を開始。Python実装を固定したままAndroidの中断復旧を修正する。全回帰の完了/coverageはまだ未確認。
+- 本人の再開指示後、D157停止時の84実装fileのhash一致とremote/PRの6bc561cを確認。Python実装を固定した全回帰は1,241件すべて成功、fail/error/skip0、1,051.56秒、coverage87.263%/基準85%。実行後も84fileの一致を確認し、途中の725b8fdまでのGit差分がAndroidと文書だけであることを検証した。原本とhashは`nisa-year-full-verification.json`。旧sourceの成功へ置き換えず、現sourceの単回全件成功を保存する。
 - 6bc561cのCI39047625666はverify/android-historyがsuccess、androidはrebootの元受領pending1でfailure。通信遮断WASM14件、compute11件、画面6件、通常native78件は成功。5,000銘柄/520日の全量B1復元は178.244秒/Java heap192MiBで成功したが、OS復旧の成功へ読み替えない。旧失敗と原本を保持する。
 - D158。CompletableFutureの取消しがownerの待機/実行中の仕事へ伝わらず、停止したWorkerの要求が残る不備を修正。取消し前に未開始なら実行せず枠を一度返し、実行中はその要求の待機を中断して未確定host/stagingを破棄する。DailyWorkerは停止通知/待機中断/期限超過で自分のcore要求だけを取り消す。確定済み保存を巻き戻さず、別callerやChatGPTの受領journalを取り消さない。
-- 実際のowner.submitをcompileした隔離JVM試験で、取消し済み要求の実行/実行中の未中断/64件の枠未解放の3失敗を再現し、修正後3成功。Android API依存部は限定stubで、native成功の証拠にはしない。実SQLiteの取消し済みPOST不変、隣接caller、枠上限、Worker停止通知の4試験を追加。コンパイル/native/OS受入は次CIで確認する。reboot不具合の原因全体が確定したとは扱わない。
+- 実際のowner.submitをcompileした隔離JVM試験で、取消し済み要求の実行/実行中の未中断/64件の枠未解放の3失敗を再現し、修正後3成功。続く725b8fd/CI39079227108でコンパイル/lint/暗号化unit、実SQLiteの取消し済みPOST不変・隣接caller・枠上限・Worker停止通知の新規4件を含むnative82件が203.492秒で成功、fail/error/skip0。
+- 同CIのOS process/reboot/force-stopが世代5/8/11・pending0で成功。processは画面wake＋条件充足dispatch、reboot/force-stopはunforced（強制停止後は契約どおり明示再表示）。同じ元WorkRequestのSUCCEEDED、本人入力/受領/調査の保存をnativeで検査した。補助DB snapshotはprocessが完了直前のstate0、force-stopがRuntimeErrorだったが、後続のnative最終検証は各段階で元UUIDのSUCCEEDEDを別途要求して通過。補助記録の一時点を最終判定と誤認しない。照合scriptの初期のschema/state仮定失敗も保持する。
+- APK内44Python source、Java20 source、controllerと2種類のnative試験sourceをmerge68f7fde/branch725b8fd/作業内容へ照合。APK SHA256は434966f52faf2d2fb92442d7ab2cc8fdf1415e2ba13fa7ea0209f007141a4184。原本とhashは`worker-cancellation-ci-39079227108/native-source-proof.json`。今回の成功を反復安定性やXiaomi成功とは扱わず、最新の独立全量B1工程は結果待ち。6bc561cの178.244秒の成功とは区別する。
 - 実市場の税引前最小比較は企業行動/PIT/約定/受渡し根拠待ち。完全な個人税引後NAV、最終モデル固定/未使用期間評価/採用、本人ChatGPT/Xiaomi/同署名更新も未完。再学習・holdout開封・採用・実注文・main merge・製品APK公開なし。
 
 ## 2026-10-18 — NISA残枠/税年の引継ぎを修正し、本人依頼で停止
