@@ -1,5 +1,15 @@
 # Project Status
 
+## 2026-10-17 — 全市場履歴の保存容量と読込メモリを縮小
+
+- 合成5,000銘柄の初期履歴で旧形式の容量不足を再現。30/60/90営業日のcheckpointで計測し、90日ではbase64が137,959,496文字となり、native上限134,217,728文字を超えた。90日が最初の超過日と断定せず、観測したcheckpointとして記録する。PCのSQLite復元成功をnative保存成功とは扱わない。
+- D126の可逆column形式を追加。安定した列をSHA256参照で共有し、定数列をまとめ、元の正規化JSONのbyte/hash・原データの値/型/欠落・順序を保持する。新規取得に加え、exportごと最大5件のtransactional旧形式移行と混在読込へ接続。破損参照・過大展開・移行rollback・旧形式の読込を検証する。native暗号形式と容量上限を変更せず、300社以外の市場母集団や訂正履歴を削らない。
+- 同じseedの合成5,000銘柄・300営業日でbase64が55,754,616文字、mobile.sqlite3が44,470,272bytes、PC復元300日がpass。全体349.07秒、最終checkpointのexport1.298秒。旧形式90日分450batchとの照合でもsequence/dataset/day/receipt/payload_hash/normalized_hash、原データの値/型/欠落/順序、正規化の元byte/SHA256が完全一致した。原本は`.demo-artifacts/mobile-capacity-baseline-20261017`、`mobile-capacity-columns-full-20261017`と同内`frozen-first90.json`。旧probeのnative_can_commitという項目はpayload長の判定だけであり、nativeへの暗号化書込を計測した証拠ではない。
+- PIT読込は同じPandasのscalar parser/schema変換を列へ適用し、1読込の定数/参照列を再利用。150万行・5,000銘柄・300日のPC読込がpassし、ピークworking setは旧row JSON経路の3,627,184,128bytesから2,155,417,600bytesとなった。読込時間は旧76.02秒、新49.34秒/併走負荷あり73.74秒で、速度保証には使わない。Pandasのdeep集計は両方1,978,500,132bytesで、実RSSとは区別する。full feature計算や端末上のmemoryは未計測。
+- exportも既存restore上限256MiB/SQLiteを確認し、復元できないcapsuleを作らず、一時snapshotを失敗時も削除する。公開`scripts/mobile_capacity_check.py`はfreshな隔離領域、合成データ、固定seed、source hashes、実上限、checkpointのみのexportという範囲を記録する。小規模smokeがpass。CIへ5,000銘柄・300日の試験とreportだけのuploadを追加し、SQLite/取得データは公開しない。
+- 最新変更の関連Python99件がpass。WASM初回で空の財務tableに旧Pandas読込との列型差を検出し、空tableだけ元の読込を使うよう修正。専用の回帰を追加してmarket/codec/universe29件がpass。Ruff全体、mypy66 source（標準/win32）、TypeScript/ESLint/buildがpass。同梱Pythonを再生成し、offline21依存・共有29 source・model0とPC参照vectorを維持。WASM/画面6件と配布計算ページ1件がpassし、実Pandasとの一致、100batch/5datasetの旧形式→部分移行→復元と株数不変を確認した。source804/private0・package監査もpass。今回のsourceでのGitHub容量/native受入はpush後に確認する。
+- 前回文書07eb4e8のrun38985791189はAndroid/verify成功・release skipを確認。今回の容量変更の検証へ転用しない。実API/本人ChatGPT、Xiaomi性能/同署名更新、採用bundle0件は残る。PCでも読込ピークは2GB超で、既存150万行guardや長期継続時の容量は別の未完条件。72時間台帳gateを維持し、私有研究/学習の再開・holdout・実注文・merge・APK公開なし。
+
 ## 2026-10-17 — ChatGPTの受領・再送抑止をOS中断後に照合
 
 - 既存の使い捨てemulator受入へ、調査予約・完成応答・ACK済み記録の3状態を追加。予約はactiveのまま残し、releaseによる中断の模擬ではなく、実process kill・kernel reboot・force-stopで失わせる。各段階の前に新しい3件を準備し、以前の記録も含めて確認する。合成データはtest APKにだけ存在し、provider credentials・モデル採用・アプリ本体のfixture transportは追加しない。

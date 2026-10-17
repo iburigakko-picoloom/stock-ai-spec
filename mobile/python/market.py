@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import re
-import zlib
+from collections import OrderedDict
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -18,6 +17,7 @@ from stock_ai.data.normalize import canonical_payload_hash, normalize_payload
 from stock_ai.data.production import build_production_data
 from stock_ai.data.quality import require_quality, validate_rows
 
+from . import market_codec
 from .storage import connect
 
 
@@ -70,6 +70,7 @@ def initialize(path: Path) -> None:
             "id TEXT PRIMARY KEY,day TEXT NOT NULL,content_hash TEXT NOT NULL,"
             "source_pages TEXT NOT NULL)"
         )
+        market_codec.initialize(db)
 
 
 def plan(path: Path, payload: dict | None = None) -> dict | None:
@@ -157,7 +158,7 @@ def ingest(path: Path, payload: dict) -> dict:
         validate_valuations(rows, day)
         valuation_batch = (
             str(day), received.isoformat(timespec="microseconds"), canonical_payload_hash(rows),
-            zlib.compress(json.dumps(rows, allow_nan=False).encode()),
+            rows,
         )
     for dataset in DatasetName:
         rows = tuple(payload["datasets"][dataset.value])
@@ -194,8 +195,8 @@ def ingest(path: Path, payload: dict) -> dict:
                 str(day),
                 received.isoformat(timespec="microseconds"),
                 digest,
-                zlib.compress(json.dumps(rows, allow_nan=False).encode()),
-                zlib.compress(normalized),
+                rows,
+                normalized,
                 hashlib.sha256(normalized).hexdigest(),
             )
         )
@@ -214,14 +215,19 @@ def ingest(path: Path, payload: dict) -> dict:
                 raise ValueError("Acquisition receipt changed")
             db.execute("INSERT OR IGNORE INTO market_acquisitions VALUES(?,?,?,?)",
                        (acquisition, *identity, json.dumps(pages, sort_keys=True)))
-        db.executemany(
-            "INSERT OR IGNORE INTO market_batches(dataset,day,received_at,payload_hash,raw,"
-            "normalized,normalized_hash) VALUES(?,?,?,?,?,?,?)", batches
-        )
+        for dataset, source_day, receipt, digest, records, normalized, normalized_hash in batches:
+            raw = market_codec.pack_records(db, records)
+            compact = market_codec.pack_table(db, normalized, records)
+            db.execute(
+                "INSERT OR IGNORE INTO market_batches(dataset,day,received_at,payload_hash,raw,"
+                "normalized,normalized_hash) VALUES(?,?,?,?,?,?,?)",
+                (dataset, source_day, receipt, digest, raw, compact, normalized_hash),
+            )
         if valuation_batch is not None:
             db.execute(
                 "INSERT OR IGNORE INTO market_valuations(day,received_at,payload_hash,raw) "
-                "VALUES(?,?,?,?)", valuation_batch
+                "VALUES(?,?,?,?)",
+                (*valuation_batch[:3], market_codec.pack_records(db, valuation_batch[3])),
             )
         db.execute(
             "INSERT OR REPLACE INTO market_days VALUES(?,?)", (str(day), received.isoformat())
@@ -247,6 +253,52 @@ def status(path: Path) -> dict:
     }
 
 
+def compact_legacy(path: Path, budget: int = 5) -> int:
+    """Bounded, transactional repacking; observation identities/hashes stay fixed."""
+    if not 1 <= budget <= 20:
+        raise ValueError("Invalid market compaction budget")
+    with connect(path) as db:
+        # Zero freed legacy blobs so the next capsule does not retain their
+        # obsolete physical copies. SQLite can reuse these pages on later days.
+        db.execute("PRAGMA secure_delete=ON")
+        db.execute("BEGIN IMMEDIATE")
+        state = db.execute(
+            "SELECT sequence,valuation_sequence FROM market_compaction WHERE id=1"
+        ).fetchone()
+        sequence, valuation_sequence = state or (0, 0)
+        prefix_length = len(market_codec.PREFIX)
+        rows = db.execute(
+            "SELECT sequence,payload_hash,raw,normalized,normalized_hash FROM market_batches "
+            "WHERE sequence>? AND (substr(raw,1,?)<>? OR substr(normalized,1,?)<>?) "
+            "ORDER BY sequence LIMIT ?",
+            (sequence, prefix_length, market_codec.PREFIX,
+             prefix_length, market_codec.PREFIX, budget),
+        ).fetchall()
+        for sequence, digest, raw, normalized, expected in rows:
+            records = market_codec.records(db, raw)
+            if canonical_payload_hash(tuple(records)) != digest:
+                raise ValueError("Stored raw data changed")
+            decoded = market_codec.table(db, normalized, raw, expected)
+            db.execute("UPDATE market_batches SET raw=?,normalized=? WHERE sequence=?", (
+                market_codec.pack_records(db, records),
+                market_codec.pack_table(db, decoded, records), sequence,
+            ))
+        valuations = db.execute(
+            "SELECT sequence,payload_hash,raw FROM market_valuations "
+            "WHERE sequence>? AND substr(raw,1,?)<>? ORDER BY sequence LIMIT ?",
+            (valuation_sequence, prefix_length, market_codec.PREFIX, budget - len(rows)),
+        ).fetchall()
+        for valuation_sequence, digest, raw in valuations:
+            records = market_codec.records(db, raw)
+            if canonical_payload_hash(tuple(records)) != digest:
+                raise ValueError("Stored valuation data changed")
+            db.execute("UPDATE market_valuations SET raw=? WHERE sequence=?",
+                       (market_codec.pack_records(db, records), valuation_sequence))
+        db.execute("INSERT OR REPLACE INTO market_compaction VALUES(1,?,?)",
+                   (sequence, valuation_sequence))
+    return len(rows) + len(valuations)
+
+
 class SQLiteSource:
     def __init__(self, path: Path):
         self.path = path
@@ -255,24 +307,22 @@ class SQLiteSource:
         if not as_of.tzinfo:
             raise ValueError("Aware cutoff required")
         parts = []
+        cache = OrderedDict()
         total = 0
         with connect(self.path) as db:
             # Each endpoint response is a complete daily snapshot. A correction
             # that removes a row must not resurrect it from an older response.
             rows = db.execute(
-                "WITH versions AS (SELECT sequence,normalized,normalized_hash,"
+                "WITH versions AS (SELECT sequence,raw,normalized,normalized_hash,"
                 "received_at,payload_hash,ROW_NUMBER() OVER("
                 "PARTITION BY day ORDER BY received_at DESC,sequence DESC) n "
                 "FROM market_batches WHERE dataset=? AND received_at<=?) "
-                "SELECT normalized,normalized_hash,sequence FROM versions WHERE n=1 "
+                "SELECT normalized,normalized_hash,sequence,raw FROM versions WHERE n=1 "
                 "ORDER BY received_at,sequence",
                 (dataset.value, as_of.astimezone(UTC).isoformat(timespec="microseconds")),
             )
-            for content, expected, sequence in rows:
-                decoded = zlib.decompress(content)
-                if hashlib.sha256(decoded).hexdigest() != expected:
-                    raise ValueError("Stored normalized data changed")
-                frame = pd.read_json(io.BytesIO(decoded), orient="table")
+            for content, expected, sequence, raw in rows:
+                frame = market_codec.frame(db, content, raw, expected, cache)
                 total += len(frame)
                 if total > 1_500_000:
                     raise ValueError(

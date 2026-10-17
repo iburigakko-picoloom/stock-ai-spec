@@ -80,7 +80,7 @@ jobs:
           uv run mypy src
           uv run mypy src --platform win32
           uv run python -m pytest tests/test_android_lifecycle_controller.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
-          uv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_personal.py tests/test_mobile_models.py tests/test_mobile_bundles.py tests/test_mobile_forecasts.py tests/test_mobile_decisions.py tests/test_mobile_research.py tests/test_mobile_market.py tests/test_mobile_universe.py tests/test_mobile_membership.py tests/test_mobile_release.py tests/test_bounded_decision.py tests/test_decision_engine.py tests/test_domain.py tests/test_daily_contracts.py tests/test_personal_comparison.py tests/test_production_research.py tests/test_features.py tests/test_chatgpt_research.py tests/test_research_workflow.py tests/test_operations_store.py tests/test_operations_api.py -q --basetemp=.demo-artifacts/pytest-mobile-ci
+          uv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_personal.py tests/test_mobile_models.py tests/test_mobile_bundles.py tests/test_mobile_forecasts.py tests/test_mobile_decisions.py tests/test_mobile_research.py tests/test_mobile_market.py tests/test_mobile_market_codec.py tests/test_mobile_universe.py tests/test_mobile_membership.py tests/test_mobile_release.py tests/test_bounded_decision.py tests/test_decision_engine.py tests/test_domain.py tests/test_daily_contracts.py tests/test_personal_comparison.py tests/test_production_research.py tests/test_features.py tests/test_chatgpt_research.py tests/test_research_workflow.py tests/test_operations_store.py tests/test_operations_api.py -q --basetemp=.demo-artifacts/pytest-mobile-ci
           uv run python -m pytest tests/test_research_checkpoint.py::test_fold_checkpoint_is_atomic_authenticated_and_read_only_status tests/test_locked_holdout.py::test_locked_holdout_resumes_components_and_never_refits_successes tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom tests/test_research_memory.py::test_low_headroom_never_calls_fit -q --basetemp=.demo-artifacts/pytest-platform-ci
       - name: Prepare offline interpreter and PC reference vectors
         env:
@@ -103,6 +103,18 @@ jobs:
         run: |
           uv run python scripts/android_source_audit.py
           uv run python scripts/android_package_audit.py web/dist
+      - name: Synthetic full-market storage capacity
+        timeout-minutes: 15
+        env:
+          PYTHONPATH: src
+        run: uv run python -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-ci --symbols 5000 --sessions 300 --checkpoint 100
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mobile-storage-capacity
+          path: .demo-artifacts/mobile-capacity-ci/report.json
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-web

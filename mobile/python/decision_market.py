@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import zlib
 from datetime import date, datetime
 from decimal import Decimal
@@ -13,7 +12,7 @@ from stock_ai.domain import MarketSnapshot, Security
 from stock_ai.operations.daily import content_id
 from stock_ai.operations.personal import PersonalMarket
 
-from . import market, membership, universe
+from . import market, market_codec, membership, universe
 from .storage import connect
 
 
@@ -31,19 +30,14 @@ def _rows(path, source, cutoff):
             (source["observation_id"], dataset) if dataset != "valuations"
             else (source["observation_id"],),
         ).fetchone()
-    if row is None or tuple(row[:3]) != (
-        source["date"], source["received_at"], source["payload_hash"],
-    ) or market.receipt_time(row[1]) > cutoff:
-        raise EvidenceUnavailable("FROZEN_MARKET_SOURCE_MISSING")
-    decoder = zlib.decompressobj()
-    try:
-        decoded = decoder.decompress(row[3], 64 * 1024 * 1024 + 1)
-    except zlib.error as error:
-        raise EvidenceUnavailable("FROZEN_MARKET_SOURCE_INVALID") from error
-    if (len(decoded) > 64 * 1024 * 1024 or decoder.unconsumed_tail
-            or decoder.unused_data or not decoder.eof):
-        raise EvidenceUnavailable("FROZEN_MARKET_SOURCE_INVALID")
-    rows = json.loads(decoded)
+        if row is None or tuple(row[:3]) != (
+            source["date"], source["received_at"], source["payload_hash"],
+        ) or market.receipt_time(row[1]) > cutoff:
+            raise EvidenceUnavailable("FROZEN_MARKET_SOURCE_MISSING")
+        try:
+            rows = market_codec.records(db, row[3])
+        except (ValueError, zlib.error, KeyError, TypeError) as error:
+            raise EvidenceUnavailable("FROZEN_MARKET_SOURCE_INVALID") from error
     if canonical_payload_hash(tuple(rows)) != row[2]:
         raise EvidenceUnavailable("FROZEN_MARKET_SOURCE_CHANGED")
     return rows

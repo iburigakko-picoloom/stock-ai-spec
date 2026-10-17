@@ -54,6 +54,21 @@ CIでは通常のinstrumented試験の後に、専用test APKと`scripts/android
 
 6a86762の[CI 38984534524](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38984534524)では、同じ3段階へ暗号化した調査記録も追加してpass。各段階の前に予約/完成応答/ACK記録を準備し、実際のプロセス消失後に共有ChatGPTClientへ再度渡して、中断扱い・元の応答と時刻・再送抑止・hash/model/effort変更の拒否を検証した。完成応答を回収してACKした後も、次のOS中断で記録を保持する。`research_recovery`の照合件数と元の予約ID/準備時世代を結果に含め、raw応答は含めない。資格情報のない合成受領の回復試験であり、実アカウントの通信・検索成功とは区別する。
 
+## 全市場履歴の容量確認
+
+D126の可逆column形式は、raw/正規化の元の値・型・byte/hash・受領時刻と訂正順を保持しながら、重複列をまとめる。旧形式も読め、exportごと最大5batchずつtransactionで移行する。nativeの128MiB文字上限とSQLite復元の256MiB/file上限は維持し、保存時にも復元可能なサイズを確認する。
+
+リポジトリrootで、未使用の出力先を指定して再現する。
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-local --symbols 5000 --sessions 300 --checkpoint 100
+```
+
+CIでも同じ検証を実施し、`mobile-storage-capacity`へsource hashes付きreportだけを保存する。合成の平日カレンダー・財務開示を使ったPCのingest/export/restoreであり、取得済み市場データ、学習、holdout、本人端末の保存内容には触れない。SQLiteやcapsuleはartifactへuploadしない。
+
+ローカルの5,000銘柄・300営業日では55,754,616 base64文字、mobile.sqlite344,470,272bytes、300日の復元がpassした。旧形式は90営業日のcheckpointで137,959,496文字となり、native上限134,217,728文字を超えた。checkpointの容量比較であり、毎回のnative暗号化保存やXiaomiの速度/メモリ成功を意味しない。150万行の株価PIT読込のPCピークは改善後も約2.16GBで、全特徴量計算・150万行guardを超える継続履歴・実機の受入は残る。
+
 ## 自動署名配布
 
 `.github/workflows/android-apk.yml`はmainのAndroid関連変更で起動する。PRは署名Secretsを利用せずテスト/ビルドする。React、PC/Python、通信遮断WASM一致、Androidコンパイル、暗号化backup、lintを通過後、mainでのみrelease鍵で署名し、ReleasesへAPK・`update.json`・`SHA256SUMS`・署名証明を公開する。draftへassetをすべてuploadしてから公開する。

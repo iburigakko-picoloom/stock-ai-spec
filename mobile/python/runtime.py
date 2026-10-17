@@ -28,6 +28,7 @@ from .portable_model import predict
 from .storage import connect
 
 STATE = Path("/stockai-state")
+MAX_DATABASE_BYTES = 256 * 1024 * 1024
 _app = None
 
 
@@ -47,7 +48,7 @@ def initialize(encoded: str = "") -> dict:
                 raise ValueError("Unexpected backup file")
             for name in archive.namelist():
                 info = archive.getinfo(name)
-                if info.file_size > 256 * 1024 * 1024:
+                if info.file_size > MAX_DATABASE_BYTES:
                     raise ValueError("Backup exceeds mobile storage limit")
                 content = archive.read(name)
                 if not content.startswith(b"SQLite format 3\x00"):
@@ -96,16 +97,21 @@ def mobile_db():
 
 
 def export_state() -> str:
+    market.compact_legacy(STATE / "mobile.sqlite3")
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         for name in ("operations.sqlite3", "mobile.sqlite3"):
             backup_path = STATE / "export.sqlite3"
-            with closing(sqlite3.connect(STATE / name)) as connection:
-                with closing(sqlite3.connect(backup_path)) as target:
-                    connection.backup(target)
-                    target.execute("PRAGMA journal_mode=DELETE")
-            archive.writestr(name, backup_path.read_bytes())
-            backup_path.unlink()
+            try:
+                with closing(sqlite3.connect(STATE / name)) as connection:
+                    with closing(sqlite3.connect(backup_path)) as target:
+                        connection.backup(target)
+                        target.execute("PRAGMA journal_mode=DELETE")
+                if backup_path.stat().st_size > MAX_DATABASE_BYTES:
+                    raise ValueError("Backup exceeds mobile storage limit")
+                archive.writestr(name, backup_path.read_bytes())
+            finally:
+                backup_path.unlink(missing_ok=True)
     return base64.b64encode(output.getvalue()).decode("ascii")
 
 

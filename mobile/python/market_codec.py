@@ -1,0 +1,289 @@
+"""Lossless shared columns for immutable market batches, with legacy decoding.
+
+Normalized JSON is compacted only when its exact original bytes can be rebuilt.
+Record hashes are derived from retained raw records using the frozen v1 hash.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+import re
+import zlib
+from itertools import pairwise
+from json.encoder import encode_basestring_ascii
+
+import pandas as pd
+from pandas._libs.json import ujson_loads
+from pandas.io.json._table_schema import convert_json_field_to_pandas_type
+
+from stock_ai.data.normalize import record_hash_v1
+
+PREFIX = b"stockai-columns-v1\n"
+MAX_BLOCK = 128 * 1024 * 1024
+
+
+class Number(str):
+    """Retain the original Pandas JSON numeric spelling, including exponents."""
+
+
+def initialize(db):
+    db.execute("CREATE TABLE IF NOT EXISTS market_columns("
+               "digest TEXT PRIMARY KEY,payload BLOB NOT NULL)")
+    db.execute("CREATE TABLE IF NOT EXISTS market_compaction("
+               "id INTEGER PRIMARY KEY CHECK(id=1),sequence INTEGER NOT NULL,"
+               "valuation_sequence INTEGER NOT NULL)")
+
+
+def _inflate(payload, limit=MAX_BLOCK):
+    decoder = zlib.decompressobj()
+    value = decoder.decompress(payload, limit + 1)
+    if len(value) > limit or not decoder.eof or decoder.unused_data:
+        raise ValueError("Invalid/oversized market block")
+    return value
+
+
+def _token(value):
+    if isinstance(value, Number):
+        return str(value)
+    if type(value) is str:
+        return encode_basestring_ascii(value).replace("/", "\\/")
+    if value is None or type(value) in (bool, int, float):
+        return json.dumps(value, allow_nan=False, separators=(",", ":"))
+    raise TypeError("Nested provider values retain legacy storage")
+
+
+def _column(db, values):
+    if values and all(item == values[0] for item in values):
+        return {"constant": values[0]}
+    data = json.dumps(values, separators=(",", ":")).encode()
+    if len(data) > MAX_BLOCK:
+        raise ValueError("Market column exceeds storage limit")
+    digest = hashlib.sha256(data).hexdigest()
+    compressed = zlib.compress(data)
+    inserted = db.execute("INSERT OR IGNORE INTO market_columns VALUES(?,?)", (digest, compressed))
+    if inserted.rowcount == 0:
+        stored = db.execute("SELECT payload FROM market_columns WHERE digest=?",
+                            (digest,)).fetchone()
+        if stored is None or (stored[0] != compressed and _inflate(stored[0]) != data):
+            raise ValueError("Market column changed")
+    return {"ref": digest}
+
+
+def _document(kind, rows, columns, **other):
+    encoded = json.dumps(
+        {"kind": kind, "rows": rows, "columns": columns, **other},
+        separators=(",", ":"), allow_nan=False,
+    ).encode()
+    if len(encoded) > MAX_BLOCK:
+        raise ValueError("Market descriptor exceeds storage limit")
+    return PREFIX + zlib.compress(encoded)
+
+
+def pack_records(db, records):
+    records = list(records)
+    if len(records) > 50000:
+        raise ValueError("Market batch row limit")
+    fields = list(dict.fromkeys(key for row in records for key in row))
+    prepared = []
+    try:
+        for field in fields:
+            present = [index for index, row in enumerate(records) if field in row]
+            values = [_token(records[index][field]) for index in present]
+            prepared.append((field, present, values))
+    except TypeError:
+        return zlib.compress(json.dumps(records, allow_nan=False).encode())
+    columns = []
+    for field, present, values in prepared:
+        column = {"name": field, **_column(db, values)}
+        if len(present) != len(records):
+            column["present"] = present
+        columns.append(column)
+    return _document("records", len(records), columns)
+
+
+def _table(schema, names, values, count):
+    keys = [encode_basestring_ascii(name) + ":" for name in names]
+    rows = (
+        "{" + ",".join(key + column[index] for key, column in zip(keys, values, strict=True)) + "}"
+        for index in range(count)
+    )
+    return ('{"schema":' + schema + ',"data":[' + ",".join(rows) + "]}").encode()
+
+
+def pack_table(db, original, raw):
+    text = original.decode()
+    if not text.startswith('{"schema":'):
+        return zlib.compress(original)
+    _, end = json.JSONDecoder().raw_decode(text, len('{"schema":'))
+    schema = text[len('{"schema":'):end]
+    document = json.loads(text, parse_int=Number, parse_float=Number)
+    rows = document["data"]
+    fields = list(rows[0]) if rows else [field["name"] for field in document["schema"]["fields"]]
+    if any(list(row) != fields for row in rows):
+        return zlib.compress(original)
+    values = [[_token(row[field]) for row in rows] for field in fields]
+    if _table(schema, fields, values, len(rows)) != original:
+        return zlib.compress(original)
+    raw_hashes = [_token(record_hash_v1(row)) for row in raw]
+    columns = []
+    for field, items in zip(fields, values, strict=True):
+        if field == "source_record_hash" and items == raw_hashes:
+            columns.append({"name": field, "raw_hashes": True})
+        else:
+            columns.append({"name": field, **_column(db, items)})
+    return _document("table", len(rows), columns, schema=schema)
+
+
+def _read(db, payload, kind, raw=None):
+    document = json.loads(_inflate(payload[len(PREFIX):]))
+    expected = {"kind", "rows", "columns"}
+    if kind == "table":
+        expected.add("schema")
+    if (not isinstance(document, dict)
+            or set(document) != expected
+            or (kind == "table" and not isinstance(document["schema"], str))):
+        raise ValueError("Invalid market column document")
+    count = document["rows"]
+    columns = document["columns"]
+    if document["kind"] != kind or type(count) is not int or not 0 <= count <= 50000:
+        raise ValueError("Invalid market column document")
+    if not isinstance(columns, list):
+        raise ValueError("Invalid market columns")
+    names, values, presence, cache, seen = [], [], [], {}, set()
+    expanded = len(document.get("schema", "")) + 2 * count
+    limit = MAX_BLOCK if kind == "table" else 64 * 1024 * 1024
+    for column in columns:
+        name = column["name"]
+        if not isinstance(name, str) or name in seen:
+            raise ValueError("Invalid market column name")
+        indexes = column.get("present")
+        if indexes is not None and (
+            kind != "records" or not isinstance(indexes, list)
+            or any(type(item) is not int or not 0 <= item < count for item in indexes)
+            or any(left >= right for left, right in pairwise(indexes))
+        ):
+            raise ValueError("Invalid market column presence")
+        length = count if indexes is None else len(indexes)
+        tags = set(column) - {"name", "present"}
+        if tags == {"constant"}:
+            if type(column["constant"]) is not str:
+                raise ValueError("Invalid market constant")
+            expanded += len(column["constant"].encode()) * length
+            if expanded > limit:
+                raise ValueError("Expanded market records exceed storage limit")
+            items = [column["constant"]] * length
+        elif (tags == {"raw_hashes"} and kind == "table" and name == "source_record_hash"
+              and column["raw_hashes"] is True):
+            if raw is None or len(raw) != count:
+                raise ValueError("Raw market records missing")
+            items = [_token(record_hash_v1(row)) for row in raw]
+            expanded += sum(len(item) for item in items)
+        elif tags == {"ref"}:
+            digest = column["ref"]
+            if not isinstance(digest, str) or not re.fullmatch("[0-9a-f]{64}", digest):
+                raise ValueError("Invalid market column reference")
+            if digest not in cache:
+                stored = db.execute("SELECT payload FROM market_columns WHERE digest=?",
+                                    (digest,)).fetchone()
+                if stored is None:
+                    raise ValueError("Market column missing")
+                encoded = _inflate(stored[0])
+                if hashlib.sha256(encoded).hexdigest() != digest:
+                    raise ValueError("Market column changed")
+                cache[digest] = json.loads(encoded)
+            items = cache[digest]
+            if isinstance(items, list) and all(type(item) is str for item in items):
+                expanded += sum(len(item.encode()) for item in items)
+        else:
+            raise ValueError("Invalid market column encoding")
+        if (not isinstance(items, list) or len(items) != length
+                or any(type(item) is not str for item in items)):
+            raise ValueError("Invalid market column length/value")
+        expanded += (len(encode_basestring_ascii(name)) + 2) * length
+        if expanded > limit:
+            raise ValueError("Expanded market records exceed storage limit")
+        seen.add(name)
+        names.append(name)
+        values.append(items)
+        presence.append(indexes)
+    return document, names, values, presence
+
+
+def records(db, payload):
+    if not payload.startswith(PREFIX):
+        result = json.loads(_inflate(payload, 64 * 1024 * 1024))
+        if not isinstance(result, list):
+            raise ValueError("Invalid legacy market records")
+        return result
+    document, names, values, presence = _read(db, payload, "records")
+    if all(indexes is None for indexes in presence):
+        # One JSON parse avoids a separate parser call for every scalar cell.
+        wrapped = _table("{}", names, values, document["rows"])
+        return json.loads(wrapped)["data"]
+    result = [{} for _ in range(document["rows"])]
+    for name, items, indexes in zip(names, values, presence, strict=True):
+        targets = range(len(result)) if indexes is None else indexes
+        for index, item in zip(targets, items, strict=True):
+            result[index][name] = json.loads(item)
+    return result
+
+
+def table(db, payload, raw, expected):
+    if not payload.startswith(PREFIX):
+        decoded = _inflate(payload, 128 * 1024 * 1024)
+    else:
+        source = records(db, raw)
+        document, names, values, _ = _read(db, payload, "table", source)
+        decoded = _table(document["schema"], names, values, document["rows"])
+    if hashlib.sha256(decoded).hexdigest() != expected:
+        raise ValueError("Stored normalized data changed")
+    return decoded
+
+
+def frame(db, payload, raw, expected, cache):
+    """Use Pandas' own scalar parser/schema conversion with shared columns.
+
+    Verify the exact frozen row JSON before materializing its columns. Constant
+    strings are parsed once, and immutable reference columns share decoded
+    values within this one PIT read. Values, types and indexes match read_json.
+    """
+    if not payload.startswith(PREFIX):
+        return pd.read_json(io.BytesIO(table(db, payload, raw, expected)), orient="table")
+    source = records(db, raw)
+    document, names, values, _ = _read(db, payload, "table", source)
+    decoded = _table(document["schema"], names, values, document["rows"])
+    if hashlib.sha256(decoded).hexdigest() != expected:
+        raise ValueError("Stored normalized data changed")
+    if document["rows"] == 0:
+        # Pandas infers an empty row table differently from a dict of empty
+        # columns. Keep its exact empty-schema semantics across pinned runtimes.
+        return pd.read_json(io.BytesIO(decoded), orient="table")
+    schema = ujson_loads(document["schema"], precise_float=False)
+    columns = {}
+    for spec, name, items in zip(document["columns"], names, values, strict=True):
+        key = spec.get("ref")
+        if key is not None and key in cache:
+            cache.move_to_end(key)
+            columns[name] = cache[key]
+        elif "constant" in spec:
+            columns[name] = [ujson_loads(spec["constant"], precise_float=False)] * document["rows"]
+        else:
+            columns[name] = ujson_loads("[" + ",".join(items) + "]", precise_float=False)
+            if key is not None:
+                cache[key] = columns[name]
+                if len(cache) > 128:
+                    cache.popitem(last=False)
+    order = [field["name"] for field in schema["fields"]]
+    dtypes = {field["name"]: convert_json_field_to_pandas_type(field) for field in schema["fields"]}
+    # These are the same casts/index operations as Pandas' table-schema reader.
+    result = pd.DataFrame(columns, columns=order).astype(dtypes)
+    if "primaryKey" in schema:
+        result = result.set_index(schema["primaryKey"])
+        result.index.names = [
+            None if (name == "index" and len(result.index.names) == 1)
+            or (isinstance(name, str) and name.startswith("level_") and len(result.index.names) > 1)
+            else name for name in result.index.names
+        ]
+    return result

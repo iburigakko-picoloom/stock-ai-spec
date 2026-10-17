@@ -29,6 +29,8 @@
 
 正常な無売買・全現金を成功結果とする。古い結果の時刻を新しく見せず、数値完了と調査未完を区別する。OSによる実行遅延を表示し、締切後の受領データを11:30へ遡及させない。採用モデル0件、API403、未入力、実機未確認を試験成功で解消済みと数えない。これらが残る間は「APIだけで実用開始できる」と判定しない。
 
+全市場の容量はD126で検証を追加。旧形式は合成5,000銘柄・90営業日のcheckpointでnative payload上限を超えたため、原データと正規化byte/hashを保つcolumn形式へ変更した。300営業日・150万株価行でpayload55,754,616文字とPC復元がpassし、旧450batchの凍結内容も一致。PCのPIT読込ピークは約3.63GB→約2.16GB。native暗号化の毎回commit、全特徴量計算、Xiaomi性能、150万行guardを超える継続履歴の受入は別に残る。市場母集団を上位300社へ縮めて容量問題を回避しない。
+
 ## ChatGPTの実装根拠
 
 - [登録・PKCE・loopback・ID token検証](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)

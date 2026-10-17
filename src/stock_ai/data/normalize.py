@@ -138,7 +138,7 @@ def _add_metadata(
     result["ingestion_run_id"] = ingestion_run_id
     if payload.rows:
         result["source_record_hash"] = [
-            _record_hash(row) for row in payload.rows
+            record_hash_v1(row) for row in payload.rows
         ]
     else:
         result["source_record_hash"] = pd.Series([], dtype="string")
@@ -365,7 +365,8 @@ def _financial_summary(frame: pd.DataFrame) -> pd.DataFrame:
     )[columns]
 
 
-def _record_hash(row: dict[str, Any]) -> str:
+def record_hash_v1(row: dict[str, Any]) -> str:
+    """Frozen raw-record identity used by persisted market observations."""
     encoded = json.dumps(
         row,
         ensure_ascii=False,
