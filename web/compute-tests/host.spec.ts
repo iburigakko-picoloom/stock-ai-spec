@@ -34,4 +34,9 @@ test("production compute entry boots offline under the native CSP and returns du
   const afterFailure = await send(5, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
   expect(afterFailure.result).toEqual(saved.result);
   expect(afterFailure.state).toBeNull();
+  const exception = await send(6, { command: "request", method: "POST", path: "/api/v1/mobile/features", body: "null" });
+  expect(exception.error).toBe("COMPUTE_WORKER_FAILED");
+  const afterException = await send(7, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
+  expect(afterException.result).toEqual(saved.result);
+  expect(afterException.state).toBeNull();
 });
