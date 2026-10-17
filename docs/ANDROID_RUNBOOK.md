@@ -156,6 +156,8 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 
 長い数値計算の直前には、WorkManagerのdataSync foreground開始を待つ。固定のprivate通知は口座や保有を含まない。Androidが開始を拒否した場合は計算せず、「Androidの計算待ち」と保存済み状態の確認を表示し、既存の日次上限付き再試行へ戻す。foregroundはAndroid16のjob quotaや定刻実行を保証しない。通知表示/実OS admission・継続は実機で別途確認する。API35のnative試験へ520日capsuleと同じ96,870,524文字のopaque ASCII保存・再open・競合拒否・全digest照合を追加し、phase/最大Java heap/秒だけをreportに残す。実SQLite capsule・WebView bridge・全取得日のcommitや実forecastとは区別する。
 
+2026-10-17のdesktop検証では、実際の合成520日SQLite capsule96,870,524文字を配布版compute host/WASMへ初期化し、合成の保有なし入力をPOSTして別browser contextへ再読込した。nativeと同じCSP、520日と全受領記録、全mobile17tableのtyped-cell hash不変を確認。元DBはcopyして保持し、同梱mobile15 sourceの一致も確認した。51.68秒でpassしたが、native bridgeはmockでありJava/Keystore/実機の証拠ではない。最初のCDP巨大fulfill試作の接続終了も原本へ残し、loopback streamの試験harnessで切り分けた。原本は`.demo-artifacts/mobile-native-history-capsule-20261017`。実注文能力false、モデル採用0件を維持する。
+
 口座・保有・初回台帳・補足設定・確認済みモデル一式とJ-Quants APIキーを用意して、今日または設定の「開始」を押す。通知はAndroidで許可でき、拒否しても保存は継続する。初回は保存済み取得範囲の開始日（未設定なら420日前）から昨日までを小分けに取得し、以後は未保存の差分を取得する。10:30〜11:30の当日一覧を優先し、締切内の根拠がない日は当日計算を完成扱いにしない。数値保存とChatGPT調査の状態は別。ChatGPT連携とモデル/推論量の設定があれば、上位20と全保有の独立調査・数値照合へ自動で進む。上限・認証切れ・通信/回答不成立は未完として保存し、調査画面で明示的に回復する。日ごとの条件を固定し、自動再調査で別の設定へ切り替えない。
 
 OS予約のため定刻実行は保証されない。画面では対象日と実際の状態を確認する。停止は次のページ・処理の境界に効き、確定済みの取得と結果を残す。復元・APIキー削除時は自動処理を停止する。通常のプロセス停止や再起動はWorkManagerの永続予約で回復する設計だが、実機受入は未完。Androidで「強制停止」した場合はアプリを開く。API401/403は設定を直して「続きから再開」。一時失敗はJST1日3回までで、翌日を待つか停止後に本人が再開する。72時間以内の本人入力照合と採用ゲートは維持する。
