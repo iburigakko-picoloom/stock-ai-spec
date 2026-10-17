@@ -1,11 +1,19 @@
 # Project Status
 
+## 2026-10-17 — 有効な全市場SQLiteをnative ownerで検証する工程を追加
+
+- D144として、同じCI runで作った5000銘柄/520sessionの合成初回取得から、有効なSQLite capsuleを作る。生成時の8sourceを現行byteと照合し、元DBを変更せずcopyを現行runtimeで正規化する。再復元後の全mobile17tableの定義・主キー順のtyped-cell hashを照合し、model0・520日を確認する。出所が異なるローカルの旧fixtureは`Capacity source changed`で拒否した。この拒否を新しいfixtureの成功とは扱わず、新規生成からの確認はCIへ残す。
+- controller専用Android testを追加。巨大なtest用Stringを作らず、既存の256KiB/AES-GCM/AAD形式で隔離native DBへ投入し、その後はproduction ownerによる全量読込・Java/JSON/実WASM復元・空の本人入力POST・owner再生成を通す。最終暗号化chunkを小分けにexportし、PC再復元で全17tableと本人入力を再照合する。準備/初期化/commit/再生成等のphaseとheap上限、容量stackを区別して残す。production store/bridgeは変更せず、192MiB heap・128MiB文字・timeoutを維持。
+- GitHub専用の既存使い捨てAPI35 guardを再利用し、実機・別AVD・非debug packageを対象にしない。MainActivityを起動せず、同runのdebug/test APKと合成capsuleだけを3日保持のartifactで渡す別jobを追加。通常native suiteの66件は保ち、新jobをreleaseの必要条件へ追加。fixture/artifact未生成や未完は成功扱いにしない。
+- fixture metadata/外部path拒否・未guard通信拒否・SQLiteの全cell型/空table/schema/index/rowid非依存・既存OS controllerを含む57件が2.06秒でpass。Ruff全体とworkflow YAML/needs/read-only権限/通常suite除外/元と同じemulator設定の照合もpass。原本は`native-history-controller-tests.xml`。Javaのコンパイル・現行sourceからの全量fixture生成・実native bridgeの成否はpush後CIで確認する。私有研究・holdout・実注文・承認bundle/本人gateに変更なし。main merge・製品APK公開なし。
+
 ## 2026-10-17 — 同じ取引日履歴の銘柄を有界でまとめて計算
 
 - D143として、latest snapshotの指標計算を同じ全日付gridの銘柄でまとめる。異なるIPO日・最終日を行番号で揃えず、全pending group合計128銘柄まで。明示した取引sessionのgapは従来の銘柄別segment resetへ戻す。共通の数式をSeries/列行列へ適用し、Wilderのseedと演算順、欠損時の状態保持、event日数、銘柄内のtrue range/ひげ、最終drawdown窓・dtype・列順・全履歴入力と検証を保つ。full-history transformは従来の銘柄別経路を維持。
 - frozen ebb3b4dの元指標と168条件、元engineと全履歴/最終日・3manifest等28条件で全値/型/index/列順・例外・metadataを照合済み。指標/特徴量85件がpass（18.91秒）。追加の133銘柄・128上限・IPO/最終日差・gap・nullable株数・多数の異なるgridを含む4条件がpass（16.16秒）。関連mobile80件も92.99秒でpass。原本は`matrix-indicator-implementation-parity.json`、`matrix-engine-legacy-parity.json`、`matrix-feature-final-tests.xml`、`matrix-batch-final-tests.xml`、`matrix-mobile-tests.xml`。
 - Ruff全体、mypy通常/win32各66file、同梱archive/golden再生成（共有29＋mobile15file・model0）、TypeScript/buildがpass。全44sourceのworking raw bytesをarchiveと照合した`matrix-indicator-archive-proof.json`を保持。同梱WASMと全量の測定は継続中。5000銘柄/520session・全特徴量・600秒/3500MiB、承認bundle0件、私有研究停止・holdout lock・本人台帳gateを維持。実注文・merge・APK公開なし。
 - 同梱WASMのPC特徴量/9モデルvector・4head bundle/300候補＋保有の株数/復元5件が2.1分でpass。原本は`matrix-wasm-tests-allowed.log`。最初のrestricted実行はloopback socket拒否を確認し、所有を再確認したtest process treeだけを停止した環境中断であり、数値不一致として扱わない。source809/private0・package42 entries監査もpass。全量WASM/PCは次に同じ予算で測る。
+- 5736d30の全量同梱WASMがpass。計算595.194秒（起動等を含む全体607.779秒）・入力493.425秒・最大owned browser process peak3,321,311,232bytesで600秒/3500MiB内。daily/financial各260万行・市場/業種各520行・全5source ID・5/20日各5,000行（43/53列）を維持し、保存した全17,541,784bytesの特徴量JSON SHA7ee2812d...9e580dffはPCと完全一致。元DB/capsule不変、全5source IDも前版と完全一致。archive SHA5ae041ff...7c326799と44sourceのGit5736d30照合、診断worker hashを`wasm-features-matching-session-matrix/provenance-proof.json`へ固定。計算予算の余裕は約4.8秒であり、反復安定性・native・モデル/実機の性能は示さない。同sourceの全量Windows PCは測定中。
 
 ## 2026-10-17 — 財務結合と特徴量表の構築をまとめて実行
 
@@ -15,6 +23,7 @@
 - 同梱WASMのPC特徴量/9モデルvector・4head bundle/300候補＋保有の株数/復元5件が2.0分でpass。原本は`batched-assembly-wasm-tests.log`。全量WASMは一括結合の実行を確認し、その結合1.557秒・財務展開全体6.950秒（前回55.842秒）、全入力409.064秒で完成した。全5source ID・daily/financial各260万行・市場/業種各520行を維持。入力変換後、453.835秒に指標計算へ入り3,000銘柄まで進捗を観測したが、600秒の計算予算に達し全体614.41秒でtime停止。peak3,227,078,656bytesは予算内。完成特徴量/hashはなく、全銘柄の指標計算が残る。原本は`mobile-native-history-capsule-20261017/wasm-features-batched-financial-assembled`、archive SHAa7637a0c...300e152b。診断workerもhashを固定し、予算を延長しない。
 - ebb3b4dをpushし、CI39018935598で検証中。単独のWindows全量PCは366.784秒・peak2,799,673,344bytesでpass。全入力211.214秒、全5source ID・daily/financial各260万行・市場/業種各520行・5/20日各5,000行（43/53列）を維持し、全特徴量JSON SHA7ee2812d...9e580dffが修正前と完全一致。元DB不変。数値を記録するwrapperもhashを固定し、保存した全量JSONとreportのhash、7sourceのworking raw hashとGit ebb3b4dの改行正規化後の内容を照合済み。原本は`mobile-two-year-capacity-candidate-20261017/latest-features-batched-financial-assembled.json`と`batched-assembly-source-proof.json`。WASM失敗も全44source・元capsule・前版と同じ5source IDを`provenance-proof.json`へ照合し、成功へ読み替えない。
 - ebb3b4dのCI39018935598ではAndroid jobがsuccess。native66件fail/error/skip0、96,870,524文字のopaque暗号化storeは4.340秒・Java heap上限201,326,592bytesでpass。OS復旧のprocess/reboot/force-stop後の明示再openの3段階も元WorkInfo SUCCEEDED・ACK・generation5/8/11・pending0、本人入力/受領/調査の復旧を確認。processは画面wake/sleepと元jobへの制約充足dispatch、rebootは制約未充足を観測後に追加dispatchせず完了、再openはunforced。原本と整合性確認済みの`batched-assembly-ci-39018935598/native-evidence.json`を保持。verifyは継続中でありworkflow全体の成功、native全量SQLite bridge、自然配送時刻、Xiaomiやmodelの受入を示さない。
+- CI39018935598は全job終了、verify/Android success・release skip。Linuxの520日保存/復元は790.321秒、全特徴量は480.051秒・peak3,155,480,576bytesでpass。全入力260.762秒、5source・daily/financial各260万行・市場/業種各520行・5/20日各5,000銘柄（43/53列）を維持し、全特徴量JSON SHA7ee2812d...9e580dffが従来と完全一致。7source raw bytesと容量report hashをGit ebb3b4dへ照合した`batched-assembly-ci-39018935598/verify-source-proof.json`と元report/logを保持。これはPCの成功であり、既にtime停止したWASMや未検証のnative実SQLite全量を成功へ読み替えない。
 
 ## 2026-10-17 — 同一圧縮byteの検証済み列を有界で再利用
 

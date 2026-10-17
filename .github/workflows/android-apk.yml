@@ -10,6 +10,7 @@ on:
       - 'src/stock_ai/**'
       - 'tests/test_mobile*.py'
       - 'tests/test_android_lifecycle_controller.py'
+      - 'tests/test_android_history_check.py'
       - 'tests/test_chatgpt_research.py'
       - 'tests/test_research_workflow.py'
       - 'tests/test_production_research.py'
@@ -27,6 +28,7 @@ on:
       - 'src/stock_ai/**'
       - 'tests/test_mobile*.py'
       - 'tests/test_android_lifecycle_controller.py'
+      - 'tests/test_android_history_check.py'
       - 'tests/test_chatgpt_research.py'
       - 'tests/test_research_workflow.py'
       - 'tests/test_production_research.py'
@@ -83,7 +85,7 @@ jobs:
           uv run ruff check .
           uv run mypy src
           uv run mypy src --platform win32
-          uv run python -m pytest tests/test_android_lifecycle_controller.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
+          uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
           uv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_personal.py tests/test_mobile_models.py tests/test_mobile_bundles.py tests/test_mobile_forecasts.py tests/test_mobile_decisions.py tests/test_mobile_research.py tests/test_mobile_market.py tests/test_mobile_market_codec.py tests/test_mobile_feature_source.py tests/test_mobile_features.py tests/test_mobile_universe.py tests/test_mobile_membership.py tests/test_mobile_release.py tests/test_bounded_decision.py tests/test_decision_engine.py tests/test_domain.py tests/test_daily_contracts.py tests/test_personal_comparison.py tests/test_production_research.py tests/test_features.py tests/test_indicators.py tests/test_chatgpt_research.py tests/test_research_workflow.py tests/test_operations_store.py tests/test_operations_api.py -q --basetemp=.demo-artifacts/pytest-mobile-ci
           uv run python -m pytest tests/test_research_checkpoint.py::test_fold_checkpoint_is_atomic_authenticated_and_read_only_status tests/test_locked_holdout.py::test_locked_holdout_resumes_components_and_never_refits_successes tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom tests/test_research_memory.py::test_low_headroom_never_calls_fit -q --basetemp=.demo-artifacts/pytest-platform-ci
       - name: Prepare offline interpreter and PC reference vectors
@@ -112,6 +114,18 @@ jobs:
         env:
           PYTHONPATH: src
         run: uv run python -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-ci --symbols 5000 --sessions 520 --checkpoint 130 --initial-download
+      - name: Prepare synthetic native SQLite fixture
+        env:
+          PYTHONPATH: src
+        run: uv run python -m scripts.mobile_native_history_fixture --source .demo-artifacts/mobile-capacity-ci --output .demo-artifacts/mobile-native-fixture
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: synthetic-native-history
+          path: |
+            .demo-artifacts/mobile-native-fixture/input.b64
+            .demo-artifacts/mobile-native-fixture/report.json
+          if-no-files-found: error
+          retention-days: 3
       - name: Synthetic full-market latest features
         timeout-minutes: 12
         env:
@@ -195,10 +209,18 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-history-test-apks
+          path: |
+            web/android/app/build/outputs/apk/debug/app-debug.apk
+            web/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 3
       - name: Android persistence tests
         id: native_tests
         working-directory: web/android
-        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest
+        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest
       - name: Native encrypted store capacity evidence
         if: always() && (steps.native_tests.outcome == 'success' || steps.native_tests.outcome == 'failure')
         run: |
@@ -250,9 +272,89 @@ jobs:
         run: |
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
+  android-history:
+    if: ${{ always() && !cancelled() && needs.android.result == 'success' }}
+    needs: [verify, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install locked verification dependencies
+        run: |
+          python -m pip install uv==0.10.0
+          uv sync --locked --all-groups
+      - name: Download this run's synthetic fixture and debug test APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name synthetic-native-history --dir .demo-artifacts/native-history-input
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name native-history-test-apks --dir .demo-artifacts/native-history-apks
+      - name: Start isolated Android emulator
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          sudo chmod a+rw /dev/kvm
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)
+          test -n "$SDKMANAGER"
+          export PATH="$(dirname "$SDKMANAGER"):$ANDROID_HOME/platform-tools:$PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/stockai-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          sdkmanager --install 'system-images;android-35;default;x86_64' 'emulator' > "$RUNNER_TEMP/stockai-sdk.log"
+          echo no | avdmanager create avd --force --name stockai-ci --path "$ANDROID_AVD_HOME/stockai-ci.avd" --package 'system-images;android-35;default;x86_64' --device pixel_2
+          # New command-line tools and the emulator have different default
+          # Android user directories. Register the explicit, isolated AVD path.
+          printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-35\n' "$ANDROID_AVD_HOME/stockai-ci.avd" > "$ANDROID_AVD_HOME/stockai-ci.ini"
+          test -f "$ANDROID_AVD_HOME/stockai-ci.avd/config.ini"
+          export QT_QPA_PLATFORM=offscreen
+          nohup "$ANDROID_HOME/emulator/emulator" -avd stockai-ci -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics -gpu swiftshader -feature -Vulkan -memory 2048 -cores 2 -camera-back none -camera-front none > "$RUNNER_TEMP/stockai-emulator.log" 2>&1 < /dev/null &
+          if ! timeout 120 adb wait-for-device; then
+            tail -n 160 "$RUNNER_TEMP/stockai-emulator.log"
+            exit 1
+          fi
+          BOOTED=false
+          for attempt in $(seq 1 90); do
+            if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = '1' ]; then BOOTED=true; break; fi
+            sleep 2
+          done
+          if [ "$BOOTED" != true ]; then tail -n 160 "$RUNNER_TEMP/stockai-emulator.log"; exit 1; fi
+      - name: Actual full SQLite native owner baseline
+        timeout-minutes: 15
+        env:
+          PYTHONPATH: src
+        run: uv run python -m scripts.android_history_check --fixture .demo-artifacts/native-history-input --apks .demo-artifacts/native-history-apks --output .demo-artifacts/android-history
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: native-history-evidence
+          path: |
+            .demo-artifacts/android-history/report.json
+            .demo-artifacts/android-history/instrumentation.txt
+            .demo-artifacts/android-history/events.txt
+            .demo-artifacts/android-history/capacity-stack.txt
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Stop emulator
+        if: always()
+        run: |
+          "$ANDROID_HOME/platform-tools/adb" emu kill || true
+
   release:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [verify, android]
+    needs: [verify, android, android-history]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
