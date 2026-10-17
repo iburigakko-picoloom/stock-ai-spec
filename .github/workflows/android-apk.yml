@@ -150,6 +150,8 @@ jobs:
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    outputs:
+      native_apks_ready: ${{ steps.native_apks.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -210,6 +212,7 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: native_apks
         with:
           name: native-history-test-apks
           path: |
@@ -273,7 +276,7 @@ jobs:
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
   android-history:
-    if: ${{ always() && !cancelled() && needs.android.result == 'success' }}
+    if: ${{ always() && !cancelled() && needs.android.outputs.native_apks_ready == 'success' }}
     needs: [verify, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
