@@ -31,6 +31,11 @@ final class ComputeHost {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final CompletableFuture<Void> ready = new CompletableFuture<>();
     private volatile CompletableFuture<JSONObject> pending;
+    private final Object transferLock = new Object();
+    private LocalStateStore.ReadLease incoming;
+    private LocalStateStore.PendingWrite outgoing;
+    private long expectedGeneration;
+    private boolean stateExpected;
     private volatile long requestId;
     private volatile boolean closed;
     private volatile boolean assetUnavailable;
@@ -110,35 +115,114 @@ final class ComputeHost {
         ready.get(120, TimeUnit.SECONDS);
     }
 
-    JSONObject request(JSONObject command) throws Exception {
+    static final class Reply implements AutoCloseable {
+        final JSONObject json;
+        final LocalStateStore.PendingWrite state;
+        Reply(JSONObject json, LocalStateStore.PendingWrite state) { this.json = json; this.state = state; }
+        @Override public void close() { if (state != null) state.close(); }
+    }
+
+    Reply request(JSONObject command, LocalStateStore.ReadLease source, long generation) throws Exception {
         if (closed) throw new IllegalStateException("COMPUTE_HOST_CLOSED");
-        long identity = ++requestId;
-        CompletableFuture<JSONObject> response = new CompletableFuture<>(); pending = response;
-        command.put("id", identity);
-        String script = "window.stockAICompute(" + command + ")";
-        main.post(() -> {
-            if (!closed && view != null) view.evaluateJavascript(script, null);
-            else response.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
-        });
-        long timeout = "initialize".equals(command.optString("command")) ? 120 : TIMEOUT_SECONDS;
-        try { return response.get(timeout, TimeUnit.SECONDS); }
-        finally { pending = null; }
+        if (command.has("state") || ("initialize".equals(command.optString("command")) != (source != null)))
+            throw new IllegalArgumentException("STATE_TRANSFER_REQUIRED");
+        long identity;
+        CompletableFuture<JSONObject> response = new CompletableFuture<>();
+        synchronized (transferLock) {
+            if (closed || pending != null) throw new IllegalStateException("COMPUTE_HOST_BUSY_OR_CLOSED");
+            identity = ++requestId;
+            pending = response; incoming = source; expectedGeneration = generation;
+            stateExpected = source != null || "POST".equals(command.optString("method"));
+        }
+        try {
+            command.put("id", identity);
+            if (source != null) command.put("state_length", source.length);
+            String script = "window.stockAICompute(" + command + ")";
+            main.post(() -> {
+                if (!closed && view != null) view.evaluateJavascript(script, null);
+                else response.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
+            });
+            long timeout = source != null ? 120 : TIMEOUT_SECONDS;
+            JSONObject value = response.get(timeout, TimeUnit.SECONDS);
+            synchronized (transferLock) {
+                if (closed || pending != response) throw new IllegalStateException("COMPUTE_HOST_CLOSED");
+                Reply reply = new Reply(value, outgoing); outgoing = null; return reply;
+            }
+        } finally {
+            synchronized (transferLock) {
+                if (pending == response) {
+                    pending = null;
+                    if (incoming != null) incoming.close(); incoming = null;
+                    if (outgoing != null) outgoing.close(); outgoing = null;
+                }
+            }
+        }
     }
 
     void close() {
         closed = true;
         ready.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
-        CompletableFuture<JSONObject> response = pending;
-        if (response != null) response.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
+        synchronized (transferLock) {
+            CompletableFuture<JSONObject> response = pending;
+            if (response != null) response.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
+            if (incoming != null) incoming.close(); incoming = null;
+            if (outgoing != null) outgoing.close(); outgoing = null;
+        }
         main.post(() -> { if (view != null) { view.removeJavascriptInterface("StockAICompute"); view.destroy(); view = null; } });
     }
 
     final class Bridge {
+        private boolean active(String identity) {
+            return !closed && pending != null && !pending.isDone() && Long.toString(requestId).equals(identity);
+        }
+        private void transferFailed(Exception error) {
+            if (pending != null) pending.completeExceptionally(new IllegalStateException("COMPUTE_STATE_TRANSFER_FAILED", error));
+        }
         @JavascriptInterface public void ready() { if (!closed) ready.complete(null); }
+        @JavascriptInterface public String inputChunk(String identity, double index) {
+            synchronized (transferLock) {
+                if (!active(identity)) return null;
+                try {
+                    if (incoming == null || !Double.isFinite(index) || index != (int) index) throw new SecurityException();
+                    return incoming.next((int) index);
+                } catch (Exception error) { transferFailed(error); return null; }
+            }
+        }
+        @JavascriptInterface public boolean inputDone(String identity) {
+            synchronized (transferLock) {
+                if (!active(identity)) return false;
+                try {
+                    if (incoming == null) throw new SecurityException();
+                    incoming.finish(); return true;
+                } catch (Exception error) { transferFailed(error); return false; }
+            }
+        }
+        @JavascriptInterface public boolean beginState(String identity, double length) {
+            synchronized (transferLock) {
+                if (!active(identity)) return false;
+                try {
+                    if (!stateExpected || outgoing != null || (incoming != null && !incoming.finished())
+                            || !Double.isFinite(length) || length < 0 || length > LocalStateStore.MAX_CHARACTERS
+                            || length != (int) length) throw new SecurityException();
+                    outgoing = new LocalStateStore.PendingWrite(context.getCacheDir(), expectedGeneration, (int) length);
+                    return true;
+                } catch (Exception error) { transferFailed(error); return false; }
+            }
+        }
+        @JavascriptInterface public boolean stateChunk(String identity, double index, String fragment) {
+            synchronized (transferLock) {
+                if (!active(identity)) return false;
+                try {
+                    if (outgoing == null || !Double.isFinite(index) || index != (int) index) throw new SecurityException();
+                    outgoing.append((int) index, fragment); return true;
+                } catch (Exception error) { transferFailed(error); return false; }
+            }
+        }
         @JavascriptInterface public void complete(String identity, String payload) {
+            synchronized (transferLock) {
             CompletableFuture<JSONObject> response = pending;
             try {
-                if (closed || response == null || !Long.toString(requestId).equals(identity)) return;
+                if (!active(identity)) return;
                 if (payload.length() > LocalStateStore.MAX_CHARACTERS + 4 * 1024 * 1024) throw new IllegalArgumentException();
                 JSONObject value = new JSONObject(payload);
                 if (value.has("error")) {
@@ -147,9 +231,15 @@ final class ComputeHost {
                     response.completeExceptionally(new IllegalStateException("COMPUTE_" + code + "_ASSETMASK_" + interpreterAssets.get() + (assetUnavailable ? "_APK_ASSET_UNAVAILABLE" : "")));
                     return;
                 }
+                if (value.getLong("id") != requestId || (incoming != null && !incoming.finished())) throw new SecurityException();
+                if (stateExpected) {
+                    if (!Boolean.TRUE.equals(value.opt("state")) || outgoing == null) throw new SecurityException();
+                    outgoing.seal();
+                } else if (!value.has("state") || !value.isNull("state") || outgoing != null) throw new SecurityException();
                 response.complete(value);
             } catch (Exception ignored) {
                 if (response != null) response.completeExceptionally(new IllegalStateException("COMPUTE_FAILED"));
+            }
             }
         }
     }

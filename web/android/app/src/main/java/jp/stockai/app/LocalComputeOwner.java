@@ -73,22 +73,25 @@ final class LocalComputeOwner {
 
     private void dropHost() { if (host != null) { host.close(); host = null; } }
 
-    private String initializeCandidate(ComputeHost candidate, String payload) throws Exception {
+    private long initializeCandidate(ComputeHost candidate, LocalStateStore.ReadLease source,
+            long previous) throws Exception {
         candidate.start();
-        JSONObject reply = candidate.request(new JSONObject().put("command", "initialize").put("state", payload));
-        if (reply.isNull("state") || !(reply.get("state") instanceof String)) throw new IllegalStateException("STATE_VALIDATION_FAILED");
-        return reply.getString("state");
+        try (ComputeHost.Reply reply = candidate.request(new JSONObject().put("command", "initialize"), source, previous)) {
+            if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("STATE_VALIDATION_FAILED");
+            return state.commitTransfer(previous, reply.state);
+        }
     }
 
     private void initializeIfNeeded() throws Exception {
         if (host != null && state.currentGeneration() != generation) dropHost();
         if (host != null) return;
-        JSObject saved = state.read(); generation = saved.getLong("generation");
-        ComputeHost candidate = new ComputeHost(context);
-        try {
-            String migrated = initializeCandidate(candidate, saved.getString("payload"));
-            generation = state.write(generation, migrated); host = candidate;
-        } catch (Exception error) { candidate.close(); throw error; }
+        try (LocalStateStore.ReadLease saved = state.openReadLease()) {
+            generation = saved.generation;
+            ComputeHost candidate = new ComputeHost(context);
+            try {
+                generation = initializeCandidate(candidate, saved, generation); host = candidate;
+            } catch (Exception error) { candidate.close(); throw error; }
+        }
     }
 
     static void validateRequest(String method, String path, String body) {
@@ -107,17 +110,18 @@ final class LocalComputeOwner {
         return submit(() -> {
             try {
                 initializeIfNeeded();
-                JSONObject reply = host.request(new JSONObject().put("command", "request")
-                    .put("method", method).put("path", path).put("body", body));
-                JSONObject result = reply.getJSONObject("result");
-                int status = result.getInt("status");
-                if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
-                if ("POST".equals(method)) {
-                    if (reply.isNull("state")) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
-                    generation = state.write(generation, reply.getString("state"));
-                } else if (!reply.isNull("state") || state.currentGeneration() != generation)
-                    throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
-                return new JSObject(result.toString());
+                try (ComputeHost.Reply reply = host.request(new JSONObject().put("command", "request")
+                        .put("method", method).put("path", path).put("body", body), null, generation)) {
+                    JSONObject result = reply.json.getJSONObject("result");
+                    int status = result.getInt("status");
+                    if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
+                    if ("POST".equals(method)) {
+                        if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
+                        generation = state.commitTransfer(generation, reply.state);
+                    } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
+                        throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
+                    return new JSObject(result.toString());
+                }
             } catch (Exception error) { dropHost(); throw error; }
         });
     }
@@ -125,17 +129,24 @@ final class LocalComputeOwner {
     CompletableFuture<JSObject> readState() { return submit(() -> state.read()); }
 
     CompletableFuture<JSObject> restore(String payload, Long expectedGeneration) {
+        java.util.concurrent.atomic.AtomicReference<String> incoming = new java.util.concurrent.atomic.AtomicReference<>(payload);
         return submit(() -> {
-            if (payload == null || payload.length() > LocalStateStore.MAX_CHARACTERS) throw new IllegalArgumentException();
-            long previous = state.read().getLong("generation");
+            if (incoming.get() == null || incoming.get().length() > LocalStateStore.MAX_CHARACTERS)
+                throw new IllegalArgumentException();
+            long previous;
+            // Preserve old-state authentication without assembling its full String.
+            try (LocalStateStore.ReadLease saved = state.openReadLease()) {
+                previous = saved.generation;
+                for (int index = 0; index < saved.chunks; index++) saved.next(index);
+                saved.finish();
+            }
             if (expectedGeneration != null && expectedGeneration != previous) throw new IllegalStateException("STATE_CONFLICT");
             // Keep only one WASM heap resident. Failed validation leaves the
             // durable original untouched and the next request reloads it.
             dropHost();
             ComputeHost candidate = new ComputeHost(context);
-            try {
-                String verified = initializeCandidate(candidate, payload);
-                long saved = state.write(previous, verified);
+            try (LocalStateStore.ReadLease source = state.stringLease(incoming.getAndSet(null), previous)) {
+                long saved = initializeCandidate(candidate, source, previous);
                 dropHost(); host = candidate; generation = saved;
                 return new JSObject().put("generation", saved);
             } catch (Exception error) {

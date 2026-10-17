@@ -25,6 +25,8 @@ SOURCE_FILES = (
     "web/android/app/src/main/java/jp/stockai/app/LocalComputeOwner.java",
     "web/android/app/src/main/java/jp/stockai/app/ComputeHost.java",
     "web/android/app/src/androidTest/java/jp/stockai/app/FullHistoryCapacityTest.java",
+    "web/src/mobile/compute-host.ts",
+    "web/src/mobile/compute-worker.ts",
 )
 CAPACITY_SOURCES = (
     "mobile/python/market.py",

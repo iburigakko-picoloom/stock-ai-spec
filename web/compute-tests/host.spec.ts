@@ -7,9 +7,33 @@ test("production compute entry boots offline under the native CSP and returns du
     await route.fulfill({ response, headers: { ...response.headers(), "Content-Security-Policy": "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; base-uri 'none'; form-action 'none'" } });
   });
   await page.addInitScript(() => {
-    const host = window as unknown as { StockAICompute: unknown; ready: boolean; replies: Record<string, unknown> };
+    const host = window as unknown as { StockAICompute: unknown; ready: boolean; replies: Record<string, unknown>; transferMetrics: { maximumChunk: number; maximumReply: number } };
     host.replies = {}; host.ready = false;
-    host.StockAICompute = { ready: () => { host.ready = true; }, complete: (id: string, payload: string) => { host.replies[id] = JSON.parse(payload); } };
+    host.transferMetrics = { maximumChunk: 0, maximumReply: 0 };
+    const states = new Map<string, { length: number; received: number; pieces: string[] }>();
+    host.StockAICompute = {
+      ready: () => { host.ready = true; },
+      inputChunk: () => { throw new Error("empty initialization must not request a chunk"); },
+      inputDone: () => true,
+      beginState: (id: string, length: number) => { states.set(id, { length, received: 0, pieces: [] }); return true; },
+      stateChunk: (id: string, index: number, fragment: string) => {
+        const transfer = states.get(id);
+        if (!transfer || index !== transfer.pieces.length || fragment.length > 256 * 1024) return false;
+        transfer.pieces.push(fragment); transfer.received += fragment.length;
+        host.transferMetrics.maximumChunk = Math.max(host.transferMetrics.maximumChunk, fragment.length);
+        return true;
+      },
+      complete: (id: string, payload: string) => {
+        host.transferMetrics.maximumReply = Math.max(host.transferMetrics.maximumReply, payload.length);
+        const reply = JSON.parse(payload);
+        if (reply.state === true) {
+          const transfer = states.get(id);
+          if (!transfer || transfer.received !== transfer.length) throw new Error("incomplete native transfer");
+          reply.state = transfer.pieces.join(""); states.delete(id);
+        } else if (!reply.error && reply.state !== null) throw new Error("native reply contains a capsule");
+        host.replies[id] = reply;
+      },
+    };
   });
   await page.goto("/compute.html");
   await expect.poll(() => page.evaluate(() => (window as unknown as { ready: boolean }).ready)).toBe(true);
@@ -18,7 +42,7 @@ test("production compute entry boots offline under the native CSP and returns du
     await expect.poll(() => page.evaluate(key => Boolean((window as unknown as { replies: Record<string, unknown> }).replies[key]), String(id)), { timeout: 120_000 }).toBe(true);
     return page.evaluate(key => (window as unknown as { replies: Record<string, never> }).replies[key], String(id));
   }
-  const initialized = await send(1, { command: "initialize", state: "" });
+  const initialized = await send(1, { command: "initialize", state_length: 0 });
   expect(initialized.error).toBeUndefined();
   expect(initialized.state).toBeTruthy();
   const health = await send(2, { command: "request", method: "GET", path: "/api/v1/health" });
@@ -39,4 +63,57 @@ test("production compute entry boots offline under the native CSP and returns du
   const afterException = await send(7, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
   expect(afterException.result).toEqual(saved.result);
   expect(afterException.state).toBeNull();
+  const metrics = await page.evaluate(() => (window as unknown as { transferMetrics: { maximumChunk: number; maximumReply: number } }).transferMetrics);
+  expect(metrics.maximumChunk).toBeGreaterThan(0);
+  expect(metrics.maximumChunk).toBeLessThanOrEqual(256 * 1024);
+  expect(metrics.maximumReply).toBeLessThan(8192);
 });
+
+for (const failure of ["none", "input-short", "input-auth", "output-rejected"] as const) {
+  test(`native transfer keeps large capsules outside command/reply JSON: ${failure}`, async ({ page }) => {
+    await page.addInitScript(({ failure }) => {
+      const host = window as unknown as { StockAICompute: unknown; ready: boolean; reply?: Record<string, unknown>; received?: string; output?: string; maximumChunk: number; replyLength: number; inputFinished: boolean; Worker: unknown };
+      const chunk = 256 * 1024;
+      const source = "a".repeat(chunk - 7) + "b".repeat(chunk) + "c".repeat(30);
+      const pieces = [source.slice(0, chunk - 7), source.slice(chunk - 7, 2 * chunk - 7), source.slice(2 * chunk - 7)];
+      const output: string[] = [];
+      host.ready = false; host.maximumChunk = 0; host.inputFinished = false;
+      host.StockAICompute = {
+        ready: () => { host.ready = true; },
+        inputChunk: (_id: string, index: number) => failure === "input-short" && index === 2 ? "" : pieces[index],
+        inputDone: () => { host.inputFinished = failure !== "input-auth"; return host.inputFinished; },
+        beginState: (_id: string, length: number) => length === source.length && host.inputFinished,
+        stateChunk: (_id: string, index: number, fragment: string) => {
+          host.maximumChunk = Math.max(host.maximumChunk, fragment.length);
+          if (index !== output.length || fragment.length > chunk || failure === "output-rejected" && index === 1) return false;
+          output.push(fragment); return true;
+        },
+        complete: (_id: string, payload: string) => { host.replyLength = payload.length; host.reply = JSON.parse(payload); host.output = output.join(""); },
+      };
+      host.Worker = class {
+        onmessage?: (event: { data: unknown }) => void;
+        postMessage(input: { id: number; state: string }) {
+          host.received = input.state;
+          queueMicrotask(() => this.onmessage?.({ data: { id: input.id, result: { status: 200, body: {} }, state: source } }));
+        }
+      };
+    }, { failure });
+    await page.goto("/compute.html");
+    await expect.poll(() => page.evaluate(() => (window as unknown as { ready: boolean }).ready)).toBe(true);
+    await page.evaluate(() => (window as unknown as { stockAICompute: (input: unknown) => void }).stockAICompute({ id: 1, command: "initialize", state_length: 2 * 256 * 1024 + 23 }));
+    await expect.poll(() => page.evaluate(() => Boolean((window as unknown as { reply?: unknown }).reply))).toBe(true);
+    const actual = await page.evaluate(() => {
+      const host = window as unknown as { reply: Record<string, unknown>; received?: string; output: string; maximumChunk: number; replyLength: number; inputFinished: boolean };
+      return { ...host.reply, receivedLength: host.received?.length, outputLength: host.output.length, exact: host.output === host.received, maximumChunk: host.maximumChunk, replyLength: host.replyLength, inputFinished: host.inputFinished };
+    });
+    expect(actual.replyLength).toBeLessThan(1024);
+    expect(actual.maximumChunk).toBeLessThanOrEqual(256 * 1024);
+    if (failure === "none") {
+      expect(actual).toMatchObject({ state: true, exact: true, receivedLength: 2 * 256 * 1024 + 23, inputFinished: true });
+    } else {
+      expect(actual).toMatchObject({ error: "COMPUTE_WORKER_FAILED", code: "state_other" });
+      expect(actual).not.toHaveProperty("state");
+      if (failure.startsWith("input")) expect(actual.receivedLength).toBeUndefined();
+    }
+  });
+}

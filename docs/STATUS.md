@@ -1,11 +1,17 @@
 # Project Status
 
+## 2026-10-17 — native ownerの全量状態を暗号化chunkで往復する
+
+- e6dad9fのCI39023474559はverify/Androidがsuccess、native-historyがfailure、releaseはskipで終了。全量SQLiteの準備・APK/source・転送hash・暗号化seed後、initializing-ownerでJava heap不足となった。入力96,781,956文字、heap上限201,326,592bytes、75,497,488bytesの追加確保に失敗し、stackはJSONObject/JSONStringer→ComputeHost.requestを指す。opaque保存だけの成功と区別し、実native全量受入は未達。原本は`native-full-history-ci-39023474559/native-history-evidence`と同名history log。
+- D146として初期化入力は認証済みReadLeaseから256KiBずつ渡し、Javaのcommand JSONへ全capsuleを入れない。復帰状態も小分けにAES-GCM/AADでprivate cacheへ仮保存し、完了応答は小さいboolean markerと結果だけにする。ownerの単一queue上でgeneration CAS・全chunk認証・文字数/件数/SHA/EOFを再検証したSQLite transactionだけを確定する。途中失敗・競合・不正chunkでは元状態を保持し、仮ciphertextを破棄する。既存保存形式、legacy inline/可変長chunk、192MiB heap・128MiB文字・元timeoutを維持。
+- 本番compute entryを実Python/オフラインCSPで動かす既存検証と、複数chunk・旧可変長入力・入力欠落/認証失敗/出力拒否の5件が15.8秒でpass。controller/SQLiteメタデータ等57件が2.15秒でpassし、Ruff・TypeScript/buildもpass。nativeの暗号化往復・順序/未完/破棄・CAS・改変/切詰め/末尾追加・SQL失敗時rollback・旧形式・全hashを8件追加。Java compileと192MiB実全量の再試験はpush後CIで確認する。readStateによる全量backup・実機・本人アカウント・承認modelの受入をこの修正の成功と扱わない。
+
 ## 2026-10-17 — 検証済みJSON列の組立でセルごとの処理を削減
 
 - D145として、同じ長さの検証済みlist/tuple列は列のzipと標準map/addでJSON行を作る。数値の表記・escaped key・schema・列/行順と全byteを保つ。空列・別container/count型・要求行数による切詰め・不一致は既存indexed処理を残し、戻り値と例外を保つ。raw record/normalized hash・現行DB列の再読込・128cache・PIT/source ID・式や容量/600秒/3500MiBは変更しない。
 - frozen e6dad9fとの31条件で戻りbyteとfallback例外の型/文言が完全一致。全5datasetの100バッチ202,060行でもraw records・normalized bytes・dtype profile・全frame値/型/index/列順・元DB不変が一致。公開codec20件が2.52秒、関連mobile54件が80.24秒、同梱WASMのPC数値/9モデルvector・4head/300候補＋保有株数/復元5件が2.0分でpass。原本は`table-map-function-parity.json`、`table-map-codec-legacy-parity.json`、`table-map-codec-tests.xml`、`table-map-mobile-tests.xml`、`table-map-wasm-tests.log`。
 - 先に隔離した候補のPC16条件が全byte一致。20回の組立だけを測った14列は0.179→0.120秒、40列は0.485→0.341秒。同じWASM内の各20バッチ/10万行の入力診断はmaster5.885→4.137秒、price5.514→5.323秒で、組立部分は1.187→0.658秒/1.126→0.751秒。順序やwarmupの影響もあり全量改善の根拠にはせず、Source DB/capsule不変・model0を確認。原本は`table-map-candidate-pc.json`と`wasm-table-map-sample/report.json`（診断worker hash固定）。既存のraw読込は一括JSON parseを使っており、今回の変更は文字列の組立のみ。
-- Ruff全体、archive/golden再生成（共有29＋mobile15file・model0）、TypeScript/build、source813/private0・package42 entries監査がpass。archiveの全44source working raw bytesを`table-map-archive-proof.json`へ照合した。新しい全量WASM/PCは次に同じ予算で測る。前の実測archive SHA5ae041ff...7c326799は`archive-matching-session-matrix-5ae041ff.zip`として保存。私有研究停止/holdout lock/承認bundle0/本人gateを維持し、実注文・main merge・製品APK公開なし。
+- Ruff全体、archive/golden再生成（共有29＋mobile15file・model0）、TypeScript/build、source813/private0・package42 entries監査がpass。archiveの全44source working raw bytesを`table-map-archive-proof.json`へ照合した。c8e4e8fの全量WASMは計算477.431秒・全体489.653秒・最大owned process3,513,659,392bytesで600秒/3500MiB内にpass。全5,000銘柄・520session・5/20日43/53列の全特徴量JSON SHA7ee2812d...9e580dffが従来PC/WASMと完全一致、5200/5200組立で新経路を使用。capsule不変・model0・archive7b09f674...9069abc0と診断worker hashを`wasm-features-table-map-assembly/provenance-proof.json`へ固定し、実archiveを`archive-table-map-7b09f674.zip`へ保存。メモリ余裕は約149MiBであり実機/反復安定性の証明とはしない。新しい全量PCはCIで確認する。前の実測archive SHA5ae041ff...7c326799も保存。私有研究停止/holdout lock/承認bundle0/本人gateを維持し、実注文・main merge・製品APK公開なし。
 
 ## 2026-10-17 — 有効な全市場SQLiteをnative ownerで検証する工程を追加
 
