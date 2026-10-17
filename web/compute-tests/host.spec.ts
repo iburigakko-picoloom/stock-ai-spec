@@ -81,7 +81,7 @@ test("production compute entry boots offline under the native CSP and returns du
   expect(afterReload.result).toEqual(saved.result);
 });
 
-for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "input-oversize", "output-rejected", "output-legacy-string"] as const) {
+for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "input-oversize", "output-rejected", "output-legacy-string", "output-order", "output-early-complete", "output-nonascii"] as const) {
   test(`native transfer keeps large capsules outside command/reply JSON: ${failure}`, async ({ page }) => {
     await page.addInitScript(({ failure }) => {
       const host = window as unknown as { StockAICompute: unknown; ready: boolean; reply?: Record<string, unknown>; received?: string; output?: string; maximumChunk: number; replyLength: number; inputFinished: boolean; transferred?: boolean; Worker: unknown };
@@ -104,19 +104,28 @@ for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "i
       };
       host.Worker = class {
         onmessage?: (event: { data: unknown }) => void;
-        postMessage(input: { id: number; state?: string; state_bytes: ArrayBuffer }, transfer: Transferable[]) {
+        private next = 0;
+        private respond(data: unknown) { queueMicrotask(() => this.onmessage?.({ data })); }
+        postMessage(input: { id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes: ArrayBuffer }, transfer: Transferable[] = []) {
+          if (input.command === "state_ack") {
+            if (!input.ok) return;
+            if (input.index !== this.next - 1) throw new Error("chunk sent before native ACK");
+            if (input.index !== -1 && output.length !== this.next) throw new Error("ACK before native persistence");
+            if (failure === "output-early-complete") { this.respond({ id: input.id, state: true }); return; }
+            const offset = this.next * chunk;
+            if (offset >= source.length) {
+              this.respond({ id: input.id, result: { status: 200, body: {} }, state: true }); return;
+            }
+            const fragment = source.slice(offset, offset + chunk);
+            const index = this.next++;
+            this.respond({ id: input.id, state_chunk: failure === "output-nonascii" ? "あ".repeat(fragment.length) : fragment, index: failure === "output-order" ? index + 1 : index }); return;
+          }
           host.transferred = transfer.length === 1 && transfer[0] === input.state_bytes && input.state === undefined;
           const received = structuredClone(input, { transfer });
           host.transferred = host.transferred && input.state_bytes.byteLength === 0;
           host.received = new TextDecoder().decode(received.state_bytes);
-          queueMicrotask(() => {
-            if (failure === "output-legacy-string") {
-              this.onmessage?.({ data: { id: input.id, result: { status: 200, body: {} }, state: source } }); return;
-            }
-            const bytes = new TextEncoder().encode(source);
-            const reply = structuredClone({ id: input.id, result: { status: 200, body: {} }, state_bytes: bytes.buffer }, { transfer: [bytes.buffer] });
-            this.onmessage?.({ data: reply });
-          });
+          if (failure === "output-legacy-string") this.respond({ id: input.id, result: { status: 200, body: {} }, state: source });
+          else this.respond({ id: input.id, state_begin: source.length });
         }
       };
     }, { failure });

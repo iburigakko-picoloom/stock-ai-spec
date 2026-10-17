@@ -23,3 +23,8 @@ export async function restoreMobileState(payload: string): Promise<void> {
   await StockAI.restoreState({ payload });
   window.location.reload();
 }
+
+export async function restoreMobileBackup(token: string): Promise<void> {
+  await StockAI.restoreBackup({ token, confirmed: true });
+  window.location.reload();
+}

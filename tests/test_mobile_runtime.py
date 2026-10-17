@@ -6,6 +6,7 @@ import io
 import json
 import sqlite3
 import zipfile
+from contextlib import closing
 
 import pytest
 from mobile.python import runtime
@@ -28,6 +29,92 @@ def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):
     assert response["body"]["orderSubmissionAvailable"] is False
     assert run(device, "POST", "/api/v1/orders", {})["status"] == 404
     assert run(device, "GET", "https://foreign.example/api/v1/health")["status"] == 400
+
+
+def test_native_export_chunks_preserve_exact_snapshots_and_restore(device, monkeypatch):
+    import random
+
+    from scripts.mobile_native_history_fixture import table_snapshot
+
+    content = random.Random(20261017).randbytes(600_000)
+    with closing(sqlite3.connect(device.STATE / "mobile.sqlite3")) as db:
+        db.execute("CREATE TABLE stream_test (id INTEGER PRIMARY KEY, payload BLOB)")
+        db.execute("INSERT INTO stream_test VALUES(1, ?)", (content,))
+        db.commit()
+    starting = device.export_state()
+    parent = device.STATE.parent
+    names = ("operations.sqlite3", "mobile.sqlite3")
+    before = {name: table_snapshot(device.STATE / name) for name in names}
+    # Each export performs the existing legacy compaction transaction. Start
+    # both paths from identical SQLite bytes so file change-counters also match.
+    for folder in ("legacy-source", "stream-source"):
+        target = parent / folder
+        target.mkdir()
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(starting))) as archive:
+            for name in names:
+                (target / name).write_bytes(archive.read(name))
+    monkeypatch.setattr(device, "STATE", parent / "legacy-source")
+    original = device.export_state()
+    monkeypatch.setattr(device, "STATE", parent / "stream-source")
+    stream = device.StateExport()
+    pieces = []
+    while (piece := stream.read_next()) is not None:
+        assert 0 < len(piece) <= 256 * 1024
+        pieces.append(piece)
+    assert len(pieces) > 2 and all(len(piece) == 256 * 1024 for piece in pieces[:-1])
+    encoded = "".join(pieces)
+    assert len(encoded) == stream.length
+    stream.close()
+    assert stream.read_next() is None
+    assert before == {name: table_snapshot(device.STATE / name) for name in before}
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode(original))) as old:
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded, validate=True))) as new:
+            assert new.namelist() == old.namelist() == ["operations.sqlite3", "mobile.sqlite3"]
+            assert {name: new.read(name) for name in new.namelist()} == {
+                name: old.read(name) for name in old.namelist()
+            }
+    monkeypatch.setattr(device, "STATE", parent / "stream-restored")
+    device.initialize(encoded)
+    assert before == {name: table_snapshot(device.STATE / name) for name in before}
+    with closing(sqlite3.connect(device.STATE / "mobile.sqlite3")) as db:
+        assert db.execute("SELECT payload FROM stream_test").fetchone()[0] == content
+    assert run(device, "GET", "/api/v1/health")["body"]["orderSubmissionAvailable"] is False
+
+
+@pytest.mark.parametrize("limit", ["archive", "database"])
+def test_failed_native_export_preserves_state_and_cleans_snapshot(device, monkeypatch, limit):
+    import random
+
+    from scripts.mobile_native_history_fixture import table_snapshot
+
+    with closing(sqlite3.connect(device.STATE / "mobile.sqlite3")) as db:
+        db.execute("CREATE TABLE stream_limit (payload BLOB)")
+        db.execute("INSERT INTO stream_limit VALUES(?)", (random.Random(42).randbytes(100_000),))
+        db.commit()
+    # Normalize the existing compaction cursor before testing a later failure.
+    device.export_state()
+    before = {name: table_snapshot(device.STATE / name)
+              for name in ("operations.sqlite3", "mobile.sqlite3")}
+    if limit == "archive":
+        monkeypatch.setattr(device, "_MAX_NATIVE_STATE_CHARACTERS", 16 * 1024)
+    else:
+        monkeypatch.setattr(device, "MAX_DATABASE_BYTES", 1)
+    with pytest.raises(ValueError, match="exceeds"):
+        device.StateExport()
+    assert not (device.STATE / "export.sqlite3").exists()
+    assert before == {name: table_snapshot(device.STATE / name)
+                      for name in before}
+    assert run(device, "GET", "/api/v1/health")["status"] == 200
+
+
+def test_aborted_native_export_closes_cleanly_and_keeps_the_runtime(device):
+    stream = device.StateExport()
+    assert stream.read_next()
+    stream.close()
+    stream.close()
+    assert stream.read_next() is None
+    assert not (device.STATE / "export.sqlite3").exists()
+    assert run(device, "GET", "/api/v1/health")["status"] == 200
 
 
 def test_all_local_connections_close_before_repeated_backup_restore(device, monkeypatch):

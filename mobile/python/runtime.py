@@ -96,23 +96,77 @@ def mobile_db():
     return connect(STATE / "mobile.sqlite3")
 
 
-def export_state() -> str:
+class _BoundedArchive(io.BytesIO):
+    def __init__(self, limit: int):
+        super().__init__()
+        self.limit = limit
+
+    def write(self, content):
+        if self.tell() + len(content) > self.limit:
+            raise ValueError("State exceeds native transfer limit")
+        return super().write(content)
+
+
+def _export_archive(limit: int | None = None) -> io.BytesIO:
     market.compact_legacy(STATE / "mobile.sqlite3")
-    output = io.BytesIO()
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name in ("operations.sqlite3", "mobile.sqlite3"):
-            backup_path = STATE / "export.sqlite3"
-            try:
-                with closing(sqlite3.connect(STATE / name)) as connection:
-                    with closing(sqlite3.connect(backup_path)) as target:
-                        connection.backup(target)
-                        target.execute("PRAGMA journal_mode=DELETE")
-                if backup_path.stat().st_size > MAX_DATABASE_BYTES:
-                    raise ValueError("Backup exceeds mobile storage limit")
-                archive.writestr(name, backup_path.read_bytes())
-            finally:
-                backup_path.unlink(missing_ok=True)
-    return base64.b64encode(output.getvalue()).decode("ascii")
+    output = io.BytesIO() if limit is None else _BoundedArchive(limit)
+    try:
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+            for name in ("operations.sqlite3", "mobile.sqlite3"):
+                backup_path = STATE / "export.sqlite3"
+                try:
+                    with closing(sqlite3.connect(STATE / name)) as connection:
+                        with closing(sqlite3.connect(backup_path)) as target:
+                            connection.backup(target)
+                            target.execute("PRAGMA journal_mode=DELETE")
+                    if backup_path.stat().st_size > MAX_DATABASE_BYTES:
+                        raise ValueError("Backup exceeds mobile storage limit")
+                    # ZIP streams the SQLite snapshot; no full read_bytes copy.
+                    archive.write(backup_path, arcname=name)
+                finally:
+                    backup_path.unlink(missing_ok=True)
+        return output
+    except BaseException:
+        output.close()
+        raise
+
+
+def export_state() -> str:
+    # The direct/desktop interface keeps its existing complete-string result.
+    with _export_archive() as output:
+        return base64.b64encode(output.getvalue()).decode("ascii")
+
+
+_MAX_NATIVE_STATE_CHARACTERS = 128 * 1024 * 1024
+_STATE_CHUNK_CHARACTERS = 256 * 1024
+
+
+class StateExport:
+    """Native-only base64 stream, with one archive and bounded encoded fragments."""
+
+    def __init__(self):
+        self._archive = _export_archive(_MAX_NATIVE_STATE_CHARACTERS // 4 * 3)
+        self._view = self._archive.getbuffer()
+        self.length = (len(self._view) + 2) // 3 * 4
+        self._offset = 0
+        self._closed = False
+
+    def read_next(self) -> str | None:
+        if self._closed:
+            return None
+        if self._offset == len(self._view):
+            self.close()
+            return None
+        end = min(self._offset + _STATE_CHUNK_CHARACTERS // 4 * 3, len(self._view))
+        fragment = base64.b64encode(self._view[self._offset:end]).decode("ascii")
+        self._offset = end
+        return fragment
+
+    def close(self) -> None:
+        if not self._closed:
+            self._closed = True
+            self._view.release()
+            self._archive.close()
 
 
 async def request(method: str, path: str, body: str = "null") -> dict:

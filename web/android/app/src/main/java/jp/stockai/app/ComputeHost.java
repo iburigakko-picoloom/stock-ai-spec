@@ -190,7 +190,7 @@ final class ComputeHost {
         @JavascriptInterface public void progress(String identity, String phase) {
             synchronized (transferLock) {
                 if (!active(identity) || phase == null
-                        || !phase.matches("reading-input|posting-input|decoding-input|interpreter|packages|archive|state|request|export|staging-output")) return;
+                        || !phase.matches("reading-input|posting-input|decoding-input|interpreter|packages|archive|state|request|export|export-archive|export-chunks|staging-output")) return;
                 transferPhase = phase;
                 if ((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                     android.app.ActivityManager.MemoryInfo memory = new android.app.ActivityManager.MemoryInfo();

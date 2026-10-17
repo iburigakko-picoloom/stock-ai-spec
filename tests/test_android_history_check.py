@@ -141,3 +141,33 @@ def test_renderer_diagnostics_keep_fixed_stages_and_system_memory_events_only() 
     ])
     assert renderer_diagnostics(output).splitlines() == [phase, killed]
     assert len(renderer_diagnostics("\n".join([phase] * 501)).splitlines()) == 500
+
+
+@pytest.mark.parametrize("changed", [
+    {"portable_backup": None}, {"portable_backup": {}}, {"phase": "initializing-owner"},
+    {"max_java_heap_bytes": 193 * 1024 * 1024}, {"characters": 1},
+    {"portable_backup": {"status": "exported"}},
+    {"portable_backup": {"native_preview_payload_absent": False}},
+    {"portable_backup": {"profile_recovered": False}},
+    {"portable_backup": {"envelope_bytes": 128 * 1024 * 1024 + 1}},
+])
+def test_native_full_history_requires_portable_restore_evidence(changed) -> None:
+    from scripts.android_history_check import validate_native_evidence
+
+    evidence = {
+        "synthetic_only": True, "phase": "verified", "characters": 96_781_956,
+        "max_java_heap_bytes": 192 * 1024 * 1024,
+        "portable_backup": {
+            "format": "STOCKAIB1", "status": "restored", "characters": 96_781_956,
+            "envelope_bytes": 96_782_100, "native_preview_payload_absent": True,
+            "profile_recovered": True,
+        },
+    }
+    validate_native_evidence(evidence, 96_781_956)
+    for key, value in changed.items():
+        if key == "portable_backup" and value:
+            evidence[key].update(value)
+        else:
+            evidence[key] = value
+    with pytest.raises(ValueError, match="evidence"):
+        validate_native_evidence(evidence, 96_781_956)

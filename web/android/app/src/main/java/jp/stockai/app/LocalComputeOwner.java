@@ -24,6 +24,9 @@ final class LocalComputeOwner {
     private volatile ComputeHost host;
     private long generation;
     private volatile boolean closed;
+    private LocalStateStore.PendingWrite pendingBackup;
+    private String backupToken;
+    private long backupGeneration;
 
     static LocalComputeOwner get(Context context) throws Exception {
         return get(context, context.getDatabasePath(LocalStateStore.DATABASE));
@@ -128,33 +131,106 @@ final class LocalComputeOwner {
 
     CompletableFuture<JSObject> readState() { return submit(() -> state.read()); }
 
+    interface Input { java.io.InputStream open() throws Exception; }
+    interface Output { java.io.OutputStream open() throws Exception; }
+
+    CompletableFuture<JSObject> exportBackup(String password, Output destination) {
+        return submit(() -> {
+            try (LocalStateStore.ReadLease saved = state.openReadLease();
+                    java.io.OutputStream output = destination.open()) {
+                if (output == null) throw new java.io.IOException();
+                try (PortableBackup.Writer writer = new PortableBackup.Writer(password,
+                        saved.generation, saved.length, output)) {
+                    for (int index = 0; index < saved.chunks; index++) writer.append(saved.next(index));
+                    saved.finish(); writer.finish();
+                }
+            }
+            return new JSObject();
+        });
+    }
+
+    private void clearBackupPreview() {
+        if (pendingBackup != null) pendingBackup.close();
+        pendingBackup = null; backupToken = null;
+    }
+
+    CompletableFuture<JSObject> previewBackup(String password, Input source) {
+        return submit(() -> {
+            clearBackupPreview();
+            long previous = state.currentGeneration();
+            LocalStateStore.PendingWrite staged = new LocalStateStore.PendingWrite(context.getCacheDir(), previous);
+            try (java.io.InputStream input = source.open()) {
+                if (input == null) throw new java.io.IOException();
+                PortableBackup.Metadata metadata = PortableBackup.read(password, input, staged::append);
+                staged.seal();
+                if (staged.length != metadata.characters || state.currentGeneration() != previous)
+                    throw new IllegalStateException("STATE_CONFLICT");
+                pendingBackup = staged; backupGeneration = previous;
+                backupToken = java.util.UUID.randomUUID().toString();
+                return new JSObject().put("token", backupToken).put("characters", staged.length);
+            } catch (Exception error) {
+                if (pendingBackup == staged) clearBackupPreview(); else staged.close();
+                throw error;
+            }
+        });
+    }
+
+    CompletableFuture<JSObject> discardBackup(String token) {
+        return submit(() -> {
+            if (backupToken != null && backupToken.equals(token)) clearBackupPreview();
+            return new JSObject();
+        });
+    }
+
+    private long authenticatedGeneration() throws Exception {
+        try (LocalStateStore.ReadLease saved = state.openReadLease()) {
+            for (int index = 0; index < saved.chunks; index++) saved.next(index);
+            saved.finish(); return saved.generation;
+        }
+    }
+
+    private JSObject restoreFrom(LocalStateStore.ReadLease source, long previous) throws Exception {
+        ComputeHost candidate = null;
+        try (LocalStateStore.ReadLease incoming = source) {
+            dropHost(); candidate = new ComputeHost(context);
+            long saved = initializeCandidate(candidate, incoming, previous);
+            host = candidate; generation = saved;
+            return new JSObject().put("generation", saved);
+        } catch (Exception error) {
+            if (candidate != null) candidate.close();
+            try { if (state.currentGeneration() != previous) dropHost(); }
+            catch (Exception ignored) { dropHost(); }
+            throw error;
+        }
+    }
+
+    CompletableFuture<JSObject> restoreBackup(String token) {
+        return submit(() -> {
+            if (backupToken == null || !backupToken.equals(token)) throw new SecurityException("BACKUP_PREVIEW_REQUIRED");
+            LocalStateStore.PendingWrite staged = pendingBackup;
+            long previous = backupGeneration;
+            pendingBackup = null; backupToken = null;
+            try (LocalStateStore.PendingWrite owned = staged) {
+                if (state.currentGeneration() != previous || authenticatedGeneration() != previous)
+                    throw new IllegalStateException("STATE_CONFLICT");
+                new DailyAutomation(context, state.database).stop();
+                return restoreFrom(state.stagedLease(owned, previous), previous);
+            }
+        });
+    }
+
     CompletableFuture<JSObject> restore(String payload, Long expectedGeneration) {
         java.util.concurrent.atomic.AtomicReference<String> incoming = new java.util.concurrent.atomic.AtomicReference<>(payload);
         return submit(() -> {
             if (incoming.get() == null || incoming.get().length() > LocalStateStore.MAX_CHARACTERS)
                 throw new IllegalArgumentException();
-            long previous;
             // Preserve old-state authentication without assembling its full String.
-            try (LocalStateStore.ReadLease saved = state.openReadLease()) {
-                previous = saved.generation;
-                for (int index = 0; index < saved.chunks; index++) saved.next(index);
-                saved.finish();
-            }
+            long previous = authenticatedGeneration();
             if (expectedGeneration != null && expectedGeneration != previous) throw new IllegalStateException("STATE_CONFLICT");
             // Keep only one WASM heap resident. Failed validation leaves the
             // durable original untouched and the next request reloads it.
-            dropHost();
-            ComputeHost candidate = new ComputeHost(context);
-            try (LocalStateStore.ReadLease source = state.stringLease(incoming.getAndSet(null), previous)) {
-                long saved = initializeCandidate(candidate, source, previous);
-                dropHost(); host = candidate; generation = saved;
-                return new JSObject().put("generation", saved);
-            } catch (Exception error) {
-                candidate.close();
-                try { if (state.currentGeneration() != previous) dropHost(); }
-                catch (Exception ignored) { dropHost(); }
-                throw error;
-            }
+            clearBackupPreview();
+            return restoreFrom(state.stringLease(incoming.getAndSet(null), previous), previous);
         });
     }
 
@@ -169,7 +245,7 @@ final class LocalComputeOwner {
         ComputeHost active = host;
         if (active != null) active.close();
         return submit(() -> {
-            dropHost(); state.database.close(); closed = true;
+            dropHost(); clearBackupPreview(); state.database.close(); closed = true;
             synchronized (LocalComputeOwner.class) { owners.remove(identity, this); }
             queue.shutdown(); return null;
         });

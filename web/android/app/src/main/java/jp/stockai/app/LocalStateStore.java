@@ -153,6 +153,8 @@ final class LocalStateStore {
         final String expectedHash;
         final boolean chunked;
         private String legacy;
+        private DataInputStream input;
+        private long cipherGeneration;
         private final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         private int next, characters;
         private boolean closed, finished;
@@ -166,7 +168,13 @@ final class LocalStateStore {
         synchronized String next(int index) throws Exception {
             if (closed || finished || index != next || index >= chunks) throw new SecurityException();
             String fragment;
-            if (chunked) {
+            if (input != null) {
+                if (currentGeneration() != generation) throw new IllegalStateException("STATE_CONFLICT");
+                int size = input.readInt();
+                if (size < 28 || size > CHUNK_CHARACTERS * 4 + 28) throw new SecurityException();
+                byte[] bytes = new byte[size]; input.readFully(bytes);
+                fragment = decryptChunk(bytes, cipherGeneration, index);
+            } else if (chunked) {
                 // One statement binds the ciphertext to the current envelope generation.
                 try (Cursor row = database.rawQuery(
                         "SELECT c.payload FROM state s JOIN state_chunks c ON c.piece=? "
@@ -195,12 +203,16 @@ final class LocalStateStore {
                     rows.moveToFirst(); if (rows.getInt(0) != chunks) throw new SecurityException();
                 }
             }
+            if (input != null && input.read() != -1) throw new SecurityException();
             if (expectedHash != null && !hex(digest.digest()).equals(expectedHash)) throw new SecurityException();
             finished = true; legacy = null;
         }
 
         synchronized boolean finished() { return finished && !closed; }
-        @Override public synchronized void close() { closed = true; legacy = null; }
+        @Override public synchronized void close() {
+            closed = true; legacy = null;
+            if (input != null) { try { input.close(); } catch (IOException ignored) { } input = null; }
+        }
     }
 
     ReadLease openReadLease() throws Exception {
@@ -240,23 +252,45 @@ final class LocalStateStore {
             (value.length() + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS, null, false, value);
     }
 
+    ReadLease stagedLease(PendingWrite staged, long generation) throws Exception {
+        synchronized (staged) {
+            if (!staged.sealed || staged.disposed || staged.generation != generation + 1)
+                throw new SecurityException();
+            ReadLease lease = new ReadLease(generation, staged.length, staged.chunks,
+                staged.hash, false, null);
+            lease.input = new DataInputStream(new FileInputStream(staged.file));
+            lease.cipherGeneration = staged.generation;
+            return lease;
+        }
+    }
+
     /** Single-use ciphertext spool. Bridge callbacks never write authoritative DB tables. */
     static final class PendingWrite implements AutoCloseable {
         static final String PREFIX = "stockai-compute-transfer-";
         final File file;
         final long generation;
-        final int length, chunks;
+        int length, chunks;
+        private final boolean unknownLength;
         private DataOutputStream output;
         private final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         private int next, characters;
-        private boolean sealed, disposed;
+        private boolean sealed, disposed, tail;
         private String hash;
 
         PendingWrite(File directory, long previous, int length) throws Exception {
+            this(directory, previous, length, false);
+        }
+
+        PendingWrite(File directory, long previous) throws Exception {
+            this(directory, previous, 0, true);
+        }
+
+        private PendingWrite(File directory, long previous, int length, boolean unknown) throws Exception {
             if (previous < 0 || previous >= MAX_GENERATION || length < 0 || length > MAX_CHARACTERS)
                 throw new IllegalArgumentException();
-            this.generation = previous + 1; this.length = length;
-            this.chunks = (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS;
+            this.generation = previous + 1; this.unknownLength = unknown;
+            this.length = unknown ? -1 : length;
+            this.chunks = unknown ? -1 : (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS;
             cleanAbandonedTransfers(directory);
             file = File.createTempFile(PREFIX, ".chunks", directory.getCanonicalFile());
             try { output = new DataOutputStream(new FileOutputStream(file)); }
@@ -264,18 +298,23 @@ final class LocalStateStore {
         }
 
         synchronized void append(int index, String fragment) throws Exception {
-            if (disposed || sealed || index != next || index >= chunks || fragment == null
-                    || fragment.length() != Math.min(CHUNK_CHARACTERS, length - characters))
+            if (disposed || sealed || index != next || fragment == null
+                    || (unknownLength ? tail || fragment.isEmpty() || fragment.length() > CHUNK_CHARACTERS
+                        || characters + fragment.length() > MAX_CHARACTERS
+                        : index >= chunks || fragment.length() != Math.min(CHUNK_CHARACTERS, length - characters)))
                 throw new SecurityException();
             byte[] bytes = encryptChunk(fragment, generation, index);
             output.writeInt(bytes.length); output.write(bytes);
             digest.update(fragment.getBytes(StandardCharsets.UTF_8));
             characters += fragment.length(); next++;
+            tail = fragment.length() < CHUNK_CHARACTERS;
         }
 
         synchronized void seal() throws Exception {
-            if (disposed || sealed || characters != length || next != chunks) throw new SecurityException();
+            if (disposed || sealed || (!unknownLength && (characters != length || next != chunks)))
+                throw new SecurityException();
             output.close(); output = null;
+            if (unknownLength) { length = characters; chunks = next; }
             hash = hex(digest.digest()); sealed = true;
         }
 

@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-17 — 全状態の分割exportと大容量backupの認証付き復旧
+
+- 49c6994のCI39030412570はverify success、Android/android-history failure、release skipで終了。native74件とopaque96,870,524文字5.727秒/192MiBはpass。全量capsuleは96,781,956文字、Python復元後のexportでrendererがcrash（didCrash=true、OS killとは別）。直前の空き872,439,808bytes/low-memory=false、Java使用約5.68MBであり、Java OOMやrendererのLMKと断定しない。通常OSのprocess段階は通ったがrebootが通信条件未充足reason7で中断/RETRYし、元のACK窓内に完了せず失敗を保持。原本は`native-full-history-ci-39030412570`。
+- D149として、SQLiteをZIPへstreamし、Pythonの全量base64/String生成をnative経路から除去。256KiBごとにnativeの暗号化staging完了を待つ。STOCKAIB1 backupも同じformat/鍵導出/AES-GCMを保ち、nativeからstreamして保存する。復元は全体の認証後、暗号化quarantineを一回限りtokenでpreviewし、本人の確認・世代CAS・実SQLite検証・原子commitを経て反映する。画面へ全payloadを返さない。
+- Pythonの保存/復旧・controller/OS関連80件が8.58秒でpass。合成の実97M capsuleを同一SQLiteから旧49c exportと新370chunk exportへ通し、両SQLite memberのbyte SHAが完全一致、元capsule不変。旧2.326秒、新export＋復号後照合2.969秒。これはWindowsの内容一致で、Androidの完走証拠ではない。原本は`streamed-state-export-full-20261017/report.json`。
+- B1の旧/新相互読込、wrong password/tag/末尾/重複/不完全/上限拒否など純JVM10件が192MiBでpass。実97M B1のexport/importも同じheapで3.829秒、370chunk、世代metadata/暗号化前payload一致。LocalStateStore/ComputeHost/cryptoはAndroid API classpathでcompile確認。owner/pluginを含む全native受入はCI待ち。
+- React81件、lint/build、実offline compute-host11件（48.2秒）、同梱WASM/復元/9model vectors/4head/300候補＋保有/320・390px拡大文字の9件（2.3分）、Ruff・両OS型検査67file・source814/private0監査がpass。backup画面の本人確認、復元/取消の48px以上・12px間隔を実componentで確認し、320px画像も目視確認した。全量native gateへ同じB1書出し/preview/復旧/owner再作成を追加し、全17table照合と旧時間/heap/OS条件を維持する。承認bundle0、実API/本人ChatGPT、Xiaomiと実市場採用は未完。実注文・main merge・製品APK公開なし。
+
 ## 2026-10-17 — 実市場receiptと保存予測を既存NAVへ接続
 
 - D148として`research evaluate-market-strategy`を追加。固定した市場receipt・保存済み日別予測・feature selection/dataset identityを照合し、独立した企業行動・時点・執行/受渡し・費用根拠が揃う場合だけ既存の状態付きDecision Engineと税引前NAV/HOLDへ渡す。原予測の改変、調整価格、誤った終値、非単位係数の未解決、無約定との矛盾、holdout期間を拒否する。

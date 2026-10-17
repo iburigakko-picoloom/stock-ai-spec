@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
-import { restoreMobileState } from "./runtime";
+import { MobileBackupPanel } from "./MobileBackupPanel";
 import { MobilePersonalPanel } from "./MobilePersonalPanel";
 import { ChatGPTPanel } from "./ChatGPTPanel";
 import { MobileMarketPanel } from "./MobileMarketPanel";
@@ -35,14 +35,11 @@ const blank: LocalPortfolio = { schema_version: "manual-portfolio-v1", holdings_
 export function MobileDevicePanel(): ReactNode {
   const [configured, setConfigured] = useState(false);
   const [key, setKey] = useState("");
-  const [password, setPassword] = useState("");
   const [portfolio, setPortfolio] = useState<LocalPortfolio>(blank);
   const [savedPortfolio, setSavedPortfolio] = useState<SavedPortfolio | null>(null);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [restorePayload, setRestorePayload] = useState<string | null>(null);
-  const [confirmRestore, setConfirmRestore] = useState(false);
   useEffect(() => {
     if (!isAndroid()) return;
     void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setMessage("APIキーの保存状態を確認できません。再起動してください。"));
@@ -112,16 +109,7 @@ export function MobileDevicePanel(): ReactNode {
     <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
     <MobileMarketPanel configured={configured} disabled={busy} onBusy={setBusy} />
     <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} onBusy={setBusy} />
-    <section className="section"><h2>データのバックアップ</h2>
-      <p>保有・設定・履歴をパスワード付きで保存します。APIキーは含めません。</p>
-      <label>バックアップのパスワード（12文字以上）<input type="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-      <button className="button" disabled={busy || password.length < 12} onClick={() => void action(() => StockAI.exportBackup({ password }), "バックアップを保存しました。パスワードを別の安全な場所に保管してください。")}>バックアップを書き出す</button>
-      <button className="button button--secondary" disabled={busy || password.length < 12} onClick={() => void action(async () => {
-        const value = await StockAI.importBackup({ password }); setRestorePayload(value.payload); setConfirmRestore(false);
-      }, "復元ファイルを読み込みました。内容を復元すると現在の保有・設定・履歴を置き換えます。")}>復元ファイルを選ぶ</button>
-      {restorePayload && <div><label><input type="checkbox" checked={confirmRestore} onChange={event => setConfirmRestore(event.target.checked)} />現在の保有・設定・履歴を、このバックアップへ置き換えることを確認しました。</label>
-        <button className="button" disabled={busy || !confirmRestore} onClick={() => void action(() => restoreMobileState(restorePayload), "復元しました。")}>このバックアップから復元</button></div>}
-    </section>
+    <MobileBackupPanel disabled={busy} onBusy={setBusy} />
     <p role="status">{busy ? "端末内で処理しています…" : message}</p>
   </div>;
 }

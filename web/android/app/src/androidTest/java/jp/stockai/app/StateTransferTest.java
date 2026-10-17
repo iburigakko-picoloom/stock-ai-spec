@@ -84,6 +84,39 @@ public class StateTransferTest {
         assertEquals("", readLease()); assertEquals("", store.read().getString("payload"));
     }
 
+    @Test public void unknownLengthQuarantineIsBoundedSealedAndReadWithoutChangingState() throws Exception {
+        store.write(0, "original");
+        String first = "A".repeat(LocalStateStore.CHUNK_CHARACTERS);
+        try (LocalStateStore.PendingWrite staged = new LocalStateStore.PendingWrite(context.getCacheDir(), 1)) {
+            rejected(() -> staged.append(0, ""));
+            rejected(() -> store.stagedLease(staged, 1));
+            staged.append(0, first); staged.append(1, "QQ==");
+            rejected(() -> staged.append(2, "extra"));
+            staged.seal(); assertEquals(first.length() + 4, staged.length); assertEquals(2, staged.chunks);
+            try (LocalStateStore.ReadLease source = store.stagedLease(staged, 1)) {
+                assertEquals(first, source.next(0)); assertEquals("QQ==", source.next(1)); source.finish();
+            }
+            assertEquals("original", readLease()); assertEquals(1, store.currentGeneration());
+        }
+    }
+
+    @Test public void quarantineCiphertextTruncationTamperingAndTrailingBytesAreRejected() throws Exception {
+        store.write(0, "original");
+        for (int mode = 0; mode < 3; mode++) {
+            try (LocalStateStore.PendingWrite staged = stage(1, "A".repeat(LocalStateStore.CHUNK_CHARACTERS + 4))) {
+                try (RandomAccessFile bytes = new RandomAccessFile(staged.file, "rw")) {
+                    if (mode == 0) bytes.setLength(bytes.length() - 1);
+                    else if (mode == 1) { bytes.seek(bytes.length()); bytes.write(0); }
+                    else { bytes.seek(bytes.length() - 1); int last = bytes.read(); bytes.seek(bytes.length() - 1); bytes.write(last ^ 1); }
+                }
+                try (LocalStateStore.ReadLease source = store.stagedLease(staged, 1)) {
+                    rejected(() -> { for (int index = 0; index < source.chunks; index++) source.next(index); source.finish(); });
+                }
+                assertEquals("original", readLease()); assertEquals(1, store.currentGeneration());
+            }
+        }
+    }
+
     @Test public void partialDuplicateWrongOrderAndClosedTransfersNeverCommit() throws Exception {
         store.write(0, "original");
         File spool;

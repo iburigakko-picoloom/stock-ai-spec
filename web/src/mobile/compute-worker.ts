@@ -37,8 +37,46 @@ async function initialize(state: string, progress: (phase: string) => void): Pro
 // Serialize every operation, including startup, so no update can overtake an
 // uncommitted portfolio/ledger write.
 let queue = Promise.resolve();
-self.onmessage = (event: MessageEvent<{ id: number; command: string; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; transfer_state?: boolean; method?: string; path?: string; body?: string }>) => {
+let awaitingAck: { id: number; index: number; resolve: () => void; reject: (error: Error) => void } | null = null;
+function sendState(id: number, index: number, message: Record<string, unknown>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    awaitingAck = { id, index, resolve, reject };
+    self.postMessage({ id, ...message });
+  });
+}
+async function exportNative(id: number, progress: (phase: string) => void): Promise<void> {
+  if (!python) throw new Error("Runtime unavailable");
+  const interpreter = python;
+  await interpreter.runPythonAsync("_native_export = None");
+  try {
+    progress("export-archive");
+    const length = Number(await interpreter.runPythonAsync("_native_export = runtime.StateExport()\n_native_export.length"));
+    if (!Number.isSafeInteger(length) || length < 0 || length > 128 * 1024 * 1024) throw new Error("Invalid state length");
+    await sendState(id, -1, { state_begin: length });
+    progress("export-chunks");
+    let received = 0;
+    for (let index = 0; ; index++) {
+      const fragment = await interpreter.runPythonAsync("_native_export.read_next()");
+      if (fragment == null) break;
+      if (typeof fragment !== "string" || fragment.length !== Math.min(256 * 1024, length - received) || fragment.length === 0) throw new Error("Invalid state fragment");
+      await sendState(id, index, { state_chunk: fragment, index });
+      received += fragment.length;
+    }
+    if (received !== length) throw new Error("Incomplete state");
+  } finally {
+    awaitingAck = null;
+    await interpreter.runPythonAsync("_native_export.close() if _native_export is not None else None\n_native_export = None");
+  }
+}
+self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; method?: string; path?: string; body?: string }>) => {
   const input = event.data;
+  if (input.command === "state_ack") {
+    if (awaitingAck?.id === input.id && (input.ok !== true || awaitingAck.index === input.index)) {
+      const pending = awaitingAck; awaitingAck = null;
+      if (input.ok === true) pending.resolve(); else pending.reject(new Error("State transfer aborted"));
+    }
+    return;
+  }
   queue = queue.then(async () => {
     const progress = (phase: string) => { if (input.trace === true) self.postMessage({ id: input.id, progress: phase }); };
     try {
@@ -64,14 +102,15 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; state?: str
           result = JSON.parse(String(await python.runPythonAsync("import json\njson.dumps(await runtime.request(method, request_path, request_body), ensure_ascii=False)")));
         } finally { python.globals.set("request_body", null); delete input.body; }
       }
-      if (input.command === "initialize" || input.method === "POST") progress("export");
-      const state = input.command === "initialize" || input.method === "POST"
-        ? String(await python.runPythonAsync("runtime.export_state()")) : null;
-      if (input.transfer_state === true && state !== null) {
-        if (state.length > 128 * 1024 * 1024) throw new Error("State exceeds native transfer limit");
-        const bytes = new TextEncoder().encode(state);
-        self.postMessage({ id: input.id, result, state_bytes: bytes.buffer }, [bytes.buffer]);
-      } else self.postMessage({ id: input.id, result, state });
+      const saves = input.command === "initialize" || input.method === "POST";
+      if (saves && input.stream_state === true) {
+        await exportNative(input.id, progress);
+        self.postMessage({ id: input.id, result, state: true });
+      } else {
+        if (saves) progress("export");
+        const state = saves ? String(await python.runPythonAsync("runtime.export_state()")) : null;
+        self.postMessage({ id: input.id, result, state });
+      }
     } catch (error) {
       const kind = error instanceof WebAssembly.CompileError || error instanceof WebAssembly.LinkError || error instanceof WebAssembly.RuntimeError ? "wasm" : error instanceof TypeError ? "type" : error instanceof Error && error.name === "PythonError" ? "python" : "other";
       self.postMessage({ id: input.id, error_code: `${stage}_${kind}`, error: import.meta.env.DEV ? String(error) : "端末内の処理に失敗しました。保存済みデータを確認し、再起動してください。" });

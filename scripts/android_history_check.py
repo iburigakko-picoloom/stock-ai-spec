@@ -49,7 +49,7 @@ def validate_fixture(folder: Path) -> dict:
 def renderer_diagnostics(output: str) -> str:
     stages = (
         "reading-input|posting-input|decoding-input|interpreter|packages|archive|state|"
-        "request|export|staging-output"
+        "request|export|export-archive|export-chunks|staging-output"
     )
     selected = [line for line in output.splitlines() if "CONSOLE" not in line and (
         re.search(
@@ -63,6 +63,25 @@ def renderer_diagnostics(output: str) -> str:
         )
     )]
     return "\n".join(selected[-500:])
+
+
+def validate_native_evidence(evidence: dict, characters: int) -> None:
+    portable = evidence.get("portable_backup", {})
+    if not isinstance(portable, dict):
+        raise ValueError("Invalid native portable-backup evidence")
+    if (
+        evidence.get("synthetic_only") is not True
+        or evidence.get("phase") != "verified"
+        or evidence.get("characters") != characters
+        or not 0 < evidence.get("max_java_heap_bytes", 0) <= 192 * 1024 * 1024
+        or portable.get("format") != "STOCKAIB1"
+        or portable.get("status") != "restored"
+        or not 90_000_000 <= portable.get("characters", 0) <= 128 * 1024 * 1024
+        or not 90_000_000 <= portable.get("envelope_bytes", 0) <= 128 * 1024 * 1024
+        or portable.get("native_preview_payload_absent") is not True
+        or portable.get("profile_recovered") is not True
+    ):
+        raise ValueError("Native full-history/portable-backup evidence is incomplete")
 
 
 class HistoryController(Controller):
@@ -93,7 +112,10 @@ class HistoryController(Controller):
         self.guard()
         self.report = {
             "synthetic_only": True,
-            "scope": "Real full SQLite native owner/Java restore, profile commit and recreation",
+            "scope": (
+                "Real full SQLite native owner/Java restore, profile/recreation "
+                "and compatible portable backup"
+            ),
             "source_commit": build["source_commit"],
             "input_sha256": original["payload_sha256"],
             "apk_sha256": {key: digest(path) for key, path in paths.items()},
@@ -138,13 +160,7 @@ class HistoryController(Controller):
         evidence = json.loads(
             self.adb("exec-out", "run-as", PACKAGE, "cat", "files/native-history-proof.json")
         )
-        if (
-            evidence.get("synthetic_only") is not True
-            or evidence.get("phase") != "verified"
-            or evidence.get("characters") != original["characters"]
-            or not 0 < evidence.get("max_java_heap_bytes", 0) <= 192 * 1024 * 1024
-        ):
-            raise ValueError("Native capacity evidence is incomplete or heap limit changed")
+        validate_native_evidence(evidence, original["characters"])
         exported = self.output / "export.b64"
         with exported.open("xb") as destination:
             self.stream(

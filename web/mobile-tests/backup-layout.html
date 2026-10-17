@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>バックアップ画面試験</title></head>
+<body><div id="backup-test" class="device-settings page"></div><script type="module">
+// Browser-only layout fixture, excluded from the application build.
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { MobileBackupPanel } from "/src/mobile/MobileBackupPanel.tsx";
+import "/src/styles.css";
+createRoot(document.getElementById("backup-test")).render(React.createElement(MobileBackupPanel, { disabled: false, onBusy() {} }));
+</script></body></html>

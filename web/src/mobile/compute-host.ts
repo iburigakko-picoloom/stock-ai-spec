@@ -8,7 +8,7 @@ interface ComputeBridge {
   stateChunk(identity: string, index: number, fragment: string): boolean;
   progress?(identity: string, phase: string): void;
 }
-interface ComputeCommand { id: number; command: string; state_length?: number; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; transfer_state?: boolean }
+interface ComputeCommand { id: number; command: string; state_length?: number; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean }
 interface HostWindow extends Window {
   StockAICompute?: ComputeBridge;
   stockAICompute?: (request: ComputeCommand) => void;
@@ -22,45 +22,55 @@ if (bridge) {
   const yieldTurn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
   let active: number | null = null;
   let completing = false;
+  let output: { length: number; received: number; next: number } | null = null;
   const fail = (id: number, code: string) => bridge.complete(String(id), JSON.stringify({ error: "COMPUTE_WORKER_FAILED", code }));
-  worker.onmessage = async (event: MessageEvent<{ id: number; progress?: string; result?: unknown; state?: string | null; state_bytes?: ArrayBuffer; error?: string; error_code?: string }>) => {
+  const release = (id: number) => { if (active === id) { active = null; completing = false; output = null; } };
+  worker.onmessage = (event: MessageEvent<{ id: number; progress?: string; result?: unknown; state?: true | null; state_begin?: number; state_chunk?: string; index?: number; error?: string; error_code?: string }>) => {
     const message = event.data;
     if (message.id !== active || completing) return;
-    if (message.progress) { bridge.progress?.(String(message.id), message.progress); return; }
     const id = message.id;
     const identity = String(id);
-    completing = true;
     try {
-      if (message.error) { fail(id, message.error_code ?? "unknown"); return; }
-      let state: true | null = null;
-      if (message.state_bytes !== undefined) {
-        if (!(message.state_bytes instanceof ArrayBuffer) || message.state !== undefined) throw new Error("STATE_TRANSFER_FAILED");
-        const saved = new Uint8Array(message.state_bytes); delete message.state_bytes;
+      if (message.progress) { bridge.progress?.(identity, message.progress); return; }
+      if (message.error) { fail(id, message.error_code ?? "unknown"); release(id); return; }
+      if (message.state_begin !== undefined) {
+        const length = message.state_begin;
+        if (output || !Number.isSafeInteger(length) || length < 0 || length > maxCharacters) throw new Error("STATE_TRANSFER_FAILED");
         bridge.progress?.(identity, "staging-output");
-        if (saved.length > maxCharacters || !bridge.beginState(identity, saved.length)) throw new Error("STATE_TRANSFER_FAILED");
-        const decoder = new TextDecoder("utf-8", { fatal: true });
-        for (let offset = 0, index = 0; offset < saved.length; offset += chunkCharacters, index++) {
-          const piece = saved.subarray(offset, offset + chunkCharacters);
-          const fragment = decoder.decode(piece);
-          if (fragment.length !== piece.length || !bridge.stateChunk(identity, index, fragment)) throw new Error("STATE_TRANSFER_FAILED");
-          await yieldTurn();
-        }
-        state = true;
-      } else if (message.state !== null) throw new Error("STATE_TRANSFER_FAILED");
-      bridge.complete(identity, JSON.stringify({ id, result: message.result, state }));
-    } catch { fail(id, "state_other"); }
-    finally { if (active === id) { active = null; completing = false; } }
+        if (!bridge.beginState(identity, length)) throw new Error("STATE_TRANSFER_FAILED");
+        output = { length, received: 0, next: 0 };
+        worker.postMessage({ command: "state_ack", id, index: -1, ok: true }); return;
+      }
+      if (message.state_chunk !== undefined) {
+        const fragment = message.state_chunk;
+        if (!output || typeof fragment !== "string" || message.index !== output.next || fragment.length === 0
+            || fragment.length !== Math.min(chunkCharacters, output.length - output.received)
+            || /[^A-Za-z0-9+/=]/.test(fragment)
+            || !bridge.stateChunk(identity, output.next, fragment)) throw new Error("STATE_TRANSFER_FAILED");
+        output.received += fragment.length; output.next++;
+        worker.postMessage({ command: "state_ack", id, index: message.index, ok: true }); return;
+      }
+      if (message.state === true) {
+        if (!output || output.received !== output.length) throw new Error("STATE_TRANSFER_FAILED");
+      } else if (message.state !== null || output) throw new Error("STATE_TRANSFER_FAILED");
+      completing = true;
+      bridge.complete(identity, JSON.stringify({ id, result: message.result, state: message.state }));
+      release(id);
+    } catch {
+      worker.postMessage({ command: "state_ack", id, ok: false });
+      fail(id, "state_other"); release(id);
+    }
   };
   worker.onerror = () => {
     if (active !== null) {
-      const id = active; active = null; completing = false;
+      const id = active; release(id);
       fail(id, "worker_js");
     }
   };
   hostWindow.stockAICompute = async request => {
     if (!Number.isSafeInteger(request.id) || active !== null) return;
     const id = request.id;
-    active = id;
+    active = id; output = null;
     const input = { ...request };
     const transfer: Transferable[] = [];
     try {
@@ -85,12 +95,12 @@ if (bridge) {
         input.state_bytes = bytes.buffer; transfer.push(bytes.buffer);
         delete input.state_length;
       }
-      input.trace = true; input.transfer_state = true;
+      input.trace = true; input.stream_state = true;
       bridge.progress?.(String(id), "posting-input");
       worker.postMessage(input, transfer);
     } catch {
       fail(id, "state_other");
-      if (active === id) { active = null; completing = false; }
+      release(id);
     } finally { delete input.state; delete input.state_bytes; }
   };
   bridge.ready();

@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 export interface NativeState { generation: number; payload: string }
+export interface BackupPreview { token: string; characters: number }
 export interface DailyStatus {
   enabled: boolean; state: string; firstDay?: string; day?: string | null;
   updatedAt?: string; retryAt?: string | null; notificationsEnabled: boolean;
@@ -35,7 +36,9 @@ export interface StockAINative {
   acknowledgeMarket(input: { date: string; acquisitionId: string }): Promise<void>;
   restartMarket(input: { date: string }): Promise<void>;
   exportBackup(input: { password: string }): Promise<void>;
-  importBackup(input: { password: string }): Promise<NativeState>;
+  importBackup(input: { password: string }): Promise<BackupPreview>;
+  discardBackup(input: { token: string }): Promise<void>;
+  restoreBackup(input: { token: string; confirmed: true }): Promise<{ generation: number }>;
   importModel(): Promise<{ content: string }>;
 }
 export const isAndroid = (): boolean => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";

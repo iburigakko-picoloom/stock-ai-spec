@@ -35,6 +35,8 @@ public class FullHistoryCapacityTest {
     long characters;
     String expectedDigest;
     JSONObject portfolio;
+    JSONObject portable;
+    File portableFile;
 
     @Before public void disposableEmulatorOnly() throws Exception {
         var args = InstrumentationRegistry.getArguments();
@@ -60,6 +62,7 @@ public class FullHistoryCapacityTest {
             .put("generation", owner.state.currentGeneration())
             .put("elapsed_seconds", (System.nanoTime() - started) / 1000000000.0);
         if (portfolio != null) evidence.put("portfolio", portfolio);
+        if (portable != null) evidence.put("portable_backup", portable);
         try (FileOutputStream output = new FileOutputStream(new File(context.getFilesDir(), "native-history-proof.json"))) {
             output.write(evidence.toString().getBytes(StandardCharsets.UTF_8));
         }
@@ -162,11 +165,35 @@ public class FullHistoryCapacityTest {
         phase("recreating-owner");
         assertEquals(portfolio.toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
         assertEquals(dates, result(owner.request("GET", "/api/v1/mobile/market", "null")).getJSONObject("body").getJSONArray("completed_dates").toString());
-        phase("owner-recreated"); exportEncryptedChunks(); phase("verified");
+        phase("owner-recreated");
+        portableFile = File.createTempFile("stockai-history-portable-", ".stockaib", context.getCacheDir());
+        phase("exporting-portable-backup");
+        result(owner.exportBackup("synthetic-history-password", () -> new FileOutputStream(portableFile)));
+        portable = new JSONObject().put("format", "STOCKAIB1").put("envelope_bytes", portableFile.length());
+        assertTrue(portableFile.length() > 90000000 && portableFile.length() <= BackupCrypto.MAX_ENVELOPE_BYTES);
+        phase("portable-backup-exported");
+        JSObject changed = result(owner.request("POST", "/api/v1/mobile/portfolio", LocalComputeOwnerTest.revisedProfile(saved).toString()));
+        assertEquals(200, changed.getInt("status")); assertNotEquals(portfolio.toString(), changed.getJSONObject("body").toString());
+        phase("preparing-portable-restore");
+        long beforePreview = owner.state.currentGeneration();
+        JSObject preview = result(owner.previewBackup("synthetic-history-password", () -> new FileInputStream(portableFile)));
+        assertEquals(beforePreview, owner.state.currentGeneration());
+        assertEquals(2, preview.length()); assertFalse(preview.has("payload"));
+        portable.put("characters", preview.getInt("characters")).put("native_preview_payload_absent", true);
+        phase("portable-preview-authenticated");
+        result(owner.restoreBackup(preview.getString("token")));
+        assertEquals(portfolio.toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        portable.put("profile_recovered", true); phase("portable-backup-restored");
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, database);
+        assertEquals(portfolio.toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        assertEquals(dates, result(owner.request("GET", "/api/v1/mobile/market", "null")).getJSONObject("body").getJSONArray("completed_dates").toString());
+        portable.put("status", "restored"); phase("restored-owner-recreated");
+        exportEncryptedChunks(); phase("verified");
     }
 
     @After public void closeIsolatedOwner() throws Exception {
         if (owner != null) owner.closeForTest().get(15, TimeUnit.SECONDS);
         if (database != null) SQLiteDatabase.deleteDatabase(database);
+        if (portableFile != null) portableFile.delete();
     }
 }

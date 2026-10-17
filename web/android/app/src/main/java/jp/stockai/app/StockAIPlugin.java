@@ -76,6 +76,13 @@ public class StockAIPlugin extends Plugin {
         });
     }
 
+    void completeBackup(PluginCall call, java.util.concurrent.CompletableFuture<JSObject> result) {
+        result.whenComplete((value, error) -> {
+            if (error != null) call.reject("バックアップを確認できませんでした。パスワード・ファイル・保存領域を確認してください。", "STOCKAI_BACKUP_FAILED");
+            else call.resolve(value);
+        });
+    }
+
     @PluginMethod public void compute(PluginCall call) { background(call, () -> {
         completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
@@ -139,9 +146,8 @@ public class StockAIPlugin extends Plugin {
         if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("バックアップ保存を取り消しました。"); return; }
         Uri uri = result.getData().getData();
         background(call, () -> {
-            byte[] bytes = BackupCrypto.encrypt(call.getString("password"), readStateData().toString().getBytes(StandardCharsets.UTF_8));
-            try (OutputStream stream = getContext().getContentResolver().openOutputStream(uri, "wt")) { if (stream == null) throw new IOException(); stream.write(bytes); stream.flush(); }
-            call.resolve();
+            completeBackup(call, owner().exportBackup(call.getString("password"),
+                () -> getContext().getContentResolver().openOutputStream(uri, "wt")));
         });
     }
     @PluginMethod public void importBackup(PluginCall call) {
@@ -166,14 +172,21 @@ public class StockAIPlugin extends Plugin {
         if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("復元を取り消しました。"); return; }
         Uri uri = result.getData().getData();
         background(call, () -> {
-            byte[] content = read(getContext().getContentResolver().openInputStream(uri), BackupCrypto.MAX_ENVELOPE_BYTES);
-            JSONObject value = new JSONObject(new String(BackupCrypto.decrypt(call.getString("password"), content), StandardCharsets.UTF_8));
-            if (!value.has("payload") || value.length() != 2 || !value.has("generation")) throw new SecurityException();
-            // Return a preview only. Restoring requires Python integrity checks
-            // and an explicit later confirmation before a CAS durable write.
-            call.resolve(new JSObject(value.toString()));
+            // The UI receives an opaque, generation-bound preview, never the
+            // complete capsule. SQLite validation still precedes durable commit.
+            completeBackup(call, owner().previewBackup(call.getString("password"),
+                () -> getContext().getContentResolver().openInputStream(uri)));
         });
     }
+
+    @PluginMethod public void discardBackup(PluginCall call) { background(call, () -> {
+        completeBackup(call, owner().discardBackup(call.getString("token")));
+    }); }
+
+    @PluginMethod public void restoreBackup(PluginCall call) { background(call, () -> {
+        if (!Boolean.TRUE.equals(call.getBoolean("confirmed"))) throw new IllegalArgumentException();
+        completeBackup(call, owner().restoreBackup(call.getString("token")));
+    }); }
 
     static HttpURLConnection connection(String url) throws Exception {
         URL target = new URL(url);

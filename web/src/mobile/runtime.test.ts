@@ -1,8 +1,8 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { StockAI } from "./native";
-import { mobileRequest } from "./runtime";
+import { mobileRequest, restoreMobileBackup } from "./runtime";
 
-vi.mock("./native", () => ({ StockAI: { compute: vi.fn(), keyStatus: vi.fn(), restoreState: vi.fn() } }));
+vi.mock("./native", () => ({ StockAI: { compute: vi.fn(), keyStatus: vi.fn(), restoreState: vi.fn(), restoreBackup: vi.fn() } }));
 beforeEach(() => vi.resetAllMocks());
 
 test("a mutation resolves only when the shared native owner acknowledges the durable result", async () => {
@@ -29,4 +29,11 @@ test("settings still decorate native key availability without reading credential
   await expect(mobileRequest("GET", "/api/v1/settings")).resolves.toEqual({
     data: { jQuantsApiKeyConfigured: true }, runtime: { remoteAccess: "端末内で実行" },
   });
+});
+
+test("portable restore sends only a confirmed token and propagates native rejection", async () => {
+  vi.mocked(StockAI.restoreBackup).mockRejectedValue(new Error("synthetic-native-conflict"));
+  await expect(restoreMobileBackup("synthetic-preview")).rejects.toThrow("synthetic-native-conflict");
+  expect(StockAI.restoreBackup).toHaveBeenCalledWith({ token: "synthetic-preview", confirmed: true });
+  expect(StockAI.restoreState).not.toHaveBeenCalled();
 });

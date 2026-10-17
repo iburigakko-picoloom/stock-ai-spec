@@ -39,6 +39,61 @@ public class LocalComputeOwnerTest {
         return "{\"schema_version\":\"manual-portfolio-v1\",\"holdings_status\":\"none\",\"investment_budget_yen\":null,\"maximum_drawdown_percent\":null,\"accounts\":[],\"holdings\":[]}";
     }
 
+    static org.json.JSONObject revisedProfile(JSObject previous) throws Exception {
+        org.json.JSONObject profile = new org.json.JSONObject(emptyProfile()).put("investment_budget_yen", "1000000");
+        return new org.json.JSONObject().put("expected_revision_id", previous.getJSONObject("body").getString("revision_id"))
+            .put("portfolio", profile);
+    }
+
+    @Test public void portableBackupPreviewIsOpaqueAndRestoresTheOriginalProfileAfterRecreation() throws Exception {
+        File backup = File.createTempFile("stockai-portable-test-", ".stockaib", context.getCacheDir());
+        try {
+            JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
+            result(owner.exportBackup("synthetic-backup-password", () -> new java.io.FileOutputStream(backup)));
+            JSObject changed = result(owner.request("POST", "/api/v1/mobile/portfolio", revisedProfile(saved).toString()));
+            assertEquals(200, changed.getInt("status"));
+            long generation = owner.state.currentGeneration();
+            JSObject preview = result(owner.previewBackup("synthetic-backup-password", () -> new java.io.FileInputStream(backup)));
+            assertEquals(2, preview.length()); assertFalse(preview.has("payload"));
+            assertTrue(preview.getInt("characters") > 0); assertEquals(generation, owner.state.currentGeneration());
+            assertEquals(changed.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+            try { result(owner.restoreBackup("wrong-token")); fail("wrong preview accepted"); }
+            catch (java.util.concurrent.ExecutionException expected) { }
+            assertEquals(generation, owner.state.currentGeneration());
+            result(owner.restoreBackup(preview.getString("token")));
+            assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+            try { result(owner.restoreBackup(preview.getString("token"))); fail("consumed preview accepted"); }
+            catch (java.util.concurrent.ExecutionException expected) { }
+            result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+            assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        } finally { backup.delete(); }
+    }
+
+    @Test public void staleWrongPasswordAndInvalidSqliteBackupKeepTheCommittedProfile() throws Exception {
+        File backup = File.createTempFile("stockai-portable-reject-", ".stockaib", context.getCacheDir());
+        try {
+            JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
+            result(owner.exportBackup("synthetic-backup-password", () -> new java.io.FileOutputStream(backup)));
+            JSObject preview = result(owner.previewBackup("synthetic-backup-password", () -> new java.io.FileInputStream(backup)));
+            JSObject changed = result(owner.request("POST", "/api/v1/mobile/portfolio", revisedProfile(saved).toString()));
+            long generation = owner.state.currentGeneration();
+            try { result(owner.restoreBackup(preview.getString("token"))); fail("stale preview accepted"); }
+            catch (java.util.concurrent.ExecutionException expected) { }
+            assertEquals(generation, owner.state.currentGeneration());
+            try { result(owner.previewBackup("incorrect-long-password", () -> new java.io.FileInputStream(backup))); fail("wrong password accepted"); }
+            catch (java.util.concurrent.ExecutionException expected) { }
+            assertEquals(generation, owner.state.currentGeneration());
+            byte[] invalid = BackupCrypto.encrypt("synthetic-backup-password",
+                "{\"generation\":1,\"payload\":\"bm90LXNxbGl0ZQ==\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            try (java.io.FileOutputStream output = new java.io.FileOutputStream(backup)) { output.write(invalid); }
+            JSObject bad = result(owner.previewBackup("synthetic-backup-password", () -> new java.io.FileInputStream(backup)));
+            try { result(owner.restoreBackup(bad.getString("token"))); fail("invalid SQLite accepted"); }
+            catch (java.util.concurrent.ExecutionException expected) { }
+            assertEquals(generation, owner.state.currentGeneration());
+            assertEquals(changed.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        } finally { backup.delete(); }
+    }
+
     @Test public void apkOnlyHostRejectsForeignAssetsAndInvalidLocalRequests() throws Exception {
         ComputeHost host = new ComputeHost(context);
         for (String url : new String[]{"https://evil.example/compute.html", "http://compute.stockai.local/compute.html", "https://compute.stockai.local/../private", "https://compute.stockai.local/%2e%2e/private"}) {
