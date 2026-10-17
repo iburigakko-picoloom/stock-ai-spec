@@ -48,7 +48,7 @@ CIでは通常のinstrumented試験の後に、専用test APKと`scripts/android
 
 結果はActionsの`android-test-reports`にある`lifecycle-report.json`と各段階のテキストで確認する。合成の受領済み休日データを使うため、示せるのは予約・保存・同じ取得ID/受領時刻の再開である。実J-Quants通信、実アカウント調査、採用モデルの株数、Xiaomiの実行時刻や性能の証拠は別に必要。host側のSQLite観測コピーは成果物へアップロードしない。
 
-通常CIは`--dispatch-ready`を明示し、90秒の自然観測後も未配送なら、画面を2秒起こしてから消灯し、通常の遅延alarm配送を許す。なお未配送の場合だけ、元のsystem job IDへOSの`run -s`を一度だけ送る。全制約を満たす場合だけ実行し、`-f`・再enqueue・電力policyや時計の変更は使わない。結果の`delivery_policy`と各phaseの`delivery`で画面起動も確認し、制御配送の成功を自動起動時刻の受入と数えない。手動workflowの`lifecycle_delivery=unforced`では、介入なしの200秒試験をそのまま実行する。初回の無介入試験は予約とページを保持したままOSが保留し、200秒以内の完了を確認できなかった。続く`-s`だけの試験も、経過済みのTIMING_DELAYが未解除で拒否されている。
+通常CIは`--dispatch-ready`を明示し、90秒の自然観測後も未配送なら、画面を2秒起こしてから消灯し、通常の遅延alarm配送を許す。なお未配送の場合だけ、元WorkRequest UUIDの現行mappingを照合してOSの`run -s`を送る。初回照合時にRUNNING等でまだ未送信なら、同じ200秒のACK窓の中で10秒ごとに元処理を観測し、OSの再試行がENQUEUEDとなり`get-job-state`が単独の`ready`を返した場合だけ、その未使用の1回を送る。既に送信済み（拒否を含む）のphaseでは追加送信しない。既存のjob消失raceに対する同UUIDの再照合1回も維持する。全制約を満たす場合だけ実行し、`-f`・再enqueue・電力policyや時計の変更は使わない。結果の`delivery_policy`と各phaseの`delivery`で画面起動も確認し、制御配送の成功を自動起動時刻の受入と数えない。手動workflowの`lifecycle_delivery=unforced`では、介入なしの200秒試験をそのまま実行する。初回の無介入試験は予約とページを保持したままOSが保留し、200秒以内の完了を確認できなかった。続く`-s`だけの試験も、経過済みのTIMING_DELAYが未解除で拒否されている。
 
 実装a9c615cの[CI 38983024280](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38983024280)で、既存native55件と3段階のprepare/verify計6呼出しがpass。processでは画面起動＋`-s`、rebootでは解錠/消灯後に追加の配送介入なし、force-stopでは70秒の停止観測と明示再表示後に追加の配送介入なしで、同じWorkRequestの完了・取得ID・元の受領時刻・本人revision・未完cursorを確認した。3段階のACK観測時はいずれもAsleep、通知未許可。全自動の画面オフ起動時刻、実API、ChatGPTや採用モデルの計算、Xiaomiの性能は別の未完受入である。
 
@@ -152,7 +152,7 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 
 ### 日次処理の開始・停止（PR内、実機受入待ち）
 
-OS受入controllerは、準備時のscheduler番号だけで配送を試みず、元WorkRequest UUID・現行generation・DailyWorker classをWorkManager DBの隔離コピーから照合する。実行直前に番号が消えた場合も同UUIDを再観測し、制約が未充足なら既存のACK観測窓で待つ。controller自身は別処理の予約・強制run・時計/電源policy変更を行わず、実行したrun -sと観測だけの結果を記録で区別する。元WorkInfoのSUCCEEDEDと暗号化state/受領/調査の一致を引き続き要求する。新しい照合の実OS成功はCIで確認し、自然配送時刻やXiaomi成功とは読み替えない。
+OS受入controllerは、準備時のscheduler番号だけで配送を試みず、元WorkRequest UUID・現行generation・DailyWorker classをWorkManager DBの隔離コピーから照合する。実行直前に番号が消えた場合も同UUIDを再観測し、制約が未充足なら既存のACK観測窓で待つ。初回のrun -sをまだ送っていないphaseでは、元処理の通信中断・再試行を同じACK窓内で追い、backoffを自然に満たしてOSがreadyを返した場合だけ、その1回を配送する。既に試行済みなら追加しない。controller自身は別処理の予約・強制run・時計/電源policy変更を行わず、実行したrun -sと観測だけの結果を記録で区別する。元WorkInfoのSUCCEEDEDと暗号化state/受領/調査の一致を引き続き要求する。新しい照合の実OS成功はCIで確認し、自然配送時刻やXiaomi成功とは読み替えない。
 
 原予測を暗号化保存したら一度実行を区切り、当日11:30の保存済み原予測を次の実行で使って株数を計算する。株数保存の後も別の実行でChatGPT調査へ進む。「原予測を保存済み・株数判定待ち」は途中段階。株数の本人入力・台帳・モデル・市場根拠の照合は省略しない。実行中にJSTの日付が変わった場合、前日の結果を新しい当日の完成として通知しない。
 

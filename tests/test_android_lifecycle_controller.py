@@ -345,14 +345,17 @@ def test_delivery_label_records_actual_intervention_and_preserves_windows(
 ):
     monkeypatch.chdir(tmp_path)
     controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
     prepared = marker()
     waits = []
 
-    def wait(value, *, seconds=200):
+    def wait(value, *, seconds=200, on_wait=None):
         assert value is prepared
         waits.append(seconds)
         if len(waits) < 3:
+            assert on_wait is None
             raise DeliveryDeferred("still pending")
+        assert callable(on_wait)
         return {"generation": 5, "pending_pages": 0}
 
     monkeypatch.setattr(controller, "wait_ack", wait)
@@ -370,3 +373,235 @@ def test_delivery_label_records_actual_intervention_and_preserves_windows(
         else "screen-wake-and-scheduler-observed"
     )
     assert result["scheduler_dispatched"] is dispatched
+
+
+def retry_outcome(*, running=True, dispatched=False, job=7):
+    return {
+        "scheduler_dispatched": dispatched,
+        "scheduler_observations": [
+            {
+                "work_id": WORK_ID,
+                "generation": 2,
+                "id": job,
+                "namespace": NAMESPACE,
+                "work_state": 1 if running else 0,
+            }
+        ],
+    }
+
+
+def test_unforced_policy_keeps_200_seconds_without_retry_observer(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=False)
+    calls = []
+
+    def wait(value, *, seconds=200, on_wait=None):
+        calls.append((seconds, on_wait))
+        return {"generation": 8, "pending_pages": 0}
+
+    monkeypatch.setattr(controller, "wait_ack", wait)
+    monkeypatch.setattr(controller, "original_retry_observer", lambda *a: pytest.fail("unforced"))
+    monkeypatch.setattr(controller, "shell", lambda *a, **k: pytest.fail("unforced"))
+    assert controller.observe_delivery(marker(), "reboot")["delivery"] == "unforced"
+    assert calls == [(200, None)]
+
+
+def test_delivery_label_includes_dispatch_during_ack_observation(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    outcome = retry_outcome()
+    waits = []
+
+    def wait(value, *, seconds=200, on_wait=None):
+        waits.append(seconds)
+        if on_wait is None:
+            raise DeliveryDeferred("pending")
+        on_wait()
+        return {"generation": 8, "pending_pages": 0}
+
+    def observer(value, phase, scheduler):
+        assert value["work_id"] == WORK_ID and scheduler is outcome
+        return lambda: scheduler.update(scheduler_dispatched=True)
+
+    monkeypatch.setattr(controller, "wait_ack", wait)
+    monkeypatch.setattr(controller, "dispatch_ready_job", lambda *a: outcome)
+    monkeypatch.setattr(controller, "original_retry_observer", observer)
+    monkeypatch.setattr(controller, "diagnostics", lambda *a: None)
+    monkeypatch.setattr(controller, "shell", lambda *a: "")
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.sleep", lambda *a: None)
+    result = controller.observe_delivery(marker(), "reboot")
+    assert waits == [90, 3, 200]
+    assert result["delivery"] == "screen-wake-and-scheduler-satisfied"
+
+
+def test_original_retry_waits_for_backoff_readiness_and_dispatches_only_once(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
+    path = work_snapshot(tmp_path, monkeypatch, controller, mappings=((2, 8),))
+    original_bytes = path.read_bytes()
+    clock = [0.0]
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.monotonic", lambda: clock[0])
+    calls = []
+
+    def shell(*args, **kwargs):
+        calls.append(args)
+        assert args[:2] == ("cmd", "jobscheduler")
+        assert args[-2:] == (PACKAGE, "8")
+        if args[2] == "get-job-state":
+            return "waiting" if clock[0] < 20 else "ready"
+        assert args == (
+            "cmd",
+            "jobscheduler",
+            "run",
+            "-s",
+            "-u",
+            "0",
+            "-n",
+            NAMESPACE,
+            PACKAGE,
+            "8",
+        )
+        return "Running job"
+
+    monkeypatch.setattr(controller, "shell", shell)
+    outcome = retry_outcome()
+    observer = controller.original_retry_observer(marker(), "reboot", outcome)
+    observer()
+    assert calls == []
+    clock[0] = 10
+    observer()
+    assert not outcome["scheduler_dispatched"]
+    clock[0] = 20
+    observer()
+    clock[0] = 30
+    observer()
+    assert sum(call[2] == "run" for call in calls) == 1
+    assert outcome["scheduler_dispatched"]
+    assert path.read_bytes() == original_bytes
+    saved = json.loads((controller.output / "reboot-scheduler-identity.txt").read_text())
+    assert saved["prepared"]["id"] == 5
+    assert saved["scheduler_observations"][0]["id"] == 7
+    assert [x["native_job_state"] for x in saved["scheduler_retry_observations"]] == [
+        "waiting",
+        "ready",
+    ]
+    assert saved["scheduler_retry_dispatch"]["scheduler_observations"][0]["id"] == 8
+
+
+@pytest.mark.parametrize("dispatched", [False, True])
+def test_retry_cannot_dispatch_again_after_phase_used_its_one_intervention(
+    tmp_path,
+    monkeypatch,
+    dispatched,
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    controller.guarded = True
+    clock = [0]
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        controller, "current_system_job", lambda *a: pytest.fail("already dispatched")
+    )
+    monkeypatch.setattr(controller, "shell", lambda *a, **k: pytest.fail("second dispatch"))
+    outcome = retry_outcome(dispatched=dispatched)
+    outcome["scheduler_attempted"] = True
+    observer = controller.original_retry_observer(marker(), "reboot", outcome)
+    clock[0] = 100
+    observer()
+    assert outcome["scheduler_dispatched"] is dispatched
+    assert "scheduler_retry_dispatch" not in outcome
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        "",
+        "waiting",
+        "active",
+        "active ready",
+        "pending ready",
+        "user-stopped",
+        "no-component",
+        "ready unknown",
+    ],
+)
+def test_retry_never_dispatches_without_exact_native_ready(tmp_path, monkeypatch, flags):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    controller.guarded = True
+    work_snapshot(tmp_path, monkeypatch, controller, mappings=((2, 8),))
+    clock = [0]
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(controller, "shell", lambda *a, **k: flags)
+    monkeypatch.setattr(controller, "dispatch_ready_job", lambda *a: pytest.fail("not ready"))
+    outcome = retry_outcome()
+    observer = controller.original_retry_observer(marker(), "reboot", outcome)
+    clock[0] = 10
+    observer()
+    assert not outcome["scheduler_dispatched"]
+
+
+@pytest.mark.parametrize("state", [1, 2, 4])
+def test_retry_running_completed_or_blocked_work_remains_observational(
+    tmp_path, monkeypatch, state
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    controller.guarded = True
+    work_snapshot(tmp_path, monkeypatch, controller, state=state, mappings=((2, 8),))
+    clock = [0]
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(controller, "shell", lambda *a, **k: pytest.fail("work not enqueued"))
+    outcome = retry_outcome()
+    observer = controller.original_retry_observer(marker(), "reboot", outcome)
+    clock[0] = 10
+    observer()
+    assert not outcome["scheduler_dispatched"]
+
+
+@pytest.mark.parametrize("state", [3, 5])
+def test_retry_original_terminal_failure_stops_acceptance(tmp_path, monkeypatch, state):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    controller.guarded = True
+    work_snapshot(tmp_path, monkeypatch, controller, state=state, mappings=((2, 8),))
+    clock = [0]
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(controller, "shell", lambda *a, **k: pytest.fail("terminal work"))
+    observer = controller.original_retry_observer(marker(), "reboot", retry_outcome())
+    clock[0] = 10
+    with pytest.raises(RuntimeError, match="failed or was cancelled"):
+        observer()
+
+
+def test_retry_observer_requires_guard_before_workmanager_or_scheduler_access(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    monkeypatch.setattr(controller, "current_system_job", lambda *a: pytest.fail("no guard"))
+    with pytest.raises(RuntimeError, match="guard"):
+        controller.original_retry_observer(marker(), "reboot", retry_outcome())
+
+
+def test_wait_callback_never_extends_original_deadline_or_runs_after_ack(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    prepared = {"targets": [{"id": "fixture"}], "generation": 6}
+    clock, callbacks = [0], []
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        "scripts.android_lifecycle_check.time.sleep",
+        lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+    )
+    monkeypatch.setattr(controller, "snapshot", lambda *a: {"generation": 6, "pending_pages": 1})
+    with pytest.raises(DeliveryDeferred):
+        controller.wait_ack(prepared, seconds=2, on_wait=lambda: callbacks.append(clock[0]))
+    assert clock[0] == 2 and callbacks == [0]
+    monkeypatch.setattr(controller, "snapshot", lambda *a: {"generation": 7, "pending_pages": 0})
+    monkeypatch.setattr(controller, "pid", lambda: "42")
+    assert (
+        controller.wait_ack(prepared, on_wait=lambda: pytest.fail("already ACK"))["observed_pid"]
+        == "42"
+    )

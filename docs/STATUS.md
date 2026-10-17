@@ -1,9 +1,17 @@
 # Project Status
 
+## 2026-10-17 — 通信条件で中断した元処理を既存の観測窓内で追跡
+
+- fa45b94のCI39009796098はnative66件/大容量opaque storeとprocess回復を通過したが、rebootで再びACK未完となりAndroid failure。追加した原本では、元DailyWorkerがstop reason7（通信条件未充足）で中断され、その後RETRY・元UUIDのENQUEUED/job8へ移ったことを確認。nativeはgeneration7/pending1、enabled=true・failures0・retry_atなしを保持し、最終JobScheduler dumpでjob8はReady:trueだった。準備時job5→実行時7→再試行8を区別し、別処理やデータ消失と決めつけない。原本は`.demo-artifacts/pit-temporary-ci-39009796098`と同名Android log。verifyは継続中。
+- D137として、初回のrun -sをまだ送っていない場合だけ、同じ200秒のACK窓で10秒ごとに元UUID・現行generationの再試行を照合する。ENQUEUEDで、OS get-job-stateが単独のreadyを返す場合だけ、未使用の1回を同じrun -sで送る。既に試行済み（拒否を含む）なら追加しない。元のWorkInfo SUCCEEDED・受領/本人入力照合、90/3/200秒、job消失raceの再照合上限、CI/device guardと介入表示を維持。再enqueue・強制run・時刻/電源policy変更なし。アプリの予約/実行処理は変更しない。
+- controller45件がpass。backoff中は観測しready後だけ元のjob8を配送、既送信/拒否後の追加禁止、曖昧なready flags・RUNNING/SUCCEEDED/BLOCKED・FAILED/CANCELLED・guard、元の期限とACK後の無介入、待機中に配送した場合の正しいdelivery表示を検証。Ruff全体もpass。手動unforcedの200秒・介入なしも独立して検証し、時間窓は延長しない。実OS成功は次のCIで確認する。
+
 ## 2026-10-17 — PIT価格構築の不要な中間データを解放
 
 - D136として、日次価格とPIT membershipの結合後はその結合用frameを解放し、休場/取引なしmaskの確定後はOHLC/OHLCVの検査用frameを解放する。使い終わった参照の寿命だけを短くし、copy/結合/調整・欠損・価格検証・asof/source ID・全市場/業種・特徴量の式や出力を変更しない。追加の省メモリ変換D135と合わせたproduction23件が105.81秒でpass。Ruff全体、mypy通常/win32各66file、archive更新・buildとpackage42 entries監査もpass。更新した同梱WASMのPIT入力/特徴量/出所/復元1件も1.2分でpass。全量を同じ600秒/3500MiBで再測定する。上限変更なし。
 - 24fdd1bのCI39007723862は全job終了、Android success・verify failure・release skip。5,000銘柄/520日のPC保存/復元はpass（復元0.425秒）したが、特徴量の入力構築中232.826秒にpeak3,799,199,744bytesで3500MiBを超えて停止した。日次財務の改善だけではLinux側の最大memoryも解決していない。大きな結合/検査用frameの保持を減らす変更を加え、次の全量検証で効果を測る。原因や改善の確定を先取りしない。原本は`.demo-artifacts/financial-groups-ci-39007723862/mobile-storage-capacity`、同名verify log/jobs JSON。私有研究・holdout・承認bundle0件を維持し、実注文・merge・APK公開なし。
+- fa45b94をpushし、CI39009796098を開始。単独のWindows全量PCは501.081秒・peak2,997,202,944bytesでpass。入力構築286.084秒、5source ID・daily/financial各260万行・市場/業種各520行を保ち、5/20日各5,000行（43/53列）の全特徴量JSON hashが従来の7ee2812d...9e580dffと完全一致。元DB不変、reportの7sourceはworking raw hashとGitfa45b94の改行正規化後の内容へ照合済み。原本は`mobile-two-year-capacity-candidate-20261017/latest-features-flat-inputs-released-frames.json`と`flat-inputs-source-proof.json`。この結果をLinux/WASM/Android実機へ読み替えず、同梱WASMの全量probeを別processで実行中。
+- fa45b94の新しい全量WASMも、入力は565.98秒・daily/financial各260万行・市場/業種各520行・全5source IDまで完了した。最大process peak3,248,353,280bytes（前版3,621,257,216bytes）で予算内だが、特徴量中に計算600秒の予算へ達し、全体614.32秒でcontroller停止。完成値や数値不一致は観測していない。原本は`mobile-native-history-capsule-20261017/wasm-features-flat-inputs-released-frames`。全銘柄の特徴量計算の時間は引き続き未解決。
 
 ## 2026-10-17 — 数値入力を平坦なJSON配列で変換
 

@@ -13,6 +13,7 @@ import re
 import sqlite3
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 from uuid import UUID
 
@@ -164,7 +165,9 @@ class Controller:
             "retry_at": row[6],
         }
 
-    def wait_ack(self, marker: dict, *, seconds: int = 200) -> dict:
+    def wait_ack(
+        self, marker: dict, *, seconds: int = 200, on_wait: Callable[[], None] | None = None
+    ) -> dict:
         target = marker["targets"][-1]
         deadline = time.monotonic() + seconds
         errors = 0
@@ -177,6 +180,9 @@ class Controller:
                     return latest
             except (sqlite3.Error, OSError, RuntimeError, IndexError, TypeError):
                 errors += 1
+            else:
+                if on_wait is not None and latest["pending_pages"] > 0:
+                    on_wait()
             time.sleep(2)
         error = (
             DeliveryDeferred
@@ -246,13 +252,15 @@ class Controller:
         if job["namespace"] != NAMESPACE or type(job["id"]) is not int or job["id"] < 0:
             raise RuntimeError("Invalid prepared scheduler identity")
         observations = []
-        outcome = {"scheduler_dispatched": False, "scheduler_observations": observations}
+        outcome = {
+            "scheduler_attempted": False,
+            "scheduler_dispatched": False,
+            "scheduler_observations": observations,
+        }
 
         def observed(action: str, dispatched: bool = False) -> dict:
             outcome.update(scheduler_action=action, scheduler_dispatched=dispatched)
-            (self.output / f"{phase}-scheduler-identity.txt").write_text(
-                json.dumps({"prepared": job, **outcome}, indent=2), encoding="utf-8"
-            )
+            self.scheduler_evidence(marker, phase, outcome)
             return outcome
 
         for _ in range(2):
@@ -268,6 +276,8 @@ class Controller:
             # -s preserves every constraint. Never force, enqueue replacement
             # work, change device policy, or invoke the core from instrumentation.
             try:
+                outcome["scheduler_attempted"] = True
+                self.scheduler_evidence(marker, phase, outcome)
                 result = self.shell(
                     "cmd",
                     "jobscheduler",
@@ -299,6 +309,77 @@ class Controller:
             return observed("satisfied-dispatch", True)
         return observed("job-missing-after-observation")
 
+    def scheduler_evidence(self, marker: dict, phase: str, outcome: dict) -> None:
+        (self.output / f"{phase}-scheduler-identity.txt").write_text(
+            json.dumps({"prepared": marker["system_job"], **outcome}, indent=2), encoding="utf-8"
+        )
+
+    def original_retry_observer(
+        self, marker: dict, phase: str, outcome: dict
+    ) -> Callable[[], None]:
+        if not self.guarded:
+            raise RuntimeError("Retry observation requires the disposable-emulator guard")
+        initial = (outcome.get("scheduler_observations") or [{}])[-1]
+        initial_identity = (initial.get("generation"), initial.get("id"))
+        seen_running = initial.get("work_state") == 1
+        next_poll = time.monotonic() + 10
+        # A command already sent (even refused) cannot authorize another here.
+        # The existing disappearing-job race is handled inside dispatch_ready_job.
+        attempted = bool(outcome.get("scheduler_attempted", outcome["scheduler_dispatched"]))
+
+        def observe() -> None:
+            nonlocal next_poll, attempted, seen_running
+            now = time.monotonic()
+            if attempted or now < next_poll:
+                return
+            next_poll = now + 10
+            current = self.current_system_job(marker)
+            if current["work_id"] != marker["work_id"] or current["namespace"] != NAMESPACE:
+                raise RuntimeError("Original retry identity changed")
+            seen_running |= current["work_state"] == 1
+            eligible = (
+                current["work_state"] == 0
+                and current["id"] is not None
+                and (seen_running or (current["generation"], current["id"]) != initial_identity)
+            )
+            native_state = None
+            if eligible:
+                native_state = self.shell(
+                    "cmd",
+                    "jobscheduler",
+                    "get-job-state",
+                    "-u",
+                    "0",
+                    "-n",
+                    NAMESPACE,
+                    PACKAGE,
+                    str(current["id"]),
+                    required=False,
+                )
+            observation = {**current, "native_job_state": native_state}
+            records = outcome.setdefault("scheduler_retry_observations", [])
+            if not records or records[-1] != observation:
+                records.append(observation)
+            self.scheduler_evidence(marker, phase, outcome)
+            if current["work_state"] in (3, 5):
+                raise RuntimeError("Original WorkRequest failed or was cancelled")
+            # Backoff must finish naturally. Pending/active/unknown or any
+            # extra readiness flag cannot authorize the phase's one dispatch.
+            if eligible and native_state.split() == ["ready"]:
+                attempted = True
+                retry = self.dispatch_ready_job(marker, phase + "-retry")
+                outcome["scheduler_retry_dispatch"] = retry
+                outcome["scheduler_attempted"] = retry["scheduler_attempted"]
+                outcome["scheduler_dispatched"] |= retry["scheduler_dispatched"]
+                outcome["scheduler_action"] = (
+                    "satisfied-retry-dispatch"
+                    if retry["scheduler_dispatched"]
+                    else "await-original-retry"
+                )
+                self.scheduler_evidence(marker, phase, outcome)
+
+        return observe
+
     def observe_delivery(self, prepared: dict, phase: str) -> dict:
         if not self.dispatch_ready:
             return {**self.wait_ack(prepared), "delivery": "unforced"}
@@ -318,12 +399,15 @@ class Controller:
             except DeliveryDeferred:
                 pass
             scheduler = self.dispatch_ready_job(prepared, phase)
+            observed = self.wait_ack(
+                prepared, on_wait=self.original_retry_observer(prepared, phase, scheduler)
+            )
             delivery = (
                 "screen-wake-and-scheduler-satisfied"
                 if scheduler["scheduler_dispatched"]
                 else "screen-wake-and-scheduler-observed"
             )
-            return {**self.wait_ack(prepared), "delivery": delivery, **scheduler}
+            return {**observed, "delivery": delivery, **scheduler}
 
     def stopped(self) -> bool:
         result = self.shell("dumpsys", "package", PACKAGE)
