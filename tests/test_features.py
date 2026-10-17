@@ -9,6 +9,7 @@ import pytest
 from pandas.testing import assert_frame_equal
 
 from stock_ai.features import V0_MANIFEST, V1_CORE_MANIFEST, V2_EXTENDED_MANIFEST, FeatureEngine
+from stock_ai.features import engine as feature_engine
 from stock_ai.features.engine import FINANCIAL_COLUMNS, _compute_symbol, _merge_financials
 from stock_ai.features.indicators import obv
 from stock_ai.fixtures import market_fixture
@@ -429,3 +430,58 @@ def test_financial_lookup_preserves_asof_ties_missing_symbols_and_duplicate_inde
         assert result.loc["a3", "fundamental." + column] == 3.0 + index
         assert result.loc["b2", "fundamental." + column] == 20.0 + index
         assert pd.isna(result.loc["c3", "fundamental." + column])
+
+
+@pytest.mark.parametrize(
+    "scenario", ["mixed-grids", "session-gaps", "nullable-shares", "many-grids"]
+)
+def test_latest_symbol_batches_preserve_history_and_bound_batch_width(
+    monkeypatch, scenario
+) -> None:
+    template = market_fixture(130)[0].loc[lambda frame: frame.symbol == "7203"].copy()
+    template["trading_session_index"] = np.arange(len(template))
+    groups = []
+    for position in range(133):
+        group = template.copy()
+        group["symbol"] = f"synthetic-{position:04d}"
+        group["adjusted_close"] *= 1 + position / 1000
+        if scenario == "mixed-grids" and position >= 128:
+            # Different IPO dates and different final dates must never be aligned by row number.
+            group = group.iloc[position - 127 : -1].copy()
+        elif scenario == "many-grids":
+            # Keep many two-stock IPO grids pending together to exercise the total cap.
+            group = group.iloc[position // 2:].copy()
+        elif scenario == "session-gaps" and position % 33 == 0:
+            group = group.drop(group.index[-5])
+        elif scenario == "nullable-shares":
+            group["shares_outstanding"] = group.shares_outstanding.astype("Float64")
+            if position % 3 == 0:
+                group.loc[group.index[-25:], "shares_outstanding"] = pd.NA
+        groups.append(group)
+    daily = pd.concat(groups, ignore_index=True).sample(frac=1, random_state=71)
+    before = daily.copy(deep=True)
+    expected = (
+        pd.concat(
+            [_compute_symbol(group).tail(1) for _, group in daily.groupby("symbol", sort=True)],
+            ignore_index=True,
+        )
+        .sort_values("symbol")
+        .reset_index(drop=True)
+    )
+    batches = []
+    original = feature_engine._compute_symbol_batch
+
+    def checked_batch(batch):
+        assert 2 <= len(batch) <= 128
+        assert all(part.trading_date.tolist() == batch[0].trading_date.tolist() for part in batch)
+        assert all(part.trading_session_index.diff().iloc[1:].eq(1).all() for part in batch)
+        batches.append(len(batch))
+        return original(batch)
+
+    monkeypatch.setattr(feature_engine, "_compute_symbol_batch", checked_batch)
+    actual = (
+        feature_engine._latest_symbol_batches(daily).sort_values("symbol").reset_index(drop=True)
+    )
+    assert batches and max(batches) == (2 if scenario == "many-grids" else 128)
+    assert_frame_equal(actual, expected, check_exact=True)
+    assert_frame_equal(daily, before, check_exact=True)

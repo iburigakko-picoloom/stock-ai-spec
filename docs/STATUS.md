@@ -1,11 +1,20 @@
 # Project Status
 
+## 2026-10-17 — 同じ取引日履歴の銘柄を有界でまとめて計算
+
+- D143として、latest snapshotの指標計算を同じ全日付gridの銘柄でまとめる。異なるIPO日・最終日を行番号で揃えず、全pending group合計128銘柄まで。明示した取引sessionのgapは従来の銘柄別segment resetへ戻す。共通の数式をSeries/列行列へ適用し、Wilderのseedと演算順、欠損時の状態保持、event日数、銘柄内のtrue range/ひげ、最終drawdown窓・dtype・列順・全履歴入力と検証を保つ。full-history transformは従来の銘柄別経路を維持。
+- frozen ebb3b4dの元指標と168条件、元engineと全履歴/最終日・3manifest等28条件で全値/型/index/列順・例外・metadataを照合済み。指標/特徴量85件がpass（18.91秒）。追加の133銘柄・128上限・IPO/最終日差・gap・nullable株数・多数の異なるgridを含む4条件がpass（16.16秒）。関連mobile80件も92.99秒でpass。原本は`matrix-indicator-implementation-parity.json`、`matrix-engine-legacy-parity.json`、`matrix-feature-final-tests.xml`、`matrix-batch-final-tests.xml`、`matrix-mobile-tests.xml`。
+- Ruff全体、mypy通常/win32各66file、同梱archive/golden再生成（共有29＋mobile15file・model0）、TypeScript/buildがpass。全44sourceのworking raw bytesをarchiveと照合した`matrix-indicator-archive-proof.json`を保持。同梱WASMと全量の測定は継続中。5000銘柄/520session・全特徴量・600秒/3500MiB、承認bundle0件、私有研究停止・holdout lock・本人台帳gateを維持。実注文・merge・APK公開なし。
+- 同梱WASMのPC特徴量/9モデルvector・4head bundle/300候補＋保有の株数/復元5件が2.1分でpass。原本は`matrix-wasm-tests-allowed.log`。最初のrestricted実行はloopback socket拒否を確認し、所有を再確認したtest process treeだけを停止した環境中断であり、数値不一致として扱わない。source809/private0・package42 entries監査もpass。全量WASM/PCは次に同じ予算で測る。
+
 ## 2026-10-17 — 財務結合と特徴量表の構築をまとめて実行
 
 - D141として、重複しないUTC/nsのcutoff、通常の64bit整数/小数の終値、欠損のない文字列銘柄では、int64の一時銘柄IDによる一括backward asof結合を使う。全開示の検証・FY計算・訂正順・完全一致時刻を維持し、開示のない銘柄のpartitionを分けて既存concat dtypeを保つ。特殊な型・欠損銘柄・同一cutoff・category空group等は既存の銘柄別処理を残す。結合後は不要frameを解放し、単一partitionの追加copyを避ける。d6d5bebの元関数と144条件で返却値/型/index/列順と入力不変が完全一致し、実際の一括経路96回を確認。原本は`batched-financial-matrix-parity.json`。整数/小数・UTC/互換経路を独立した既存処理と比較する32条件を含むproduction59件が最終sourceでpass（117.95秒）。
 - D142として、銘柄内の特徴量を同じ順序のSeries辞書に保持し、最後に1回DataFrameを作る。全指標・完全な履歴・数式・列順を維持し、attrs/duplicate-label flagsも引き継ぐ。d6d5bebの元engineと全履歴/最終日・3manifest・欠損/日付gap等28条件で全値/型/index/列順/flags/attrsが一致し、入力不変とattrsの独立を確認。公開の特徴量65件もpass。原本は`feature-column-assembly-legacy-parity.json`と`feature-column-assembly-tests.xml`。
 - 組合せたmobile入力・出所・予測・codec67件が91.05秒でpass。Ruff全体、mypy通常/win32各66file、archive/golden再生成（共有29＋mobile15file・model0）、TypeScript/build、source809/private0・package42 entries監査もpass。同梱archiveの44fileをworking raw bytesと照合した`batched-assembly-archive-proof.json`を保持。WASMの数値/モデル/株数/復元を検証中で、全量の時間・memory改善は未確定。600秒/3500MiB、全銘柄/履歴、承認bundle0件・72時間台帳gate・私有研究停止・holdout lockを維持。実注文・merge・APK公開なし。
 - 同梱WASMのPC特徴量/9モデルvector・4head bundle/300候補＋保有の株数/復元5件が2.0分でpass。原本は`batched-assembly-wasm-tests.log`。全量WASMは一括結合の実行を確認し、その結合1.557秒・財務展開全体6.950秒（前回55.842秒）、全入力409.064秒で完成した。全5source ID・daily/financial各260万行・市場/業種各520行を維持。入力変換後、453.835秒に指標計算へ入り3,000銘柄まで進捗を観測したが、600秒の計算予算に達し全体614.41秒でtime停止。peak3,227,078,656bytesは予算内。完成特徴量/hashはなく、全銘柄の指標計算が残る。原本は`mobile-native-history-capsule-20261017/wasm-features-batched-financial-assembled`、archive SHAa7637a0c...300e152b。診断workerもhashを固定し、予算を延長しない。
+- ebb3b4dをpushし、CI39018935598で検証中。単独のWindows全量PCは366.784秒・peak2,799,673,344bytesでpass。全入力211.214秒、全5source ID・daily/financial各260万行・市場/業種各520行・5/20日各5,000行（43/53列）を維持し、全特徴量JSON SHA7ee2812d...9e580dffが修正前と完全一致。元DB不変。数値を記録するwrapperもhashを固定し、保存した全量JSONとreportのhash、7sourceのworking raw hashとGit ebb3b4dの改行正規化後の内容を照合済み。原本は`mobile-two-year-capacity-candidate-20261017/latest-features-batched-financial-assembled.json`と`batched-assembly-source-proof.json`。WASM失敗も全44source・元capsule・前版と同じ5source IDを`provenance-proof.json`へ照合し、成功へ読み替えない。
+- ebb3b4dのCI39018935598ではAndroid jobがsuccess。native66件fail/error/skip0、96,870,524文字のopaque暗号化storeは4.340秒・Java heap上限201,326,592bytesでpass。OS復旧のprocess/reboot/force-stop後の明示再openの3段階も元WorkInfo SUCCEEDED・ACK・generation5/8/11・pending0、本人入力/受領/調査の復旧を確認。processは画面wake/sleepと元jobへの制約充足dispatch、rebootは制約未充足を観測後に追加dispatchせず完了、再openはunforced。原本と整合性確認済みの`batched-assembly-ci-39018935598/native-evidence.json`を保持。verifyは継続中でありworkflow全体の成功、native全量SQLite bridge、自然配送時刻、Xiaomiやmodelの受入を示さない。
 
 ## 2026-10-17 — 同一圧縮byteの検証済み列を有界で再利用
 
