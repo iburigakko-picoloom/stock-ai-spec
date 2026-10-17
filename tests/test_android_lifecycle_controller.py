@@ -1,8 +1,44 @@
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
 from scripts.android_lifecycle_check import NAMESPACE, PACKAGE, Controller, DeliveryDeferred, main
+
+WORK_ID = "e71b412b-e7e1-42dc-9308-17c6573f93dd"
+
+
+def marker(job=5):
+    return {"work_id": WORK_ID, "system_job": {"namespace": NAMESPACE, "id": job}}
+
+
+def work_snapshot(
+    tmp_path,
+    monkeypatch,
+    controller,
+    *,
+    state=0,
+    worker="jp.stockai.app.DailyWorker",
+    generation=2,
+    mappings=((1, 5), (2, 7)),
+):
+    path = tmp_path / "work.sqlite3"
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            "CREATE TABLE WorkSpec(id TEXT,generation INTEGER,state INTEGER,"
+            "worker_class_name TEXT);"
+            "CREATE TABLE SystemIdInfo(work_spec_id TEXT,generation INTEGER,system_id INTEGER);"
+        )
+        connection.execute(
+            "INSERT INTO WorkSpec VALUES(?,?,?,?)", (WORK_ID, generation, state, worker)
+        )
+        connection.executemany(
+            "INSERT INTO SystemIdInfo VALUES(?,?,?)",
+            [(WORK_ID, revision, job) for revision, job in mappings],
+        )
+        connection.execute("INSERT INTO SystemIdInfo VALUES('different-work',2,5)")
+    monkeypatch.setattr(controller, "work_database_snapshot", lambda: path)
+    return path
 
 
 def test_non_ci_execution_never_invokes_adb_even_for_diagnostics(tmp_path, monkeypatch):
@@ -62,17 +98,27 @@ def test_wrong_device_or_platform_is_rejected_before_install_or_clear(
     assert all(call[0] not in ("install", "pm", "reboot") for call in observed)
 
 
-def test_scheduler_dispatch_requires_guard_and_targets_only_prepared_job(tmp_path, monkeypatch):
+def test_scheduler_dispatch_requires_guard_and_targets_only_original_work(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     controller = Controller(Path("evidence"), dispatch_ready=True)
-    marker = {"system_job": {"namespace": NAMESPACE, "id": 7}}
+    prepared = marker(7)
     calls = []
     monkeypatch.setattr(controller, "shell", lambda *args: calls.append(args) or "Running job")
     with pytest.raises(RuntimeError, match="guard"):
-        controller.dispatch_ready_job(marker, "process")
+        controller.dispatch_ready_job(prepared, "process")
     assert calls == []
     controller.guarded = True
-    controller.dispatch_ready_job(marker, "process")
+    monkeypatch.setattr(
+        controller,
+        "current_system_job",
+        lambda value: {
+            "work_id": WORK_ID,
+            "work_state": 0,
+            "namespace": NAMESPACE,
+            "id": 7,
+        },
+    )
+    controller.dispatch_ready_job(prepared, "process")
     assert calls == [("cmd", "jobscheduler", "run", "-s", "-u", "0", "-n", NAMESPACE, PACKAGE, "7")]
 
 
@@ -90,3 +136,168 @@ def test_unforced_mode_or_bad_observation_cannot_trigger_scheduler(
     monkeypatch.setattr(controller, "dispatch_ready_job", lambda *a: pytest.fail("new dispatch"))
     with pytest.raises(error):
         controller.observe_delivery({}, "process")
+
+
+def test_reboot_mapping_uses_original_uuid_and_current_generation_only(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
+    path = work_snapshot(tmp_path, monkeypatch, controller)
+    before = path.read_bytes()
+    calls = []
+    monkeypatch.setattr(controller, "shell", lambda *a: calls.append(a) or "Running job")
+    result = controller.dispatch_ready_job(marker(), "reboot")
+    assert result["scheduler_dispatched"] is True
+    assert result["scheduler_observations"] == [
+        {"work_id": WORK_ID, "generation": 2, "work_state": 0, "namespace": NAMESPACE, "id": 7}
+    ]
+    assert calls == [("cmd", "jobscheduler", "run", "-s", "-u", "0", "-n", NAMESPACE, PACKAGE, "7")]
+    assert path.read_bytes() == before
+    saved = json.loads((controller.output / "reboot-scheduler-identity.txt").read_text())
+    assert saved["prepared"]["id"] == 5 and saved["scheduler_dispatched"] is True
+
+
+@pytest.mark.parametrize("state", [0, 1, 2, 4])
+def test_absent_mapping_or_running_work_is_observed_without_other_job_dispatch(
+    tmp_path, monkeypatch, state
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
+    work_snapshot(tmp_path, monkeypatch, controller, state=state, mappings=())
+    monkeypatch.setattr(controller, "shell", lambda *a: pytest.fail("unrelated job dispatch"))
+    result = controller.dispatch_ready_job(marker(), "reboot")
+    assert result["scheduler_dispatched"] is False
+    assert result["scheduler_observations"][0]["work_id"] == WORK_ID
+
+
+@pytest.mark.parametrize("state", [3, 5])
+def test_terminal_unsuccessful_original_work_is_not_replaced(tmp_path, monkeypatch, state):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
+    work_snapshot(tmp_path, monkeypatch, controller, state=state)
+    monkeypatch.setattr(controller, "shell", lambda *a: pytest.fail("replacement dispatch"))
+    with pytest.raises(RuntimeError, match="terminated"):
+        controller.dispatch_ready_job(marker(), "reboot")
+
+
+def test_wrong_worker_and_ambiguous_generation_mapping_fail_before_dispatch(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
+    path = work_snapshot(tmp_path, monkeypatch, controller, worker="other.Worker")
+    monkeypatch.setattr(controller, "shell", lambda *a: pytest.fail("wrong worker"))
+    with pytest.raises(RuntimeError, match="verified"):
+        controller.dispatch_ready_job(marker(), "reboot")
+    with sqlite3.connect(path) as connection:
+        connection.execute("UPDATE WorkSpec SET worker_class_name='jp.stockai.app.DailyWorker'")
+        connection.execute("INSERT INTO SystemIdInfo VALUES(?,2,8)", (WORK_ID,))
+    with pytest.raises(RuntimeError, match="Ambiguous"):
+        controller.dispatch_ready_job(marker(), "reboot")
+
+
+def test_job_removed_after_read_reresolves_same_work_without_forcing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
+    observations = iter(
+        [{"work_id": WORK_ID, "work_state": 0, "namespace": NAMESPACE, "id": job} for job in (7, 8)]
+    )
+    monkeypatch.setattr(controller, "current_system_job", lambda value: next(observations))
+    calls = []
+
+    def shell(*args):
+        calls.append(args)
+        if args[-1] == "7":
+            raise RuntimeError("Could not find job 7")
+        return "Running job"
+
+    monkeypatch.setattr(controller, "shell", shell)
+    result = controller.dispatch_ready_job(marker(), "reboot")
+    assert result["scheduler_dispatched"] and [
+        row["id"] for row in result["scheduler_observations"]
+    ] == [7, 8]
+    assert all("-s" in call and "-f" not in call for call in calls)
+
+
+def test_constraints_refusal_keeps_original_bounded_ack_observation(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    controller.guarded = True
+    work_snapshot(tmp_path, monkeypatch, controller)
+    calls = []
+
+    def shell(*args):
+        calls.append(args)
+        raise RuntimeError("Job has functional constraints but --force not specified")
+
+    monkeypatch.setattr(controller, "shell", shell)
+    result = controller.dispatch_ready_job(marker(), "reboot")
+    assert result["scheduler_dispatched"] is False and len(calls) == 1
+
+
+def test_work_database_copy_requires_guard_and_uses_legacy_only_if_needed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    calls = []
+
+    def adb(*args, **kwargs):
+        calls.append(args)
+        return {
+            "databases/androidx.work.workdb": b"database",
+            "databases/androidx.work.workdb-wal": b"wal",
+        }.get(args[-1], b"")
+
+    monkeypatch.setattr(controller, "adb", adb)
+    with pytest.raises(RuntimeError, match="guard"):
+        controller.work_database_snapshot()
+    assert calls == []
+    controller.guarded = True
+    path = controller.work_database_snapshot()
+    assert path.read_bytes() == b"database" and Path(str(path) + "-wal").read_bytes() == b"wal"
+    assert all(call[:4] == ("exec-out", "run-as", PACKAGE, "cat") for call in calls)
+
+
+@pytest.mark.parametrize("work_id", [None, "not-a-uuid", WORK_ID.upper()])
+def test_invalid_original_uuid_is_rejected_before_device_observation(
+    tmp_path, monkeypatch, work_id
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"))
+    monkeypatch.setattr(controller, "work_database_snapshot", lambda: pytest.fail("bad UUID read"))
+    with pytest.raises(RuntimeError, match="identity"):
+        controller.current_system_job({"work_id": work_id})
+
+
+@pytest.mark.parametrize("dispatched", [False, True])
+def test_delivery_label_records_actual_intervention_and_preserves_windows(
+    tmp_path, monkeypatch, dispatched
+):
+    monkeypatch.chdir(tmp_path)
+    controller = Controller(Path("evidence"), dispatch_ready=True)
+    prepared = marker()
+    waits = []
+
+    def wait(value, *, seconds=200):
+        assert value is prepared
+        waits.append(seconds)
+        if len(waits) < 3:
+            raise DeliveryDeferred("still pending")
+        return {"generation": 5, "pending_pages": 0}
+
+    monkeypatch.setattr(controller, "wait_ack", wait)
+    monkeypatch.setattr(controller, "diagnostics", lambda *a: None)
+    monkeypatch.setattr(controller, "shell", lambda *a: "")
+    monkeypatch.setattr("scripts.android_lifecycle_check.time.sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        controller, "dispatch_ready_job", lambda *a: {"scheduler_dispatched": dispatched}
+    )
+    result = controller.observe_delivery(prepared, "reboot")
+    assert waits == [90, 3, 200]
+    assert result["delivery"] == (
+        "screen-wake-and-scheduler-satisfied"
+        if dispatched
+        else "screen-wake-and-scheduler-observed"
+    )
+    assert result["scheduler_dispatched"] is dispatched

@@ -152,6 +152,8 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 
 ### 日次処理の開始・停止（PR内、実機受入待ち）
 
+OS受入controllerは、準備時のscheduler番号だけで配送を試みず、元WorkRequest UUID・現行generation・DailyWorker classをWorkManager DBの隔離コピーから照合する。実行直前に番号が消えた場合も同UUIDを再観測し、制約が未充足なら既存のACK観測窓で待つ。controller自身は別処理の予約・強制run・時計/電源policy変更を行わず、実行したrun -sと観測だけの結果を記録で区別する。元WorkInfoのSUCCEEDEDと暗号化state/受領/調査の一致を引き続き要求する。新しい照合の実OS成功はCIで確認し、自然配送時刻やXiaomi成功とは読み替えない。
+
 原予測を暗号化保存したら一度実行を区切り、当日11:30の保存済み原予測を次の実行で使って株数を計算する。株数保存の後も別の実行でChatGPT調査へ進む。「原予測を保存済み・株数判定待ち」は途中段階。株数の本人入力・台帳・モデル・市場根拠の照合は省略しない。実行中にJSTの日付が変わった場合、前日の結果を新しい当日の完成として通知しない。
 
 長い数値計算の直前には、WorkManagerのdataSync foreground開始を待つ。固定のprivate通知は口座や保有を含まない。Androidが開始を拒否した場合は計算せず、「Androidの計算待ち」と保存済み状態の確認を表示し、既存の日次上限付き再試行へ戻す。foregroundはAndroid16のjob quotaや定刻実行を保証しない。通知表示/実OS admission・継続は実機で別途確認する。API35のnative試験へ520日capsuleと同じ96,870,524文字のopaque ASCII保存・再open・競合拒否・全digest照合を追加し、phase/最大Java heap/秒だけをreportに残す。実SQLite capsule・WebView bridge・全取得日のcommitや実forecastとは区別する。

@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-17 — OS受入で元のWorkRequestの現行mappingを観測
+
+- D133として、使い捨てAPI35 emulatorの受入controllerで、元WorkRequest UUIDとWorkSpecの現行generationからSystemIdInfoを読む。WorkManager DBとWALをPCの隔離領域へコピーしてread-onlyで照合し、元DailyWorkerの1件に対応する現在のscheduler IDだけを使う。準備時の番号を永続IDとみなさず、別UUID・旧generation・異なるworker・曖昧なmappingを拒否する。アプリの予約/実行処理は変更しない。
+- jobが照合直後に消えた場合は同UUIDを最大1回再観測し、実行中/完了/未登録や制約未充足なら元のACKを既存の時間窓で待つ。FAILED/CANCELLEDなら元WorkRequestの失敗として扱う。強制実行や新規予約、時刻・電源設定変更を加えず、verify時の元WorkInfo SUCCEEDED条件も維持。実際にrun -sを実行できた場合と観測だけの場合のdelivery名・mapping・actionを別々に保存する。
+- controller23件がpass。現行世代とUUID照合、同番号の別処理/旧世代、実行/完了/blocked/未登録、失敗/cancel、異worker/曖昧mapping、照合後のjob消失、制約拒否、CI/device guard、legacy DB fallback、不正UUID、90/3/200秒の観測窓と介入表示を確認。Ruff対象2fileもpass。実OSでの新しい照合と再起動後の成功はpush後のCIで確認する。
+- 継続していた9e38ab5のCI39004033183は全job終了、Android/verify failure・release skip。native66件とopaque storeはD132の範囲でpassしたが、OS受入はrebootの旧job ID不在で失敗。verifyの全市場PC入力もsource-context中303.68秒に観測peak3,809,828,864bytesで3500MiBを超えて停止した。全特徴量の完成値はない。容量/特徴量reportと直接verify logを`.demo-artifacts/native-capacity-baseline-ci-39004033183`と同名logへ保存。WASMだけの問題とは扱わず、入力の出所照合・構築も調べる。詳細なWASM context profileは別processで観測中。
+
 ## 2026-10-17 — native大容量のbaseline確認とWASM入力buffer解放
 
 - 9e38ab5のCI39004033183では、元のLocalStateStoreを変更せずnative66件がfail/error/skip0でpass。96,870,524文字の暗号化保存・DB再open・stale generation拒否・全内容digest照合が4.357秒、Java heap上限201,326,592bytesのAPI35 emulatorでpassした。生成時のUS_ASCIIによる余分なchar配列が先の失敗原因であり、production readerの大容量失敗ではなかった。隔離したASCII reader候補は採用しない。専用log tagからcreating-payload/writing/reopening/verifiedの4段階を原本で確認。opaque文字列のstore証拠であり、owner/Java bridge・実SQLite・毎回commit・モデル/実機とは区別する。

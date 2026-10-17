@@ -14,6 +14,7 @@ import sqlite3
 import subprocess
 import time
 from pathlib import Path
+from uuid import UUID
 
 PACKAGE = "jp.stockai.app.debug"
 RUNNER = PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner"
@@ -180,21 +181,117 @@ class Controller:
             f"Same scheduled acquisition not acknowledged: {latest}; observation_errors={errors}"
         )
 
-    def dispatch_ready_job(self, marker: dict, phase: str) -> None:
+    def work_database_snapshot(self) -> Path:
+        if not self.guarded:
+            raise RuntimeError("WorkManager observation requires the disposable-emulator guard")
+        folder = self.output / "scheduler-snapshot"
+        folder.mkdir(exist_ok=True)
+        path = folder / "work.sqlite3"
+        for name in ("no_backup/androidx.work.workdb", "databases/androidx.work.workdb"):
+            value = self.adb("exec-out", "run-as", PACKAGE, "cat", name, required=False)
+            if value:
+                path.write_bytes(value)
+                wal = self.adb("exec-out", "run-as", PACKAGE, "cat", name + "-wal", required=False)
+                if wal:
+                    Path(str(path) + "-wal").write_bytes(wal)
+                else:
+                    Path(str(path) + "-wal").unlink(missing_ok=True)
+                return path
+        raise RuntimeError("WorkManager database could not be observed")
+
+    def current_system_job(self, marker: dict) -> dict:
+        work_id = marker.get("work_id")
+        try:
+            valid_id = isinstance(work_id, str) and str(UUID(work_id)) == work_id
+        except ValueError:
+            valid_id = False
+        if not valid_id:
+            raise RuntimeError("Invalid original WorkRequest identity")
+        path = self.work_database_snapshot()
+        # Query an observational copy, never a second device writer. A boot
+        # reconciliation may assign another OS job ID to the same WorkSpec.
+        with sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=1) as connection:
+            row = connection.execute(
+                "SELECT generation,state,worker_class_name FROM WorkSpec WHERE id=?", (work_id,)
+            ).fetchone()
+            if row is None or row[2] != "jp.stockai.app.DailyWorker":
+                raise RuntimeError("Original daily WorkRequest could not be verified")
+            generation, state = row[:2]
+            if type(generation) is not int or generation < 0 or state not in range(6):
+                raise RuntimeError("Invalid WorkRequest generation or state")
+            jobs = connection.execute(
+                "SELECT system_id FROM SystemIdInfo WHERE work_spec_id=? AND generation=?",
+                (work_id, generation),
+            ).fetchall()
+        if len(jobs) > 1 or (jobs and (type(jobs[0][0]) is not int or jobs[0][0] < 0)):
+            raise RuntimeError("Ambiguous or invalid current scheduler identity")
+        return {
+            "work_id": work_id,
+            "generation": generation,
+            "work_state": state,
+            "namespace": NAMESPACE,
+            "id": jobs[0][0] if jobs else None,
+        }
+
+    def dispatch_ready_job(self, marker: dict, phase: str) -> dict:
         if not self.guarded:
             raise RuntimeError("Scheduler commands require the disposable-emulator guard")
         job = marker["system_job"]
         if job["namespace"] != NAMESPACE or type(job["id"]) is not int or job["id"] < 0:
             raise RuntimeError("Invalid prepared scheduler identity")
-        # -s preserves every constraint. Do not use -f, change device policy,
-        # enqueue replacement work or call the worker/core from instrumentation.
-        result = self.shell(
-            "cmd", "jobscheduler", "run", "-s", "-u", "0", "-n", NAMESPACE,
-            PACKAGE, str(job["id"]),
-        )
-        (self.output / f"{phase}-scheduler-dispatch.txt").write_text(result, encoding="utf-8")
-        if "Running job" not in result or "[FORCED]" in result:
-            raise RuntimeError("The prepared job was not dispatched with constraints satisfied")
+        observations = []
+        outcome = {"scheduler_dispatched": False, "scheduler_observations": observations}
+
+        def observed(action: str, dispatched: bool = False) -> dict:
+            outcome.update(scheduler_action=action, scheduler_dispatched=dispatched)
+            (self.output / f"{phase}-scheduler-identity.txt").write_text(
+                json.dumps({"prepared": job, **outcome}, indent=2), encoding="utf-8"
+            )
+            return outcome
+
+        for _ in range(2):
+            current = self.current_system_job(marker)
+            if current["work_id"] != marker.get("work_id") or current["namespace"] != NAMESPACE:
+                raise RuntimeError("Current scheduler identity is not the original work")
+            observations.append(current)
+            observed("identity-read")
+            if current["work_state"] in (3, 5):
+                raise RuntimeError("Original WorkRequest terminated without a successful ACK")
+            if current["work_state"] != 0 or current["id"] is None:
+                return observed("await-original-work")
+            # -s preserves every constraint. Never force, enqueue replacement
+            # work, change device policy, or invoke the core from instrumentation.
+            try:
+                result = self.shell(
+                    "cmd",
+                    "jobscheduler",
+                    "run",
+                    "-s",
+                    "-u",
+                    "0",
+                    "-n",
+                    NAMESPACE,
+                    PACKAGE,
+                    str(current["id"]),
+                )
+            except RuntimeError as error:
+                if "Could not find job" in str(error):
+                    continue  # Re-read the same UUID, not an arbitrary pending job.
+                if any(
+                    text in str(error)
+                    for text in (
+                        "not satisfy",
+                        "unsatisfied",
+                        "functional constraints",
+                    )
+                ):
+                    return observed("constraints-pending")
+                raise
+            (self.output / f"{phase}-scheduler-dispatch.txt").write_text(result, encoding="utf-8")
+            if "Running job" not in result or "[FORCED]" in result:
+                raise RuntimeError("Original work was not dispatched with constraints satisfied")
+            return observed("satisfied-dispatch", True)
+        return observed("job-missing-after-observation")
 
     def observe_delivery(self, prepared: dict, phase: str) -> dict:
         if not self.dispatch_ready:
@@ -214,8 +311,13 @@ class Controller:
                 return {**self.wait_ack(prepared, seconds=3), "delivery": "screen-wake"}
             except DeliveryDeferred:
                 pass
-            self.dispatch_ready_job(prepared, phase)
-            return {**self.wait_ack(prepared), "delivery": "screen-wake-and-scheduler-satisfied"}
+            scheduler = self.dispatch_ready_job(prepared, phase)
+            delivery = (
+                "screen-wake-and-scheduler-satisfied"
+                if scheduler["scheduler_dispatched"]
+                else "screen-wake-and-scheduler-observed"
+            )
+            return {**self.wait_ack(prepared), "delivery": delivery, **scheduler}
 
     def stopped(self) -> bool:
         result = self.shell("dumpsys", "package", PACKAGE)
@@ -333,7 +435,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path(".demo-artifacts/android-lifecycle"))
     parser.add_argument(
-        "--dispatch-ready", action="store_true",
+        "--dispatch-ready",
+        action="store_true",
         help=(
             "After an unforced observation, briefly wake/sleep the display, then ask "
             "JobScheduler to run the existing job with all constraints satisfied; "
