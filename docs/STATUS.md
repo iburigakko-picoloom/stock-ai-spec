@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-10-18 — Android全量B1復旧と17テーブル照合が成功
+
+- 6b250b9のCI39040635265はverifyとandroid-historyがsuccess。API35 emulatorで5,000銘柄/520営業日・96,781,956文字の実SQLite capsuleを初期化/保存し、計算環境を再作成、B1書出し/認証preview/本人確認相当のrestore/再作成/全状態照合まで145.577秒で完走した。Java heap192MiB、元の容量/期限を維持。B1 envelope96,782,902bytes、復元profile一致、全17tableのschema/typed cell一致、520営業日、元input不変を原本reportで確認。
+- APK SHA256 c3d3f01fcb47839802af459790c3dd91ac4ebdcbcbcc81b74f067b2d5a423287。merge e22d3c9/branch6b250b9の44同梱Python sourceのbyte一致と29共有source hashを検証した。原本と照合receiptは`.demo-artifacts/bounded-import-ci-39040635265`。これは合成市場・承認model0のemulator保存/復旧の受入であり、Xiaomiや実市場成績/承認モデルを含む運用成功ではない。
+- 通常native78件は失敗/error/skip0。OS復旧はprocess段階generation5/pending0の後、rebootで元予約のpending1が残り観測期限内にACKせずfailure、force-stop段階は未到達。CI全体はfailure、release skip。過去のOS成功で今回の失敗を消さない。D156で固定compute段階の診断を追加済み、原因は次のCIで切り分ける。
+- 同runの5,000銘柄/520日のPC特徴量は301.993秒で43/53列を生成し、既存のJSON hash7ee2812d93a23d3891b9c62ac4687bad17f7d13c0b482f0053746c959e580dffと一致。後続6974b11の手動記録修正は別sourceとして全Python回帰/通信遮断WASMを実行中。実市場の不足根拠と最小NAV比較、最終モデル固定/holdout/本人レビュー、実アカウント/実機/継続履歴は残る。追加学習・holdout開封・実注文なし。
+
 ## 2026-10-17 — 手動約定の入力保持・再送と状態の一括保存
 
 - D155。入力/保存のエラーを初期読込エラーから分離し、約定単価等を訂正して再試行できるようにした。画面内の同じ入力の再送は同じ記録ID/日時を使い、送信中の入力/記録/保有反映を直列化する。記録成功後は同じ内容の再送を止める。元の判断や実注文の経路は変えない。
