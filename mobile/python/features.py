@@ -10,12 +10,58 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from stock_ai.features import FEATURE_REGISTRY, V2_EXTENDED_MANIFEST, FeatureEngine
+from stock_ai.features.engine import (
+    DAILY_REQUIRED,
+    FINANCIAL_COLUMNS,
+    MARKET_REQUIRED,
+    SECTOR_REQUIRED,
+)
+
+
+def model_input_frame(name: str, source: pd.DataFrame) -> pd.DataFrame:
+    """Project engine inputs after the identity of every full source is frozen."""
+    required = {
+        "daily": DAILY_REQUIRED | {"adjusted_open", "shares_outstanding", "trading_session_index"},
+        "market": MARKET_REQUIRED,
+        "sector": SECTOR_REQUIRED,
+        "financials": {"symbol", "trading_date", "available_at", *FINANCIAL_COLUMNS},
+    }[name]
+    return source.loc[:, [column for column in source.columns if column in required]].copy()
+
+
+def _json_records_frame(source: pd.DataFrame) -> pd.DataFrame:
+    """Match the shipped records JSON precision/inference one column at a time."""
+    if (source.empty or not source.columns.is_unique
+            or any(not isinstance(name, str) for name in source.columns)):
+        return pd.DataFrame.from_records(
+            json.loads(source.to_json(orient="records", date_format="iso"))
+        )
+    columns = {}
+    for name in source.columns:
+        column = source[name]
+        if (pd.api.types.is_datetime64_any_dtype(column.dtype)
+                or pd.api.types.infer_dtype(column, skipna=True) == "string"):
+            # Repeated immutable strings/dates need the same JSON values, not
+            # a separate Python string allocation for every historical row.
+            codes, unique = pd.factorize(column, sort=False, use_na_sentinel=False)
+            encoded = pd.Series(unique, dtype=column.dtype).to_frame(name=name)
+            parsed = json.loads(encoded.to_json(orient="values", date_format="iso"))
+            values = [row[0] for row in parsed]
+            columns[name] = pd.Series([values[code] for code in codes])
+            del codes, unique, encoded, parsed, values
+        else:
+            values = json.loads(column.to_json(orient="values", date_format="iso"))
+            columns[name] = pd.Series(values)
+            del values
+    return pd.DataFrame(columns, copy=False)
 
 
 def calculate(payload: dict, selection: dict) -> dict:
     frames = {}
     for name in ("daily", "market", "sector", "financials"):
-        frame = pd.DataFrame.from_records(payload[name])
+        source = payload[name]
+        frame = (_json_records_frame(source) if isinstance(source, pd.DataFrame)
+                 else pd.DataFrame.from_records(source))
         for column in ("available_at",):
             if column in frame:
                 frame[column] = pd.to_datetime(frame[column], utc=True)

@@ -8,6 +8,7 @@ public class BackupCryptoTest {
     @Test public void portableBackupSurvivesNewEncryptionContext() throws Exception {
         byte[] input = "保有・設定・履歴を保持する".getBytes(StandardCharsets.UTF_8);
         byte[] encrypted = BackupCrypto.encrypt("a-long-backup-password", input);
+        assertEquals(input.length + BackupCrypto.OVERHEAD_BYTES, encrypted.length);
         assertArrayEquals(input, BackupCrypto.decrypt("a-long-backup-password", encrypted));
         assertFalse(java.util.Arrays.equals(encrypted, BackupCrypto.encrypt("a-long-backup-password", input)));
     }
@@ -19,5 +20,14 @@ public class BackupCryptoTest {
     }
     @Test public void truncatedBackupIsRejected() throws Exception {
         try { BackupCrypto.decrypt("a-long-backup-password", new byte[20]); fail("Truncated backup accepted"); } catch (SecurityException expected) { }
+    }
+    @Test public void oversizedPlaintextIsRejectedBeforeKeyDerivation() throws Exception {
+        byte[] input = new byte[BackupCrypto.MAX_ENVELOPE_BYTES - BackupCrypto.OVERHEAD_BYTES + 1];
+        try {
+            BackupCrypto.encrypt(null, input);
+            fail("Unrestorable backup accepted");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Backup exceeds restore limit", expected.getMessage());
+        }
     }
 }

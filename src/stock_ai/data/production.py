@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, time
 from itertools import pairwise
-from typing import Final, Protocol
+from typing import Final, Protocol, runtime_checkable
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -24,6 +24,13 @@ class PointInTimeCatalog(Protocol):
     """Read-only input boundary shared by desktop DuckDB and mobile SQLite."""
 
     def point_in_time(self, dataset: DatasetName, as_of: datetime) -> pd.DataFrame: ...
+
+
+@runtime_checkable
+class SourceIdentityCatalog(Protocol):
+    """A trusted adapter may return verified projections of complete PIT sources."""
+
+    def source_frame_id(self, dataset: DatasetName, frame: pd.DataFrame) -> str: ...
 
 
 _JST: Final = ZoneInfo("Asia/Tokyo")
@@ -87,8 +94,13 @@ def build_production_data(
         )
     for name, frame in required_nonempty.items():
         _assert_source_vintage(frame, source_snapshot_as_of, name)
+    # Validation must not retain every full source frame through later merges.
+    del required_nonempty, frame
+    identity = (
+        catalog.source_frame_id if isinstance(catalog, SourceIdentityCatalog) else _source_frame_id
+    )
     source_snapshot_ids = tuple(
-        (dataset.value, _source_frame_id(dataset, frame))
+        (dataset.value, identity(dataset, frame))
         for dataset, frame in (
             (DatasetName.SECURITY_MASTER, master),
             (DatasetName.DAILY_PRICES, prices),
@@ -116,24 +128,29 @@ def build_production_data(
         if len(future_sessions) == 0 or future_sessions[0].date() != local_cutoff.date():
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: next session is not authenticated")
         availability[business_dates[-1]] = pd.Timestamp(proposal_as_of).tz_convert("UTC")
+    del calendar
     universe = build_point_in_time_universe(master, business_dates=business_dates)
+    del master
     daily = _canonical_daily(
         prices,
         universe=universe,
         availability=availability,
         revision_policy=revision_policy,
     )
+    del prices
     financials, shares = _daily_financial_features(
         disclosures,
         daily=daily,
         revision_policy=revision_policy,
     )
+    del disclosures
     daily = daily.merge(
         shares,
         on=["symbol", "trading_date", "available_at"],
         how="left",
         validate="one_to_one",
     )
+    del shares
     market_context, sector_context = _aggregate_context(
         daily,
         universe=universe,
@@ -142,6 +159,7 @@ def build_production_data(
         minimum_market_coverage=minimum_market_coverage,
         revision_policy=revision_policy,
     )
+    del topix
     corporate_actions = _corporate_actions(daily)
     return ProductionDataBundle(
         source_snapshot_as_of=source_snapshot_as_of,
@@ -172,8 +190,15 @@ def _source_frame_id(dataset: DatasetName, frame: pd.DataFrame) -> str:
     metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True).encode(
         "utf-8"
     )
-    rows = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
-    return hashlib.sha256(metadata + rows).hexdigest()
+    digest = hashlib.sha256(metadata)
+    # Preserve the exact ordered row-hash byte stream without factorizing
+    # high-cardinality text columns for the whole market at once.
+    for start in range(0, len(canonical), 10000):
+        rows = pd.util.hash_pandas_object(
+            canonical.iloc[start:start + 10000], index=False
+        ).to_numpy().tobytes()
+        digest.update(rows)
+    return digest.hexdigest()
 
 
 def build_point_in_time_universe(
@@ -209,7 +234,7 @@ def build_point_in_time_universe(
         raise ValueError("security master has duplicate date/symbol membership")
 
     required_dates = set(pd.DatetimeIndex(business_dates).normalize())
-    observed_dates = set(frame["effective_date"])
+    observed_dates = set(frame["effective_date"].unique())
     missing_dates = required_dates - observed_dates
     if missing_dates:
         first = min(missing_dates).date()
@@ -220,32 +245,39 @@ def build_point_in_time_universe(
 
     ordered_dates = pd.DatetimeIndex(sorted(required_dates))
     date_position = {value: index for index, value in enumerate(ordered_dates)}
-    parts: list[pd.DataFrame] = []
-    for _symbol, group in frame.groupby("symbol", sort=True):
-        member = group.sort_values("effective_date").copy()
-        positions = member["effective_date"].map(date_position)
-        if positions.isna().any():
-            continue
-        interval_id = positions.astype(int).diff().ne(1).cumsum()
-        member["valid_from"] = member.groupby(interval_id)["effective_date"].transform("min")
-        member["last_member_date"] = member.groupby(interval_id)["effective_date"].transform("max")
-        next_position = member["last_member_date"].map(date_position).astype(int) + 1
-        member["valid_to"] = pd.Series(
-            [
-                ordered_dates[position].isoformat() if position < len(ordered_dates) else pd.NA
-                for position in next_position
-            ],
-            index=member.index,
-            dtype="string",
-        )
-        member["listing_date"] = member["valid_from"]
-        member["delisting_date"] = member["valid_to"]
-        member["is_member"] = True
-        member["eligibility_rule"] = "TSE common issue: market 0111/0112/0113 and code suffix 0"
-        parts.append(member)
-    if not parts:
+    positions = frame["effective_date"].map(date_position)
+    # As before, one date outside the requested calendar excludes that symbol's
+    # entire history. Null symbols never participate in membership intervals.
+    outside_symbols = frame.loc[positions.isna(), "symbol"]
+    member = frame.loc[
+        frame["symbol"].notna() & ~frame["symbol"].isin(outside_symbols)
+    ].sort_values(["symbol", "effective_date"])
+    # Preserve the previous empty result for unused categorical groups.
+    if member.empty and not (
+        isinstance(frame["symbol"].dtype, pd.CategoricalDtype)
+        and (frame["symbol"].value_counts() == 0).any()
+    ):
         raise ValueError("BLOCKED_BY_DATA_CAPABILITY: universe interval construction is empty")
-    universe = pd.concat(parts, ignore_index=True)
+    del frame, outside_symbols
+    member = member.reset_index(drop=True)
+    positions = member["effective_date"].map(date_position).astype(int)
+    same_symbol = member["symbol"].eq(member["symbol"].shift()).fillna(False)
+    interval_id = (~same_symbol | positions.diff().ne(1)).cumsum()
+    intervals = member.groupby(interval_id)["effective_date"]
+    member["valid_from"] = intervals.transform("min")
+    member["last_member_date"] = intervals.transform("max")
+    # Format each calendar successor once, preserving the existing ISO parser
+    # and its timezone/missing-value behavior without a Python loop per row.
+    successors = {
+        day: ordered_dates[index + 1].isoformat() if index + 1 < len(ordered_dates) else pd.NA
+        for index, day in enumerate(ordered_dates)
+    }
+    member["valid_to"] = member["last_member_date"].map(successors).astype("string")
+    member["listing_date"] = member["valid_from"]
+    member["delisting_date"] = member["valid_to"]
+    member["is_member"] = True
+    member["eligibility_rule"] = "TSE common issue: market 0111/0112/0113 and code suffix 0"
+    universe = member
     universe["valid_to"] = pd.to_datetime(universe["valid_to"], errors="coerce")
     universe["delisting_date"] = pd.to_datetime(universe["delisting_date"], errors="coerce")
     columns = [
@@ -390,6 +422,7 @@ def _canonical_daily(
         how="inner",
         validate="one_to_one",
     )
+    del members
     if frame.duplicated(["trading_date", "symbol"]).any():
         raise ValueError("PIT-universe daily prices contain duplicate trading_date/symbol rows")
     raw_ohlc = frame.reindex(columns=["raw_open", "raw_high", "raw_low", "raw_close"])
@@ -407,6 +440,7 @@ def _canonical_daily(
         & adjusted_ohlcv.isna().all(axis=1)
         & frame.reindex(columns=["raw_volume", "trading_value"]).isna().all(axis=1)
     )
+    del raw_ohlc, adjusted_ohlcv
     frame = _reconstruct_bulk_adjusted_prices(frame)
     frame = frame.loc[~no_trade].copy()
     frame["revision_available_at"] = pd.to_datetime(frame["available_at"], utc=True)
@@ -636,7 +670,6 @@ def _daily_financial_features(
     right["forecast_revision"] = _safe_ratio(right["forecast_eps"], previous_forecast) - 1
     right.loc[previous_forecast.isna(), "forecast_revision"] = np.nan
 
-    parts: list[pd.DataFrame] = []
     right_columns = [
         "available_at",
         "revision_available_at",
@@ -652,8 +685,53 @@ def _daily_financial_features(
         "shares_outstanding",
         "shares_outstanding_missing_reason",
     ]
+    merged_financials = _join_daily_financials(daily, right, right_columns)
+    feature_columns = [
+        "symbol",
+        "trading_date",
+        "available_at",
+        "financial_available_at",
+        "financial_revision_available_at",
+        "disclosure_number",
+        *_FINANCIAL_FEATURES,
+    ]
+    features = merged_financials[feature_columns].copy()
+    shares = merged_financials[
+        [
+            "symbol",
+            "trading_date",
+            "available_at",
+            "shares_outstanding",
+            "shares_outstanding_missing_reason",
+        ]
+    ].copy()
+    return features, shares
+
+
+def _join_daily_financials(
+    daily: pd.DataFrame, right: pd.DataFrame, right_columns: list[str],
+) -> pd.DataFrame:
+    # Batch unique UTC cutoffs, plain 64-bit closes and non-null string
+    # symbols. Keep legacy semantics for other
+    # callers, including categorical empty groups and unstable cutoff ties.
+    if (
+        not daily.empty
+        and {"symbol", "available_at", "close"} <= set(daily)
+        and not isinstance(daily["symbol"].dtype, pd.CategoricalDtype)
+        and pd.api.types.is_string_dtype(daily["symbol"])
+        and daily["symbol"].notna().all()
+        and str(daily["available_at"].dtype) == "datetime64[ns, UTC]"
+        and daily["available_at"].notna().all()
+        and str(daily["close"].dtype) in {"float64", "int64"}
+        and not daily.duplicated(["symbol", "available_at"]).any()
+    ):
+        return _batch_daily_financials(daily, right, right_columns)
+    parts: list[pd.DataFrame] = []
+    source_rows = right.groupby("symbol", sort=False, observed=True).indices
     for symbol, left in daily.groupby("symbol", sort=True):
-        source = right.loc[right["symbol"] == symbol, right_columns].copy()
+        locations = source_rows.get(symbol)
+        source = right.iloc[locations] if locations is not None else right.iloc[:0]
+        source = source.loc[:, right_columns].copy()
         left_columns = left[["symbol", "trading_date", "available_at", "close"]].sort_values(
             "available_at"
         )
@@ -694,26 +772,60 @@ def _daily_financial_features(
         merged["pbr"] = _safe_ratio(merged["close"], merged["effective_bps"])
         parts.append(merged)
     merged_financials = pd.concat(parts, ignore_index=True)
-    feature_columns = [
-        "symbol",
-        "trading_date",
-        "available_at",
-        "financial_available_at",
-        "financial_revision_available_at",
-        "disclosure_number",
-        *_FINANCIAL_FEATURES,
-    ]
-    features = merged_financials[feature_columns].copy()
-    shares = merged_financials[
-        [
-            "symbol",
-            "trading_date",
-            "available_at",
-            "shares_outstanding",
-            "shares_outstanding_missing_reason",
-        ]
-    ].copy()
-    return features, shares
+    parts.clear()
+    return merged_financials
+
+
+def _batch_daily_financials(
+    daily: pd.DataFrame, right: pd.DataFrame, right_columns: list[str],
+) -> pd.DataFrame:
+    left = daily[["symbol", "trading_date", "available_at", "close"]].copy()
+    codes, labels = pd.factorize(left["symbol"], sort=False)
+    left["__financial_symbol"] = codes.astype("int64")
+    left["available_at"] = pd.to_datetime(left["available_at"], utc=True).astype(
+        "datetime64[ns, UTC]"
+    )
+    mapping = {symbol: index for index, symbol in enumerate(labels)}
+    source = right.loc[:, right_columns].copy()
+    source["__financial_symbol"] = (
+        right["symbol"].astype(object).map(mapping).fillna(-1).astype("int64").to_numpy()
+    )
+    source = source.loc[source["__financial_symbol"] >= 0]
+    known = left["__financial_symbol"].isin(source["__financial_symbol"])
+    parts = []
+    if known.any():
+        source = source.sort_values(["available_at", "disclosure_number"]).drop_duplicates(
+            ["__financial_symbol", "available_at"], keep="last"
+        ).rename(columns={
+            "available_at": "financial_available_at",
+            "revision_available_at": "financial_revision_available_at",
+        })
+        parts.append(pd.merge_asof(
+            left.loc[known].sort_values("available_at"), source,
+            left_on="available_at", right_on="financial_available_at",
+            by="__financial_symbol", direction="backward", allow_exact_matches=True,
+        ))
+    if not known.all():
+        missing = left.loc[~known].copy()
+        for column in right_columns[1:]:
+            missing[column] = np.nan
+        missing["financial_available_at"] = pd.NaT
+        missing["financial_revision_available_at"] = pd.NaT
+        parts.append(missing)
+        del missing
+    del left, source, known, codes
+    # Preserve the missing-source partition's original concat dtype behavior.
+    for merged in parts:
+        merged["per"] = merged["close"] / merged["forecast_eps"].where(
+            merged["forecast_eps"].notna() & (merged["forecast_eps"] != 0), merged["eps"],
+        )
+        merged["pbr"] = _safe_ratio(merged["close"], merged["effective_bps"])
+    result = parts[0] if len(parts) == 1 else pd.concat(parts, ignore_index=True)
+    parts.clear()
+    del merged
+    result.drop(columns="__financial_symbol", inplace=True)
+    result.sort_values(["symbol", "available_at"], ignore_index=True, inplace=True)
+    return result
 
 
 def _point_in_time_year_over_year(frame: pd.DataFrame, value_column: str) -> pd.Series:

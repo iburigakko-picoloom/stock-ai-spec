@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { HoldingView, HomeResponse } from "../types";
+import { DailyPanel } from "../mobile/DailyPanel";
 
 export function HomePage(): ReactNode {
   const { data, error, loading } = useApiData<HomeResponse>("/api/v1/home");
@@ -20,6 +21,7 @@ export function HomePage(): ReactNode {
       <div className="page">
         <PageHeader eyebrow="実際の状態" title="ホーム" />
         <RuntimeBanner mode={data?.runtimeMode || "UNCONFIGURED"} />
+        <DailyPanel />
         <StatePanel title="資産データが未登録です" detail={data?.blockingReason || "保有株・口座区分・現金残高を登録すると、実資産を表示します。"} />
         <Link className="button button--secondary" to="/settings">登録・口座の設定を確認</Link>
       </div>
@@ -30,6 +32,7 @@ export function HomePage(): ReactNode {
     <div className="page">
       <PageHeader eyebrow="実際の状態" title="ホーム" meta={`更新 ${dateTime(data.portfolio.asOf)} JST`} />
       <RuntimeBanner mode={data.runtimeMode} />
+      <DailyPanel />
       {data.initialLedger && <p className="explain">初回台帳の残高です。口座・保有の入力欄を編集しても、この台帳は更新されません。{data.initialLedger.referencePriceDate && `株価は${data.initialLedger.referencePriceDate}の日足終値を参照しています。`}</p>}
       <section className="hero-balance" aria-labelledby="assets-title">
         <p id="assets-title">総資産</p>

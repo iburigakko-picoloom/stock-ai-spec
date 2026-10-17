@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -11,7 +10,6 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from stock_ai.data.contracts import DatasetName
 from stock_ai.domain import PortfolioState
 from stock_ai.operations.daily import content_id
 from stock_ai.operations.manual_portfolio import (
@@ -27,6 +25,7 @@ from stock_ai.operations.personal import PersonalComparisonRequest, compare_stor
 from stock_ai.operations.store import OperationalConflictError, OperationalIntegrityError
 
 from .market import SQLiteSource
+from .storage import connect
 
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -36,7 +35,7 @@ def canonical(value):
 
 
 def initialize(store, legacy_path, now):
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.executescript(
             "CREATE TABLE IF NOT EXISTS mobile_personal_settings("
             "sequence INTEGER PRIMARY KEY, revision_id TEXT NOT NULL UNIQUE,"
@@ -49,7 +48,7 @@ def initialize(store, legacy_path, now):
     # Preserve the original 0.1.11 input table verbatim. Migrate the latest input
     # into the shared revision store; never turn a draft into an account ledger.
     if store.latest_manual_portfolio() is None:
-        with sqlite3.connect(legacy_path) as db:
+        with connect(legacy_path) as db:
             row = db.execute(
                 "SELECT saved_at,payload FROM manual_inputs ORDER BY id DESC LIMIT 1"
             ).fetchone()
@@ -98,7 +97,7 @@ def save_portfolio(store, profile, expected, now):
 
 def read_settings(store, connection=None):
     if connection is None:
-        with sqlite3.connect(store.path) as db:
+        with connect(store.path) as db:
             return read_settings(store, db)
     rows = connection.execute(
         "SELECT sequence,revision_id,payload,content_hash "
@@ -133,7 +132,7 @@ def save_settings(store, settings, expected, now):
     settings.validate_portfolio(
         profile["revision_id"], ManualPortfolio.model_validate(profile["portfolio"])
     )
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         current = read_settings(store, db)
         if expected != (None if current is None else current["revision_id"]):
@@ -191,7 +190,7 @@ def input_state(store, now):
 def reference_prices(market_path, symbols, now):
     if not symbols:
         return {"date": None, "prices": {}, "source_hash": None}
-    frame = SQLiteSource(market_path).point_in_time(DatasetName.DAILY_PRICES, now)
+    frame = SQLiteSource(market_path).latest_closed_prices(now)
     if frame.empty:
         raise ValueError("held_prices_missing")
     frame = frame.loc[
@@ -222,12 +221,13 @@ def reference_prices(market_path, symbols, now):
 def preview_initial(store, market_path, now, *, persist):
     profile, saved, gaps, compiled = input_state(store, now)
     gaps = list(gaps)
-    if store.latest_portfolio() is not None:
+    ledger_exists = store.latest_portfolio() is not None
+    if ledger_exists:
         gaps.append("ledger_already_initialized")
     if store.executions():
         gaps.append("executions_already_recorded")
     prices = {"date": None, "prices": {}, "source_hash": None}
-    if profile is not None:
+    if profile is not None and not ledger_exists:
         try:
             prices = reference_prices(
                 market_path, ManualPortfolio.model_validate(profile["portfolio"]).holding_symbols,
@@ -283,7 +283,7 @@ def preview_initial(store, market_path, now, *, persist):
     payload = canonical(value)
     preview_id = digest(payload)
     if persist:
-        with sqlite3.connect(store.path) as db:
+        with connect(store.path) as db:
             db.execute("INSERT OR IGNORE INTO mobile_initial_previews VALUES(?,?,?)", (
                 preview_id, payload, preview_id,
             ))
@@ -293,7 +293,7 @@ def preview_initial(store, market_path, now, *, persist):
 def confirm_initial(store, market_path, preview_id, confirmed, now):
     if confirmed is not True:
         raise ValueError("Explicit initial ledger confirmation required")
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute(
             "SELECT payload,content_hash FROM mobile_initial_previews WHERE preview_id=?",
@@ -362,7 +362,7 @@ def initial_reference(store):
     ledger = store.latest_portfolio()
     if ledger is None:
         return None
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         rows = db.execute(
             "SELECT p.preview_id,p.payload,p.content_hash,c.confirmed_at "
             "FROM mobile_initial_previews p JOIN mobile_initial_confirmations c "

@@ -14,6 +14,8 @@
 
 ## 端末内の構成
 
+計算はD122のapplication-owned窓口へ集約する。UIはnativeへローカルAPI要求を送り、同じAPK内の隔離WebView/Workerと1つの暗号化writerを共有する。画面側に別のPython状態・世代counterを作らない。POSTの応答はnative commit後、保存失敗時は未確定interpreterを破棄し、最後のdurable stateから再起動する。復元は元のdurable dataを保持したまま別hostで検証するが、同時に2つのWASM heapを保持しない。この共通化だけでOSのbackground実行・日次予約・通知が完成したとは扱わない。
+
 Capacitor8.5.3、Android8/API26以上、更新済みAndroid System WebViewを対象にする。Pyodide0.29.3の本体と21依存をSHA-256で固定し、すべてAPK内へ含める。初回起動時のCDN取得は不要。専用Web WorkerでPCの具体的な特徴量/費用/税/判断/台帳/APIを実行する。desktop ingestion facadeとfixture bootstrapだけをmobile namespaceへ置き換える。計算式は複製しない。現時点のPC/WASM一致試験は合成4銘柄・41/51列、小数7桁。実機での時間・RAM・大量データの能力は別途測定する。
 
 APIキーはnative Android KeystoreのAES256-GCM鍵で暗号化し、JavaからJ-Quantsへだけ送信する。キー値の読出しAPI、ブラウザー保存、ログ記録は実装しない。口座/設定/台帳/市場データは端末の非公開SQLiteとKeystore暗号化した保存領域へ置く。保存の確定応答はnative SQLite transactionのcommit後。APK更新でapplicationId、署名、保存名を変更しない。自動OSバックアップは無効にする。
@@ -37,10 +39,51 @@ npx cap sync android
 cd android
 .\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
 # 起動済みの専用emulator/テスト端末がある場合だけ:
-.\gradlew.bat :app:connectedDebugAndroidTest
+.\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest
 ```
 
 runtimeのcore/lock/wheelを更新するときは、`mobile/runtime-packages.json`と`runtime-integrity.json`を同じ変更でレビューする。既存pinと異なるダウンロードは自動的に拒否する。テスト用の合成入力・モデルは`.demo-artifacts/android`にのみ生成し、APKに含めない。
+
+CIでは通常のinstrumented試験の後に、専用test APKと`scripts/android_lifecycle_check.py`で実プロセス終了・画面オフ・kernel reboot・強制停止後の明示再起動を確認する。このcontrollerは使い捨てGitHub AVD/API35だけを許可し、debugアプリを初期化する。ローカルや実機では実行せず、拒否条件を外さない。通常の試験と異なり、no-restart instrumentationで準備し、検証コードを差し込む前に外側からnative ACKと暗号化保存の世代更新を観測する。
+
+結果はActionsの`android-test-reports`にある`lifecycle-report.json`と各段階のテキストで確認する。合成の受領済み休日データを使うため、示せるのは予約・保存・同じ取得ID/受領時刻の再開である。実J-Quants通信、実アカウント調査、採用モデルの株数、Xiaomiの実行時刻や性能の証拠は別に必要。host側のSQLite観測コピーは成果物へアップロードしない。
+
+通常CIは`--dispatch-ready`を明示し、90秒の自然観測後も未配送なら、画面を2秒起こしてから消灯し、通常の遅延alarm配送を許す。なお未配送の場合だけ、元WorkRequest UUIDの現行mappingを照合してOSの`run -s`を送る。初回照合時にRUNNING等でまだ未送信なら、同じ200秒のACK窓の中で10秒ごとに元処理を観測し、OSの再試行がENQUEUEDとなり`get-job-state`が単独の`ready`を返した場合だけ、その未使用の1回を送る。既に送信済み（拒否を含む）のphaseでは追加送信しない。既存のjob消失raceに対する同UUIDの再照合1回も維持する。全制約を満たす場合だけ実行し、`-f`・再enqueue・電力policyや時計の変更は使わない。結果の`delivery_policy`と各phaseの`delivery`で画面起動も確認し、制御配送の成功を自動起動時刻の受入と数えない。手動workflowの`lifecycle_delivery=unforced`では、介入なしの200秒試験をそのまま実行する。初回の無介入試験は予約とページを保持したままOSが保留し、200秒以内の完了を確認できなかった。続く`-s`だけの試験も、経過済みのTIMING_DELAYが未解除で拒否されている。
+
+実装a9c615cの[CI 38983024280](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38983024280)で、既存native55件と3段階のprepare/verify計6呼出しがpass。processでは画面起動＋`-s`、rebootでは解錠/消灯後に追加の配送介入なし、force-stopでは70秒の停止観測と明示再表示後に追加の配送介入なしで、同じWorkRequestの完了・取得ID・元の受領時刻・本人revision・未完cursorを確認した。3段階のACK観測時はいずれもAsleep、通知未許可。全自動の画面オフ起動時刻、実API、ChatGPTや採用モデルの計算、Xiaomiの性能は別の未完受入である。
+
+6a86762の[CI 38984534524](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38984534524)では、同じ3段階へ暗号化した調査記録も追加してpass。各段階の前に予約/完成応答/ACK記録を準備し、実際のプロセス消失後に共有ChatGPTClientへ再度渡して、中断扱い・元の応答と時刻・再送抑止・hash/model/effort変更の拒否を検証した。完成応答を回収してACKした後も、次のOS中断で記録を保持する。`research_recovery`の照合件数と元の予約ID/準備時世代を結果に含め、raw応答は含めない。資格情報のない合成受領の回復試験であり、実アカウントの通信・検索成功とは区別する。
+
+## 全市場履歴の容量確認
+
+D126の可逆column形式は、raw/正規化の元の値・型・byte/hash・受領時刻と訂正順を保持しながら、重複列をまとめる。旧形式も読め、exportごと最大5batchずつtransactionで移行する。nativeの128MiB文字上限とSQLite復元の256MiB/file上限は維持し、保存時にも復元可能なサイズを確認する。
+
+リポジトリrootで、未使用の出力先を指定して再現する。
+
+```powershell
+$env:PYTHONPATH = 'src'
+.venv/Scripts/python.exe -m scripts.mobile_capacity_check --output .demo-artifacts/mobile-capacity-local --symbols 5000 --sessions 520 --checkpoint 130 --initial-download
+```
+
+CIでも同じ検証を実施し、`mobile-storage-capacity`へsource hashes付きreportだけを保存する。合成の平日カレンダー・財務開示を使ったPCのingest/export/restoreであり、取得済み市場データ、学習、holdout、本人端末の保存内容には触れない。SQLiteやcapsuleはartifactへuploadしない。
+
+ローカルの5,000銘柄・300営業日では55,754,616 base64文字、mobile.sqlite344,470,272bytes、300日の復元がpassした。旧形式は90営業日のcheckpointで137,959,496文字となり、native上限134,217,728文字を超えた。checkpointの容量比較であり、毎回のnative暗号化保存やXiaomiの速度/メモリ成功を意味しない。150万行の株価PIT読込のPCピークは改善後も約2.16GBで、全特徴量計算・150万行guardを超える継続履歴・実機の受入は残る。
+
+最新特徴量は、同じ合成履歴を使って別に確認する。`--initial-download`は全履歴を仮の判定日11:00に受領し、その日の11:30で計算する専用fixture。祝日を含まない合成カレンダーであり、実APIの受領証拠にしない。元SQLiteのhash不変、source hashes、段階別件数、processのピークをreportへ残す。
+
+```powershell
+.venv/Scripts/python.exe -m scripts.mobile_feature_check --source .demo-artifacts/mobile-capacity-local --report .demo-artifacts/mobile-capacity-local/latest-features.json --mobile-pipeline
+```
+
+既定は600秒/3500MiBで、上限超過またはmemory観測失敗時は専用probeだけを終了する。自己processのthreadによる観測であり、GILを保持する処理の間は上限を超えてから停止する可能性がある。OSの強制memory capとは扱わない。既存reportを上書きせず、本人の保存内容やAPIへ接続しない。`--mobile-pipeline`はアプリと同じfeature_inputs→calculate、指定なしは直接ProductionDataBundle→latest、`--reference-history`は全期間transformから最後の行を選ぶ比較用。CIではmobile経路を使い、`mobile-storage-capacity`へ容量と特徴量のreportだけを保存する。モデル推論・株数生成・native暗号化commit・端末上の予測完成は別の受入である。
+
+D127の最新計算は全履歴を指標へ渡した後に最新行だけ保持し、財務をgroup参照する。市場母集団、数式や41/51列、受領時刻を省略しない。D128ではバックアップの復元上限128MiBと既存69byte overheadを保存側にも適用し、復元不能な大きさのファイルを作る前に拒否する。暗号形式は変えない。
+
+D129では全sourceのID確定後、計算で参照する列だけをDataFrameで渡す。元のrecords JSONと同じ小数精度・ISO時刻・型推定を列ごとに再現し、重複する文字列と日時の値を共有する。既存records経路は残す。source IDは従来と同じ順序のrow hashを10,000行ずつ連結して計算し、ID定義・元データ・全市場/業種母集団を変更しない。小規模PCとWASMでrecords/framesの完全一致と復元後の出所不変を確認し、大規模PC試験と区別する。
+
+D130のアプリ経路はmaster/priceを日単位で読む。型確認の後、同じSQLite snapshotの全batchを完全検証して元の全出所IDを求め、必要な列だけを保持する。全量readerの150万行guardを増やさず、保持arrayの合計を768MiBに制限する。これは総RSSの上限ではない。初期台帳の価格も同じ最新確定日と元record hashから読み、確定済み台帳に対する初期価格の再読込を省く。現行の72時間本人確認は維持する。
+
+合成5,000銘柄/520営業日・260万行のPC計測では、capsule96,870,524文字、SQLite76,980,224bytes、520日復元がpass。最終アプリ入力→5/20日各5,000銘柄の特徴量は581.23秒・ピーク3,384,135,680bytesでpassし、元DBも不変。上限600秒/3500MiBは維持した。実際のモデル一式・毎回native保存・OS配送・Xiaomiでの時間/メモリと、さらに長い継続履歴は別に受け入れる。privateモデルは同梱しない。
 
 ## 自動署名配布
 
@@ -69,6 +112,10 @@ $clear = [Security.Cryptography.ProtectedData]::Unprotect($protected, $null, [Se
 5. 復旧先で`keytool -list -storetype PKCS12 -keystore stockai-signing.p12`を実行し、公開fingerprintとの一致を確認してからSecretsへ戻す。新しい鍵へ置換すると既存APKを更新できない。
 
 ## アプリ内更新とデータ復元
+
+D153では、nativeから受け取る保存状態をPythonへ256KiBずつ渡して一時ZIPへ復号し、SQLiteを分割展開して全memberのintegrity確認後に復元する。全量base64文字列とSQLiteのdeserializeによる重複保持をnative入力経路から除く。暗号形式・世代競合/確定保存・容量/時間上限は維持する。0a5d342の全量Android試験はB1書出し/認証previewまで進み、復元時renderer crashで未完。新経路のPC一致だけで全量Android/実機受入を成功扱いにしない。
+
+6b250b9の[CI39040635265](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39040635265)で、同じ5,000銘柄/520日・96,781,956文字の合成SQLiteによる全量native/B1復元・計算環境再作成・全17table照合が145.577秒、Java heap192MiBで成功した。44同梱Python sourceのGit一致と入力不変も確認。OS再起動後の元予約ACKは同runで失敗し、全体failure/release skip。全量保存の成功をOS復旧、Xiaomiや実市場/承認モデルの受入へ読み替えない。
 
 起動時に固定GitHubリポジトリの最新版を確認する。版と変更内容を表示し、本人のタップ後にAPKを取得する。HTTPSの許可host、サイズ、SHA-256、applicationId、増加versionCode、インストール済み署名との一致を検証し、Androidのインストール確認画面へ渡す。端末側の提供元許可が必要な場合は設定画面を開き、戻ってから再度更新を押す。通信失敗では既存アプリと保存内容を維持する。
 
@@ -105,3 +152,18 @@ APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名�
 | 端末内計算 | 実機の41/51特徴量・推論を同じPC入力と比較し、処理時間/RAMを測る | 未実施 |
 
 実注文機能は追加しない。
+
+
+### 日次処理の開始・停止（PR内、実機受入待ち）
+
+OS受入controllerは、準備時のscheduler番号だけで配送を試みず、元WorkRequest UUID・現行generation・DailyWorker classをWorkManager DBの隔離コピーから照合する。実行直前に番号が消えた場合も同UUIDを再観測し、制約が未充足なら既存のACK観測窓で待つ。初回のrun -sをまだ送っていないphaseでは、元処理の通信中断・再試行を同じACK窓内で追い、backoffを自然に満たしてOSがreadyを返した場合だけ、その1回を配送する。既に試行済みなら追加しない。controller自身は別処理の予約・強制run・時計/電源policy変更を行わず、実行したrun -sと観測だけの結果を記録で区別する。元WorkInfoのSUCCEEDEDと暗号化state/受領/調査の一致を引き続き要求する。新しい照合の実OS成功はCIで確認し、自然配送時刻やXiaomi成功とは読み替えない。
+
+原予測を暗号化保存したら一度実行を区切り、当日11:30の保存済み原予測を次の実行で使って株数を計算する。株数保存の後も別の実行でChatGPT調査へ進む。「原予測を保存済み・株数判定待ち」は途中段階。株数の本人入力・台帳・モデル・市場根拠の照合は省略しない。実行中にJSTの日付が変わった場合、前日の結果を新しい当日の完成として通知しない。
+
+長い数値計算の直前には、WorkManagerのdataSync foreground開始を待つ。固定のprivate通知は口座や保有を含まない。Androidが開始を拒否した場合は計算せず、「Androidの計算待ち」と保存済み状態の確認を表示し、既存の日次上限付き再試行へ戻す。foregroundはAndroid16のjob quotaや定刻実行を保証しない。通知表示/実OS admission・継続は実機で別途確認する。API35のnative試験へ520日capsuleと同じ96,870,524文字のopaque ASCII保存・再open・競合拒否・全digest照合を追加し、phase/最大Java heap/秒だけをreportに残す。実SQLite capsule・WebView bridge・全取得日のcommitや実forecastとは区別する。
+
+2026-10-17のdesktop検証では、実際の合成520日SQLite capsule96,870,524文字を配布版compute host/WASMへ初期化し、合成の保有なし入力をPOSTして別browser contextへ再読込した。nativeと同じCSP、520日と全受領記録、全mobile17tableのtyped-cell hash不変を確認。元DBはcopyして保持し、同梱mobile15 sourceの一致も確認した。51.68秒でpassしたが、native bridgeはmockでありJava/Keystore/実機の証拠ではない。最初のCDP巨大fulfill試作の接続終了も原本へ残し、loopback streamの試験harnessで切り分けた。原本は`.demo-artifacts/mobile-native-history-capsule-20261017`。実注文能力false、モデル採用0件を維持する。
+
+口座・保有・初回台帳・補足設定・確認済みモデル一式とJ-Quants APIキーを用意して、今日または設定の「開始」を押す。通知はAndroidで許可でき、拒否しても保存は継続する。初回は保存済み取得範囲の開始日（未設定なら420日前）から昨日までを小分けに取得し、以後は未保存の差分を取得する。10:30〜11:30の当日一覧を優先し、締切内の根拠がない日は当日計算を完成扱いにしない。数値保存とChatGPT調査の状態は別。ChatGPT連携とモデル/推論量の設定があれば、上位20と全保有の独立調査・数値照合へ自動で進む。上限・認証切れ・通信/回答不成立は未完として保存し、調査画面で明示的に回復する。日ごとの条件を固定し、自動再調査で別の設定へ切り替えない。
+
+OS予約のため定刻実行は保証されない。画面では対象日と実際の状態を確認する。停止は次のページ・処理の境界に効き、確定済みの取得と結果を残す。復元・APIキー削除時は自動処理を停止する。通常のプロセス停止や再起動はWorkManagerの永続予約で回復する設計だが、実機受入は未完。Androidで「強制停止」した場合はアプリを開く。API401/403は設定を直して「続きから再開」。一時失敗はJST1日3回までで、翌日を待つか停止後に本人が再開する。72時間以内の本人入力照合と採用ゲートは維持する。

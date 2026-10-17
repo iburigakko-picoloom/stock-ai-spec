@@ -87,7 +87,14 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
         <Amount label="NISA枠の機会費用の仮定（%）" value={draft.tax_assumptions.nisa_opportunity_cost_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, nisa_opportunity_cost_percent: next } })} />
       </details>
       <details><summary>研究用比較で使う条件</summary><p>20日予測で比較し、5日予測は参考とします。売買は100株単位、最大10銘柄、1銘柄10%・同一業種30%まで、現金10%以上。売買総額は資産の100%まで、1銘柄の注文は平均日次売買代金の5%までとします。</p><p>費用・推定税・下側リスク・不確実性を考慮し、現状維持から1,000円以上改善する案を比較します。下側リスク・不確実性は各1倍、追加の集中・下落確率・回転ペナルティと金額バッファーは0です。最大下落率の希望から条件を自動設定せず、損失額を保証しません。NISAの残り購入枠は売却で同日回復させません。</p></details>
-      <label><input type="checkbox" checked={draft.research_conditions_reviewed} onChange={event => change({ ...draft, research_conditions_reviewed: event.target.checked })} />研究用の比較条件を確認しました</label>
+      <label>株数の探索方法<select value={draft.research_decision_policy} onChange={event => change({ ...draft,
+        research_decision_policy: event.target.value as PersonalSettings["research_decision_policy"], research_conditions_reviewed: false,
+      })}><option value="daily-decision-engine-v3-bounded">300社向け</option>
+        <option value="daily-decision-engine-v2">全組合せ</option></select></label>
+      <p>{draft.research_decision_policy === "daily-decision-engine-v3-bounded"
+        ? "HOLD・現金化・保有調整・乗り換えを有限回で比較します。すべての銘柄・口座を検討しますが、最良の組合せは保証しません。"
+        : "全組合せを比較し、上限を超える場合は計算を止めます。別の探索方法へ自動変更しません。"}</p>
+      <label><input type="checkbox" checked={draft.research_conditions_reviewed} onChange={event => change({ ...draft, research_conditions_reviewed: event.target.checked })} />探索方法を含む研究用の比較条件を確認しました</label>
       <button className="button" onClick={() => void act(async () => {
         const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
         setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false);

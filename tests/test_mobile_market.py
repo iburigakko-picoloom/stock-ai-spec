@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import sqlite3
+import zlib
 from datetime import datetime
 
 import pytest
 from mobile.python import market
 
-from stock_ai.data.contracts import ENDPOINT_SCHEMAS, DatasetName
+from stock_ai.data.contracts import ENDPOINT_SCHEMAS, DatasetName, FetchedPayload
+from stock_ai.data.normalize import canonical_payload_hash, normalize_payload
 
 
 def payload():
@@ -22,6 +26,27 @@ def payload():
     datasets["trading_calendar"] = [{"Date": day, "HolDiv": "1"}]
     datasets["topix"] = [{"Date": day, "O": 1, "H": 2, "L": 0.5, "C": 1}]
     return {"date": day, "received_at": "2026-01-06T08:00:00+00:00", "datasets": datasets}
+
+
+def legacy_rows(value):
+    """The shipped v1 representation, independent of the new column codec."""
+    received = datetime.fromisoformat(value["received_at"])
+    result = []
+    for dataset in DatasetName:
+        records = tuple(value["datasets"][dataset.value])
+        digest = canonical_payload_hash(records)
+        fetched = FetchedPayload(
+            dataset=dataset, endpoint=ENDPOINT_SCHEMAS[dataset].endpoint,
+            query=(("date", value["date"]),), requested_at=received, received_at=received,
+            pages=1, rows=records,
+        )
+        frame = normalize_payload(fetched, ingestion_run_id="mobile-" + digest,
+                                  as_of=received, payload_hash=digest, raw_object_id=digest)
+        normalized = frame.to_json(orient="table", date_format="iso").encode()
+        result.append((dataset.value, value["date"], received.isoformat(timespec="microseconds"),
+                       digest, zlib.compress(json.dumps(records, allow_nan=False).encode()),
+                       zlib.compress(normalized), hashlib.sha256(normalized).hexdigest()))
+    return result
 
 
 def test_delta_ingestion_is_idempotent_and_retains_exact_receipt_boundary(tmp_path):
@@ -75,3 +100,59 @@ def test_partial_or_invalid_day_cannot_advance_success_watermark(tmp_path):
         market.ingest(path, invalid)
     assert market.status(path)["latest_data_date"] is None
     assert market.status(path)["latest_forecast_available"] is False
+
+
+def test_repeat_content_is_new_observation_and_legacy_migration_preserves_rows(tmp_path):
+    path = tmp_path / "market.sqlite3"
+    first = payload()
+    legacy = legacy_rows(first)
+    # Genuine pre-upgrade schema; migration preserves the original blobs.
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "CREATE TABLE market_batches(dataset TEXT,day TEXT,received_at TEXT,payload_hash TEXT,"
+            "raw BLOB,normalized BLOB,normalized_hash TEXT,PRIMARY KEY(dataset,day,payload_hash))"
+        )
+        db.executemany("INSERT INTO market_batches VALUES(?,?,?,?,?,?,?)", legacy)
+    market.initialize(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT dataset,day,received_at,payload_hash,raw,normalized,normalized_hash "
+            "FROM market_batches ORDER BY sequence"
+        ).fetchall() == legacy
+    # Reading before any new ingestion cannot depend on new-format columns.
+    assert market.SQLiteSource(path).point_in_time(
+        DatasetName.DAILY_PRICES, datetime.fromisoformat(first["received_at"])
+    ).iloc[0].raw_close == 1
+    market.ingest(path, first)
+    second = copy.deepcopy(first)
+    second["received_at"] = "2026-01-07T08:00:00+00:00"
+    second["datasets"]["daily_prices"][0].update(C=1.5, AdjC=1.5)
+    market.ingest(path, second)
+    third = copy.deepcopy(first)
+    third["received_at"] = "2026-01-08T08:00:00+00:00"
+    market.ingest(path, third)
+    for source, expected in [(first, 1), (second, 1.5), (third, 1)]:
+        frame = market.SQLiteSource(path).point_in_time(
+            DatasetName.DAILY_PRICES, datetime.fromisoformat(source["received_at"])
+        )
+        assert frame.iloc[0].raw_close == expected
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM market_batches").fetchone()[0] == 15
+        before = db.execute("SELECT * FROM market_batches ORDER BY sequence").fetchall()
+    market.initialize(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT * FROM market_batches ORDER BY sequence").fetchall() == before
+
+
+def test_nanosecond_receipts_cannot_enter_a_microsecond_cutoff_early(tmp_path):
+    path = tmp_path / "market.sqlite3"
+    market.initialize(path)
+    value = payload()
+    value["received_at"] = "2026-01-06T02:30:00.000000001Z"
+    market.ingest(path, value)
+    assert market.SQLiteSource(path).point_in_time(
+        DatasetName.DAILY_PRICES, datetime.fromisoformat("2026-01-06T02:30:00Z")
+    ).empty
+    assert not market.SQLiteSource(path).point_in_time(
+        DatasetName.DAILY_PRICES, datetime.fromisoformat("2026-01-06T02:30:00.000001Z")
+    ).empty

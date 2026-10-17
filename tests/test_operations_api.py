@@ -181,6 +181,13 @@ def test_manual_fill_is_recorded_then_applied_to_next_day(tmp_path: Path) -> Non
         headers={"X-Stock-AI-Intent": "manual-record"},
     )
     assert execution.status_code == 201
+    replay = client.post(
+        "/api/v1/decisions/api-decision/executions", content=execution.request.content,
+        headers={"X-Stock-AI-Intent": "manual-record", "Content-Type": "application/json"},
+    )
+    assert replay.status_code == 201
+    assert replay.json() == execution.json()
+    assert len(client.get("/api/v1/decisions/api-decision/executions").json()) == 1
     applied = client.post(
         "/api/v1/portfolio/apply-executions",
         json={
