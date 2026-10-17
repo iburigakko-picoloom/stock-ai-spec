@@ -4,7 +4,10 @@
 
 - 既存の使い捨てemulator受入へ、調査予約・完成応答・ACK済み記録の3状態を追加。予約はactiveのまま残し、releaseによる中断の模擬ではなく、実process kill・kernel reboot・force-stopで失わせる。各段階の前に新しい3件を準備し、以前の記録も含めて確認する。合成データはtest APKにだけ存在し、provider credentials・モデル採用・アプリ本体のfixture transportは追加しない。
 - OS中断後に実際のapplication-owned ChatGPTClientへ同じattemptを2回ずつ渡し、不明予約がinterrupted、完成済みが元の応答/時刻のまま、ACK済みが応答を除いたまま返ることを検証する。要求bodyは意図的にdispatch不能な文字列とし、回復がtransport処理へ進んだ場合は失敗させる。hash・model・effortの変更は同じ予約で拒否し、拒否後も元の受領を保持する。完成応答のACK後と次のOS中断でも再送しないことを検証する。
-- controllerの結果へ元のWorkRequest/system job ID・準備時世代・調査の照合件数を追加。自然配送と画面起動/全制約付きOS配送の条件は前回のまま区別する。Ruffとguard7件がローカルpass。新しいnative検証はCI待ちで、実アカウントのHTTP/SSE中断や検索成功の証拠とは扱わない。
+- controllerの結果へ元のWorkRequest/system job ID・準備時世代・調査の照合件数を追加。自然配送と画面起動/全制約付きOS配送の条件は前回のまま区別する。Ruffとguard7件がローカルpass。実アカウントのHTTP/SSE中断や検索成功の証拠とは扱わない。
+- 実装6a86762の[run38984534524](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38984534524)はAndroid/verify成功・release skip。既存JUnit55件・失敗/error/skip0と、追加した調査照合を含む3段階6呼出しがpass。process/reboot/force-stop後の照合対象は3/6/9件、中断予約1/2/3件、ACK記録2/4/6件、変更拒否9/18/27呼出し。過去段階の記録も確認し、完成応答を同じ時刻/内容で回収してACKした後も再送しない。processのみ画面起動＋全制約付きOS配送、rebootは解錠/消灯後、force-stopは明示再表示後に追加の配送介入なし。3段階すべてACK観測時はAsleep。元の予約のSUCCEEDED、ページACK、本人revisionと元の受領/未完cursorも保持した。
+- 同じsourceでguard7、Python305＋platform6、frontend71、WASM/画面6＋配布計算ページ1＋調査画面2件、Ruff/mypy66 source（標準/win32）/TS/ESLint/build、source801/private0・package監査がpass。証拠は`.demo-artifacts/research-os-reports`、`research-os-android.log`、`research-os-verify.log`。前回の文書のみ298ee34のrun38984145818は、新しい試験のrunがpendingとなった後に旧sourceの重複実行として取消し、最新版を優先した。取消を成功とは数えない。
+- 本人用モデルの前提を読み取り専用で確認。公開policyの確認済みmodel/bundleは0件、手順の例示受渡し4ファイルは未配置。学習・holdout評価・承認は行わず、結果を`.demo-artifacts/app-completion-preflight.json`へ保存した。モデル手順書の古い「株数/300社探索/background接続は未実装」という記載を現在の接続状況に修正し、完成条件表のnative件数もJUnit原本のclass別件数へ揃えた。
 - 前回実装a9c615cのrun38983024280はAndroid/verify成功。モデル採用0件、実API/本人アカウント、自然起動時刻、Xiaomiの性能/同署名更新と72時間台帳運用の確認は引き続き残る。私有研究/学習の再開・実注文・merge・APK公開なし。
 
 ## 2026-10-17 — 画面オフ・実プロセス終了・端末再起動の受入試験を追加

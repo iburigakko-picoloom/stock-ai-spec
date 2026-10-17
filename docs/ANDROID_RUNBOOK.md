@@ -52,6 +52,8 @@ CIでは通常のinstrumented試験の後に、専用test APKと`scripts/android
 
 実装a9c615cの[CI 38983024280](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38983024280)で、既存native55件と3段階のprepare/verify計6呼出しがpass。processでは画面起動＋`-s`、rebootでは解錠/消灯後に追加の配送介入なし、force-stopでは70秒の停止観測と明示再表示後に追加の配送介入なしで、同じWorkRequestの完了・取得ID・元の受領時刻・本人revision・未完cursorを確認した。3段階のACK観測時はいずれもAsleep、通知未許可。全自動の画面オフ起動時刻、実API、ChatGPTや採用モデルの計算、Xiaomiの性能は別の未完受入である。
 
+6a86762の[CI 38984534524](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/38984534524)では、同じ3段階へ暗号化した調査記録も追加してpass。各段階の前に予約/完成応答/ACK記録を準備し、実際のプロセス消失後に共有ChatGPTClientへ再度渡して、中断扱い・元の応答と時刻・再送抑止・hash/model/effort変更の拒否を検証した。完成応答を回収してACKした後も、次のOS中断で記録を保持する。`research_recovery`の照合件数と元の予約ID/準備時世代を結果に含め、raw応答は含めない。資格情報のない合成受領の回復試験であり、実アカウントの通信・検索成功とは区別する。
+
 ## 自動署名配布
 
 `.github/workflows/android-apk.yml`はmainのAndroid関連変更で起動する。PRは署名Secretsを利用せずテスト/ビルドする。React、PC/Python、通信遮断WASM一致、Androidコンパイル、暗号化backup、lintを通過後、mainでのみrelease鍵で署名し、ReleasesへAPK・`update.json`・`SHA256SUMS`・署名証明を公開する。draftへassetをすべてuploadしてから公開する。
