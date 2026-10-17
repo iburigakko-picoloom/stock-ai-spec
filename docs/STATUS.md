@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-10-17 — native完了callbackとWeb試験のdispatch戻り値を分離
+
+- 8cea2d0のCI39034897974はAndroid success。JUnit原本78件・fail/error/skip0、96,870,524文字のopaque暗号化storeは7.105秒/192MiBでpass。元WorkRequestによるprocess/reboot/force-stop後の明示再openの3段階もpass、generation5/8/11・pending0、本人入力/実受領/調査記録を保持。processは画面起動と制約付き元job配送、rebootと再openは追加dispatchなし。原本は`streamed-backup-ci-39034897974/android-test-reports`。
+- verifyはWebのnative transfer11件中10件がpass、output-nonasciiのdispatch返値PromiseをPlaywrightが待つ間にgarbage-collectedと報告しfailure。元nativeは戻りPromiseを待たずbridge完了を受けるため、D150として試験のdispatchを同じvoid呼出しへ合わせ、既存のbridge完了/拒否・所有権・chunk・ACKの全assertionを維持した。全10転送ケースを3回ずつ計30件、15.1秒でpass。製品実装・期限・再試行は変更しない。
+- 同runのandroid-historyは、その前段でfixtureが作られていないため同一run artifactのdownloadでfailure。実全量SQLite/B1の試験は未実行であり、renderer crashとも成功とも扱わない。release skip。元ログを保持し、修正後のCIで同じ全量gateを再実行する。私有研究の再学習・holdout開封・実注文・main merge・APK公開なし。
+
 ## 2026-10-17 — 全状態の分割exportと大容量backupの認証付き復旧
 
 - 49c6994のCI39030412570はverify success、Android/android-history failure、release skipで終了。native74件とopaque96,870,524文字5.727秒/192MiBはpass。全量capsuleは96,781,956文字、Python復元後のexportでrendererがcrash（didCrash=true、OS killとは別）。直前の空き872,439,808bytes/low-memory=false、Java使用約5.68MBであり、Java OOMやrendererのLMKと断定しない。通常OSのprocess段階は通ったがrebootが通信条件未充足reason7で中断/RETRYし、元のACK窓内に完了せず失敗を保持。原本は`native-full-history-ci-39030412570`。

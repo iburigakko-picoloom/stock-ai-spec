@@ -131,7 +131,11 @@ for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "i
     }, { failure });
     await page.goto("/compute.html");
     await expect.poll(() => page.evaluate(() => (window as unknown as { ready: boolean }).ready)).toBe(true);
-    await page.evaluate(failure => (window as unknown as { stockAICompute: (input: unknown) => void }).stockAICompute({ id: 1, command: "initialize", state_length: failure === "input-oversize" ? 128 * 1024 * 1024 + 1 : 2 * 256 * 1024 + 23 }), failure);
+    await page.evaluate(failure => {
+      // Native evaluateJavascript dispatches without awaiting the JS return.
+      // Completion is the authenticated bridge reply checked below.
+      (window as unknown as { stockAICompute: (input: unknown) => void }).stockAICompute({ id: 1, command: "initialize", state_length: failure === "input-oversize" ? 128 * 1024 * 1024 + 1 : 2 * 256 * 1024 + 23 });
+    }, failure);
     await expect.poll(() => page.evaluate(() => Boolean((window as unknown as { reply?: unknown }).reply))).toBe(true);
     const actual = await page.evaluate(() => {
       const host = window as unknown as { reply: Record<string, unknown>; received?: string; output: string; maximumChunk: number; replyLength: number; inputFinished: boolean; transferred?: boolean };
