@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — Light契約確認後の新取得と18候補の回帰精度研究比較
+
+- D167。開始HEAD9753baf8、branch android-completion-chatgpt。本人のLight契約連絡を受け、既存process環境の鍵でTOPIXを1要求しHTTP200/1行を確認。基本5種類の2024-07-01〜2026-02-28を新しい私有保存先へ逐次取得し、81Bulk/2,228dataset-date/4,456raw＋normalized objectを516.782秒で完了。価格/銘柄/TOPIX/財務405営業日、calendar608日。旧Standard原本の削除/上書きなし、再取得を規約上の必須条件とは断定しない。
+- catalog/manifest/fileの照合で固定した版から、新価格の翌営業日終値→5/20営業日後終値のラベルを再構築。2対1分割の手値と指定終値欠損を次の価格へずらさない試験に合格。認証済み18候補の回帰headだけを比較し、旧targetは列に読み込まず、元モデルのdataset IDと新しい市場snapshotを別記録した。候補別欠損除外0、h5は各354日/1,327,530行、h20は各279日/1,044,317行、比較136.775秒。全seed/種類平均・四半期別安定性・20営業日blockによる記述的不確実性を私有保存。上位銘柄ラベル平均をNAV/複利収益として扱わない。
+- 評価後に固定4,456fileを全hash再照合し、変更0。新価格/銘柄の全1,785,474キーは一致し、重複0、無約定76,492行を保持。初期品質reportがBulk CSVの空文字もExRT非nullとして数えた表示上の誤りを別receiptで訂正（型付き403件、うちsplit390/consolidation8/rights5）。元reportと実行scriptを保全し、ラベルの分割処理は変更していない。価格の欠損/企業行動なしを都合よく推定しない。
+- 既存daily-market projectorを新取得の2024-10月へ適用し、22営業日/96,671行/44objectを再認証、7.651秒。売買方向・容量/呼値・売却資金の解放・非配当企業行動・当時既知の入力/単元適用の根拠不足を残し、前提確認はPREREQUISITES_BLOCKED。NAV evaluator未呼出・損益未生成。配当/API課金や本人NISA/資金入力を停止理由にしない。採用・他head・費用込みNAV/基準戦略/ensemble・候補/基準固定・未使用finalは未完。全体の過去holdoutアクセス履歴も監査未了。
+- この工程は製品source不変の私有データ処理で、全Python/全Android試験の再実行とは扱わない。9753baf8のCI39111610270がverify/android/android-history success、release skipで完了したことは別に確認。Xiaomi/実ChatGPTの受入・実推論weightの接続は未確認。詳細、実行script、台帳/比較、固定条件、品質/不足表、hashと時間は`.demo-artifacts/light-resume-20261018/`。元の私有71/31/89行を保全し、新規課金・外部AI送信・実注文・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 実市場NAV接続へ配当なし評価の明示区分を追加
 
 - D166。開始HEAD880da23、branch android-completion-chatgpt。現在の契約を待たずに進める本人指示を受け、合成入力のみで既存market NAV接続を補完。`price_only_research`と配当込みを明示区分にし、旧入力の既定は従来の配当込み確認のまま保持した。
