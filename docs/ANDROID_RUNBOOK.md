@@ -183,3 +183,9 @@ OS processはwake＋条件充足dispatch、rebootはwake後のscheduler観測、
 新ae3fb7e/CI39086869972はverify/android/android-historyがすべてsuccess、release skip。native82件は190.542秒、OS3段階は世代5/8/11・pending0で元WorkRequestのSUCCEEDEDをnative確認した。介入区分は上記と同じ。補助DB観測のprocess DatabaseError/force-stop RuntimeErrorは原本へ残し、後続nativeの最終確認と区別する。
 
 同じ新APKの5,000銘柄/520日・96,781,956文字の全量B1は218.210393651秒、Java heap192MiBで認証preview/復元/owner再作成と全17tableのschema/typed cell・入力不変が成功。46Pythonをbranchae3fb7eとmerge4683f5eへbyte照合し、PC sourceとはLF/CRLF正規化後に一致することを確認。Java20とcontroller/2種類のnative試験sourceも照合した。APK SHA256は`3ae6b65e9a6c4ccebc945b0602c055877c6045a5b2f0810818f822b8e58f38a7`、原本は`.demo-artifacts/daily-integration-ci-39086869972/full-source-proof.json`。PC特徴量225.429秒・peak3,153,252,352bytesで43/53列の既存hashと一致。合成emulatorの成功であり、実モデル/実市場/Xiaomiの受入を完了とはしない。
+
+### 手動相談へ戻る（D164）
+
+ChatGPTとの切替中にAndroidが画面を再作成しても、期限内で照合/送信条件が有効な保存済み入力をそのまま再表示する。元の本文・ID・期限を維持し、確認欄を自動checkしたり新入力を作ったりしない。コピーを押した時点でも現在の状態と照合し、不一致/期限切れ/確認失敗ではコピーせず説明する。回答欄と過去の原本/提案履歴は保持する。
+
+4a3421e/CI39089533637ではnative82件（199.934秒）・元予約のOS3段階・同じAPKの全量B1が成功。5,000銘柄/520日・全17table内容照合は217.737秒/192MiB、PC特徴量171.485秒/peak3,091,365,888bytesで既存hashと一致。46Pythonをbranch4a3421e/merge9b74050へbyte認証し、APK SHA256は`fa9cd46709deb351ac0a9d66a4146ccf79fc610157db37d3b604dc497e68aa87`。原本は`.demo-artifacts/manual-handoff-ci-39089533637/full-source-proof.json`。OS介入区分と合成/実機の区別は前項と同じ。新しい復帰/コピーの実アカウント・Xiaomi受入は別途必要で、現在の契約未確認による実データ停止を解除しない。

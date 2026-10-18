@@ -5,7 +5,11 @@
 - D164。開始HEAD bdaa2d4、branch android-completion-chatgpt。私有の71/31/89行と市場/モデル原本を保全。前turnは実装・検証・pushを伴う進捗であり、今回はデータ権限待ちと独立してAndroidの手動相談を補完する。
 - 既存の保存済み入力を画面再作成後に再表示できない3ケースを合成fixtureで再現。local statusが元の入力record ID・snapshot ID・本文・期限を返し、現在の原予測/口座/設定/検証版と元の送信許可が一致する場合だけ相談を再開する。再読込で入力の再生成・期限延長・確認欄の自動check・台帳更新をしない。古い入力と提案履歴は保持し、失効した入力をコピー対象へ戻さない。
 - コピーを押した時点でもlocal statusで照合し、入力変更・期限切れ・確認失敗ではクリップボードを書き換えない。照合中は作成/コピー/回答検証を直列化し、回答欄を保持する。既存DB/native owner/暗号化保存を再利用し、新tableや外部provider呼出しを増やさない。
-- 関連Python106件が97.58秒で成功。修正前の3失敗も保存。最新Web97件は10.26秒、型/lint成功。Ruff全体/mypy両OS72fileも成功。最新sourceを固定した全量回帰と、同梱adapter/画面のWASM・Android CIは検証中。以前の1,363件やCI39086869972を新status adapterの全量合格へ読み替えない。
+- 関連Python106件が97.58秒で成功。修正前の3失敗も保存。実装4a3421eの89実装file・72試験module・Web50fileを固定した全1,366件が単回成功、fail/error/skip0、1,187.048秒、coverage87.196%。Git所有者保護は子processの当該repoだけへ設定し、global設定は変えない。実行前後の全hashとGit blob（LF/CRLF正規化後）を照合した原本は`.demo-artifacts/manual-handoff-20261018/full-verification.json`。以前の1,363件や旧CIを新status adapterの全量合格へ流用していない。
+- 最新Web97件は10.26秒、型/lint/build、Ruff全体/mypy両OS72file、source/package監査が成功。最新同梱adapterの通信遮断WASM/画面16件は5.6分、compute11件は30.0秒、既存画面6件は10.6秒で成功。復元後のlocal APIが元のprompt/ID/期限を返すことと、期限/許可/口座等の変更を拒否することを確認した。UIのコピー拒否/直列化は合成browser試験で、実機のclipboard受入とは区別する。
+- 4a3421e/CI39089533637はverify/android/android-historyすべてsuccess、release skip。native82件は199.934秒、fail/error/skip0。元WorkRequestのOS3段階は世代5/8/11・pending0で成功。processはwake＋条件充足dispatch、rebootはwake後の観測、force-stopは明示再表示後のunforced配送。補助snapshotのprocess state0/force-stop RuntimeErrorを保持し、後続nativeのSUCCEEDED確認と区別する。
+- 同じ新APKの5,000銘柄/520日・96,781,956文字のB1復元は217.737120051秒/Java heap192MiBで成功。全17tableのschema/typed cell、input不変、認証preview/復元/owner再作成を照合。46Pythonをbranch4a3421e/merge9b74050へbyte認証、Java20/controller/2種類のnative試験sourceと入力/APK hashも確認。APK SHA256は`fa9cd46709deb351ac0a9d66a4146ccf79fc610157db37d3b604dc497e68aa87`。PC特徴量171.485秒・peak3,091,365,888bytesで43/53列の既存hashと一致。原本は`.demo-artifacts/manual-handoff-ci-39089533637/full-source-proof.json`。PATH/標準SDK位置にADBを確認できず、Xiaomi/実アカウント/反復安定性は未確認。
+- 旧bdaa2d4の文書更新CI39088900023は、今回の修正CIへ枠を渡すため取消した。成功とは扱わない。最終の検証追記は文書だけに限定し、実装/試験/設定hashの不変を確認して重複CIを起動しない。実装4a3421eの全成功を証拠とし、PRはdraftのまま。[GitHubのskip仕様](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs)による必要checkのPendingを成功とは扱わず、将来のmergeには必要checkの成立を別途要求する。
 - J-Quants契約/利用範囲は未確認のまま。追加取得・実データexport/送信・新たな実市場NAV・課金・無確認削除なし。18候補の市場比較/最終選定・未使用期間・採用、実アカウント/Xiaomiは前項の待ち条件を維持。実注文・main merge・製品APK公開なし。
 
 ## 2026-10-18 — 日次18候補の成果物監査と手動ChatGPT接続
