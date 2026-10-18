@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-19 — 実データの2head作成・PC/Androidの実モデル一致
+
+- 開始docs commit2982683、製品source329cecd。PR #2はdraft/openで同head、実行中CIなし、最新CI39139002365の必要job成功を確認。固定152条件（仮定付き完走56/不完全96）・30件の未解決一覧・正式HOLD・未開封holdoutは維持する。製品コード不変のため全体CIを再実行しない。
+- 既存Light履歴と既存production/特徴量/label処理から3,601,789行/954特徴量営業日を準備。歴史的対象4,118のうち4,117に有効日足、成熟5日948日/20日933日で既存500日条件を維持。入力728.558秒、特徴量896.261秒、既存処理との2,408入力行・48,056特徴量/label行の完全一致。全panel調整系譜と別projection版/hash、失敗した準備試行も保全。後日取得単一版を厳密PITや会計上の企業行動確認済みと扱わない。
+- D179の読取専用統合試験用に、既存OOFの全3seed平均と固定seed17から5日回帰CatBoost/20日回帰LightGBMをfit前に固定。各1fitからnative/前処理/端末treeを保存し、native再読込も最大誤差0。前処理＋fit＋同fit書出し＋予測349.203/231.195秒、peak4,006,436,864/4,557,139,968bytes。単一worker/CPU1/OS予備1GiBを維持しAndroid buildとは直列。旧OOF保存重みとは別の新規研究fit2本であり、最終採用や精度比較の追加ではない。
+- 通常候補APKと同じ43assetで各1,000実入力を実行し、PC native→APK内WASMとPC native→Android35 emulatorの両方が最大誤差0（rtol1e-6/atol1e-7）。Android要求2.830/1.068秒、JUnit1件24.203秒、Java heap上限192MiB。モデル採用状態・口座表示は不変。実モデルは私有androidTest APKだけに配置。最初の起動失敗を保持しASCII一時パスの別AVDで成功、専用VMを終了。VMは2,048MiB指定からemulatorが2,560MiBへ自動増量した実値、終了時app PSS141,182KiBはrenderer込みpeakではない。Xiaomi/本人DBは操作していない。
+- 私有`real-model-milestone.json`・`completion-report-v2.md`・復元用`research-heads-backup.zip`を保存。通常取込bundleは未作成。現行4head/校正/review/pinを架空に埋めず、4task採用を前提にしない。最終役割/境界と一致する2fitは再利用候補。risk未提供の最小契約対応と、採用したriskだけの追加fitを切り分ける。実データ必要量での特徴量/保存/日次一連とXiaomiは一つの受入票へ集約。通常候補APK/source/署名は不変。A＝正式HOLD、B＝必要試験成功、C＝未完。公開配布/main merge/実注文/外部AI送信なし。
+
 ## 2026-10-19 — 全152条件の結果・本人署名の通常版候補APK
 
 - 開始/実行source329cecd63286fecf3376085a65c20fbe0c600531、PR #2。固定した全152条件を単一workerで5,028.760秒（83分48.760秒）実行し、56条件は仮定付き研究完走、96条件は不完全（保有参考価格欠損50・日次評価欠損28・既知未処理企業行動18）。5日76条件中16、20日76条件中40が仮定付き完走。全18構成/全seed/A〜E/単純baselineを表へ残し、欠損や成績に応じた期間・銘柄の除外は行わない。全条件の比較可能性や最終採用が成立したとはしない。

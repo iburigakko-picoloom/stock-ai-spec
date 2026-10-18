@@ -2,6 +2,8 @@
 
 ## 今回の一括実機受入（D177）
 
+2026-10-19 D179：私有の実回帰head2本（5日CatBoost/20日LightGBM、各1fit）で、PC native/保存再読込/端末tree/APK内WASM/Android35 emulatorの各1,000件が最大誤差0。Android要求2.830/1.068秒、JUnit1件24.203秒、Java heap192MiB。通常候補と同じ公開asset43件を照合し、実モデルは私有test APKだけに配置した。モデル採用状態・口座表示は不変、本人DBは未使用。2,048MiB指定のVMが実際は2,560MiBへ自動増量されたこと、終了時app PSSは全processのpeakではないことも保存。最初の起動失敗を保全しASCII別AVDで成功後、専用VMを停止した。これは実モデルの計算一致であり、実データ必要量の特徴量・保存・日次一連やXiaomi受入ではない。通常bundleは正式HOLDと校正/review/pin/採用役割の整合待ち。4taskを自動採用せず、下記一票の2〜4に前提と未完確認をまとめる。Xiaomi未接続のため、本人への追加操作依頼は分割しない。
+
 2026-10-19 D178：通常版の本人用候補`StockAI-0.1.13-candidate.apk`を私有作成した。applicationId=`jp.stockai.app`、versionCode=10013、versionName=0.1.13-candidate、非debug release。SHA-256=`91173731fd6442c4858dd3b5603df6d77567c769098d0b69f4bf46defbe63f14`、23,957,469bytes。既存0.1.12公開版と同じ証明書（SHA-256=`97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979`）を照合済み。source329cecd、既存成功CI資産を再利用し、単一Gradle worker/heap768MiBで230.580秒。秘密情報・私有市場データ・モデルは含まず、公開/端末導入はしていない。元debug候補も保持する。
 
 対象329cecdのCI39139002365はverify/android/android-history全てsuccess、release skip。native84件（157.35秒）、旧source debug更新/OS3段階、5,000銘柄/520日/17tableのB1復元（217.455秒）、PC特徴量303.397秒/peak3,144,458,240bytesのsource/入力/成果物を照合した。合成API35 emulatorとdebug更新の証拠であり、この通常版候補のXiaomi実更新・実モデル一致の証拠へ読み替えない。候補本体と検証原本は私有`.demo-artifacts/scoped-completion-20261018/`。端末に入っている版/署名と保有のbackupを確認してから、以下の同じ一票で受け入れる。
