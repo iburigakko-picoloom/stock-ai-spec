@@ -635,6 +635,7 @@ def _freeze_development_selection_from_evidence(
                 horizon_runs,
                 feature_families=feature_votes.by_horizon[horizon],
                 feature_names=expected_features,
+                stable_seeds=seeds if active_horizons == (5, 20) else None,
             )
         )
     source_report_ids = tuple(
@@ -999,6 +1000,7 @@ def _select_horizon(
     *,
     feature_families: tuple[FeatureFamilySelection, ...],
     feature_names: tuple[str, ...],
+    stable_seeds: tuple[int, ...] | None = None,
 ) -> HorizonDevelopmentSelection:
     horizon = runs[0].batch.horizon
     metrics = [item for run in runs for item in run.report.model_metrics]
@@ -1007,9 +1009,20 @@ def _select_horizon(
         for task in _MODEL_TASKS:
             name = _component_name(run.batch.model_family, task, cast(int, run.batch.seed))
             reports_by_component[name] = run
-    expected_return = _best_component(metrics, task="regression", reports=reports_by_component)
-    quantile = _best_component(metrics, task="quantile", reports=reports_by_component)
-    large_loss = _best_component(metrics, task="large_loss", reports=reports_by_component)
+    if stable_seeds is None:
+        expected_return = _best_component(metrics, task="regression", reports=reports_by_component)
+        quantile = _best_component(metrics, task="quantile", reports=reports_by_component)
+        large_loss = _best_component(metrics, task="large_loss", reports=reports_by_component)
+    else:
+        expected_return = _seed_stable_component(
+            metrics, task="regression", reports=reports_by_component, seeds=stable_seeds
+        )
+        quantile = _seed_stable_component(
+            metrics, task="quantile", reports=reports_by_component, seeds=stable_seeds
+        )
+        large_loss = _seed_stable_component(
+            metrics, task="large_loss", reports=reports_by_component, seeds=stable_seeds
+        )
     wide = _aligned_rank_component_frame(runs)
     ensemble, uncertainty, component_rank_ics = _fit_selection_ensemble(wide, horizon=horizon)
     best_rank_name = max(
@@ -1017,13 +1030,19 @@ def _select_horizon(
         key=lambda name: (component_rank_ics[name], name),
     )
     best_component_rank_ic = component_rank_ics[best_rank_name]
-    best_rank = _component_from_name(
-        metrics,
-        component_name=best_rank_name,
-        reports=reports_by_component,
-        metric_name="meta_evaluation_mean_daily_rank_ic",
-        metric_value=best_component_rank_ic,
-    )
+    if stable_seeds is None:
+        best_rank = _component_from_name(
+            metrics,
+            component_name=best_rank_name,
+            reports=reports_by_component,
+            metric_name="meta_evaluation_mean_daily_rank_ic",
+            metric_value=best_component_rank_ic,
+        )
+    else:
+        best_rank = _seed_stable_component(
+            metrics, task=None, reports=reports_by_component, seeds=stable_seeds,
+            rank_ics=component_rank_ics,
+        )
     ensemble_components = tuple(
         _component_from_name(
             metrics,
@@ -1052,6 +1071,74 @@ def _select_horizon(
         ensemble_adopted=ensemble_adopted,
         ensemble_best_component_rank_ic=best_component_rank_ic,
         uncertainty=uncertainty,
+    )
+
+
+def _seed_stable_component(
+    metrics: Sequence[AdvancedModelMetrics],
+    *,
+    task: ModelTask | None,
+    reports: Mapping[str, _AuthenticatedRun],
+    seeds: tuple[int, ...],
+    rank_ics: Mapping[str, float] | None = None,
+) -> FrozenModelComponent:
+    """Compare complete family/seed groups, then use the predeclared minimum seed.
+
+    The stored metric is a family mean, not the chosen seed's own performance.
+    Ensemble adoption still has to beat the strongest individual component.
+    """
+    if len(seeds) < 3 or len(set(seeds)) != len(seeds):
+        raise ValueError("daily seed selection requires at least three unique seeds")
+    tasks: tuple[ModelTask, ...] = ("regression", "ranking") if task is None else (task,)
+    candidates = [item for item in metrics if item.task in tasks]
+    if len({item.horizon for item in candidates}) != 1:
+        raise ValueError("seed selection requires exactly one horizon")
+    if task is None:
+        if rank_ics is None or set(rank_ics) != {
+            _metric_component_name(item) for item in candidates
+        }:
+            raise ValueError("seed selection requires every meta-evaluation component")
+        metric_name = "meta_evaluation_rank_ic"
+    elif task == "quantile":
+        metric_name = "pinball_loss"
+    elif task == "large_loss":
+        metric_name = "brier_score"
+    else:
+        metric_name = "daily_rank_ic"
+    groups: dict[tuple[ModelFamily, ModelTask], dict[int, float]] = {}
+    for item in candidates:
+        group = groups.setdefault((item.model_family, item.task), {})
+        if item.seed in group:
+            raise ValueError("seed selection contains duplicate seed evidence")
+        name = _metric_component_name(item)
+        if name not in reports:
+            raise ValueError("seed selection is missing a source report")
+        value = (
+            cast(Mapping[str, float], rank_ics).get(name) if task is None
+            else item.pinball_loss if task == "quantile"
+            else item.brier_score if task == "large_loss"
+            else item.mean_daily_rank_ic
+        )
+        if value is None or not math.isfinite(value):
+            raise ValueError("seed selection requires a finite metric for every seed")
+        group[item.seed] = value
+    expected_groups = {(family, head) for family in _MODEL_FAMILIES for head in tasks}
+    if set(groups) != expected_groups or any(set(group) != set(seeds) for group in groups.values()):
+        raise ValueError("seed selection requires the complete family/task/seed matrix")
+    means = {
+        key: math.fsum(group[seed] for seed in sorted(seeds)) / len(seeds)
+        for key, group in groups.items()
+    }
+    minimize_metric = task in {"quantile", "large_loss"}
+    family, head = min(
+        means, key=lambda key: (means[key] if minimize_metric else -means[key], *key)
+    )
+    return _component_from_name(
+        metrics,
+        component_name=_component_name(family, head, min(seeds)),
+        reports=reports,
+        metric_name=f"family_seed_mean_{metric_name}__fixed_min_seed_v1",
+        metric_value=means[(family, head)],
     )
 
 

@@ -211,6 +211,15 @@ def test_excluded_one_day_freezes_five_twenty_through_final_selection(
     assert tuple(item.horizon for item in final.horizons) == (5, 20)
     assert final.one_day_exclusion_decision_hash == features.one_day_exclusion_decision_hash
     assert final.locked_holdout_accessed is False
+    for horizon in final.horizons:
+        for component in (
+            horizon.expected_return_component, horizon.rank_component,
+            horizon.downside_quantile_component, horizon.large_loss_component,
+        ):
+            assert component.seed == min(final.seeds)
+            assert component.selection_metric_name.startswith("family_seed_mean_")
+    saved = write_development_selection(final, tmp_path / "daily-selections")
+    assert load_development_selection(saved) == final
 
 
 def _campaign_fixtures(tmp_path: Path) -> tuple[Path, Path]:

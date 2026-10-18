@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 全seedでの日次モデル種類比較と推論用seedの事前固定
+
+- D165。開始HEAD5aef760、branch android-completion-chatgpt。未commit私有71/31/89行と市場/モデル原本を保全。旧選定処理が個別seedの最大成績を採るままのため、合成手値17ケースと日次freezeの既存試験1ケースで18失敗を再現した。
+- 新しい5日/20日freezeでは全宣言seedの平均で種類/taskを比較し、成績に依存せず最小宣言seedを推論用に固定する（既存集合なら17）。欠損/重複/非有限/異horizonは拒否する。保存指標名に全seed平均と固定方法を明記し、個別seedの成績と区別する。ensembleは従来どおり最も強い個別meta-evaluation ICを上回る必要があり、基準を下げない。旧3horizon処理と保存形式の読取互換性を保持する。
+- 修正後の選定/holdout保護/mobile bundle関連46件は37.09秒で成功。Ruff全体とmypy両platformも成功。最初の関連試験指定は存在しない単数形のbundle file名で収集前に失敗し、正しい既存fileへ直して実行した。全Python回帰と新CIは確認待ちで、前回の1,366成功を今回の全量成功へ流用しない。原本は`.demo-artifacts/seed-stability-20261018/`。
+- 完成票の旧必須OAuth/2段階調査を任意経路へ整理し、手動方式の必要な保有/資金の射影と資格情報を区別。実装を削除せず、最新の待ち条件と既存emulator証拠の参照先を統一した。
+- 実データの候補固定/再学習/weight作成/市場NAV/holdoutは未実行。J-Quants契約/利用範囲未確認、実機/実アカウント未確認、モデル採用保留を維持。追加取得・実データexport/送信・新規課金・実注文・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 手動ChatGPT相談の中断復帰とコピー直前の再照合
 
 - D164。開始HEAD bdaa2d4、branch android-completion-chatgpt。私有の71/31/89行と市場/モデル原本を保全。前turnは実装・検証・pushを伴う進捗であり、今回はデータ権限待ちと独立してAndroidの手動相談を補完する。
