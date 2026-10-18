@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-10-18 — 容量不足復旧と旧版debug APK更新の端末証拠
+
+- 開始HEAD52bcd4b。前回は受領履歴→予測→手動相談→全状態復元の合成PC統合・関連64件・push/PR更新まで進捗あり。同じCI39128328946/最新39129476236を再確認し、修正後android job117680565813がsuccess完了した。verify等の同run全体と最新CIは結果待ち。観測timeoutで再起動/中止せず、JUnit/OS/更新reportと実APKを取得した。
+- native84件が単回成功、fail/error/skip0、208.046秒。D173/D175の実SQLiteFull2件は直接保存0.881秒/staging0.955秒で成功。元の容量超過を要求し、旧chunk/世代・日本語payload・read lease/integrityの再open後の保持、spool除去、容量回復後の保存と古い世代拒否まで既存assertionを通過した。型を任意の例外へ緩めていない。別の暗号化store容量試験は96,870,524文字・192MiB heap・7.045秒で成功し、全17tableのB1復元とは区別する。
+- OS process/reboot/force-stopの元WorkRequest再開は世代5/8/11・pending0。通知拒否/画面破棄下でも各保存targetと研究中断履歴を保全。processは画面wake＋条件充足scheduler dispatch、rebootはwake後の観測、force-stopは明示再表示を伴い、自然な定刻配送の証拠ではない。
+- 旧配布0.1.12 source ab2d5caのdebug APK（version10012）をseedし、同署名の新版debug（20000）へデータ非消去更新→再openが成功。UID/署名/Keystoreを保持し、世代1→2→3。旧27table＋型付き検査1tableの全typed cell、旧schema/列、既知の空table移行と新技術cursor、profile/settings/反映済み約定の不変をcontrollerで検査。取得したreportの全28旧table hashもfixtureと再照合し、更新後と再open後の全DB内容が一致。verify11.856秒/reopen11.731秒、旧capsule816,840文字。取得市場履歴/modelを含まない合成API35で、公開release APK/製品署名/Xiaomi/全量旧履歴への受入ではない。
+- 実APK hash18b7a4a、merge2705506/branch06b2009/現在52bcd4bの同梱Python46fileをbyte照合し、CI参照元の製品Java20fileも同一を確認。controller/fixture/native4種のGit sourceも認証し、旧主要8pinは元Git blobと一致した。製品model policyの承認0を維持。このcomponentの証拠を、未完の全量B1/実モデル一致/実市場NAV/最終採用へ拡大しない。
+- 証拠`.demo-artifacts/android-acceptance-20261018/`。製品source/試験source・元私有71/31/89行・市場/研究原本は不変。保存済み追加資料の取得元と、費用込み評価の企業行動網羅/執行/過去時点の根拠は未確認のまま。実注文・外部AI送信・再学習/最終期間開封・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 受領履歴から手動相談・全状態復元までの統合試験
 
 - 開始HEAD06b2009、branch android-completion-chatgpt。前回は容量超過時の元例外保持の修正・実製品Java注入4経路/Android API compile・controller83件・push/PR更新まで進捗あり。CI39128328946は確認時点でpending、先行CI39126183830はverify成功/android失敗/android-history実行中。別run/別sourceの成功へ読み替えない。

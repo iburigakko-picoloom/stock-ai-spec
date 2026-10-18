@@ -147,6 +147,8 @@ D153では、nativeから受け取る保存状態をPythonへ256KiBずつ渡し�
 
 D175：保存中の容量不足でSQLiteが自動rollbackした後、Android側の`endTransaction`も失敗することがある。直接保存とstaging確定は終了処理をtry-with-resourcesで行い、元の書込例外を保持して追加の終了例外をsuppressedへ残す。書込成功後の終了処理が失敗した場合は、その失敗を呼出側へ返し、成功とは表示しない。保存形式・世代・暗号・台帳反映条件は維持する。CI39126183830の実容量不足2件はこの問題で失敗した原本を保持し、旧世代/内容の再読込と容量回復後の保存の成功は修正後のAndroid試験で確認する。
 
+2026-10-18にD175修正後のCI39128328946/androidを確認。合成API35で容量不足2件を含むnative84件が208.046秒で成功し、OS3段階も保存世代5/8/11・pending0。旧0.1.12 sourceのdebug APK10012から新版debug20000へのデータ非消去更新と再openは、同一UID/署名/Keystore・世代1/2/3・旧28tableの全typed cellを保持した。実APKと同梱Python46/参照Java20を現在の製品sourceへ照合済み。画面wake/条件充足dispatch/明示再表示を伴うOS試験、空の市場履歴とmodel0の旧版fixtureであり、自然配送・全量旧履歴・公開release binary/製品署名・Xiaomi更新は別に確認する。同run全体/全量B1工程の成功はまだ未確認。
+
 ## データ・モデルの公開範囲
 
 APKと公開Gitへ、APIキー、口座情報、取得市場データ、署名鍵、学習済みの私有modelを含めない。`prepare_mobile.py`はソースallowlistだけを梱包し、package auditで禁止pathを検査する。
