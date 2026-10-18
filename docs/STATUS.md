@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 容量不足後の終了例外で元の失敗を失わない保存処理
+
+- D175。開始HEADb7f05e8、branch android-completion-chatgpt。前回は権利落ち種類の実装/全期間監査・関連263件・push/PR更新まで進捗あり。CI39126183830のandroid job117675062308がfailure完了したことを確認し、JUnit/端末logcatを取得。native84件中82成功/2失敗、156.953秒。新しい実SQLiteFull2件はコンパイルされたが、INSERTの容量超過後にAndroidのROLLBACKも失敗し、元の例外が上書きされていた。OS/旧APK置換はこのrunでは未到達。
+- 直接保存とstaging確定の終了処理だけをtry-with-resourcesへ変更。元の書込/入力失敗を返し、追加の終了失敗はsuppressedで保持する。終了処理は1回、成功後の終了/commit失敗も成功へ変換しない。暗号/保存形式・世代・競合/台帳・容量試験の判定は変更しない。
+- 実製品sourceの注入driver試験で、修正前の4経路中2失敗/2成功を保存。修正後は直接/staging×終了失敗あり/なしの4経路すべて成功し、元のSQLiteFullの同一性・追加例外・終了1回・成功flagなし・spool除去を確認した。既存私有JDK21と依存jarを再利用し、実Android API定義とCapacitorのJSObject sourceでも製品classをコンパイルした。注入driverは実SQLite/端末の代わりにしない。
+- 履歴/旧版更新/OS controllerの関連83件が単回成功、fail/error/skip0、JUnit8.215秒。Ruff全体、公開範囲監査865追跡fileが成功。Python/Webの製品sourceとnative試験sourceは不変。全Python/全Androidの最新合格や実容量不足からの復旧成功は未確認で、修正後の既存84件とOS/旧APK置換のCI結果を待つ。
+- 新しい市場sourceのb7f05e8/CI39127663099は確認時点でpending。保存済み追加資料の取得元回答待ちと、実市場NAVの企業行動網羅/方向別執行/過去時点の不足は維持。最終期間開封・再学習・モデル採用なし。証拠`.demo-artifacts/sqlite-full-followup-20261018/`。元私有71/31/89行・市場/研究原本は保全。実注文・外部AI送信・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 権利落ち種類の保存と費用込み評価への照合
 
 - D174。開始HEADb56b7eb、branch android-completion-chatgpt。前回の旧source改行pin修正と実SQLiteFull試験を保全。rawにある権利落ち種類が市場射影で失われ、調整係数だけを確認していた箇所を補完した。元列の不存在と報告null、CSV空文字、未知codeを区別し、正規化列があればrawと照合、旧列なしpartitionは認証済みrawから読む。元の価格/ラベル/予測・売買規則・台帳は変更しない。

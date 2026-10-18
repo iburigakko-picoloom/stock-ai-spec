@@ -119,7 +119,9 @@ final class LocalStateStore {
     long write(long generation, String payload) throws Exception {
         if (generation < 0 || generation >= MAX_GENERATION || payload == null || payload.length() > MAX_CHARACTERS) throw new IllegalArgumentException();
         database.beginTransaction();
-        try {
+        // SQLite may already roll back a full transaction. Keep that original
+        // write failure and suppress any secondary endTransaction failure.
+        try (AutoCloseable transaction = database::endTransaction) {
             long current = 0;
             try (Cursor cursor = database.rawQuery("SELECT generation FROM state WHERE id=1", null)) {
                 if (cursor.moveToFirst()) current = cursor.getLong(0);
@@ -135,7 +137,7 @@ final class LocalStateStore {
             JSONObject metadata = new JSONObject().put("length", payload.length()).put("chunks", index).put("sha256", hex(digest.digest()));
             database.execSQL("INSERT OR REPLACE INTO state(id,generation,payload) VALUES(1,?,?)", new Object[]{current + 1, encrypt(FORMAT + metadata)});
             database.setTransactionSuccessful(); return current + 1;
-        } finally { database.endTransaction(); }
+        }
     }
 
     long currentGeneration() {
@@ -330,7 +332,8 @@ final class LocalStateStore {
             if (previous < 0 || previous >= MAX_GENERATION || staged.disposed || !staged.sealed
                     || staged.generation != previous + 1) throw new SecurityException();
             database.beginTransaction();
-            try (DataInputStream input = new DataInputStream(new FileInputStream(staged.file))) {
+            try (AutoCloseable transaction = database::endTransaction;
+                    DataInputStream input = new DataInputStream(new FileInputStream(staged.file))) {
                 if (currentGeneration() != previous) throw new IllegalStateException("state conflict");
                 database.execSQL("DELETE FROM state_chunks");
                 MessageDigest hash = MessageDigest.getInstance("SHA-256"); int characters = 0;
@@ -351,7 +354,7 @@ final class LocalStateStore {
                 database.execSQL("INSERT OR REPLACE INTO state(id,generation,payload) VALUES(1,?,?)",
                     new Object[]{staged.generation, encrypt(FORMAT + metadata)});
                 database.setTransactionSuccessful(); return staged.generation;
-            } finally { database.endTransaction(); }
+            }
         }
     }
 
