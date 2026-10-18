@@ -279,7 +279,7 @@ def _maximum_drawdown(values: np.ndarray) -> float:
 
 
 def _compute_symbol_batch(groups: list[pd.DataFrame]) -> pd.DataFrame:
-    """Apply the same column math to stocks sharing one complete session grid."""
+    """Apply positional column math to equally long contiguous stock histories."""
     columns: dict[str, pd.DataFrame] = {}
     for name in (
         "close",
@@ -322,18 +322,21 @@ def _compute_symbol_batch(groups: list[pd.DataFrame]) -> pd.DataFrame:
 
 
 def _latest_symbol_batches(daily: pd.DataFrame) -> pd.DataFrame:
-    # A single cap covers all pending grids, including one-stock IPO grids.
+    # Only the final contiguous segment can affect each stock's final row.
+    # Indicators use observation offsets, while metadata keeps each stock's
+    # own dates. Equal lengths can share column math without aligning dates.
+    # One cap still covers all pending lengths, including one-stock IPOs.
     limit = 128
-    pending: dict[bytes, list[pd.DataFrame]] = {}
+    pending: dict[int, list[pd.DataFrame]] = {}
     pending_count = 0
     outputs: list[pd.DataFrame] = []
 
-    def flush(key: bytes) -> None:
+    def flush(key: int) -> None:
         nonlocal pending_count
         groups = pending.pop(key)
         pending_count -= len(groups)
         if len(groups) == 1:
-            outputs.append(_compute_symbol(groups[0], latest_only=True).tail(1).copy())
+            outputs.append(_compute_contiguous_symbol(groups[0], latest_only=True).tail(1).copy())
         else:
             outputs.append(_compute_symbol_batch(groups))
 
@@ -342,11 +345,14 @@ def _latest_symbol_batches(daily: pd.DataFrame) -> pd.DataFrame:
         eligible = not group.empty and str(group["trading_date"].dtype) == "datetime64[ns]"
         if eligible and "trading_session_index" in group:
             sessions = pd.to_numeric(group["trading_session_index"], errors="coerce")
-            eligible = bool(not sessions.isna().any() and sessions.diff().iloc[1:].eq(1).all())
+            if sessions.isna().any():
+                raise ValueError("trading_session_index must be present for every production row")
+            final_start = np.flatnonzero(sessions.diff().ne(1).to_numpy())[-1]
+            group = group.iloc[final_start:].copy()
         if not eligible:
             outputs.append(_compute_symbol(group, latest_only=True).tail(1).copy())
             continue
-        key = group["trading_date"].to_numpy().tobytes()
+        key = len(group)
         pending.setdefault(key, []).append(group)
         pending_count += 1
         if len(pending[key]) == limit:

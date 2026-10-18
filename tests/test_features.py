@@ -384,13 +384,16 @@ def test_latest_symbol_drawdown_matches_full_rolling_history(periods, scenario) 
 
 
 @pytest.mark.parametrize("scenario", ["invalid-old-price", "duplicate-old-row",
-                                      "invalid-unrelated-financials"])
+                                      "invalid-unrelated-financials", "missing-old-session"])
 def test_latest_snapshot_preserves_full_history_validation(scenario) -> None:
     daily, market, sectors, financials = market_fixture(270)
     if scenario == "invalid-old-price":
         daily.loc[daily.index[0], "adjusted_close"] = -1
     elif scenario == "duplicate-old-row":
         daily = pd.concat([daily, daily.iloc[[0]]], ignore_index=True)
+    elif scenario == "missing-old-session":
+        daily["trading_session_index"] = daily.groupby("symbol").cumcount().astype(float)
+        daily.loc[daily.index[0], "trading_session_index"] = np.nan
     else:
         other = financials.iloc[[0]].copy()
         other["symbol"] = "unknown-synthetic"
@@ -403,6 +406,41 @@ def test_latest_snapshot_preserves_full_history_validation(scenario) -> None:
     with pytest.raises(ValueError) as actual:
         engine.latest_snapshot(daily, market, sectors, financials=financials, as_of=cutoff)
     assert str(actual.value) == str(reference.value)
+
+
+def test_latest_batches_preserve_each_symbols_final_segment_and_timestamps(monkeypatch) -> None:
+    template = market_fixture(270)[0].loc[lambda frame: frame.symbol == "7203"].copy()
+    groups = []
+    for position in range(8):
+        group = template.copy()
+        group["symbol"] = f"synthetic-{position}"
+        group["trading_date"] += timedelta(days=position * 600)
+        group["available_at"] += timedelta(days=position * 600)
+        group["trading_session_index"] = np.arange(len(group))
+        group.loc[group.index[140:], "trading_session_index"] += 2
+        group["adjusted_close"] *= 1 + position / 100
+        # Earlier segments must not seed the final segment's recurrent math.
+        group.loc[group.index[:140], "adjusted_close"] *= 1000
+        if position % 2:
+            group.loc[group.index[-30:], "shares_outstanding"] = np.nan
+        groups.append(group)
+    daily = pd.concat(groups, ignore_index=True).sample(frac=1, random_state=918)
+    before = daily.copy(deep=True)
+    expected = pd.concat([_compute_symbol(group).tail(1) for group in groups], ignore_index=True)
+    widths = []
+    original = feature_engine._compute_symbol_batch
+
+    def checked_batch(batch):
+        widths.append(len(batch))
+        assert all(len(part) == 130 for part in batch)
+        assert all(part.trading_session_index.diff().iloc[1:].eq(1).all() for part in batch)
+        return original(batch)
+
+    monkeypatch.setattr(feature_engine, "_compute_symbol_batch", checked_batch)
+    actual = feature_engine._latest_symbol_batches(daily)
+    assert widths == [8]
+    assert_frame_equal(actual, expected, check_exact=True)
+    assert_frame_equal(daily, before, check_exact=True)
 
 
 @pytest.mark.parametrize("symbol_dtype", ["object", "category"])
@@ -446,7 +484,7 @@ def test_latest_symbol_batches_preserve_history_and_bound_batch_width(
         group["symbol"] = f"synthetic-{position:04d}"
         group["adjusted_close"] *= 1 + position / 1000
         if scenario == "mixed-grids" and position >= 128:
-            # Different IPO dates and different final dates must never be aligned by row number.
+            # Different IPO/final dates must retain their own metadata and history.
             group = group.iloc[position - 127 : -1].copy()
         elif scenario == "many-grids":
             # Keep many two-stock IPO grids pending together to exercise the total cap.
@@ -473,7 +511,7 @@ def test_latest_symbol_batches_preserve_history_and_bound_batch_width(
 
     def checked_batch(batch):
         assert 2 <= len(batch) <= 128
-        assert all(part.trading_date.tolist() == batch[0].trading_date.tolist() for part in batch)
+        assert all(len(part) == len(batch[0]) for part in batch)
         assert all(part.trading_session_index.diff().iloc[1:].eq(1).all() for part in batch)
         batches.append(len(batch))
         return original(batch)
@@ -482,6 +520,12 @@ def test_latest_symbol_batches_preserve_history_and_bound_batch_width(
     actual = (
         feature_engine._latest_symbol_batches(daily).sort_values("symbol").reset_index(drop=True)
     )
-    assert batches and max(batches) == (2 if scenario == "many-grids" else 128)
+    assert batches
+    if scenario == "session-gaps":
+        # The global cap includes both short final segments and long histories;
+        # it can flush a long batch before that single length reaches 128.
+        assert sum(batches) == 133
+    else:
+        assert max(batches) == (2 if scenario == "many-grids" else 128)
     assert_frame_equal(actual, expected, check_exact=True)
     assert_frame_equal(daily, before, check_exact=True)

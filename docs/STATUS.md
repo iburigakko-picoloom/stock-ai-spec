@@ -1,3 +1,10 @@
+## 2026-10-19 — 実データ全量のAndroid一致と日次計算の短縮
+
+- D181。source682ec49の実データ489営業日/1,854,462行から、Android35/WebView124とPCで各horizon3820銘柄・296507数値・全JSON値が完全一致。2.5GiB guestのrenderer killを保全し、4GiB guestでは全体717.019秒、decode85.155秒、特徴量608.963秒。Java heap192MiB、app/renderer3500MiB、host予備1GiBを維持。通常owner/daily経路・Xiaomiの受入成功ではない。
+- 既存600秒制限を超えるため、latest-onlyだけを最後の連続区間と同じ長さの独立列へまとめた。全履歴の検証、128銘柄の総pending上限、学習/full-history transform、計算式/入力窓/許容差/timeoutは維持。関連83件と過去不正値4境界、Ruff全体・mypy75sourceが成功。固定済み実データ全JSONと完全一致し、直接PCはdecode31.668秒・特徴量133.312秒。高負荷profileの中止は合格件数に入れない。変更後の同梱native実測と対象commit CIは未確認。
+- 682ec49/CI39158693769はverify/android-history成功、androidはOS再起動配送でfailure。native84件222.894秒と17table全量B1復元216.802秒は成功だが、旧APK更新工程はskip。重複ローカル関連試験は同commitのPython CI成功後に中止しており、ローカル合格とはしない。自動配送と手動再表示を分ける空AVD診断を準備し、元work/取得IDと本物のACKを維持する。
+- 本人署名0.1.14-candidate（source682ec49/code10014/非debug、23,957,629bytes）は90.063秒で私有作成・package検証済み。SHA256=89a53573a443c18836b486107bc82fe7ebfd91ac83c1d213a0bde6458cb22385。本人既存証明書と一致、APIキー/私有市場データ/モデルなし。CI全体未合格の候補で、旧候補も保全。通常bundle・通常日次一連・Xiaomiは未完、152条件/HOLD/holdout未開封は不変。証拠は私有completion-report-v3とcomponent-receipt。実注文/新規課金/外部AI送信/main merge/公開配布なし。
+
 # Project Status
 
 ## 2026-10-19 — 必要量の実特徴量一致と日次予測の対象範囲修正

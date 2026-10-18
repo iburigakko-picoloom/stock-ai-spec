@@ -1,5 +1,7 @@
 # Android版の完成条件
 
+2026-10-19 D181：本人署名の0.1.14-candidate（source682ec49/code10014/非debug、SHA256=89a53573a443c18836b486107bc82fe7ebfd91ac83c1d213a0bde6458cb22385）を90.063秒で私有作成、秘密/私有市場データ/モデルの非混入を検証。旧候補も保全。682ec49のCI39158693769はverify/android-history成功、androidのOS再起動配送failureで全体未合格、旧APK更新工程skip。実データ必要量の特徴量はAndroid35/WebView124とPCで全296507値・各3820銘柄が完全一致したが、608.963秒で通常600秒制限を超えた。latest-onlyの連続区間batch最適化は全履歴検証と計算式を維持し、固定実データ全値一致・PC特徴量133.312秒を確認。変更後の同梱native実測/CI、通常owner/daily経路とXiaomi受入は未完。Java heap192MiB、4GiB guestでの成功は本人端末の成功を意味しない。通常bundleの前提未達と正式HOLD/holdout保護は維持し、下記の同じ一括票を使う。
+
 2026-10-19 D179：既存設定の5日回帰CatBoost/20日回帰LightGBMを読取専用統合試験用に各1fitだけ作成し、同じfitからnative/前処理/端末treeを保存。PC→APK内WASMとPC→Android35 emulator各1,000件が最大誤差0。正式採用とは分離し、全152結果/30件の未解決一覧/正式HOLD/未開封holdoutを維持する。旧18構成の保存重みが見つかったという意味ではない。新規2fitは最終固定内容と学習境界が一致して認証できる場合に再利用し、書出しだけの再fitはしない。通常bundleは未作成で、数を合わせるrisk生成・4task自動採用・架空reviewは行わない。必要ならrisk未提供を扱う最小契約対応と、採用するriskだけの追加fit/本物の校正/review/pinを切り分ける。実データ必要量の特徴量・保存・日次一連、Xiaomi確認は残る。候補APKと製品source329cecdは不変。
 
 2026-10-19 D178：固定152条件を単一workerで83分48.760秒実行し、56条件は仮定付き研究完走、96条件は不完全として全件保存した。5日/20日の比較表・結果JSON・全seedの安定性・一つの未解決一覧・役割別HOLD理由を私有保存。全条件が比較可能になったとは表示せず、候補や期間を変更しない。最終holdoutとfitは未実行。対象329cecdのCI39139002365はverify/android/android-history全てsuccess（release skip）。同じ製品sourceから本人署名の通常版候補0.1.13-candidate（jp.stockai.app / code10013）を230.580秒で作成・検証した。モデルは含まない。残る必須工程は選択/採用根拠→必要な私有weight/bundle→実モデルPC/端末一致→一括Xiaomi受入。Bの試験成功をAの採用やCの本人利用成功と扱わない。
