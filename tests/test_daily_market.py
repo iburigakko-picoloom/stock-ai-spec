@@ -182,6 +182,59 @@ def test_optional_flags_remain_null(tmp_path, features):
     assert all(row["intraday_upper_limit_reached"] is None for row in result["rows"])
 
 
+@pytest.mark.parametrize("rights,factor,requires_review", [
+    ("1", 0.5, True), ("2", 2., True), ("3", 1., True),
+    ("1", 1., True), ("99", 1., True), ("", 1., False), (None, 1., False),
+])
+def test_typed_rights_are_preserved_even_with_a_unit_factor(
+    tmp_path, features, rights, factor, requires_review,
+):
+    rows = [dict(_rows()[0], ExRT=rights, AdjFactor=factor)]
+    _publish(tmp_path, rows)
+    request = DailyMarketRequest(catalog_path=tmp_path / "catalog.duckdb",
+                                 store_root=tmp_path / "store", feature_selection_path=features,
+                                 start=DAY, end=DAY, source_snapshot_as_of=RECEIVED)
+    result = project_daily_market(request)
+    row = result["rows"][0]
+    assert row["ex_rights_type"] == (rights or None)
+    assert row["ex_rights_type_source_present"] is True
+    assert row["adjustment_requires_event_evidence"] is requires_review
+    assert result["summary"]["ex_rights_types"] == ({rights: 1} if rights else {})
+    assert result["capabilities"]["corporate_actions"] == "UNVERIFIED"
+    assert result["capabilities"]["evaluation_ready"] is False
+
+
+def test_missing_rights_source_is_distinct_from_a_reported_null(market):
+    request, _ = market
+    result = project_daily_market(request)
+    assert all(row["ex_rights_type"] is None for row in result["rows"])
+    assert all(row["ex_rights_type_source_present"] is False for row in result["rows"])
+    assert result["summary"]["ex_rights_source_missing_rows"] == 3
+
+
+def test_legacy_normalized_partition_keeps_authenticated_raw_rights(tmp_path, features):
+    _publish(tmp_path, [dict(_rows()[0], ExRT="3")],
+             mutate_normal=lambda frame: frame.drop(columns="ex_rights_type", inplace=True))
+    request = DailyMarketRequest(catalog_path=tmp_path / "catalog.duckdb",
+                                 store_root=tmp_path / "store", feature_selection_path=features,
+                                 start=DAY, end=DAY, source_snapshot_as_of=RECEIVED)
+    row = project_daily_market(request)["rows"][0]
+    assert row["ex_rights_type"] == "3"
+    assert row["ex_rights_type_source_present"] is True
+    assert row["adjustment_factor"] == 1 and row["adjustment_requires_event_evidence"]
+
+
+@pytest.mark.parametrize("value", ["2", "", None])
+def test_rehashed_normalized_rights_mismatch_is_not_accepted(tmp_path, features, value):
+    _publish(tmp_path, [dict(_rows()[0], ExRT="1")],
+             mutate_normal=lambda frame: frame.__setitem__("ex_rights_type", value))
+    request = DailyMarketRequest(catalog_path=tmp_path / "catalog.duckdb",
+                                 store_root=tmp_path / "store", feature_selection_path=features,
+                                 start=DAY, end=DAY, source_snapshot_as_of=RECEIVED)
+    with pytest.raises(StorageIntegrityError, match="ex-rights type differs"):
+        project_daily_market(request)
+
+
 def test_nonstandard_share_classes_do_not_merge_with_ordinary_stock(tmp_path, features):
     rows = [_rows()[0], dict(_rows()[0], Code="72035")]
     _publish(tmp_path, rows)

@@ -146,6 +146,21 @@ def _pair_rows(
         if not (values.isna() | ((values >= 0) & (values < float("inf")))).all():
             raise StorageIntegrityError(f"invalid market value: {source}")
         left[target] = observed
+    # ExRT distinguishes a reported event from a price factor. Rights issues
+    # can have factor=1 for excluded product classes, so keep both observations.
+    rights = right.ExRT.astype("string") if "ExRT" in right else pd.Series(
+        pd.NA, dtype="string", index=right.index,
+    )
+    rights = rights.mask(rights.eq(""))  # CSV blanks have the API's null meaning.
+    if "ex_rights_type" in left:
+        observed_rights = left.ex_rights_type.astype("string")
+        observed_rights = observed_rights.mask(observed_rights.eq(""))
+        if not (rights.eq(observed_rights).fillna(False) | (
+            rights.isna() & observed_rights.isna()
+        )).all():
+            raise StorageIntegrityError("raw/normalized ex-rights type differs")
+    left["ex_rights_type"] = rights
+    left["ex_rights_type_source_present"] = "ExRT" in right
     for source, target in (("UL", "intraday_upper_limit_reached"),
                            ("LL", "intraday_lower_limit_reached")):
         values = pd.to_numeric(right[source], errors="raise") if source in right else pd.Series(
@@ -163,11 +178,12 @@ def _pair_rows(
     left.loc[complete, "bar_state"] = "reported_trade"
     # Non-unit factors identify an unresolved adjustment, not a verified share split.
     left["adjustment_requires_event_evidence"] = (
-        left.adjustment_factor.isna() | left.adjustment_factor.ne(1)
+        left.adjustment_factor.isna() | left.adjustment_factor.ne(1) | rights.notna()
     )
     columns = [
         "symbol", "symbol_status", *_VALUES,
         "intraday_upper_limit_reached", "intraday_lower_limit_reached",
+        "ex_rights_type", "ex_rights_type_source_present",
         "bar_state", "adjustment_requires_event_evidence", "raw_object_id",
         "normalized_object_id", *_META,
     ]
@@ -260,6 +276,13 @@ def project_daily_market(request: DailyMarketRequest) -> dict[str, Any]:
                     "dates": selected.trading_date.nunique(), "bar_states": counts,
                     "nonstandard_code_rows": int(selected.symbol.isna().sum()),
                     "adjustment_rows": int(selected.adjustment_requires_event_evidence.sum()),
+                    "ex_rights_types": {
+                        str(key): int(count)
+                        for key, count in selected.ex_rights_type.value_counts().items()
+                    },
+                    "ex_rights_source_missing_rows": int(
+                        (~selected.ex_rights_type_source_present).sum()
+                    ),
                     "upper_limit_rows": int(selected.intraday_upper_limit_reached.eq(1).sum()),
                     "lower_limit_rows": int(selected.intraday_lower_limit_reached.eq(1).sum())},
         "capabilities": {
@@ -273,6 +296,7 @@ def project_daily_market(request: DailyMarketRequest) -> dict[str, Any]:
             "Daily UL/LL are intraday limit touches, not closing execution status.",
             "No-trade rows persist; absent rows are not interpreted as no-trade or delisting.",
             "Adjustment factors do not establish dated splits, dividends or cash conversion.",
+            "ExRT flags do not establish complete corporate-action coverage.",
             "No universe/calendar completeness or equality to frozen dataset source is asserted.",
             "Execution capacity, tick rules and settlement evidence are still required.",
         ],

@@ -175,6 +175,85 @@ def test_unresolved_adjustment_and_contradictory_no_trade_never_fill(connected):
         evaluate_market_strategy(replace_market(connected, rows=content["rows"]))
 
 
+@pytest.mark.parametrize("rights,code", [
+    ("3", "UNSUPPORTED_RIGHTS_ISSUE"), ("99", "UNRECOGNIZED_EX_RIGHTS_TYPE"),
+])
+def test_typed_rights_never_become_an_ordinary_split_even_with_rehashed_coverage(
+    connected, rights, code,
+):
+    content = json.loads(connected.market_receipts[0].path.read_bytes())
+    content["rows"][0].update(ex_rights_type=rights, adjustment_factor=0.5,
+                              adjustment_requires_event_evidence=True)
+    event = NavAction(
+        event_id="TEST_ONLY_SPLIT", symbol="A", kind="split", numerator=2, denominator=1,
+        effective_at=connected.strategy.accounting.sessions[0].execution_at,
+        available_at=connected.strategy.accounting.initial_as_of, source_id="TEST_ONLY",
+    )
+    strategy = connected.strategy.model_copy(update={
+        "accounting": connected.strategy.accounting.model_copy(update={"actions": (event,)})
+    })
+    request = connected.model_copy(update={
+        "strategy": strategy,
+        "action_coverage": (connected.action_coverage[0].model_copy(update={
+            "event_ids": (event.event_id,),
+        }),),
+    })
+    result = evaluate_market_strategy(replace_market(request, rows=content["rows"]))
+    assert result["status"] == "BLOCKED" and result["comparison"] is None
+    assert any(code in reason for reason in result["blockers"])
+    assert any("UNRESOLVED_ADJUSTMENT" in reason for reason in result["blockers"])
+
+
+@pytest.mark.parametrize("rights,code", [
+    ("3", "UNSUPPORTED_RIGHTS_ISSUE"), ("99", "UNRECOGNIZED_EX_RIGHTS_TYPE"),
+])
+def test_typed_rights_block_even_with_unit_factor_and_false_legacy_flag(connected, rights, code):
+    content = json.loads(connected.market_receipts[0].path.read_bytes())
+    content["rows"][0].update(ex_rights_type=rights, adjustment_factor=1,
+                              adjustment_requires_event_evidence=False)
+    result = evaluate_market_strategy(replace_market(connected, rows=content["rows"]))
+    assert result["status"] == "BLOCKED" and result["comparison"] is None
+    assert any(code in reason for reason in result["blockers"])
+
+
+@pytest.mark.parametrize("rights,numerator,denominator,factor", [
+    ("1", 2, 1, 0.5), ("2", 1, 2, 2),
+])
+def test_reviewed_typed_split_and_consolidation_keep_existing_accounting(
+    connected, rights, numerator, denominator, factor,
+):
+    content = json.loads(connected.market_receipts[0].path.read_bytes())
+    content["rows"][0].update(ex_rights_type=rights, adjustment_factor=factor,
+                              adjustment_requires_event_evidence=True)
+    event = NavAction(
+        event_id="TEST_ONLY_REVIEWED_ACTION", symbol="A", kind="split",
+        numerator=numerator, denominator=denominator,
+        effective_at=connected.strategy.accounting.sessions[0].execution_at,
+        available_at=connected.strategy.accounting.initial_as_of, source_id="TEST_ONLY",
+    )
+    strategy = connected.strategy.model_copy(update={
+        "accounting": connected.strategy.accounting.model_copy(update={"actions": (event,)})
+    })
+    request = connected.model_copy(update={
+        "strategy": strategy,
+        "action_coverage": (connected.action_coverage[0].model_copy(update={
+            "event_ids": (event.event_id,),
+        }),),
+    })
+    result = evaluate_market_strategy(replace_market(request, rows=content["rows"]))
+    assert result["status"] == "COMPLETE" and result["comparison"]
+    assert not result["adoption_eligible"] and not result["holdout_scored"]
+
+
+def test_reported_split_with_unit_factor_stays_unresolved_even_when_flag_is_false(connected):
+    content = json.loads(connected.market_receipts[0].path.read_bytes())
+    content["rows"][0].update(ex_rights_type="1", adjustment_factor=1,
+                              adjustment_requires_event_evidence=False)
+    result = evaluate_market_strategy(replace_market(connected, rows=content["rows"]))
+    assert result["status"] == "BLOCKED" and result["comparison"] is None
+    assert any("UNRESOLVED_ADJUSTMENT" in reason for reason in result["blockers"])
+
+
 def test_holdout_guard_precedes_market_file_open(connected):
     ref = connected.market_receipts[0]
     ref.path.unlink()

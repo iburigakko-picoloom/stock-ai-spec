@@ -312,12 +312,19 @@ def evaluate_market_strategy(request: MarketStrategyRequest) -> dict[str, Any]:
                 problems.add(f"{symbol}:{session.trading_date}:EXECUTION_STATUS")
             if price.capacity_shares is None:
                 problems.add(f"{symbol}:{session.trading_date}:EXECUTION_CAPACITY")
-            if row["adjustment_requires_event_evidence"]:
+            rights_type = row.get("ex_rights_type")
+            if rights_type == "3":
+                problems.add(f"{symbol}:{session.trading_date}:UNSUPPORTED_RIGHTS_ISSUE")
+            elif rights_type not in (None, "", "1", "2"):
+                problems.add(f"{symbol}:{session.trading_date}:UNRECOGNIZED_EX_RIGHTS_TYPE")
+            if row["adjustment_requires_event_evidence"] or rights_type in ("1", "2"):
                 factor = row.get("adjustment_factor")
                 matching_split = any(
                     e.symbol == symbol and e.kind == "split"
                     and e.effective_at.astimezone(JST).date() == session.trading_date
                     and factor is not None
+                    and Fraction(str(factor)) != 1
+                    and rights_type in (None, "", "1", "2")
                     and Fraction(e.denominator, e.numerator) == Fraction(str(factor))
                     for e in accounting.actions
                 )

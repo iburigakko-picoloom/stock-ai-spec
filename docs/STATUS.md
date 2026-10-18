@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-10-18 — 権利落ち種類の保存と費用込み評価への照合
+
+- D174。開始HEADb56b7eb、branch android-completion-chatgpt。前回の旧source改行pin修正と実SQLiteFull試験を保全。rawにある権利落ち種類が市場射影で失われ、調整係数だけを確認していた箇所を補完した。元列の不存在と報告null、CSV空文字、未知codeを区別し、正規化列があればrawと照合、旧列なしpartitionは認証済みrawから読む。元の価格/ラベル/予測・売買規則・台帳は変更しない。
+- ライツ/未知codeは通常分割イベントや再hashした網羅宣言で代用できず、理由付き停止する。分割/併合は非単位係数・同日・逆比率の一致と全期間の独立した根拠を必要とする。係数1の報告イベントも未解決とし、種類nullから企業行動なしを推定しない。既存の約定方向/容量・資金・費用・PIT・最終期間gateは維持。
+- 固定Light版の開発期間全体を単一process・3GiB RAM guardで106.502秒かけて点検し、月別のsource認証と確認対象一覧を私有保存。調整係数1でも報告されたイベントがあり、旧方式の見落としを確認した。凍結4,456fileの前後hash変更0。これは報告flagの一覧であり、企業行動網羅・NavAction・損益の生成ではない。再学習・最終期間開封・モデル選択なし。
+- 新規19ケースを含む市場/単元/資金/NAV/strategy/配当の関連263件が単回成功、fail/error/skip0、JUnit55.531秒。旧正規化列なし、raw不一致、係数1、未対応権利の代用拒否と正常な分割/併合を確認。最初の広い試験はWindows sandbox一時領域の原子的renameで64件setup errorになったため、そのlogを保持し、許可済みworkspace内の新規一時領域で同じ263件を再確認した。試験skip/判定緩和なし。追加計測は市場85件と資金接続14件が成功し、変更2moduleのbranch込みcoverage90.492%（市場94.677%/NAV接続87.320%）。Ruff全体、mypy標準/win32各74file、公開範囲監査865追跡fileが成功。全Python/全Androidの最新合格とはしない。
+- 保存済み追加資料の取得元は本人回答待ち。現行公式FAQの上位plan取得データに関する変更後の制限と、復元不能な派生物の条件を記録し、利用未確認の原本を使用/削除しない。現Light版の工程は独立して継続。費用込み実市場NAVは非配当企業行動網羅・方向別執行/容量・過去時点の根拠待ちで未実施。18候補の精度研究比較から最終採用済みへ読み替えない。
+- 先行dcae89b/CI39123795307は既知の旧source pin失敗を含みfailure完了、修正済みb56b7eb/CI39126183830は実行中。今回sourceのCI成功やXiaomi確認とは扱わない。証拠`.demo-artifacts/ex-rights-20261018/`。元私有71/31/89行と市場/研究原本を保全。実注文・外部AI送信・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 旧APK準備の改行pin修正とSQLite容量不足試験
 
 - D173。開始HEADe1486bf。前回は凍結学習→端末用head接続・関連110件・push/PR更新まで進捗あり。今回218c83e/CI39120433717の実APKとmerge b0abb9dを取得し、APK hashと同梱46Python/製品20Javaを元branch・merge・現在sourceへ照合。native82件204.954秒、全量96,781,956文字/17tableのB1復元181.754秒・192MiB、元WorkRequestの世代5/8/11を確認した。processはwake＋条件充足dispatch、rebootはwake後観測、force-stopは明示再表示を伴う。合成API35の証拠であり、Xiaomi/新旧置換やD172のPC変更の成功へ広げない。
