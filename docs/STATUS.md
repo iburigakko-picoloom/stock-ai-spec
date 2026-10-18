@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-10-19 — 全152条件の結果・本人署名の通常版候補APK
+
+- 開始/実行source329cecd63286fecf3376085a65c20fbe0c600531、PR #2。固定した全152条件を単一workerで5,028.760秒（83分48.760秒）実行し、56条件は仮定付き研究完走、96条件は不完全（保有参考価格欠損50・日次評価欠損28・既知未処理企業行動18）。5日76条件中16、20日76条件中40が仮定付き完走。全18構成/全seed/A〜E/単純baselineを表へ残し、欠損や成績に応じた期間・銘柄の除外は行わない。全条件の比較可能性や最終採用が成立したとはしない。
+- 私有`full/comparison-h5-v2.md`、`comparison-h20-v2.md`、`comparison-summary-v2.json`、原結果/入力hash/実測、30件の`unresolved-issues.json`を保存。50条件の保有参考価格例外も同一入力・同一会計の診断で銘柄/日付/関連額へ特定した。一部結果の確認後に追加した観測端点収益は報告用であり、事前選定条件ではない。価格補完・新戦略・別NAV計算器は追加せず、不完全caseのMDD/turnoverは未定義を維持する。単純baselineとの差も不完全により未定義。5日/20日各役割のHOLD理由は`model-decisions.json`。最終holdout未開封、fitなし。
+- 対象329cecdのCI39139002365はverify/android/android-historyすべてsuccess、release skip。研究市場試験group171件・native84件（157.35秒）・旧source debug更新/OS3段階・同APKで17table/5,000銘柄/520日B1復元（217.455秒）を認証。特徴量303.397秒/peak3,144,458,240bytesと13probe sourceの一致も確認した。Ubuntu上のWindows Task Scheduler一件は既定skip。成功ログを合算して重複のない総試験件数とはしない。合成emulator/PCであり実モデル/Xiaomi確認ではない。
+- 私有の通常版候補`StockAI-0.1.13-candidate.apk`を230.580秒で作成。jp.stockai.app/code10013、23,957,469bytes、SHA-256=`91173731fd6442c4858dd3b5603df6d77567c769098d0b69f4bf46defbe63f14`。既存release0.1.12と同じ本人証明書を確認し、元秘密鍵は変更せず環境内でのみ使用した。非debug release、モデル0、APIキー/私有市場データなし。source329cecd・試験済み既存公開asset43件・package内容/署名を照合。debug候補と失敗したローカルbuildも保全。公開配布/実機導入はしていない。一括Xiaomi受入票を候補情報で更新。
+- 認証OOF18構成に紐付く推論weightは0。役割固定後の回帰5/20のみなら2fit、現行4head契約なら4fitという条件を記録し、全4taskの採用・risk0生成・export用二重fitは行わない。現Lightの405営業日は既存初期学習条件500日より短いため、2021-11-01〜2024-06-30の必要履歴を新catalogへ追加取得。129bulk/7,172追加objectを878.579秒で取得し、旧405日の4,456object不変を再照合。合計11,628objectを検証し、1,057営業日（2021-11-01〜2026-02-27）の価格キー重複0を195.659秒で確認/固定した。これは元履歴であり、warm-up後の特徴量/成熟学習行・厳密PIT・fit成功の認証ではない。全NAV原本は再利用/保全し、旧Standard原本や最終期間の価格を混用しない。追加履歴取得だけで採用根拠不足が解消したとはしない。
+- A＝比較結果と保留理由を記録（完全比較/採用は未成立）、B＝対象sourceの必要CI成功・候補作成済み、C＝私有実モデル/PC端末一致/Xiaomi待ち。無関係な追加開発は行わない。元の私有71/31/89行を保全。実注文/新規課金/外部AI送信/main merge/公開配布なし。
+
 ## 2026-10-19 — 研究試験追加時のCI構文を修正
 
 - f013236対象CI39138833925はworkflow YAMLのpath項目の字下げ誤りでjob開始前にfailure。新しい試験やAndroidが失敗した結果とは扱わず、失敗runを保存する。追加2行を同じlist階層へ直し、YAMLのparseとpush/PR path・全4job・研究試験commandの存在を確認した。

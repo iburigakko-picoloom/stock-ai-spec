@@ -2,6 +2,10 @@
 
 ## 今回の一括実機受入（D177）
 
+2026-10-19 D178：通常版の本人用候補`StockAI-0.1.13-candidate.apk`を私有作成した。applicationId=`jp.stockai.app`、versionCode=10013、versionName=0.1.13-candidate、非debug release。SHA-256=`91173731fd6442c4858dd3b5603df6d77567c769098d0b69f4bf46defbe63f14`、23,957,469bytes。既存0.1.12公開版と同じ証明書（SHA-256=`97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979`）を照合済み。source329cecd、既存成功CI資産を再利用し、単一Gradle worker/heap768MiBで230.580秒。秘密情報・私有市場データ・モデルは含まず、公開/端末導入はしていない。元debug候補も保持する。
+
+対象329cecdのCI39139002365はverify/android/android-history全てsuccess、release skip。native84件（157.35秒）、旧source debug更新/OS3段階、5,000銘柄/520日/17tableのB1復元（217.455秒）、PC特徴量303.397秒/peak3,144,458,240bytesのsource/入力/成果物を照合した。合成API35 emulatorとdebug更新の証拠であり、この通常版候補のXiaomi実更新・実モデル一致の証拠へ読み替えない。候補本体と検証原本は私有`.demo-artifacts/scoped-completion-20261018/`。端末に入っている版/署名と保有のbackupを確認してから、以下の同じ一票で受け入れる。
+
 実機で必要な操作はこの票へまとめる。前提は本人用bundleと同一入力のPC参照結果が準備済みであること。未採用は研究用と表示し、架空のrisk値や承認を作らない。現在はweight未接続のため、この前提は未達。
 
 1. 既存の保有・現金・履歴を保持し、既存のバックアップを作成して読込確認する。候補APKのhash、applicationId、署名、増加versionCodeを照合する。異署名なら更新を中止し、uninstall/clearで解決しない。同じ署名鍵の候補を準備してから再開する。
