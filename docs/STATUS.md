@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-10-18 — 実市場NAV接続へ配当なし評価の明示区分を追加
+
+- D166。開始HEAD880da23、branch android-completion-chatgpt。現在の契約を待たずに進める本人指示を受け、合成入力のみで既存market NAV接続を補完。`price_only_research`と配当込みを明示区分にし、旧入力の既定は従来の配当込み確認のまま保持した。
+- 配当なしは分割/併合・現金交付・その他権利の全期間確認を要求し、配当イベントの混入は市場fileを開く前に拒否する。配当込みへ狭い確認scopeを渡すと停止。未知配当を0とせず、成功/停止receiptとCLIへ`excluded_not_assumed_zero`を保存する。未調整価格、約定/受渡し・費用・PIT・保存予測照合、研究用/採用不可・未使用期間の境界は維持。新しい最適化や売買規則の変更はなし。
+- 旧コードで新規12ケースの失敗を保存。修正後は新規18ケースを含む関連147件が単回成功、fail/error/skip0、JUnit12.302秒。配当の取込/訂正、stateful NAV、固定ルール、CLIの両区分を確認。接続moduleのbranch込みcoverage85.667%で85%以上。全体coverageや全Python1,401件の合格とは扱わず、今回は全件収集だけを別記録する。Ruff全体、mypy Linux/win3272file、公開範囲監査が成功。
+- 最初のcoverageのmodule名指定はNumPy初期化で収集前に停止。source path指定で計測し、既存の85%基準を維持した。最初のmodule coverage84%は保全し、売買方向/容量不明と最終期間到達の拒否を追加して再確認。失敗/修正前/最終証拠は`.demo-artifacts/price-only-nav-20261018/`。製品Android/Webと同梱計算sourceは不変であり、今回のPC接続変更へ旧native証拠を流用しない。
+- 直前880da23のCI39099264802はverify/android/android-historyすべてsuccess、release skipと確認。追加した手動ChatGPT通し操作を含むWASM/画面17件、Web97件、compute11件、既存画面6件が成功した。これは直前commitの証拠であり、D166の新しいHEADのCI成功とは区別する。
+- 元の私有71/31/89行と市場/モデル原本を保全。実市場NAV・18候補の新比較・候補/規則の最終固定・holdout・採用は未実行。現契約/利用範囲と非配当企業行動・約定/受渡し・PIT等の根拠待ち、Xiaomi/実アカウント未確認は残る。追加取得・実データexport/送信・課金・実注文・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 契約確認と独立して手動ChatGPTのブラウザー操作を通し検証
 
 - 開始HEAD1c62d09、branch android-completion-chatgpt。現在の契約は未確認のまま、合成入力だけでコピー→画面再作成→回答拒否/訂正→取込→重複再送→履歴→期限切れ拒否を一巡した。製品の画面/API adapterと同梱WASM/Pythonを使い、native窓口だけを試験専用bridgeへ置き換える。全要求後に保有・原予測の完全一致と台帳整合性を確認し、HTTPS外部要求0。実ChatGPTへの送信は行わない。

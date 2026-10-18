@@ -53,8 +53,11 @@ class ActionCoverage(NavModel):
     start_at: datetime
     end_at: datetime
     evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    scope: Literal["splits_dividends_cash_conversions_and_other_rights_reviewed"]
-    # All events found in the interval, including an explicitly reviewed empty set.
+    scope: Literal[
+        "splits_dividends_cash_conversions_and_other_rights_reviewed",
+        "splits_cash_conversions_and_other_rights_reviewed_excluding_dividends",
+    ]
+    # All events found in the declared scope, including a reviewed empty set.
     event_ids: tuple[str, ...]
 
     @model_validator(mode="after")
@@ -66,6 +69,10 @@ class ActionCoverage(NavModel):
 
 class MarketStrategyRequest(NavModel):
     schema_version: Literal["market-nav-request-v1"] = "market-nav-request-v1"
+    # Preserve the stronger historical contract unless price-only is explicit.
+    evaluation_tier: Literal[
+        "price_only_research", "dividend_inclusive_research"
+    ] = "dividend_inclusive_research"
     feature_selection_path: Path
     strategy: DailyStrategyInput
     market_receipts: tuple[MarketReceipt, ...]
@@ -76,6 +83,14 @@ class MarketStrategyRequest(NavModel):
     decision_evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     execution_evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     cost_evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def explicit_dividend_treatment(self) -> Self:
+        if self.evaluation_tier == "price_only_research" and any(
+            event.kind == "dividend" for event in self.strategy.accounting.actions
+        ):
+            raise ValueError("price-only evaluation must not credit dividend events")
+        return self
 
 
 def profile_market_rows(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
@@ -203,6 +218,12 @@ def evaluate_market_strategy(request: MarketStrategyRequest) -> dict[str, Any]:
     actions = {event.event_id: event for event in accounting.actions}
     for symbol in required:
         coverage = coverage_by_symbol.get(symbol)
+        if (
+            coverage is not None
+            and request.evaluation_tier == "dividend_inclusive_research"
+            and coverage.scope != "splits_dividends_cash_conversions_and_other_rights_reviewed"
+        ):
+            problems.add(f"{symbol}:DIVIDEND_COVERAGE")
         expected = {
             key for key, event in actions.items() if event.symbol == symbol
             and accounting.initial_as_of < event.effective_at <= accounting.sessions[-1].close_at
@@ -259,6 +280,11 @@ def evaluate_market_strategy(request: MarketStrategyRequest) -> dict[str, Any]:
         "adoption_eligible": False, "tax_mode": "pre_tax", "no_order_sent": True,
         "holdout_scored": False, "input": request.model_dump(mode="json"),
         "evaluation_scope": "development_only",
+        "evaluation_tier": request.evaluation_tier,
+        "dividend_treatment": (
+            "excluded_not_assumed_zero" if request.evaluation_tier == "price_only_research"
+            else "included_requires_reviewed_coverage"
+        ),
         "status": "BLOCKED" if problems else "COMPLETE", "blockers": sorted(problems),
         "comparison": None,
         "implementation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),

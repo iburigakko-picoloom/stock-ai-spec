@@ -10,6 +10,10 @@ $env:PYTHONPATH='.;src'
 
 入力型は`stock_ai.ml.market_nav.MarketStrategyRequest`。既存の`DailyStrategyInput`、認証済み`daily-market-projection-v1`のpath/byte SHA-256/期間、`write_daily_oof_day`で保存した日別予測のpath/byte SHA-256/as_ofを固定する。feature selectionを既存loaderで認証し、dataset・feature selection・holdout境界を市場receiptと照合する。各日の予測は保存済み予測と全項目が一致しなければ拒否する。
 
+`evaluation_tier`は`price_only_research`（配当を除く価格ベース）または`dividend_inclusive_research`（配当込み）。新しい配当なし比較では前者を明示する。省略した旧入力は従来の配当込み確認を要求し、勝手に条件を変更しない。CLI出力と成功/停止receiptの両方に区分と`dividend_treatment`を保存する。
+
+配当なしでは`dividend_treatment=excluded_not_assumed_zero`を記録し、未知配当をゼロと判定しない。入力に配当イベントがあれば、市場fileを開く前に拒否する。イベントを黙って削除して実行しない。未調整価格の権利落ちによる価格変化はそのまま損益へ反映し、配当権利/入金を加算しない。同じ扱いをstrategyとHOLDに適用し、配当込み収益とは比較区分を分ける。研究用・税引前・採用不可は両区分で維持する。
+
 市場receiptは未調整価格だけを許す。初期保有の評価額と各日のNAV終値を元receiptの生終値に照合し、日足終値proxyの約定値も同じ終値にする。日足の終値proxyを12:30の観測約定として表示しない。昼の約定を使う場合は、その観測と約定条件を別の根拠で固定する。
 
 以下の独立した根拠fileをSHA-256で固定し、`evidence_sources`へ渡す。単にfile hashが一致することは、内容の正しさや供給元の認証を意味しない。根拠の取得・意味の確認は別途必要で、未確認の文書や自己宣言を「確認済み」として登録しない。
@@ -19,7 +23,9 @@ $env:PYTHONPATH='.;src'
 | `decision_evidence_sha256` | 保存予測の元OOF identity、当時の銘柄所属・特徴量・未調整参考価格・単元・流動性、11:30までの利用可能時刻の確認 |
 | `execution_evidence_sha256` | 方向別の売買停止/特別気配/値幅状態、呼値、約定可能株数、観測約定値または明示した引けproxy、売却代金の買付余力解放時刻 |
 | `cost_evidence_sha256` | commission/spread/slippage/impactを重複させない固定policy。実測費用と仮定のbps感度分析を区別 |
-| `action_coverage` | 銘柄別の期間全体の分割・配当・現金交付・その他権利の確認、元根拠のhashと全event IDs。確認済みの「該当イベントなし」も期間を明示 |
+| `action_coverage` | 銘柄別の期間全体の分割・現金交付・その他権利と、配当込み区分の場合は配当の確認。元根拠のhashと宣言scope内の全event IDs。確認済みの「該当イベントなし」も期間を明示 |
+
+配当なしの確認scopeは`splits_cash_conversions_and_other_rights_reviewed_excluding_dividends`。配当を含めた従来の`splits_dividends_cash_conversions_and_other_rights_reviewed`も利用できるが、いずれも宣言scopeで発見したイベントと会計入力を照合する。配当込み評価へ狭いscopeを渡すと`DIVIDEND_COVERAGE`で停止する。配当なしでも分割/併合・現金交付・その他権利の全期間確認、約定・受渡し・費用・PIT根拠と保存予測の一致は必要なままである。
 
 調整係数が1であることやイベント配列が空であることから、企業行動なしとは推定しない。非単位の係数には当該日の独立した企業行動根拠を要求する。対応不能なライツ等がある期間は評価対象へ進めず、別途会計を実装して検証する。将来候補になる銘柄を過去の価格不足だけで排除しない。実際の保有の欠損はledgerで持ち越し、評価未完を記録する。
 

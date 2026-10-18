@@ -3,6 +3,7 @@
 import hashlib
 import json
 from datetime import timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,7 @@ from stock_ai.ml.market_nav import (
     profile_market_rows,
     write_market_strategy,
 )
+from stock_ai.ml.nav import NavAction
 from tests.test_daily_strategy import scenario
 
 
@@ -218,3 +220,157 @@ def test_cli_blocked_receipt_and_exit_code(connected, tmp_path):
                                      str(path), "--output-root", str(tmp_path / "reports")])
     assert result.exit_code == 2 and '"status": "BLOCKED"' in result.stdout
     assert len(list((tmp_path / "reports").glob("*.json"))) == 1
+
+
+NON_DIVIDEND_SCOPE = "splits_cash_conversions_and_other_rights_reviewed_excluding_dividends"
+
+
+def price_only(request):
+    coverage = tuple(item.model_copy(update={"scope": NON_DIVIDEND_SCOPE})
+                     for item in request.action_coverage)
+    return request.model_copy(update={"evaluation_tier": "price_only_research",
+                                      "action_coverage": coverage})
+
+
+@pytest.mark.parametrize("full_coverage", [False, True])
+def test_price_only_evaluation_excludes_dividends_without_claiming_they_were_zero(
+    connected, full_coverage, tmp_path
+):
+    request = price_only(connected)
+    if full_coverage:
+        request = request.model_copy(update={"action_coverage": connected.action_coverage})
+    result = evaluate_market_strategy(request)
+    assert result["status"] == "COMPLETE" and result["comparison"]
+    assert result["evaluation_tier"] == "price_only_research"
+    assert result["dividend_treatment"] == "excluded_not_assumed_zero"
+    assert result["research_only"] and not result["adoption_eligible"]
+    assert not result["holdout_scored"] and result["tax_mode"] == "pre_tax"
+    # Price-only and full-return runs of this declared no-event fixture have the
+    # same accounting; this equivalence is not an assumption about real dividends.
+    assert result["comparison"] == evaluate_market_strategy(connected)["comparison"]
+    saved = json.loads(write_market_strategy(request, tmp_path / "price-only").read_bytes())
+    assert saved["evaluation_tier"] == "price_only_research"
+    assert saved["dividend_treatment"] == "excluded_not_assumed_zero"
+
+
+def test_legacy_request_keeps_full_dividend_coverage_requirement(connected):
+    body = connected.model_dump(mode="json")
+    body.pop("evaluation_tier", None)
+    request = MarketStrategyRequest.model_validate(body)
+    assert request.evaluation_tier == "dividend_inclusive_research"
+    result = evaluate_market_strategy(request)
+    assert result["dividend_treatment"] == "included_requires_reviewed_coverage"
+    narrowed = request.model_copy(update={"action_coverage": price_only(request).action_coverage})
+    blocked = evaluate_market_strategy(narrowed)
+    assert blocked["status"] == "BLOCKED" and blocked["comparison"] is None
+    assert "A:DIVIDEND_COVERAGE" in blocked["blockers"]
+
+
+def test_price_only_rejects_dividend_events_before_opening_market_files(connected):
+    request = price_only(connected)
+    accounting = request.strategy.accounting
+    dividend = NavAction(
+        event_id="SYNTHETIC_DIVIDEND", symbol="A", kind="dividend",
+        effective_at=accounting.sessions[1].execution_at,
+        available_at=accounting.initial_as_of, source_id="SYNTHETIC_ONLY",
+        cash_per_share="10", payment_at=accounting.sessions[2].close_at,
+    )
+    strategy = request.strategy.model_copy(update={
+        "accounting": accounting.model_copy(update={"actions": (dividend,)})
+    })
+    request.market_receipts[0].path.unlink()
+    with pytest.raises(ValueError, match=r"price-only.*dividend"):
+        evaluate_market_strategy(request.model_copy(update={"strategy": strategy}))
+
+
+@pytest.mark.parametrize("change", ["missing", "short", "unreviewed", "wrong-events"])
+def test_price_only_still_requires_complete_non_dividend_action_evidence(connected, change):
+    request = price_only(connected)
+    coverage = request.action_coverage[0]
+    if change == "missing":
+        request = request.model_copy(update={"action_coverage": ()})
+    else:
+        update = {
+            "short": {"end_at": coverage.end_at - timedelta(seconds=1)},
+            "unreviewed": {"evidence_sha256": "0" * 64},
+            "wrong-events": {"event_ids": ("UNRECORDED_SPLIT",)},
+        }[change]
+        request = request.model_copy(update={
+            "action_coverage": (coverage.model_copy(update=update),)
+        })
+    result = evaluate_market_strategy(request)
+    assert result["status"] == "BLOCKED" and result["comparison"] is None
+    assert result["dividend_treatment"] == "excluded_not_assumed_zero"
+    assert result["blockers"] == ["A:CORPORATE_ACTION_COVERAGE"]
+
+
+@pytest.mark.parametrize("field,blocker", [
+    ("decision_evidence_sha256", "DECISION_POINT_IN_TIME_EVIDENCE"),
+    ("execution_evidence_sha256", "EXECUTION_SETTLEMENT_EVIDENCE"),
+    ("cost_evidence_sha256", "COST_POLICY_EVIDENCE"),
+])
+def test_price_only_does_not_waive_point_in_time_execution_settlement_or_costs(
+    connected, field, blocker
+):
+    result = evaluate_market_strategy(price_only(connected).model_copy(update={field: None}))
+    assert result["status"] == "BLOCKED" and result["comparison"] is None
+    assert result["blockers"] == [blocker]
+
+
+def test_price_only_still_blocks_unresolved_split_factors(connected):
+    request = price_only(connected)
+    content = json.loads(request.market_receipts[0].path.read_bytes())
+    content["rows"][0].update(adjustment_requires_event_evidence=True, adjustment_factor=0.5)
+    result = evaluate_market_strategy(replace_market(request, rows=content["rows"]))
+    assert result["status"] == "BLOCKED" and result["comparison"] is None
+    assert any("UNRESOLVED_ADJUSTMENT" in reason for reason in result["blockers"])
+
+
+@pytest.mark.parametrize("missing_coverage", [False, True])
+def test_price_only_cli_labels_success_and_blocked_receipts(connected, tmp_path, missing_coverage):
+    request = price_only(connected)
+    if missing_coverage:
+        request = request.model_copy(update={"action_coverage": ()})
+    path = tmp_path / "price-only-input.json"
+    path.write_text(request.model_dump_json(), encoding="utf-8")
+    result = CliRunner().invoke(app, ["research", "evaluate-market-strategy", "--input",
+                                     str(path), "--output-root", str(tmp_path / "reports")])
+    assert result.exit_code == (2 if missing_coverage else 0), result.output
+    reply = json.loads(result.stdout)
+    assert reply["evaluation_tier"] == "price_only_research"
+    assert reply["dividend_treatment"] == "excluded_not_assumed_zero"
+    assert reply["status"] == ("BLOCKED" if missing_coverage else "COMPLETE")
+    saved = json.loads(Path(reply["evaluation_path"]).read_bytes())
+    assert saved["evaluation_tier"] == reply["evaluation_tier"]
+    assert saved["dividend_treatment"] == reply["dividend_treatment"]
+
+
+@pytest.mark.parametrize("change,reason", [
+    ({"buy_status": "unknown"}, "EXECUTION_STATUS"),
+    ({"sell_status": "unknown"}, "EXECUTION_STATUS"),
+    ({"capacity_shares": None}, "EXECUTION_CAPACITY"),
+])
+def test_price_only_never_invents_directional_fill_status_or_capacity(connected, change, reason):
+    request = price_only(connected)
+    accounting = request.strategy.accounting
+    first = accounting.sessions[0]
+    prices = (first.prices[0].model_copy(update=change), *first.prices[1:])
+    sessions = (first.model_copy(update={"prices": prices}), *accounting.sessions[1:])
+    strategy = request.strategy.model_copy(update={
+        "accounting": accounting.model_copy(update={"sessions": sessions})
+    })
+    result = evaluate_market_strategy(request.model_copy(update={"strategy": strategy}))
+    assert result["status"] == "BLOCKED" and result["comparison"] is None
+    assert result["blockers"] == [f"A:{first.trading_date}:{reason}"]
+
+
+def test_price_only_rejects_a_holdout_calendar_before_reading_any_evidence(connected, monkeypatch):
+    request = price_only(connected)
+    boundary = request.strategy.accounting.calendar_dates[-1].isoformat()
+    monkeypatch.setattr("stock_ai.ml.market_nav.load_development_feature_selection", lambda _: (
+        SimpleNamespace(locked_holdout_start=boundary)
+    ))
+    for ref in (*request.market_receipts, *request.forecast_receipts, *request.evidence_sources):
+        ref.path.unlink()
+    with pytest.raises(ValueError, match="market NAV reaches the locked holdout"):
+        evaluate_market_strategy(request)

@@ -1894,6 +1894,8 @@ def evaluate_market_strategy_command(
         typer.echo(f"market NAV evaluation blocked: {exc}", err=True)
         raise typer.Exit(2) from None
     typer.echo(json.dumps({"status": result["status"], "evaluation_path": str(path),
+                           "evaluation_tier": result["evaluation_tier"],
+                           "dividend_treatment": result["dividend_treatment"],
                            "elapsed_seconds": result["elapsed_seconds"]}))
     if result["status"] != "COMPLETE":
         raise typer.Exit(2)
