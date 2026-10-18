@@ -178,4 +178,8 @@ D158では、OSがWorkerを中断した際に、そのWorkerが待つ端末内�
 
 後から受領した4e5a11d/CI39081593387の独立全量工程もsuccess。同じAPKの5,000銘柄/520日B1復元は266.02780053秒・Java heap192MiBで全17tableのschema/typed cell一致、入力不変を確認した。native82件は201.314秒、fail/error/skip0。APK SHA256は`28b46aefc1332d6ff6f3b9cdd83b838859ade5f286c5de131c8aaee63197ad94`。44Python/20Javaをbranch4e5a11dとmerge6fab4dcへ認証し、原本は`.demo-artifacts/apply-errors-ci-39081593387/full-source-proof.json`。
 
-OS processはwake＋条件充足dispatch、rebootはwake後のscheduler観測、force-stopは明示再表示後のunforced配送。自然な定刻配送とは扱わない。後続の新しい手動連携/engine/API/store/runtimeは旧APKに含まれず、44sourceの成功を新46sourceのnative試験へ流用しない。新sourceはPC/通信遮断WASMに加えて対応commitのAndroid CIで確認する。Xiaomiでの新画面、推論/費用一致、同署名更新、容量不足/反復復旧は実機確認待ち。
+OS processはwake＋条件充足dispatch、rebootはwake後のscheduler観測、force-stopは明示再表示後のunforced配送。自然な定刻配送とは扱わない。後続の新しい手動連携/engine/API/store/runtimeは旧APKに含まれず、44sourceの成功を新46sourceのnative試験へ流用しない。Xiaomiでの新画面、推論/費用一致、同署名更新、容量不足/反復復旧は実機確認待ち。
+
+新ae3fb7e/CI39086869972はverify/android/android-historyがすべてsuccess、release skip。native82件は190.542秒、OS3段階は世代5/8/11・pending0で元WorkRequestのSUCCEEDEDをnative確認した。介入区分は上記と同じ。補助DB観測のprocess DatabaseError/force-stop RuntimeErrorは原本へ残し、後続nativeの最終確認と区別する。
+
+同じ新APKの5,000銘柄/520日・96,781,956文字の全量B1は218.210393651秒、Java heap192MiBで認証preview/復元/owner再作成と全17tableのschema/typed cell・入力不変が成功。46Pythonをbranchae3fb7eとmerge4683f5eへbyte照合し、PC sourceとはLF/CRLF正規化後に一致することを確認。Java20とcontroller/2種類のnative試験sourceも照合した。APK SHA256は`3ae6b65e9a6c4ccebc945b0602c055877c6045a5b2f0810818f822b8e58f38a7`、原本は`.demo-artifacts/daily-integration-ci-39086869972/full-source-proof.json`。PC特徴量225.429秒・peak3,153,252,352bytesで43/53列の既存hashと一致。合成emulatorの成功であり、実モデル/実市場/Xiaomiの受入を完了とはしない。

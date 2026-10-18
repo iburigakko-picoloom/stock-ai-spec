@@ -8,12 +8,15 @@
 - 既存stateful NAVを再利用する共通固定ルールとCLIを追加。研究資金1,000万円・上位20・90%均等・100株・片道20bps・5/20営業日ごとの入替をNAV成績確認前に固定。予測より後の約定、現金/受渡し/未約定保持、保有参照欠損停止を維持。合成手値は10万円から費用360円で99,640円になる会計等を検査する。実市場の損益/回転率/MDDは未算出で、実測NAV時間もない。研究用ルールの固定を最終採用規則の固定とは扱わない。
 - [手動ChatGPT接続](MANUAL_CHATGPT.md)をAndroidへ実装。上位20＋全保有、別々の5/20日予測と既知リスク、alias口座/資金/制約、時刻/版/snapshotをコピーする。回答の目標株数から差分を計算し、既存費用/税/資金/単元/口座/設定リスクで検証する。重複key・非有限・不正型・過大/古いJSON・別snapshot・対象不一致・制約違反を理由付き拒否。原文と提案履歴をhash付き保存/復元し、回答取込では保有/現金/税を更新しない。既存任意アカウント経路も送信前のサービス別許可確認を要求し、完了済み保存結果の読取は継続する。
 - 手動ChatGPTの本人分析/非学習/非公開条件は本人回答で確認済み。ただし現在のJ-Quants契約は「未確認、今契約していないかも」。追加取得・実データexport/送信・新たな実市場損益計算を停止し、原本と既存403を保全。データ権限を確認済みとしない。課金、同じ権限不足の再試行、無確認削除なし。合成試験だけを継続する。
-- 最新試験は検証中。Web91件、型/lint/buildと320/390px・文字150%の新画面2件は成功。320pxの大きい株数表示は実測失敗後に折返しを修正。回答の非文字列/不正Unicodeも拒否へ修正し、修正前に中断したPython全量試験とWASM成功を最新sourceの成功へ流用しない。対応source hashを固定して全量回帰と通信遮断WASMを再実行する。
-- 直前4e5a11d/CI39081593387は同APKのnative82件・OS3段階・全量B1復元がsuccess。5,000銘柄/520日・全17tableの内容一致は266.028秒/Java heap192MiB。44Python/20Javaの出所とAPK hashを照合した旧sourceの証拠で、新46PythonやXiaomi成功へ流用しない。processはwake＋条件充足dispatch、rebootはwake後の観測、force-stopは明示再表示後。新sourceのAndroid CIと実機受入は未完。
+- 実装ae3fb7eの最新89Python実装file・72試験moduleをhashで固定。全1,363ケースを実行し1,362成功/1失敗、1,176.062秒、error/skip0。1失敗は子processのGit所有者保護で、同じrev-parseで再現。global設定を変えず、この実行の当該repoだけsafe.directoryを渡し、コード/テスト無変更でrunner17件が24.221秒で成功。JUnitのcase ID集合で全1,363ケースが同じsourceで確認済みと照合したが、単回の全量成功とは扱わない。合算coverage87.205%。失敗と再試験、実行前後hashは`full-v3-verification.json`へ保存し、過去コードの合格件数を流用しない。
+- Web91件、型/lint/build、Ruff全体・mypy両OS72file、公開範囲/配布package監査が成功。320pxの大きい株数のはみ出しを検出後に修正し、320/390px・文字150%の新画面2件を含む通信遮断WASM/画面16件が5.7分で成功。非文字列JSONの422拒否、PCと同じpackage/費用/回答、保存/復元、台帳不変を確認。compute11件は30.5秒、既存画面6件は11.5秒。合成6営業日のCLI比較も0.0041323秒で会計を確認し、入力/結果を私有receiptへ保存。これは10万円/top1の独立手値試験で、実市場研究用1,000万円/top20の条件や実市場成績と混ぜない。
+- 新ae3fb7e/CI39086869972のnative82件が190.542秒、fail/error/skip0。OS3段階は世代5/8/11・pending0で成功。processはwake＋条件充足dispatch、rebootはwake後の観測、force-stopは明示再表示後のunforced配送で、自然定刻配送やXiaomi成功とはしない。補助snapshotのprocess DatabaseError/force-stop RuntimeErrorを残し、後続のnative最終検証が同じ元WorkRequestのSUCCEEDEDを要求して通過したことと区別する。APK内46Pythonをbranchae3fb7e/merge4683f5eとbyte一致、現在のPC sourceとはLF/CRLF正規化後の一致で照合し、Java20/controller/native試験sourceも認証。APK SHA256は`3ae6b65e9a6c4ccebc945b0602c055877c6045a5b2f0810818f822b8e58f38a7`。同runのverify/android/android-historyはすべてsuccess、release skip。
+- 同じ新APKの5,000銘柄/520日・96,781,956文字による全量B1は218.210393651秒/Java heap192MiBで成功。認証preview・復元・owner再作成後の全17table schema/typed cellと入力不変を照合。PC特徴量は225.429444618秒、peak3,153,252,352bytes、43/53列のJSON hashが既存値と一致。入力/APK/fixture/source hashを結んだ原本は`.demo-artifacts/daily-integration-ci-39086869972/full-source-proof.json`。CIでもWASM/画面16件・compute11件・既存画面6件と公開範囲監査が成功。合成emulator受入であり、実モデルの採用やXiaomi受入ではない。
+- 直前4e5a11d/CI39081593387は同APKのnative82件・OS3段階・全量B1復元がsuccess。5,000銘柄/520日・全17tableの内容一致は266.028秒/Java heap192MiB。44Python/20Javaの出所とAPK hashを照合した旧sourceの証拠として別保存し、新46Pythonの成功は上記の新CIで確認した。Xiaomi受入は未完。
 
 | 項目 | 状態と再開条件 |
 | --- | --- |
-| 台帳/固定ルール/手動連携 | 実装済み、最新回帰を検証中。新sourceのnative確認待ち |
+| 台帳/固定ルール/手動連携 | 実装済み・試験済み。最新native82/OS3段階と同APKの全量B1が成功 |
 | 市場整備と実市場NAV | データ待ち・本人確認待ち。契約/取得範囲、企業行動/権利、方向別約定/単元/受渡し、PIT/上廃/停止根拠が必要 |
 | 配当込み/個人税引後 | データ待ち/本人入力待ち。配当を未知のまま0にせず、税引前と別工程 |
 | 最終選定/未使用期間 | 未着手。候補/組合せ/規則/合否基準が未固定、今回final未開封・未実行、採用保留 |
