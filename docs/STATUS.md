@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-10-18 — 受領履歴から手動相談・全状態復元までの統合試験
+
+- 開始HEAD06b2009、branch android-completion-chatgpt。前回は容量超過時の元例外保持の修正・実製品Java注入4経路/Android API compile・controller83件・push/PR更新まで進捗あり。CI39128328946は確認時点でpending、先行CI39126183830はverify成功/android失敗/android-history実行中。別run/別sourceの成功へ読み替えない。
+- 既存の予測/相談試験は市場・特徴量を置換して接続境界を検査していたため、それらを置換しない合成PC通し試験を追加。24銘柄/270営業日を正規化/保存し、当日所属・対象抽出・全特徴量・4headのportable推論・5/20日原予測・個人比較・手動相談/回答取込を既存実装で実行した。変更したのは試験用model/selection設定だけ。元価格からの独立した5日return計算でrisk treeの入力/出力を照合し、両horizonの出力と5種類のsource lineageを確認した。
+- 上位20＋順位外の保有1銘柄の21pairを相談入力へ保持し、回答は目標保有を維持。未採用/研究用のまま、台帳/原予測・約定0の不変と、元予測の再利用・同一回答再取込を確認した。全SQLite tableのschema/型付きcellをexport前→export後→復元後で比較。既存の初回圧縮cursor `(1,0,0)` だけを独立手値の型付きhashで許し、未知の内容変更を許さない。
+- 単独試験が74.74秒で成功し、関連の予測/特徴量/bundle/比較/手動相談64件も単回成功、fail/error/skip0、JUnit186.400秒。最初の1失敗は既存のexportによる技術cursor追加を無条件不変とした期待値だったため、元の全table比較を維持してその1行だけを明示。失敗logと最初のserializer警告も保持した。関連端末内API試験は既に診断済みのWindows sandbox socketpair待機を避け、専用workspace一時領域と通常の実行条件を使った。
+- Ruff全体、公開範囲監査865追跡fileが成功。49の製品Python/Java sourceと製品model policyは不変、承認model/bundle0を確認。合成の設定/時刻/較正値を実モデルや性能証拠として使わず、再学習・正式weight作成・最終期間開封・モデル採用なし。24銘柄のPC統合は5,000銘柄のmodel入り実行、WASM/native/Xiaomi、実ChatGPT送信・費用込み実市場NAVの完了とはしない。
+- 証拠`.demo-artifacts/daily-forecast-integration-20261018/`。保存済み追加資料の取得元回答待ちと、実市場NAVの企業行動/執行/過去時点の根拠不足は維持。元私有71/31/89行と市場/研究原本を保全。実注文・実外部AI送信・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 容量不足後の終了例外で元の失敗を失わない保存処理
 
 - D175。開始HEADb7f05e8、branch android-completion-chatgpt。前回は権利落ち種類の実装/全期間監査・関連263件・push/PR更新まで進捗あり。CI39126183830のandroid job117675062308がfailure完了したことを確認し、JUnit/端末logcatを取得。native84件中82成功/2失敗、156.953秒。新しい実SQLiteFull2件はコンパイルされたが、INSERTの容量超過後にAndroidのROLLBACKも失敗し、元の例外が上書きされていた。OS/旧APK置換はこのrunでは未到達。

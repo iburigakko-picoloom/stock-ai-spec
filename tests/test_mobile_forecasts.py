@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import math
+import random
 import sqlite3
+import struct
 from datetime import timedelta
 
 import pytest
@@ -236,3 +240,157 @@ def test_empty_equity_universe_is_cash_only_without_fabricated_forecast(ready, m
     assert result["outcome"] == "cash_only" and not result["blocking_reasons"]
     assert result["snapshot"] is None and store.latest_prediction_snapshot() is None
     assert store.latest_portfolio() == cash
+
+
+def test_received_history_to_forecast_manual_review_and_restore_without_feature_doubles(
+    tmp_path, monkeypatch,
+):
+    """Synthetic integration; real source/feature/inference code, no model adoption."""
+    from mobile.python import decisions, manual_chatgpt, membership
+    from mobile.python.model_bundle import ModelBundle, encoded
+    from scripts.mobile_capacity_check import make_payload
+    from scripts.sqlite_evidence import table_snapshot
+
+    from stock_ai.operations.chatgpt_manual import ExternalAiPermission
+    from stock_ai.operations.daily import OwnerAdoptionReview
+    from stock_ai.operations.manual_portfolio import ManualPortfolio
+    from stock_ai.operations.manual_settings import ManualPersonalSettings
+    from tests.test_mobile_features import frozen_selection, timely_history
+    from tests.test_mobile_personal import profile, settings
+
+    device = device_fixture.__wrapped__(tmp_path, monkeypatch)
+    path, store = device.STATE / "mobile.sqlite3", device._app.state.store
+    cutoff = timely_history(path, sessions=270, symbols=24)
+    saved_at, now = cutoff - timedelta(minutes=15), cutoff + timedelta(minutes=1)
+    value = profile(held=True).model_dump(mode="json")
+    value["holdings"][0]["symbol"] = "1023"  # Outside the tied top20, still required.
+    saved = personal.save_portfolio(store, ManualPortfolio.model_validate(value), None, saved_at)
+    extra = settings(saved["revision_id"]).model_dump(mode="json")
+    extra["tax_year"] = cutoff.year
+    extra["tax_assumptions"]["effective_from"] = f"{cutoff.year}-01-01"
+    extra["research_decision_policy"] = "daily-decision-engine-v3-bounded"
+    personal.save_settings(store, ManualPersonalSettings.model_validate(extra), None, saved_at)
+    preview = personal.preview_initial(store, path, saved_at, persist=True)
+    assert not preview["blocking_reasons"]
+    personal.confirm_initial(store, path, preview["preview_id"], True, saved_at)
+
+    observed = make_payload(cutoff.date(), 270, 24, random.Random(20261017),
+                            initial_receipt=cutoff - timedelta(minutes=20))
+    names = {"security_master", "trading_calendar"}
+    observed.update(purpose="membership", status=200,
+                    datasets={name: observed["datasets"][name] for name in names},
+                    source_pages=[p for p in observed["source_pages"] if p["dataset"] in names])
+    observed.pop("valuations")
+    membership.ingest(path, observed, cutoff)
+
+    selection = frozen_selection()
+    data = fixture_bundle().model_dump(mode="json", exclude={"bundle_id"})
+    data.update(created_at=(cutoff - timedelta(minutes=15)).isoformat(),
+                trained_at=(cutoff - timedelta(days=25)).isoformat(),
+                training_data_cutoff=(cutoff - timedelta(days=30)).isoformat(),
+                feature_selection_id=selection["feature_selection_id"],
+                feature_manifest_hash=selection["feature_manifest_hash"])
+    data["adoption_review"] = OwnerAdoptionReview.create(**{
+        **{k: v for k, v in data["adoption_review"].items() if k != "review_id"},
+        "reviewed_at": cutoff - timedelta(minutes=20),
+        "unresolved_gates": tuple(data["adoption_review"]["unresolved_gates"]),
+        "acknowledged_limitations": tuple(data["adoption_review"]["acknowledged_limitations"]),
+    }).model_dump(mode="json")
+    data["calibration"].update(
+        latest_label_available_at=(cutoff - timedelta(days=2)).isoformat(),
+        fitted_at=(cutoff - timedelta(days=1)).isoformat(),
+    )
+    feature = "price.return_5d"
+    assert all(feature in horizon["feature_names"] for horizon in selection["horizons"])
+    for head in data["heads"]:
+        model = json.loads(head["content"])
+        model["preprocessor"] = {"retained": [feature], "lower": {feature: None},
+                                 "upper": {feature: None}, "median": {feature: 0.0}}
+        if head["task"] == "large_loss":
+            model["trees"] = [{"feature": 0, "threshold": 0., "operator": "<",
+                               "missing_left": True, "left": {"leaf": -2.},
+                               "right": {"leaf": -3.}}]
+        head["content"] = canonical_json(model)
+        head["sha256"] = hashlib.sha256(head["content"].encode()).hexdigest()
+    bundle = ModelBundle.create(**data)
+    policy = {"approved_models": [], "approved_bundles": [fixture_pin(bundle)]}
+    # Only the synthetic model/selection configuration is supplied. Do not
+    # replace universe, receipt loading, feature calculation or prediction.
+    monkeypatch.setattr(models, "policy", lambda: policy)
+    monkeypatch.setattr(models, "bundled_selection", lambda: selection)
+    monkeypatch.setattr(forecasts, "bundled_selection", lambda: selection)
+    models.import_bundle(path, encoded(bundle), cutoff - timedelta(minutes=10))
+
+    ledger = store.latest_portfolio()
+    numerical = forecasts.generate(path, store, now)
+    assert numerical["phase"] == "published", numerical["blocking_reasons"]
+    snapshot = store.latest_prediction_snapshot()
+    assert len(snapshot.predictions) == len(snapshot.candidate_symbols) == 24
+    assert snapshot.holding_symbols == ("1023",)
+    assert snapshot.mode == "research" and snapshot.adoption_review_id is None
+    assert not models.status(path, store)["model_adopted"]
+    assert len(numerical["data_proof"]["source_snapshot_ids"]) == 5
+    assert numerical["scope"]["universe"]["membership_verified"]
+    assert snapshot.data_as_of < snapshot.as_of == cutoff
+    inputs = market.feature_inputs(path, now, True)
+    daily = inputs["daily"].sort_values(["symbol", "trading_date"])
+    # Independent raw-price arithmetic checks the feature actually consumed
+    # by the risk tree, rather than comparing one inference call with itself.
+    expected = {}
+    for symbol, frame in daily.groupby("symbol"):
+        prices = frame.close.to_numpy()
+        five_day_return = prices[-1] / prices[-6] - 1
+        expected[symbol] = 1 / (1 + math.exp(2 if five_day_return < 0 else 3))
+    assert len(set(expected.values())) == 2
+    for prediction in snapshot.predictions:
+        assert prediction.expected_return_5d == .01 and prediction.expected_return_20d == .04
+        assert prediction.large_loss_probability == pytest.approx(expected[prediction.symbol])
+    assert forecasts.generate(path, store, now + timedelta(seconds=1)) == numerical
+
+    comparison = decisions.generate(path, store, now)
+    assert comparison["phase"] == "published", comparison["blocking_reasons"]
+    permission = ExternalAiPermission(
+        service="manual_chatgpt", checked_at=now, personal_analysis_only=True,
+        training_disabled=True, private_input=True, private_output=True,
+        data_entitlement_confirmed=True,
+    )
+    exported = manual_chatgpt.export(path, store, permission.model_dump(mode="json"), now)
+    package = json.loads(exported["prompt"].split("\n入力:\n")[1])
+    targets = package["required_targets"]
+    assert len(targets) == 21 and any(x["symbol"] == "1023" for x in targets)
+    answer = dict(schema_version="chatgpt-target-shares-v1",
+                  input_snapshot_id=package["input_snapshot_id"], evidence_as_of=now.isoformat(),
+                  targets=[dict(symbol=x["symbol"], account=x["account"],
+                                target_shares=x["current_shares"], reason="合成試験の保有維持",
+                                sources=[]) for x in targets], unknowns=["合成データのみ"])
+    original = json.dumps(answer, ensure_ascii=False)
+    reply = manual_chatgpt.import_answer(path, store, {
+        "input_record_id": exported["input_record_id"], "answer_json": original,
+    }, now)
+    assert not reply["review"]["applied_to_ledger"]
+    assert store.latest_portfolio() == ledger and store.latest_prediction_snapshot() == snapshot
+    assert not store.executions()
+    store.verify_integrity()
+    reference = {name: table_snapshot(device.STATE / name)
+                 for name in ("operations.sqlite3", "mobile.sqlite3")}
+    # Export initializes only the existing compaction cursor. All source rows
+    # already use the current codec; authorize exactly (1,0,0), not arbitrary
+    # table changes or a reference taken after a potentially destructive export.
+    cursor = reference["mobile.sqlite3"]["tables"]["market_compaction"]
+    assert cursor == {"rows": 0, "typed_cells_sha256": hashlib.sha256(b"").hexdigest()}
+    typed_row = b"R" + b"".join(b"I" + struct.pack(">Q", 1) + x for x in (b"1", b"0", b"0"))
+    cursor.update(rows=1, typed_cells_sha256=hashlib.sha256(typed_row).hexdigest())
+    capsule = device.export_state()
+    assert reference == {name: table_snapshot(device.STATE / name) for name in reference}
+    device.initialize(capsule)
+    restored = device._app.state.store
+    assert reference == {name: table_snapshot(device.STATE / name) for name in reference}
+    assert forecasts.latest(path) == numerical and decisions.latest(path) == comparison
+    assert restored.latest_portfolio() == ledger
+    assert restored.latest_prediction_snapshot() == snapshot
+    assert manual_chatgpt.status(path, restored, now)["selected_input"] == (
+        exported["input_record_id"]
+    )
+    assert manual_chatgpt.import_answer(path, restored, {
+        "input_record_id": exported["input_record_id"], "answer_json": original,
+    }, now + timedelta(seconds=1)) == reply
