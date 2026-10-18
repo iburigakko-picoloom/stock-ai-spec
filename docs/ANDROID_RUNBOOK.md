@@ -147,7 +147,9 @@ D153では、nativeから受け取る保存状態をPythonへ256KiBずつ渡し�
 
 D175：保存中の容量不足でSQLiteが自動rollbackした後、Android側の`endTransaction`も失敗することがある。直接保存とstaging確定は終了処理をtry-with-resourcesで行い、元の書込例外を保持して追加の終了例外をsuppressedへ残す。書込成功後の終了処理が失敗した場合は、その失敗を呼出側へ返し、成功とは表示しない。保存形式・世代・暗号・台帳反映条件は維持する。CI39126183830の実容量不足2件はこの問題で失敗した原本を保持し、旧世代/内容の再読込と容量回復後の保存の成功は修正後のAndroid試験で確認する。
 
-2026-10-18にD175修正後のCI39128328946/androidを確認。合成API35で容量不足2件を含むnative84件が208.046秒で成功し、OS3段階も保存世代5/8/11・pending0。旧0.1.12 sourceのdebug APK10012から新版debug20000へのデータ非消去更新と再openは、同一UID/署名/Keystore・世代1/2/3・旧28tableの全typed cellを保持した。実APKと同梱Python46/参照Java20を現在の製品sourceへ照合済み。画面wake/条件充足dispatch/明示再表示を伴うOS試験、空の市場履歴とmodel0の旧版fixtureであり、自然配送・全量旧履歴・公開release binary/製品署名・Xiaomi更新は別に確認する。同run全体/全量B1工程の成功はまだ未確認。
+2026-10-18にD175修正後のCI39128328946/androidを確認。合成API35で容量不足2件を含むnative84件が208.046秒で成功し、OS3段階も保存世代5/8/11・pending0。旧0.1.12 sourceのdebug APK10012から新版debug20000へのデータ非消去更新と再openは、同一UID/署名/Keystore・世代1/2/3・旧28tableの全typed cellを保持した。実APKと同梱Python46/参照Java20を現在の製品sourceへ照合済み。画面wake/条件充足dispatch/明示再表示を伴うOS試験、空の市場履歴とmodel0の旧版fixtureであり、自然配送・全量旧履歴・公開release binary/製品署名・Xiaomi更新は別に確認する。
+
+同runはverify/android/android-history success、release skipで完了。5,000銘柄/520営業日・96,781,956文字の実SQLiteを同じAPKで往復し、B1 backupの認証preview/復元、本人入力とowner再作成後の保存世代7、元の全17tableのschema/typed cell一致を217.335秒・Java heap上限192MiBで確認した。合成入力/参照report/端末report/実APK hashを照合し、関連25sourceもmerge2705506/branch06b2009/現製品と一致。Java heapはrendererを含む全processメモリではない。同runのPC全量特徴量は302.716秒・peak3,057,795,072bytesで成功し、全5,000行/5日43列・20日53列と既存の特徴量JSON hashを保持。これは合成1回の受入であり、実モデルを含む全量推論、継続履歴・反復・Xiaomiを完了とはしない。原本と照合は`.demo-artifacts/received-wasm-20261018/ci-verification.json`。
 
 ## データ・モデルの公開範囲
 

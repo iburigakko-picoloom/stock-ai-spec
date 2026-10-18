@@ -59,3 +59,7 @@ D164：画面再作成・アプリ再起動後は、保存済み入力の元ID�
 試験専用native bridgeは使い捨てbrowserのsessionStorageで状態を渡す。合成承認と時計の注入は試験worker内だけに置き、製品へ含めない。この試験は実データ、外部ChatGPT、Android native暗号化保存やXiaomiの操作確認を代替しない。
 
 受領履歴からの接続は`tests/test_mobile_forecasts.py::test_received_history_to_forecast_manual_review_and_restore_without_feature_doubles`でPC検証する。24銘柄/270営業日の合成履歴を実際に正規化/保存し、特徴量計算・4head推論・個人比較を通して作った入力で、上位20＋順位外保有の21pairを確認する。回答取込/同一回答再取込、原予測と実台帳の不変、全tableのschema/型付き内容のbackup復元を照合する。試験用model/selection設定だけを供給し、製品policy・採用・送信確認を有効化しない。これは前記browser/WASMやnativeの試験とは別のPC統合証拠である。
+
+`web/mobile-tests/received.spec.ts`は同じ受領履歴の予測前状態から、同梱WASM自身で対象抽出/41・51特徴量/4head予測→費用込み株数比較→21pairの目標株数回答を検証する。別の合成設定で非ゼロの売買費用を確認し、snapshot違いの拒否、重複回答1件、原予測/台帳不変・実約定0、操作27＋市場等17tableの全schema/typed cell一致をexport前後/復元後/再取込後に要求する。元の無売買PCケースも保持する。PC/WASMの数値は既存portable許容差、金額文字列・株数・その他の非数値は完全一致。既知のPandas32/64bitの欠損値hashだけを元masterから計算してWASMのデータIDを予測し、全data proof（特徴量内容hashを含む）を完全照合する。製品の出所IDは変更しない。提案の派生ID/出所guardは各環境で既存実装が照合し、環境間で同一IDとは主張しない。
+
+準備は上記と同じで、webから`npx playwright test --config playwright.mobile.config.ts mobile-tests/received.spec.ts mobile-tests/feature-input.spec.ts`を実行する。2026-10-18には3件が212.292秒、fail/skip/retry0で成功。新しい通し部分は63.982秒。合成のモデル/承認/時計とSQLite証拠utilityは試験harnessだけに供給し、製品APKへ含めない。WindowsのEdge/WASM検証であり、実ChatGPT・Android native保存・採用モデル・全市場model推論・Xiaomiの受入とは区別する。

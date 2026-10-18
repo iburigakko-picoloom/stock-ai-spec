@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 全量Android復元と受領履歴からのWASM予測・相談を検証
+
+- 開始HEAD74d5530、branch android-completion-chatgpt。前回はnative84件/旧source debug更新の実証と文書push/PR更新まで進捗あり。同じCI39128328946はverify/android/android-history success・release skipで完了。観測待ちで中止/再起動せず原本を取得し、関連25sourceのGit blob/現製品、合成入力と参照report、前回認証した実APK hashを照合した。
+- 同APKの全量5,000銘柄/520営業日・96,781,956文字のSQLite/native owner/B1 backup復元が217.335秒・Java heap上限192MiBで成功。保存世代7・本人入力復旧・全17tableのschema/typed cellが元参照と一致。同runのPC容量は764.561秒/再読込0.535秒、全量特徴量は302.716秒・peak3,057,795,072bytesで全5,000行/5日43列・20日53列と既存JSON hashを保持。Java heapと全processメモリ、合成1回とXiaomi/反復を区別する。
+- 既存PCの24銘柄/270営業日fixtureを再利用し、予測前の受領状態から同梱WASM自身で対象抽出/全特徴量/4head予測・費用付き株数比較・21pairの手動回答検証を実行。元の無売買ケースを残し、別の合成資金/リスク設定では非ゼロの売買費用と回答目標株数を確認。原予測/台帳不変・実約定0、異snapshot拒否、再取込1件、操作27＋市場等17tableの全schema/typed cell一致をexport前後/復元後/再取込後に要求した。
+- PC予測14件が単回成功（JUnit141.449秒、fail/error/skip0）。新規WASM通しと既存の特徴量/byte転送復元2件も単回成功（212.292秒、fail/skip/retry0、通し63.982秒）。先の試行では既存の判断一致・手動コピー2件は成功し、新caseだけが無売買fixtureの費用確認や環境依存の出所ID一致で失敗。全失敗原本を保持し、元の欠損masterから既知のPandas32bit IDを正確に計算して、全data proof/特徴量hashを照合する期待値へ補完した。製品の予測・株数・費用計算やID/判断基準は変更していない。
+- Ruff、harness strict TypeScript、Web lint/build、package42file/private path監査が成功。製品161fileと承認model/bundle0は不変、合成harnessはdistへ含まれない。Windows Edge/WASMはAndroid native/実ChatGPT/Xiaomi/実採用モデルの成功とはしない。実市場NAVは企業行動網羅/方向別執行/過去時点の根拠と保存資料の取得元確認待ち、最終評価/正式weight接続も未完。証拠は`.demo-artifacts/received-wasm-20261018/`。元私有71/31/89行とデータ/研究原本を保全。研究18候補の再学習・最終期間開封・実外部AI送信・新規課金・実注文・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 容量不足復旧と旧版debug APK更新の端末証拠
 
 - 開始HEAD52bcd4b。前回は受領履歴→予測→手動相談→全状態復元の合成PC統合・関連64件・push/PR更新まで進捗あり。同じCI39128328946/最新39129476236を再確認し、修正後android job117680565813がsuccess完了した。verify等の同run全体と最新CIは結果待ち。観測timeoutで再起動/中止せず、JUnit/OS/更新reportと実APKを取得した。

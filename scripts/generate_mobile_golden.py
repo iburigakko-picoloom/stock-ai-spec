@@ -19,6 +19,7 @@ from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from mobile.pc.export_model import export_model
 from mobile.python.model_bundle import ModelBundle, encoded
+from pandas.core.util.hashing import combine_hash_arrays
 from pytest import MonkeyPatch
 from tests.conftest import AS_OF, candidate, decision_engine, portfolio
 from tests.test_bounded_decision import large_scenario, propose
@@ -26,15 +27,32 @@ from tests.test_mobile_bundles import SELECTION
 from tests.test_mobile_decisions import NOW
 from tests.test_mobile_decisions import ready as decision_ready
 from tests.test_mobile_features import timely_history
+from tests.test_mobile_forecasts import received_history_ready
 from tests.test_operations_store import _nisa_execution_store
 from xgboost import XGBClassifier, XGBRegressor
 
+from stock_ai.data.contracts import DatasetName
 from stock_ai.domain import Position
 from stock_ai.features import V2_EXTENDED_MANIFEST, FeatureEngine
 from stock_ai.fixtures import market_fixture
 from stock_ai.ml.advanced import FoldPreprocessor
 from stock_ai.operations.api import _proposal_view
-from stock_ai.operations.daily import OwnerAdoptionReview, canonical_json
+from stock_ai.operations.daily import OwnerAdoptionReview, canonical_json, content_id
+
+WASM_NA_HASH = 2**31 - 1
+
+
+def wasm_master_source_id(master):
+    """Predict the existing wasm32 Pandas identity; never rewrite product IDs."""
+    master = master.sort_values(["effective_date", "provider_code"]).reset_index(drop=True)
+    assert str(master.round_lot_size.dtype) == "Int64" and master.round_lot_size.isna().all()
+    hashes = [pd.util.hash_pandas_object(master[name], index=False).to_numpy() for name in master]
+    hashes[list(master).index("round_lot_size")][:] = WASM_NA_HASH
+    schema = tuple((str(name), str(dtype)) for name, dtype in master.dtypes.items())
+    metadata = json.dumps({"dataset": "security_master", "schema": schema}, sort_keys=True).encode()
+    return hashlib.sha256(
+        metadata + combine_hash_arrays(iter(hashes), len(hashes)).tobytes()
+    ).hexdigest()
 
 root = Path(__file__).resolve().parents[1]
 daily, market, sector, financials = market_fixture(270)
@@ -265,21 +283,8 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
     # wasm32 differ for the master's all-missing nullable round-lot column.
     # Predict the old wasm32 identity from the exact PC source, without
     # changing production identities or ignoring that column in the test.
-    from pandas.core.util.hashing import combine_hash_arrays
-
-    from stock_ai.data.contracts import DatasetName
-
     master = market.SQLiteSource(path).point_in_time(DatasetName.SECURITY_MASTER, cutoff)
-    master = master.sort_values(["effective_date", "provider_code"]).reset_index(drop=True)
-    assert str(master.round_lot_size.dtype) == "Int64" and master.round_lot_size.isna().all()
-    hashes = [pd.util.hash_pandas_object(master[name], index=False).to_numpy() for name in master]
-    wasm_na_hash = 2**31 - 1
-    hashes[list(master).index("round_lot_size")][:] = wasm_na_hash
-    schema = tuple((str(name), str(dtype)) for name, dtype in master.dtypes.items())
-    metadata = json.dumps({"dataset": "security_master", "schema": schema}, sort_keys=True).encode()
-    wasm_master_id = hashlib.sha256(
-        metadata + combine_hash_arrays(iter(hashes), len(hashes)).tobytes()
-    ).hexdigest()
+    wasm_master_id = wasm_master_source_id(master)
     wasm_source_ids = [
         [name, wasm_master_id if name == "security_master" else digest]
         for name, digest in records["source_snapshot_ids"]
@@ -291,8 +296,42 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
         "synthetic_only": True, "state": base64.b64encode(archive_bytes.getvalue()).decode(),
         "cutoff": cutoff.isoformat(), "selection": selection, "expected": feature_expected,
         "source_ids": records["source_snapshot_ids"], "daily_rows": len(frames["daily"]),
-        "wasm_source_ids": wasm_source_ids, "wasm_na_hash": wasm_na_hash,
+        "wasm_source_ids": wasm_source_ids, "wasm_na_hash": WASM_NA_HASH,
     }
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    with MonkeyPatch.context() as patch:
+        device, path, store, cutoff, now, received_selection, policy = received_history_ready(
+            Path(temporary), patch, funded=True,
+        )
+        now = now.astimezone(UTC)  # runtime.request uses datetime.now(UTC).
+        from mobile.python import forecasts
+
+        # Save before numerical publication: WASM must actually calculate the
+        # features and forecasts; it cannot reuse PC-published predictions.
+        assert store.latest_prediction_snapshot() is None
+        initial_state = device.export_state()
+        numerical = forecasts.generate(path, store, now)
+        comparison = decisions.generate(path, store, now)
+        assert numerical["phase"] == comparison["phase"] == "published"
+        wasm_proof = deepcopy(numerical["data_proof"])
+        master = market.SQLiteSource(path).point_in_time(DatasetName.SECURITY_MASTER, cutoff)
+        wasm_master_id = wasm_master_source_id(master)
+        wasm_proof["source_snapshot_ids"] = [
+            [name, wasm_master_id if name == "security_master" else digest]
+            for name, digest in wasm_proof["source_snapshot_ids"]
+        ]
+        received_fixture = {
+            "synthetic_only": True, "state": initial_state, "policy": policy,
+            "selection": received_selection, "now": now.isoformat(),
+            "cutoff": cutoff.isoformat(), "predictions": numerical["snapshot"]["predictions"],
+            "proposal": comparison["comparison"]["proposal"],
+            "wasm_data_proof": wasm_proof, "wasm_data_snapshot_id": content_id(wasm_proof),
+            "permission": {**permission, "checked_at": now.isoformat()},
+            "sqlite_evidence_source": (root / "scripts/sqlite_evidence.py").read_text(
+                encoding="utf-8",
+            ),
+        }
+
 destination.write_text(
     json.dumps(
         {"inputs": inputs, "expected": expected, "models": vectors,
@@ -301,7 +340,8 @@ destination.write_text(
                     "sha256": hashlib.sha256(bundle_content.encode()).hexdigest(),
                     "expected": bundle_expected}, "bounded": bounded_fixture,
          "decision": decision_fixture, "feature_inputs": feature_input_fixture,
-         "withholding": withholding_fixtures, "manual_execution": manual_execution_fixture},
+         "withholding": withholding_fixtures, "manual_execution": manual_execution_fixture,
+         "received_forecast": received_fixture},
         ensure_ascii=False,
         allow_nan=False,
     ),

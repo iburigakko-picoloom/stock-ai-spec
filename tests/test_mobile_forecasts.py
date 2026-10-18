@@ -242,16 +242,12 @@ def test_empty_equity_universe_is_cash_only_without_fabricated_forecast(ready, m
     assert store.latest_portfolio() == cash
 
 
-def test_received_history_to_forecast_manual_review_and_restore_without_feature_doubles(
-    tmp_path, monkeypatch,
-):
-    """Synthetic integration; real source/feature/inference code, no model adoption."""
-    from mobile.python import decisions, manual_chatgpt, membership
+def received_history_ready(tmp_path, monkeypatch, *, funded=False):
+    """Shared PC/WASM fixture: actual received history, synthetic model config only."""
+    from mobile.python import membership
     from mobile.python.model_bundle import ModelBundle, encoded
     from scripts.mobile_capacity_check import make_payload
-    from scripts.sqlite_evidence import table_snapshot
 
-    from stock_ai.operations.chatgpt_manual import ExternalAiPermission
     from stock_ai.operations.daily import OwnerAdoptionReview
     from stock_ai.operations.manual_portfolio import ManualPortfolio
     from stock_ai.operations.manual_settings import ManualPersonalSettings
@@ -264,6 +260,9 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
     saved_at, now = cutoff - timedelta(minutes=15), cutoff + timedelta(minutes=1)
     value = profile(held=True).model_dump(mode="json")
     value["holdings"][0]["symbol"] = "1023"  # Outside the tied top20, still required.
+    if funded:
+        value["investment_budget_yen"] = "2000000"
+        value["accounts"][0]["available_cash_yen"] = "2000000"
     saved = personal.save_portfolio(store, ManualPortfolio.model_validate(value), None, saved_at)
     extra = settings(saved["revision_id"]).model_dump(mode="json")
     extra["tax_year"] = cutoff.year
@@ -300,6 +299,8 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
         latest_label_available_at=(cutoff - timedelta(days=2)).isoformat(),
         fitted_at=(cutoff - timedelta(days=1)).isoformat(),
     )
+    if funded:
+        data["calibration"]["residual_rmse"] = .002
     feature = "price.return_5d"
     assert all(feature in horizon["feature_names"] for horizon in selection["horizons"])
     for head in data["heads"]:
@@ -310,6 +311,8 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
             model["trees"] = [{"feature": 0, "threshold": 0., "operator": "<",
                                "missing_left": True, "left": {"leaf": -2.},
                                "right": {"leaf": -3.}}]
+        elif funded and head["task"] == "quantile":
+            model["trees"] = [{"leaf": -.005}]
         head["content"] = canonical_json(model)
         head["sha256"] = hashlib.sha256(head["content"].encode()).hexdigest()
     bundle = ModelBundle.create(**data)
@@ -320,6 +323,22 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
     monkeypatch.setattr(models, "bundled_selection", lambda: selection)
     monkeypatch.setattr(forecasts, "bundled_selection", lambda: selection)
     models.import_bundle(path, encoded(bundle), cutoff - timedelta(minutes=10))
+    return device, path, store, cutoff, now, selection, policy
+
+
+@pytest.mark.parametrize("funded", [False, True])
+def test_received_history_to_forecast_manual_review_and_restore_without_feature_doubles(
+    tmp_path, monkeypatch, funded,
+):
+    """Synthetic integration; real source/feature/inference code, no model adoption."""
+    from mobile.python import decisions, manual_chatgpt
+    from scripts.sqlite_evidence import table_snapshot
+
+    from stock_ai.operations.chatgpt_manual import ExternalAiPermission
+
+    device, path, store, cutoff, now, _, _ = received_history_ready(
+        tmp_path, monkeypatch, funded=funded,
+    )
 
     ledger = store.latest_portfolio()
     numerical = forecasts.generate(path, store, now)
@@ -349,6 +368,11 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
 
     comparison = decisions.generate(path, store, now)
     assert comparison["phase"] == "published", comparison["blocking_reasons"]
+    if funded:
+        proposal = comparison["comparison"]["proposal"]
+        assert any(x["share_difference"] and sum(float(x["transaction_cost"][field]) for field in
+                   ("commission", "spread", "slippage", "market_impact")) > 0
+                   for x in proposal["lines"])
     permission = ExternalAiPermission(
         service="manual_chatgpt", checked_at=now, personal_analysis_only=True,
         training_disabled=True, private_input=True, private_output=True,
@@ -361,13 +385,20 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
     answer = dict(schema_version="chatgpt-target-shares-v1",
                   input_snapshot_id=package["input_snapshot_id"], evidence_as_of=now.isoformat(),
                   targets=[dict(symbol=x["symbol"], account=x["account"],
-                                target_shares=x["current_shares"], reason="合成試験の保有維持",
+                                target_shares=(next(p["recommended_shares"] for p in
+                                              comparison["comparison"]["proposal"]["lines"]
+                                              if p["symbol"] == x["symbol"])
+                                               if funded else x["current_shares"]),
+                                reason="合成試験の目標株数検証",
                                 sources=[]) for x in targets], unknowns=["合成データのみ"])
     original = json.dumps(answer, ensure_ascii=False)
     reply = manual_chatgpt.import_answer(path, store, {
         "input_record_id": exported["input_record_id"], "answer_json": original,
     }, now)
     assert not reply["review"]["applied_to_ledger"]
+    if funded:
+        assert float(reply["review"]["estimated_cost_yen"]) > 0
+        assert any(x["share_difference"] for x in reply["review"]["lines"])
     assert store.latest_portfolio() == ledger and store.latest_prediction_snapshot() == snapshot
     assert not store.executions()
     store.verify_integrity()
