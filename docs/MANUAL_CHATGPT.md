@@ -53,3 +53,7 @@ D164：画面再作成・アプリ再起動後は、保存済み入力の元ID�
 - `/today/chatgpt`：入力作成→コピー→回答検証の2段階。ボタン高さ48px以上・間隔12px以上、320/390px・文字150%で確認する。
 
 合成データでPC/通信遮断WASMの入力・費用・回答検証一致、再取込、保存/再読込/backup復元、拒否時の台帳不変を試験する。合成試験を実アカウント・Xiaomi実機・本番モデル採用の証拠にしない。固定ルール成績との比較は別管理し、今後の仮想運用/本人実約定を過去シミュレーションへ混ぜない。
+
+契約確認と独立したブラウザー受入は`web/mobile-tests/manual-flow.spec.ts`で再現する。既存の`scripts/prepare_mobile.py`と`python -m scripts.generate_mobile_golden`でローカルruntime/合成fixtureを用意してから、webで`npx playwright test --config playwright.mobile.config.ts mobile-tests/manual-flow.spec.ts`を実行する。製品の画面とAPI adapterから同梱Pythonの厳密検証まで接続し、実clipboard、画面再作成時の本文/期限一致、不正回答の編集、正常取込、履歴の重複抑止、期限切れコピー/取込拒否と台帳/原予測不変を確認する。PC fixtureの確認時刻は画面と同じUTC表記とする。Windows clipboardの改行変換を区別し、保存した入力原文の完全一致は維持する。
+
+試験専用native bridgeは使い捨てbrowserのsessionStorageで状態を渡す。合成承認と時計の注入は試験worker内だけに置き、製品へ含めない。この試験は実データ、外部ChatGPT、Android native暗号化保存やXiaomiの操作確認を代替しない。

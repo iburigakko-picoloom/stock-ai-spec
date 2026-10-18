@@ -9,7 +9,7 @@ import json
 import tempfile
 import zipfile
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -212,7 +212,7 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
         from stock_ai.operations.chatgpt_manual import ExternalAiPermission
 
         permission = ExternalAiPermission(
-            service="manual_chatgpt", checked_at=NOW, personal_analysis_only=True,
+            service="manual_chatgpt", checked_at=NOW.astimezone(UTC), personal_analysis_only=True,
             training_disabled=True, private_input=True, private_output=True,
             data_entitlement_confirmed=True,
         ).model_dump(mode="json")

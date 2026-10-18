@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 契約確認と独立して手動ChatGPTのブラウザー操作を通し検証
+
+- 開始HEAD1c62d09、branch android-completion-chatgpt。現在の契約は未確認のまま、合成入力だけでコピー→画面再作成→回答拒否/訂正→取込→重複再送→履歴→期限切れ拒否を一巡した。製品の画面/API adapterと同梱WASM/Pythonを使い、native窓口だけを試験専用bridgeへ置き換える。全要求後に保有・原予測の完全一致と台帳整合性を確認し、HTTPS外部要求0。実ChatGPTへの送信は行わない。
+- 新しい通し操作1件、既存PC/WASM判断一致1件、320/390px・文字150%の操作48px/間隔12pxを確認する2件が単回成功、51.485秒、失敗/skip/retry0。保存済み入力本文/期限の一致、確認欄の未check、実clipboardの内容、重複再送後の履歴1件、期限切れコピー時のclipboard不変も検査した。Windowsのclipboard改行変換だけはLFへ戻して内容比較し、保存原文は完全一致を要求する。
+- 既存画面8件成功（2.75秒）。新harnessのstrict TypeScript、Web lint/build、fixture生成部のRuffとpackage監査が成功。試験専用worker/bridgeと合成承認/時計はdist42fileへ含まれず、公開モデル0。最初の時刻表記不一致とWindows改行不一致、型検査コマンドの設定不足も私有logへ保全し、製品側のsnapshot検査を緩めていない。PC合成fixtureの確認時刻だけを画面と同じUTC表記へ揃えた。
+- 製品Python/Java/Web実装は開始時hashから不変。全Python/全Android試験を今回再実行したとは扱わず、前項f5b66e6の証拠と区別する。browser bridgeは使い捨てsessionStorageで再作成を再現するため、native暗号化保存・Xiaomi clipboard・実アカウント成功の証拠ではない。記録と失敗原本は`.demo-artifacts/manual-browser-20261018/`。
+- 元の私有71/31/89行とデータ/モデルを保全。追加取得・実データのexport/送信・新たな実市場NAV・最終期間開封・モデル採用・課金・実注文はなし。契約確認に依存しない実装/合成試験を継続できることと、実データ評価/実機受入の未完を分けて報告する。
+
 ## 2026-10-18 — 全seedでの日次モデル種類比較と推論用seedの事前固定
 
 - D165。開始HEAD5aef760、branch android-completion-chatgpt。未commit私有71/31/89行と市場/モデル原本を保全。旧選定処理が個別seedの最大成績を採るままのため、合成手値17ケースと日次freezeの既存試験1ケースで18失敗を再現した。
