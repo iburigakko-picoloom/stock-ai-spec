@@ -2053,6 +2053,25 @@ def project_daily_instruments_command(
     typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
 
 
+@research_app.command("project-research-funding")
+def project_research_funding_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/research-funding"),
+) -> None:
+    """Pin an explicit conservative research funding schedule from a fixed calendar."""
+    from stock_ai.ml.daily_market import DailyMarketRequest
+    from stock_ai.ml.research_funding import write_research_funding
+
+    try:
+        request = DailyMarketRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_research_funding(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"research funding projection blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
 @research_app.command("daily-oof")
 def daily_oof_command(
     feature_selection: Annotated[Path, typer.Option(exists=True, dir_okay=False)],

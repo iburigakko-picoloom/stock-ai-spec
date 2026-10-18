@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 全18候補の4出力精度比較と研究用資金解放の固定
+
+- D169。開始HEAD1173b74、branch android-completion-chatgpt。前回turnは単元/呼値の実装・全期間検証まで進捗ありと確認。実市場NAVの成績を見る前に、現物営業日を決済日のproxyとするT+2と、T+3/09:00 JSTまで待つ研究用資金解放を区別して固定した。後者は本人の証券口座の規則ではなく、`broker_verified=false`の追加仮定。元の資金/配分/費用条件や既存NAV/採用gateは変更しない。
+- `research project-research-funding`を追加。固定calendarのraw/normalized・全暦日・区分/現物営業日flag・時点/record hashを認証し、休日取引のみの区分を現物営業日に数えない。calendar IDとsessionの資金解放時刻を再生前に照合し、欠落日・未来末尾不足・変更時刻を補正しない。新Light版608暦日/405営業日・1,216objectを23.026秒で照合。402日分を算定し、2月25〜27日の3日は未来calendar不足の理由付き未確定を保持した。固定4,456fileの前後hash変更0。実際のモデル比較対象はh5の354日/h20の279日すべて資金時刻を算定でき、末尾3日の不足による比較日の除外はない。
+- 資金条件の整備と独立して、保存済み18候補の残る順位・分位点・下落確率54出力を新Light価格のラベルで研究評価。単一worker・3GiB RAM guardで321.621秒、全54出力が比較可能・欠損除外0。D167の回帰と合わせ、18候補×4出力の開発精度表、全seed/種類平均と安定性、四半期別、校正bin、20営業日blockの記述的区間を私有保存した。元reportのalpha/下落閾値を変更せず、旧targetは評価列に読まない。別監査で全task/seedの実際の予測時刻・label_end・fold・日別行数も一致、7.924秒。追加学習・seed選択・holdout開封はなし。
+- 資金/NAV・固定ルール・市場の関連204件が単回成功、fail/error/skip0、JUnit61.144秒。新規18ケースで連休、区分3、未受領資金、解放時刻の前/ちょうど、費用、改変・遅い取得を確認。new module coverage89.655%、Ruff全体・mypy Linux/win3274file・配布監査成功。全1,481件は収集のみ。最初の未実装時の収集失敗、試験側の判断時刻不一致、正午の約定を解放前と誤判定した期待値の失敗も保全し、実際の約定時刻を境界前へ揃えて確認した。既存会計の時刻/資金検査を緩めていない。新試験をCIへ追加。
+- 1173b74/CI39116998251は確認時点でandroid success、verify in_progress。今回sourceの全CI成功や新しいnative/Xiaomi成功とは扱わない。本人用の実台帳/Android/Web実装と元私有71/31/89行を保全。費用込みNAV、単純戦略/ensembleの同条件比較、候補/規則/合否基準の最終固定、未使用final、推論weight接続・実機受入は未完。企業行動の網羅・方向別売買状態/容量・過去known-at等の市場根拠待ち。全証拠は`.demo-artifacts/funding-schedule-20261018/`。実市場損益生成・外部AI送信・新規課金・実注文・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 固定Light版から日付別の国内株単元・呼値を補完
 
 - D168。開始HEADb0597f9、branch android-completion-chatgpt。直前の状況報告のみのturnをno progressと再確認し、残る市場条件の根拠へ着手。既存raw masterに`ProdCat`が保存されていることと、公式の商品/規模区分・国内株100株・TOPIX500呼値の定義を確認。原文5件のHTTP200/取得時刻/hashを私有保存した。

@@ -15,6 +15,22 @@ $env:PYTHONPATH='src'
 
 正本JSONには入力、strategy/HOLDの全日次状態、差、入力hash、評価器/費用/基礎型sourceのhash、数値精度・Pydantic版を保存する。内容hashで命名し、既存fileを上書きしない。`load_nav_evaluation`はbyte hashと各入力identityを検証する。source IDは供給者の宣言であり、正規の市場データ認証を代替しない。
 
+## 固定した研究用の資金解放（D169）
+
+`research project-research-funding`は既存`DailyMarketRequest`で指定したcalendar raw/normalizedを認証し、`research-funding-schedule-v1`を私有保存する。最終期間に到達する要求はcatalogを開く前に拒否する。全暦日が連続して存在し、Date/HolDiv・現物営業日flag・元record hashと取得metadataが一致することを確認する。休日区分3（デリバティブの祝日取引）を現物営業日には数えず、欠落日を平日/休日で埋めない。取得時点の版を選び、後日のカレンダーを以前の取得へ遡及させない。
+
+共通研究用policyは`t2-equity-calendar-proxy-t3-0900-jst-v1`。現物営業日を受渡しカレンダーのproxyとしてT+2の日付を算定し、資金はさらに次の現物営業日（T+3）の09:00 JSTからだけ利用可能とする。T+2制度の事実と、T+3/09:00という保守的な研究仮定を区別し、証券会社の実際の買付余力を確認したとは表示しない。2019-07-16より前は対応外。必要な将来カレンダーが末尾にない行は理由付き未確定とし、NAVに含まれる未受領の売却代金を現金へ移さない。
+
+`build_funding_schedule`のcalendar IDと行別`sale_cash_available_at`をNavInput/NavSessionへ明示する。`require_research_funding`は再構築した規則/全日付/時刻と既存sessionを再生前に照合し、不一致・未確定・改変を拒否する。既存の時刻を黙って修正しない。口座間の資金転用・実台帳の更新は行わず、既存NAVの未収金・現金会計を再利用する。
+
+```powershell
+.venv/Scripts/python.exe -m stock_ai research project-research-funding --input <固定calendarの入力JSON> --output-root <私有保存先>
+```
+
+区間末尾を含む出力は`status=PARTIAL`になり得る。生成成功を、全評価日の資金が確定したことや実市場NAVの完了に読み替えない。カレンダーの内容hashは入力版の識別であり、JSCCの決済完了時刻・口座固有の買付余力・当時の入手可能性を認証しない。実市場の企業行動・方向別売買状態/容量・PITと採用gateは別に残る。
+
+出典（2026-10-18確認）：[T+2開始日](https://www.jpx.co.jp/news/0010/20190714.html)、[JPX決済期間の説明](https://www.jpx.co.jp/equities/clearing-settlement/tplus2-settlement-cycle/)、[J-Quantsカレンダー](https://jpx-jquants.com/ja/spec/mkt-cal)、[休日区分](https://jpx-jquants.com/ja/spec/mkt-cal/holiday-division)。T+3/09:00はこれらが定めた口座規則ではなく、本研究で追加した遅延である。
+
 ## 固定した会計規則
 
 - 注文判断は前回valuation以後、当回executionより厳密に前。同じ終値を観察して同時刻に約定する入力は拒否する。日足終値proxyはexecutionとcloseが同時刻・同価格であることを要求し、実際の昼の約定と表示しない。
