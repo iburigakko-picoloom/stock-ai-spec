@@ -10,6 +10,12 @@
 
 呼出側が固定selectionの認証、学習期間とlabel availability、入力版と利用範囲、単一worker/CPU/RAM制限、私有保存先を管理する。このhelper自体はそれらを認証しないため`selection_authenticated=false`を明示する。今回の検証は合成データであり、既存18候補の重み作成・採用・実holdout・実機一致の完了ではない。
 
+## 保存失敗と旧sourceの検証（D173）
+
+旧版sourceの書出しはGitの`core.autocrlf=false`/`core.eol=lf`を明示し、pinは元Git blobのbyte hashに固定する。CI39123795307では旧JavaのWindows改行版hashとLinux側のGit blobが異なり、APK生成前に停止した。CRLF化だけで旧hashを再現できることを確認し、canonical hashとfixtureのsource metadataを訂正した。fixtureの保存payload・全table内容は不変。異なる改行設定の実Git archiveが同じ191file/hashになる回帰を追加し、hash検査を省略していない。修正後の旧APK置換成功はCI待ち。
+
+`StateStorageFullTest`はtest専用の小さなSQLite DBへ容量上限を設け、直接保存と暗号化stagingの2経路で実際の`SQLiteFullException`を要求する。旧世代・複数chunkの日本語payload・read lease・integrityを再open後まで照合し、spool除去、上限解除後の1回保存と古い世代の拒否を検査する。端末全体のdiskを埋めず、本人のDBを使わない。追加した2件のAndroidコンパイル/端末実行は未確認で、Xiaomiの実容量不足やUIの受入完了とはしない。[DB容量上限](https://developer.android.com/reference/android/database/sqlite/SQLiteDatabase#setMaximumSize(long)) / [容量不足例外](https://developer.android.com/reference/android/database/sqlite/SQLiteFullException)。
+
 ## 保存地点と公開元
 
 - Android化前の保存地点: `5b7aa4d6008e9e5e08291267f9bdc623428ac780`。

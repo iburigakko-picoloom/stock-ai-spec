@@ -12,7 +12,7 @@
     "src/stock_ai/operations/fixture.py": "0ddf8aaf3a6b587994202b36aead2d64bbe10352bb709b2a6974552a4814230b",
     "src/stock_ai/operations/manual_portfolio.py": "47249a884ad31b1c3ebc2dc95744965816bf0b22fc8f1a6f1a8fa3aac7cdc9ea",
     "src/stock_ai/operations/manual_settings.py": "c8c22baf26df91734e2a1389845976c08748b9538dde2c5ce8ac766bf831061d",
-    "web/android/app/src/main/java/jp/stockai/app/StockAIPlugin.java": "010b615e8999f02e8583eee5884cf1f6e27a80c159a7aebfca5e998ae6249deb"
+    "web/android/app/src/main/java/jp/stockai/app/StockAIPlugin.java": "6a61590eb24827c5d7f7af5293e1b977ee39779a87eff2dea27636e14f5d72aa"
   },
   "characters": 816840,
   "payload_sha256": "1b3c0a4ea39acc445c1a1638fab9e30aab80811d4aac921093d0b8a4cf660a58",

@@ -3,7 +3,9 @@
 import base64
 import io
 import json
+import os
 import sqlite3
+import subprocess
 import zipfile
 from contextlib import closing
 from pathlib import Path
@@ -247,3 +249,24 @@ def test_legacy_export_and_capsule_paths_never_overwrite_existing_state(tmp_path
         archive.writestr("../operations.sqlite3", b"test")
     with pytest.raises(ValueError, match="database names"):
         verify_capsule(base64.b64encode(value.getvalue()), legacy, tmp_path / "bad-members")
+
+
+def test_legacy_archive_has_git_blob_bytes_under_both_checkout_line_endings(tmp_path, monkeypatch):
+    from scripts.android_upgrade_check import ROOT, digest
+
+    pins = json.loads(PINS.read_text())
+    for name, expected in pins["source_sha256"].items():
+        original = subprocess.check_output([
+            "git", "-c", "safe.directory=" + ROOT.as_posix(),
+            "show", pins["source_commit"] + ":" + name,
+        ], cwd=ROOT)
+        assert digest(original) == expected, name
+    receipts = []
+    count = int(os.environ.get("GIT_CONFIG_COUNT", "0"))
+    for index, (autocrlf, eol) in enumerate((("true", "crlf"), ("false", "lf"))):
+        monkeypatch.setenv("GIT_CONFIG_COUNT", str(count + 2))
+        for offset, (key, value) in enumerate((("core.autocrlf", autocrlf), ("core.eol", eol))):
+            monkeypatch.setenv(f"GIT_CONFIG_KEY_{count + offset}", key)
+            monkeypatch.setenv(f"GIT_CONFIG_VALUE_{count + offset}", value)
+        receipts.append(prepare_base(tmp_path / f"source-{index}"))
+    assert receipts[0] == receipts[1]

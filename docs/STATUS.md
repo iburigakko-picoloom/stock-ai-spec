@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 旧APK準備の改行pin修正とSQLite容量不足試験
+
+- D173。開始HEADe1486bf。前回は凍結学習→端末用head接続・関連110件・push/PR更新まで進捗あり。今回218c83e/CI39120433717の実APKとmerge b0abb9dを取得し、APK hashと同梱46Python/製品20Javaを元branch・merge・現在sourceへ照合。native82件204.954秒、全量96,781,956文字/17tableのB1復元181.754秒・192MiB、元WorkRequestの世代5/8/11を確認した。processはwake＋条件充足dispatch、rebootはwake後観測、force-stopは明示再表示を伴う。合成API35の証拠であり、Xiaomi/新旧置換やD172のPC変更の成功へ広げない。
+- dcae89b/CI39123795307は現行コンパイル/通常保存/OS復旧を通過後、旧sourceのJava pin不一致でAPK生成前に停止。元Git blobのLF hashと、CRLF化で旧pinが再現することを確認した。旧source archiveをGit設定によらずLFに固定し、pinとfixtureのsource metadataだけを訂正。保存payload・全typed tableは不変。hash照合や非消去更新の検査は省略しない。
+- 新規1件の実Git設定2条件を含む保存/復旧/controller関連114件が単回成功、fail/error/skip0。canonical旧sourceのCLI書出し191fileも成功。Windows sandboxのsocketpair accept待機は専用probeのstackで診断し、今回の4processだけを識別して停止・同試験を実行条件を直して再確認。中断と診断logを保持し、部分成功を全件合格に足し合わせない。
+- `StateStorageFullTest`のnative2件を追加。隔離DBの容量上限を超える直接保存/暗号化stagingで実SQLiteFullを要求し、旧chunk/世代・日本語payload・read lease・integrityを再open後も確認する。spool除去と容量解除後の保存/古い世代拒否も検査する。製品store/DB移行は変更せず、端末全体や本人DBへ容量負荷を掛けない。新2件は今回まだコンパイル/端末実行待ち。
+- Ruff全体が成功。修正後の旧APK置換とnative2件のCI結果は未確認。費用込み市場NAV/正式推論weight/最終採用、実ChatGPTとXiaomiの残件は維持。元私有71/31/89行と市場/研究原本を保全。証拠`.demo-artifacts/sqlite-full-20261018/`・`.demo-artifacts/parent-ci-39120433717/source-proof.json`。実注文・外部AI送信・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 凍結学習と端末用重み書き出しの接続
 
 - D172。開始HEADdcae89b、branch android-completion-chatgpt。前回はモデル評価の状況確認と既存draft PR更新、push済み14file・元私有差分71/31/89行・証拠27fileの保全確認まで進捗あり。学習境界の13分割の実監査は既存証拠を再利用し、新しい研究計算へ置換していない。
