@@ -1,11 +1,19 @@
 # Project Status
 
+## 2026-10-18 — 個人税NAVの同日取得費会計を実装
+
+- D161。`ml/tax_acquisition.py`へ、日初前の税務簿価と受領済み実約定から、特定口座の日次購入pool・売却損益・残保有簿価を作る研究用会計部品を追加。後の同日買付も税務簿価へ反映する一方、実約定の順序は守り、未保有売却・重複・不明/未来/naive時刻を拒否する。口座/銘柄は混ぜず、出力はknown_atより前の判断に使わない。
+- Fractionで購入費用と分数の簿価を保持し、元簿価＋買付簿価＝売却取得費＋残簿価を厳密に保存。独立手値の725円/35,000円、費用、端株、全売却、同日買戻し、翌日引継ぎ、UTC/JST、入力不変と拒否を含む40件が9.23秒で成功。module coverage99.099%、Ruff全体・mypy両OS69file pass。税率/丸め/徴収・還付/税年帰属やNISA資格を推測せず、実台帳は更新しない。
+- 直前4e5a11dの全1,249件は単回成功、fail/error/skip0、1,190.25秒、coverage87.277%。同梱44source/84実装fileとGitへの一致を確認済み。既存84fileを変えず新会計1fileだけを追加し、現在の収集1,289件が既存1,249＋新規40件と完全一致することを検証。合算coverage87.404%、69file。単回全1,289件成功とは扱わない。原本は`apply-errors-full-verification.json`、`tax-acquisition-combined-verification.json`。CIにも新部品40件を追加する。
+- 4e5a11d/CI39081593387のnative82件は201.314秒で成功し、OS process/reboot/force-stopも世代5/8/11・pending0。44同梱Python/Java20 sourceと元予約のSUCCEEDEDを確認。processはwake＋条件充足dispatch、rebootはwake後の観測、force-stopはunforced（明示再表示後）。自然再起動の安定性へ読み替えない。APK SHA28b46aefc1332d6ff6f3b9cdd83b838859ade5f286c5de131c8aaee63197ad94。最新の独立全量B1工程は進行中。
+- 税の認識/徴収/還付・年次繰越/NISA簿価と状態付きNAVはまだ未接続。次はD160の明示時刻/policyに従って接続する。実市場の最小税引前比較は企業行動/PIT/約定/受渡し根拠待ちで未実行。最終モデル・本人ChatGPT/Xiaomi/同署名更新、承認bundle0と72時間gateも維持。追加実データ学習・holdout開封・採用・実注文なし。
+
 ## 2026-10-18 — 約定記録/反映の日時エラーを保存前に拒否
 
 - D159。手動実約定の未来/タイムゾーンなし日時、不正な状態を保存前のHTTP422に統一。反映日時も現在以前を要求し、現在の実保有以前の再送/古い日時は最新状態をtransaction内で照合して409、約定を含まない反映区間等は422で日本語説明を返す。例外で計算環境を落とさず、入力を直して続ける。実台帳・未反映約定・NISA残枠を拒否時に変えず、未保存の同じIDで訂正できる。画面操作は追加しない。
-- 修正前に反映5件・記録3件の失敗を再現し、最終のAPI/store/simulator55件が16.48秒で成功。Ruff全体、mypy両OS68file、Web lint/型も成功。記録日時の不足検証に気付き、最初の全回帰とWASMを明示中断して原本/理由を保存。最終の通信遮断WASM14件は5.4分で単回成功し、不正記録/反映の422、同じIDで訂正後の一回記録/反映、再反映409、日本語説明、NISA残枠と復元のPC一致を確認した。既存assertionやgateは緩めず、2実装fileの最終版を含む84fileで全1,249件を確認中。前版1,241件の成功と混同しない。
+- 修正前に反映5件・記録3件の失敗を再現し、最終のAPI/store/simulator55件が16.48秒で成功。Ruff全体、mypy両OS68file、Web lint/型も成功。記録日時の不足検証に気付き、最初の全回帰とWASMを明示中断して原本/理由を保存。最終の通信遮断WASM14件は5.4分で単回成功し、不正記録/反映の422、同じIDで訂正後の一回記録/反映、再反映409、日本語説明、NISA残枠と復元のPC一致を確認した。既存assertionやgateは緩めず、2実装fileの最終版を含む84fileで全1,249件が1,190.25秒、coverage87.277%で単回成功。前版1,241件の成功とは別の原本を保存した。
 - D160として個人税NAVの接続条件を`PERSONAL_TAX_NAV.md`へ整理。特定口座の受渡日、同日取得費、徴収/還付、年次繰越・NISA簿価を簡易台帳と区別する。税引後NAVの実装完了ではなく、次は同日取得費の会計部品から因果的に接続する。税引前比較と18候補/単純戦略/ensemble・最終採用の条件は維持する。
-- 725b8fdのCI39079227108はverify/androidがsuccess、同じAPKの独立全量B1工程が進行中。文書のみの後続CI39080342107は、今回の実装修正のCIに置き換えるため待機中に取消し。実行中の全量工程は継続し、取消しを成功と扱わない。実市場の企業行動/PIT/約定/受渡し根拠、個人税NAV、最終モデル・本人ChatGPT/実機受入は残る。追加実データ学習・holdout開封・採用・実注文なし。
+- 725b8fdのCI39079227108はverify/android/android-historyが全success、release skip。同APK/96,781,956文字の入力を139.772秒/192MiBで全量B1復元し、全17table・15fixture source・入力/APK2本のhashを照合。PC特徴量も306.774秒/peak3,063,398,400bytesで既存hashと一致。この時点とD159後のAPI/store2fileの差を明示した`full-source-proof.json`を保存。文書のみの後続CI39080342107は新実装修正のCIへ置き換えるため待機中に取消し、成功とは扱わない。実市場・個人税NAV・最終採用・本人アカウント/実機は残る。
 
 ## 2026-10-18 — 再開し、停止したWorkerの計算要求を取り消す
 
@@ -14,7 +22,7 @@
 - D158。CompletableFutureの取消しがownerの待機/実行中の仕事へ伝わらず、停止したWorkerの要求が残る不備を修正。取消し前に未開始なら実行せず枠を一度返し、実行中はその要求の待機を中断して未確定host/stagingを破棄する。DailyWorkerは停止通知/待機中断/期限超過で自分のcore要求だけを取り消す。確定済み保存を巻き戻さず、別callerやChatGPTの受領journalを取り消さない。
 - 実際のowner.submitをcompileした隔離JVM試験で、取消し済み要求の実行/実行中の未中断/64件の枠未解放の3失敗を再現し、修正後3成功。続く725b8fd/CI39079227108でコンパイル/lint/暗号化unit、実SQLiteの取消し済みPOST不変・隣接caller・枠上限・Worker停止通知の新規4件を含むnative82件が203.492秒で成功、fail/error/skip0。
 - 同CIのOS process/reboot/force-stopが世代5/8/11・pending0で成功。processは画面wake＋条件充足dispatch、reboot/force-stopはunforced（強制停止後は契約どおり明示再表示）。同じ元WorkRequestのSUCCEEDED、本人入力/受領/調査の保存をnativeで検査した。補助DB snapshotはprocessが完了直前のstate0、force-stopがRuntimeErrorだったが、後続のnative最終検証は各段階で元UUIDのSUCCEEDEDを別途要求して通過。補助記録の一時点を最終判定と誤認しない。照合scriptの初期のschema/state仮定失敗も保持する。
-- APK内44Python source、Java20 source、controllerと2種類のnative試験sourceをmerge68f7fde/branch725b8fd/作業内容へ照合。APK SHA256は434966f52faf2d2fb92442d7ab2cc8fdf1415e2ba13fa7ea0209f007141a4184。原本とhashは`worker-cancellation-ci-39079227108/native-source-proof.json`。今回の成功を反復安定性やXiaomi成功とは扱わず、最新の独立全量B1工程は結果待ち。6bc561cの178.244秒の成功とは区別する。
+- APK内44Python source、Java20 source、controllerと2種類のnative試験sourceをmerge68f7fde/branch725b8fd/その時点の作業内容へ照合。APK SHA256は434966f52faf2d2fb92442d7ab2cc8fdf1415e2ba13fa7ea0209f007141a4184。独立全量B1も139.772秒で成功し、全17tableと入力不変を確認した。原本とhashは`worker-cancellation-ci-39079227108/full-source-proof.json`。今回の成功を反復安定性やXiaomi成功とは扱わず、後続D159のAPI/store更新と区別する。
 - 実市場の税引前最小比較は企業行動/PIT/約定/受渡し根拠待ち。完全な個人税引後NAV、最終モデル固定/未使用期間評価/採用、本人ChatGPT/Xiaomi/同署名更新も未完。再学習・holdout開封・採用・実注文・main merge・製品APK公開なし。
 
 ## 2026-10-18 — NISA残枠/税年の引継ぎを修正し、本人依頼で停止
