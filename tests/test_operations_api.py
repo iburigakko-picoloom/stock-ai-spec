@@ -290,6 +290,108 @@ def test_changed_decision_partial_fill_reaches_next_home_state(tmp_path: Path) -
     assert next_home["holdings"][0]["shares"] == 100
 
 
+@pytest.mark.parametrize("offset", [timedelta(0), -timedelta(days=1)])
+def test_apply_rejects_old_or_repeated_time_without_changing_the_ledger(
+    tmp_path: Path, offset: timedelta,
+) -> None:
+    from tests.test_operations_store import _nisa_execution_store
+
+    store, execution = _nisa_execution_store(tmp_path)
+    store.append_execution(execution)
+    client = TestClient(
+        create_app(tmp_path / "operations.sqlite3", clock=lambda: AS_OF + timedelta(days=3)),
+        base_url="http://127.0.0.1",
+    )
+    headers = {"X-Stock-AI-Intent": "manual-record"}
+    cutoff = AS_OF + timedelta(days=1)
+    first = client.post("/api/v1/portfolio/apply-executions", json={
+        "nextAsOf": cutoff.isoformat(), "nextPortfolioId": "once",
+    }, headers=headers)
+    assert first.status_code == 200
+    before = store.latest_portfolio()
+    counts = store.verify_integrity()
+    repeated = client.post("/api/v1/portfolio/apply-executions", json={
+        "nextAsOf": (cutoff + offset).isoformat(), "nextPortfolioId": "repeated",
+    }, headers=headers)
+    assert repeated.status_code == 409
+    assert "保存済みの実保有" in repeated.json()["detail"]
+    assert store.latest_portfolio() == before
+    assert store.verify_integrity() == counts
+    assert client.get("/api/v1/health").json()["orderSubmissionAvailable"] is False
+
+
+@pytest.mark.parametrize("invalid", ["naive", "before_fill", "future"])
+def test_invalid_apply_window_preserves_pending_execution_and_can_be_corrected(
+    tmp_path: Path, invalid: str,
+) -> None:
+    from tests.test_operations_store import _nisa_execution_store
+
+    store, execution = _nisa_execution_store(tmp_path)
+    store.append_execution(execution)
+    now = AS_OF + timedelta(days=2)
+    client = TestClient(create_app(tmp_path / "operations.sqlite3", clock=lambda: now), base_url="http://127.0.0.1")
+    cutoff = {
+        "naive": (AS_OF + timedelta(days=1)).replace(tzinfo=None),
+        "before_fill": AS_OF + timedelta(minutes=30),
+        "future": now + timedelta(minutes=1),
+    }[invalid]
+    before = store.latest_portfolio()
+    counts = store.verify_integrity()
+    headers = {"X-Stock-AI-Intent": "manual-record"}
+    rejected = client.post("/api/v1/portfolio/apply-executions", json={
+        "nextAsOf": cutoff.isoformat(), "nextPortfolioId": "invalid-window",
+    }, headers=headers)
+    assert rejected.status_code == 422
+    assert isinstance(rejected.json()["detail"], str)
+    assert "反映日時" in rejected.json()["detail"]
+    assert store.latest_portfolio() == before
+    assert store.verify_integrity() == counts
+    corrected = client.post("/api/v1/portfolio/apply-executions", json={
+        "nextAsOf": (AS_OF + timedelta(days=1)).isoformat(), "nextPortfolioId": "corrected",
+    }, headers=headers)
+    assert corrected.status_code == 200
+    state = store.latest_portfolio()
+    assert state is not None and state.applied_execution_ids == (execution.execution_id,)
+    assert state.tax_states[0].nisa_annual_capacity_user_input == Decimal("50000")
+    assert state.tax_states[0].nisa_lifetime_capacity_user_input == Decimal("150000")
+
+
+@pytest.mark.parametrize("invalid", ["naive", "future", "invalid_status"])
+def test_invalid_execution_can_be_corrected_before_any_record_is_saved(
+    tmp_path: Path, invalid: str,
+) -> None:
+    from tests.test_operations_store import _nisa_execution_store
+
+    store, execution = _nisa_execution_store(tmp_path)
+    now = AS_OF + timedelta(hours=3)
+    client = TestClient(
+        create_app(tmp_path / "operations.sqlite3", clock=lambda: now),
+        base_url="http://127.0.0.1",
+    )
+    body = execution.model_dump(mode="json", exclude={"decision_id", "source"})
+    if invalid == "invalid_status":
+        body["status"] = "not-a-fill-status"
+    else:
+        body["executed_at"] = (
+            execution.executed_at.replace(tzinfo=None)
+            if invalid == "naive" else now + timedelta(minutes=1)
+        ).isoformat()
+    before = store.verify_integrity()
+    headers = {"X-Stock-AI-Intent": "manual-record"}
+    path = f"/api/v1/decisions/{execution.decision_id}/executions"
+    rejected = client.post(path, json=body, headers=headers)
+    assert rejected.status_code == 422
+    assert isinstance(rejected.json()["detail"], str)
+    assert "約定" in rejected.json()["detail"]
+    assert store.verify_integrity() == before
+    assert store.executions() == ()
+    corrected = client.post(path, json=execution.model_dump(
+        mode="json", exclude={"decision_id", "source"},
+    ), headers=headers)
+    assert corrected.status_code == 201
+    assert store.executions() == (execution,)
+
+
 def test_stale_day_blocks_every_proposal_surface_and_secret_is_never_returned(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

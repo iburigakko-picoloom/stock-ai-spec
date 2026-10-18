@@ -30,8 +30,21 @@ test("offline manual fill consumes NISA notional once and preserves capacity aft
     try {
       await send({ command: "initialize", state: input.state });
       const path = `/api/v1/decisions/${input.decision_id}/executions`;
+      const future = new Date(Date.now() + 86_400_000).toISOString();
+      const rejectedRecord = [];
+      for (const invalid of [
+        { ...input.execution, executed_at: future },
+        { ...input.execution, executed_at: input.execution.executed_at.replace(/(?:Z|[+-]\d{2}:\d{2})$/, "") },
+        { ...input.execution, status: "not-a-fill-status" },
+      ]) rejectedRecord.push(await request("POST", path, invalid));
+      const beforeRecord = await request("GET", path);
       const record = await request("POST", path, input.execution);
       const replay = await request("POST", path, input.execution);
+      const rejectedApply = [];
+      for (const cutoff of [future, input.apply.next_as_of.replace(/(?:Z|[+-]\d{2}:\d{2})$/, "")]) {
+        rejectedApply.push(await request("POST", "/api/v1/portfolio/apply-executions", { ...input.apply, next_as_of: cutoff }));
+      }
+      const beforeApply = await request("GET", "/api/v1/settings");
       const applied = await request("POST", "/api/v1/portfolio/apply-executions", input.apply);
       if (!applied.state) throw new Error("applied state missing");
       const repeated = await request("POST", "/api/v1/portfolio/apply-executions", input.apply).then(
@@ -44,14 +57,23 @@ test("offline manual fill consumes NISA notional once and preserves capacity aft
       await send({ command: "initialize", state: applied.state });
       const restored = await request("GET", "/api/v1/settings");
       const health = await request("GET", "/api/v1/health");
-      return { record, replay, applied, repeated, settings, restored, health };
+      return { rejectedRecord, beforeRecord, record, replay, rejectedApply, beforeApply, applied, repeated, settings, restored, health };
     } finally { worker.terminate(); }
   }, fixture);
+  for (const rejected of [...output.rejectedRecord, ...output.rejectedApply]) {
+    expect(rejected.result).toMatchObject({ status: 422, body: { detail: expect.any(String) } });
+  }
+  expect(output.beforeRecord.result).toEqual({ status: 200, body: [] });
+  expect(output.beforeApply.result).toMatchObject({ status: 200, body: { accounts: [{
+    nisaAnnualCapacity: "150000", nisaLifetimeCapacity: "250000",
+  }] } });
   expect(output.record.result.status).toBe(201);
   expect(output.replay.result).toEqual(output.record.result);
   expect(output.applied.result).toEqual({ status: 200, body: fixture.expected });
-  expect(output.repeated.reply).toBeNull();
-  expect(output.repeated.error).toContain("next_as_of must be later than the current portfolio as_of");
+  expect(output.repeated.error).toBeNull();
+  expect(output.repeated.reply?.result).toMatchObject({ status: 409, body: {
+    detail: expect.stringContaining("保存済みの実保有"),
+  } });
   expect(output.settings.result).toMatchObject({ status: 200, body: { accounts: [{
     accountType: "nisa", nisaAnnualCapacity: "50000", nisaLifetimeCapacity: "150000",
   }] } });

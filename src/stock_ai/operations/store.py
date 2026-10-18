@@ -2128,11 +2128,17 @@ class OperationalStore:
     ) -> PortfolioState:
         if created_at.tzinfo is None or created_at.utcoffset() is None:
             raise ValueError("created_at must be timezone-aware")
+        if next_as_of.tzinfo is None or next_as_of.utcoffset() is None:
+            raise ValueError("next_as_of must be timezone-aware")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             portfolio = self.latest_portfolio()
             if portfolio is None:
                 raise OperationalIntegrityError("cannot apply executions without a portfolio")
+            if next_as_of <= portfolio.as_of:
+                raise OperationalConflictError(
+                    "next_as_of must be later than the current portfolio as_of"
+                )
             unapplied = tuple(
                 item
                 for item in self.executions()

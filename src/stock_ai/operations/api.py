@@ -700,13 +700,23 @@ def create_app(
         body: ExecutionInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        execution = ExecutionRecord.model_validate(
-            {
-                **body.model_dump(exclude={"confirm_difference"}),
-                "decision_id": decision_id,
-                "source": "manual",
-            }
-        )
+        if body.executed_at.utcoffset() is None or body.executed_at > current_time():
+            raise HTTPException(
+                status_code=422,
+                detail="約定日時はタイムゾーンを含む現在以前の日時を指定してください。",
+            )
+        try:
+            execution = ExecutionRecord.model_validate(
+                {
+                    **body.model_dump(exclude={"confirm_difference"}),
+                    "decision_id": decision_id,
+                    "source": "manual",
+                }
+            )
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422, detail="実約定の状態・数量・金額を確認してください。",
+            ) from exc
         store.append_execution(
             execution, confirm_difference=body.confirm_difference, update_daily_status=True,
         )
@@ -721,11 +731,28 @@ def create_app(
         body: ApplyExecutionsInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        state = store.apply_unapplied_executions(
-            next_as_of=body.next_as_of,
-            next_portfolio_id=body.next_portfolio_id,
-            created_at=current_time(),
-        )
+        now = current_time()
+        if body.next_as_of.utcoffset() is None or body.next_as_of > now:
+            raise HTTPException(
+                status_code=422,
+                detail="反映日時はタイムゾーンを含む現在以前の日時を指定してください。",
+            )
+        try:
+            state = store.apply_unapplied_executions(
+                next_as_of=body.next_as_of,
+                next_portfolio_id=body.next_portfolio_id,
+                created_at=now,
+            )
+        except OperationalConflictError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="保存済みの実保有と競合しています。保存内容を確認し、現在の実保有より後の反映日時を指定してください。",
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="約定の日時・数量・金額と反映日時を確認してください。記録済みの約定をすべて含む日時が必要です。",
+            ) from exc
         return jsonable_encoder(state, by_alias=True)
 
     @app.post("/api/v1/imports/executions/preview")
