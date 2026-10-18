@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 凍結学習と端末用重み書き出しの接続
+
+- D172。開始HEADdcae89b、branch android-completion-chatgpt。前回はモデル評価の状況確認と既存draft PR更新、push済み14file・元私有差分71/31/89行・証拠27fileの保全確認まで進捗あり。学習境界の13分割の実監査は既存証拠を再利用し、新しい研究計算へ置換していない。
+- 既存の固定component学習に任意の同期callbackを追加し、予測に使う同じ学習済み本体/学習側前処理を取得できるようにした。PC exporterとのhelper接続で、書出しのための2回目のfitを避ける。特徴量だけの1〜1,000行で元予測と端末tree予測を既存許容差で照合。不一致・設定不一致・未対応label/task・本体のない単一class exportは理由付き拒否。既定OOF/holdout経路、分類の定数予測、CPU/worker/RAM条件は維持する。
+- 新規20件を含むexport/モデル/bundle/学習/holdout/資源guardの関連110件が単回成功、fail/error/skip0。3種類×3taskで本体/前処理/書出しが各1回、従来経路の予測と一致、原入力不変を確認。4headを既存packager/parityへ通し、自己承認せず未承認importを拒否する。最初の9失敗は全欠損列が既存前処理で除外される試験期待の誤りであり、実装や許容差を緩めず訂正した。失敗logも保持。
+- Ruff全体、mypy標準/win32各74fileが成功。全1,529件は収集だけで全件合格とはしない。新しいAPIは実selection/学習入力を認証せず、file保存/承認policy更新も行わない。認証・学習時点/版・資源・私有保存は呼出側の既存責任のまま。実モデル追加学習、18候補のweight作成、final開封・モデル採用は実施していない。
+- 218c83e/CI39120433717はverify/android/android-history成功、release skipまで確認。dcae89b/CI39123795307はverify/android実行中。新しい旧APK置換試験の端末成功や今回sourceの全CI成功とは数えない。費用込み実市場NAVは非配当企業行動網羅・方向別執行/容量・当時の情報の根拠待ち、未実施。Xiaomi/実ChatGPT・正式重みと最終採用も未完。証拠`.demo-artifacts/frozen-model-export-20261018/`、実注文・外部AI送信・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 旧配布版の保存互換とAPK置換試験の追加
 
 - D171。開始HEAD218c83e、branch android-completion-chatgpt。旧配布0.1.12のsource ab2d5caをGitから新規folderへ書き出し、8主要fileと全191fileを認証した。元の作業tree・私有差分・市場/モデル原本は保全。旧プラグインの分割暗号化から新版owner/WASMへ進む実際のAPK置換を、既存の使い捨てAPI35 AVDに追加した。debugの10012→20000を同じ証明書/IDで比較し、製品番号/署名や配布を変更しない。

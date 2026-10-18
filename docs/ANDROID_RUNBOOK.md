@@ -2,6 +2,14 @@
 
 2026-10-16。D109〜D111が正本。既存React UIとPC版の計算moduleを端末へ同梱し、PC・クラウド計算の必須依存を外す。大規模な再学習はPCで行う。最終モデルは未採用で、現在は研究用。
 
+## PCの凍結学習から端末用headへの書き出し（D172）
+
+`fit_predict_frozen_model`は任意の`fitted_model_sink(estimator, processor)`へ、予測に使う同じ学習済み本体と学習側だけでfitした前処理を同期的に渡せる。既存OOF/holdoutの既定は書出しなし。callbackの失敗は伝播し、再学習・再試行で別のモデルへ置換しない。
+
+`mobile.pc.export_model.fit_export_frozen_model`はこの経路を既存のdata-only exporterへ接続する。5日/20日の回帰・分位点・下落確率を対象に、特徴量だけの1〜1,000行で元の予測と端末用tree予測を既存のrtol1e-6/atol1e-7で比較し、不一致を拒否する。出力はmodel辞書、元予測、PC parity結果で、file保存やpolicy更新は行わない。既存packagerへ渡せるが、本人review・calibration・PC/端末の根拠pin・配布確認は引き続き必要。単一classの下落確率は既存の定数予測を保ち、対応する学習済み本体のないexportは拒否する。
+
+呼出側が固定selectionの認証、学習期間とlabel availability、入力版と利用範囲、単一worker/CPU/RAM制限、私有保存先を管理する。このhelper自体はそれらを認証しないため`selection_authenticated=false`を明示する。今回の検証は合成データであり、既存18候補の重み作成・採用・実holdout・実機一致の完了ではない。
+
 ## 保存地点と公開元
 
 - Android化前の保存地点: `5b7aa4d6008e9e5e08291267f9bdc623428ac780`。
