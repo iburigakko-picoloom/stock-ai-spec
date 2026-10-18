@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 手動ChatGPT相談の中断復帰とコピー直前の再照合
+
+- D164。開始HEAD bdaa2d4、branch android-completion-chatgpt。私有の71/31/89行と市場/モデル原本を保全。前turnは実装・検証・pushを伴う進捗であり、今回はデータ権限待ちと独立してAndroidの手動相談を補完する。
+- 既存の保存済み入力を画面再作成後に再表示できない3ケースを合成fixtureで再現。local statusが元の入力record ID・snapshot ID・本文・期限を返し、現在の原予測/口座/設定/検証版と元の送信許可が一致する場合だけ相談を再開する。再読込で入力の再生成・期限延長・確認欄の自動check・台帳更新をしない。古い入力と提案履歴は保持し、失効した入力をコピー対象へ戻さない。
+- コピーを押した時点でもlocal statusで照合し、入力変更・期限切れ・確認失敗ではクリップボードを書き換えない。照合中は作成/コピー/回答検証を直列化し、回答欄を保持する。既存DB/native owner/暗号化保存を再利用し、新tableや外部provider呼出しを増やさない。
+- 関連Python106件が97.58秒で成功。修正前の3失敗も保存。最新Web97件は10.26秒、型/lint成功。Ruff全体/mypy両OS72fileも成功。最新sourceを固定した全量回帰と、同梱adapter/画面のWASM・Android CIは検証中。以前の1,363件やCI39086869972を新status adapterの全量合格へ読み替えない。
+- J-Quants契約/利用範囲は未確認のまま。追加取得・実データexport/送信・新たな実市場NAV・課金・無確認削除なし。18候補の市場比較/最終選定・未使用期間・採用、実アカウント/Xiaomiは前項の待ち条件を維持。実注文・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 日次18候補の成果物監査と手動ChatGPT接続
 
 - D162/D163。開始時のHEADは4e5a11d、branchはandroid-completion-chatgpt。既存のD161会計部品をa02b6d8へcheckpointしたうえで、本人の新方針へ切替。未commitの私有実験/証拠/データと未push成果を保持し、mainへのresetや18候補の再学習はしていない。高度最適化、1日/前場/12:30拡張、個人税NAVの追加接続は今回の優先対象外。

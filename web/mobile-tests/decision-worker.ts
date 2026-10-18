@@ -88,6 +88,8 @@ assert first == restored
 manual_status = await runtime.request('GET', '/api/v1/mobile/chatgpt-manual/status', 'null')
 assert manual_status['status'] == 200
 assert manual_status['body']['answers'] == [accepted['body']['review']]
+assert manual_status['body']['saved_input'] == exported
+assert manual_status['body']['saved_input_reason'] is None
 assert ledger == runtime._app.state.store.latest_portfolio()
 json.dumps({'result': first, 'today': today, 'restored': restored,
             'manual_exchange': {'accepted': accepted['body'], 'rejected_status': rejected['status'],

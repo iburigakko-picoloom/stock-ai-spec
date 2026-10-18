@@ -38,8 +38,9 @@ def _current(path, store, now):
 
 def status(path, store, now):
     ready, reason = True, None
+    current = None
     try:
-        _current(path, store, now)
+        current = _current(path, store, now)
     except ValueError as error:
         ready, reason = False, str(error)
     with store._connect() as db:
@@ -47,6 +48,16 @@ def status(path, store, now):
         selected = db.execute(
             "SELECT value FROM operational_metadata WHERE key=?", ("chatgpt-manual:selected",)
         ).fetchone()
+        saved = (
+            None
+            if selected is None
+            else read_record(
+                db.execute(
+                    "SELECT value FROM operational_metadata WHERE key=?",
+                    ("chatgpt-manual:input:" + selected[0],),
+                ).fetchone()[0]
+            )
+        )
         answers = [
             read_record(row[0])["review"]
             for row in db.execute(
@@ -54,6 +65,25 @@ def status(path, store, now):
                 "ORDER BY rowid DESC LIMIT 20"
             )
         ]
+    saved_input, saved_input_reason = None, None
+    if saved is not None and current is not None:
+        value, comparison, portfolio, forecast = current
+        try:
+            package = input_package(
+                comparison,
+                portfolio,
+                forecast,
+                now=now,
+                permission=ExternalAiPermission.model_validate(saved["permission"]),
+            )
+            if saved["decision_run_id"] != value["run_id"] or saved["package"] != package:
+                raise ValueError("saved input changed")
+            saved_input = _input_view(selected[0], package)
+        except (ValueError, KeyError, TypeError):
+            saved_input_reason = (
+                "保存済み入力の期限・送信許可・照合情報を確認できません。"
+                "最新の入力を作成してください。"
+            )
     portfolio = store.latest_portfolio()
     accounts = {} if portfolio is None else {a.account_id: a for a in portfolio.accounts}
     labels = (
@@ -68,6 +98,8 @@ def status(path, store, now):
         "ready": ready,
         "reason": reason,
         "selected_input": None if selected is None else selected[0],
+        "saved_input": saved_input,
+        "saved_input_reason": saved_input_reason,
         "answers": answers,
         "account_labels": labels,
     }
@@ -87,6 +119,10 @@ def export(path, store, body, now):
         verify_exchange_records(db)
         identity = save_record(db, "input", record)
         db.commit()
+    return _input_view(identity, package)
+
+
+def _input_view(identity, package):
     return {
         "input_record_id": identity,
         "input_snapshot_id": package["input_snapshot_id"],

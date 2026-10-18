@@ -11,7 +11,7 @@ interface Review {
   applied_to_ledger: false;
   answer?: { evidence_as_of: string; targets: { symbol: string; account: string; reason: string; sources: string[] }[]; unknowns: string[] };
 }
-interface ManualStatus { ready: boolean; reason: string | null; selected_input: string | null; answers: Review[]; account_labels?: Record<string, string> }
+interface ManualStatus { ready: boolean; reason: string | null; selected_input: string | null; saved_input?: Exported | null; saved_input_reason?: string | null; answers: Review[]; account_labels?: Record<string, string> }
 interface Exported { input_record_id: string; input_snapshot_id: string; expires_at: string; prompt: string }
 
 export function ManualChatGPTPage(): ReactNode {
@@ -29,7 +29,14 @@ export function ManualChatGPTPage(): ReactNode {
     if (!android) return;
     let active = true;
     void apiGet<ManualStatus>("/api/v1/mobile/chatgpt-manual/status")
-      .then(value => { if (active) setStatus(value); })
+      .then(value => {
+        if (!active) return;
+        setStatus(value);
+        if (value.saved_input) {
+          setExported(value.saved_input);
+          setMessage("保存済みの入力を再表示しました。有効期限と内容を確認して相談を続けられます。");
+        }
+      })
       .catch(() => { if (active) setError("保存済み入力を確認できません。アプリを開き直してください。"); });
     return () => { active = false; };
   }, [android]);
@@ -37,19 +44,33 @@ export function ManualChatGPTPage(): ReactNode {
   async function prepare(): Promise<void> {
     setBusy(true); setError(""); setMessage(""); setReview(null);
     try {
-      setExported(await apiPost<Exported>("/api/v1/mobile/chatgpt-manual/export", {
+      const prepared = await apiPost<Exported>("/api/v1/mobile/chatgpt-manual/export", {
         service: "manual_chatgpt", checked_at: new Date().toISOString(),
         personal_analysis_only: privateUse, training_disabled: privateUse,
         private_input: privateUse, private_output: privateUse, data_entitlement_confirmed: entitled,
-      }));
+      });
+      setExported(prepared);
+      setStatus(previous => previous && { ...previous, selected_input: prepared.input_record_id, saved_input: prepared, saved_input_reason: null });
       setMessage("入力を保存しました。ChatGPTへコピーし、回答JSONを下へ貼り付けてください。");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "入力を作成できませんでした。"); }
     finally { setBusy(false); }
   }
   async function copy(): Promise<void> {
     if (!exported) return;
-    try { await navigator.clipboard.writeText(exported.prompt); setMessage("プロンプトをコピーしました。"); }
-    catch { setError("コピーできません。入力欄の文章を選択してコピーしてください。"); }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const latest = await apiGet<ManualStatus>("/api/v1/mobile/chatgpt-manual/status");
+      if (!latest.ready || !latest.saved_input
+        || latest.saved_input.input_record_id !== exported.input_record_id
+        || latest.saved_input.input_snapshot_id !== exported.input_snapshot_id
+        || latest.saved_input.prompt !== exported.prompt) {
+        setError(latest.reason ?? latest.saved_input_reason ?? "入力が更新されています。最新の照合後に入力を作り直してください。");
+        return;
+      }
+      try { await navigator.clipboard.writeText(exported.prompt); setMessage("プロンプトをコピーしました。"); }
+      catch { setError("コピーできません。入力欄の文章を選択してコピーしてください。"); }
+    } catch { setError("最新の入力と送信許可を確認できず、コピーを中止しました。"); }
+    finally { setBusy(false); }
   }
   async function importAnswer(): Promise<void> {
     setBusy(true); setError(""); setMessage(""); setReview(null);
@@ -79,6 +100,7 @@ export function ManualChatGPTPage(): ReactNode {
             <a href="https://jpx-jquants.com/ja/help/usage" target="_blank" rel="noreferrer">J-Quantsの利用条件</a></p>
           <div className="button-stack"><button className="button button--primary" disabled={busy || !privateUse || !entitled}
             onClick={() => void prepare()}>プロンプトを作成</button></div>
+          {status.saved_input_reason && <p className="setting-footnote">{status.saved_input_reason}</p>}
           {exported && <>
             <p>入力の有効期限：{dateTime(exported.expires_at)}</p>
             <textarea className="csv-input" aria-label="ChatGPTへ渡す入力" readOnly value={exported.prompt} />
@@ -89,7 +111,7 @@ export function ManualChatGPTPage(): ReactNode {
           <h2>2. 回答を確認する</h2>
           <textarea className="csv-input" aria-label="ChatGPTの回答JSON" value={answer} disabled={busy}
             onChange={event => { setAnswer(event.target.value); setReview(null); }} placeholder="回答JSONをここに貼り付け" />
-          <div className="button-stack"><button className="button button--primary" disabled={busy || !answer.trim() || !(exported || status.selected_input)}
+          <div className="button-stack"><button className="button button--primary" disabled={busy || !answer.trim() || !exported}
             onClick={() => void importAnswer()}>回答を検証して保存</button></div>
         </section>
       </>}

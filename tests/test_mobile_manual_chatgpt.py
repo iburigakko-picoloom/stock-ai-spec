@@ -121,7 +121,10 @@ def test_invalid_manual_exchanges_are_rejected_without_balance_changes(ready, ch
     with pytest.raises(ValueError):
         manual_chatgpt.import_answer(path, store, body, now)
     assert store.latest_portfolio().model_dump_json() == before
-    assert not manual_chatgpt.status(path, store, now)["answers"]
+    status = manual_chatgpt.status(path, store, now)
+    assert not status["answers"]
+    if change in {"stale", "changed-input"}:
+        assert status["saved_input"] is None
 
 
 def test_corrupt_manual_input_is_rejected_by_standard_backup_integrity_check(ready):
@@ -133,3 +136,59 @@ def test_corrupt_manual_input_is_rejected_by_standard_backup_integrity_check(rea
     store.set_metadata(key, json.dumps(payload))
     with pytest.raises(OperationalIntegrityError, match="manual ChatGPT exchange"):
         store.verify_integrity()
+
+
+def test_saved_prompt_survives_owner_restart_without_new_export_or_balance_changes(ready):
+    device, path, store, _, _ = ready
+    exported = export(ready)
+    ledger = store.latest_portfolio().model_dump_json()
+    original = store.metadata("chatgpt-manual:input:" + exported["input_record_id"])
+    device.initialize(device.export_state())
+    restored = device._app.state.store
+    resumed = manual_chatgpt.status(path, restored, NOW + timedelta(minutes=1))
+    assert resumed["ready"]
+    assert resumed["saved_input"] == exported
+    assert resumed["saved_input_reason"] is None
+    assert restored.metadata("chatgpt-manual:input:" + exported["input_record_id"]) == original
+    assert restored.latest_portfolio().model_dump_json() == ledger
+    with restored._connect() as db:
+        assert (
+            db.execute(
+                "SELECT count(*) FROM operational_metadata WHERE key LIKE 'chatgpt-manual:input:%'"
+            ).fetchone()[0]
+            == 1
+        )
+
+
+def test_expired_permission_does_not_make_saved_prompt_copyable_or_delete_it(ready):
+    _, path, store, _, _ = ready
+    decisions.generate(path, store, NOW)
+    checked = permission()
+    checked["checked_at"] = (NOW - timedelta(hours=23, minutes=50)).isoformat()
+    exported = manual_chatgpt.export(path, store, checked, NOW)
+    key = "chatgpt-manual:input:" + exported["input_record_id"]
+    original = store.metadata(key)
+    result = manual_chatgpt.status(path, store, NOW + timedelta(minutes=11))
+    assert result["ready"]
+    assert result["saved_input"] is None
+    assert result["saved_input_reason"]
+    assert result["selected_input"] == exported["input_record_id"]
+    assert store.metadata(key) == original
+
+
+def test_expired_comparison_keeps_history_but_never_reoffers_saved_prompt(ready):
+    _, path, store, _, _ = ready
+    exported = export(ready)
+    manual_chatgpt.import_answer(
+        path,
+        store,
+        {
+            "input_record_id": exported["input_record_id"],
+            "answer_json": json.dumps(answer_for(exported)),
+        },
+        NOW,
+    )
+    expired = manual_chatgpt.status(path, store, NOW + timedelta(minutes=16))
+    assert not expired["ready"]
+    assert expired["saved_input"] is None
+    assert len(expired["answers"]) == 1
