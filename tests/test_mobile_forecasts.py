@@ -90,6 +90,46 @@ def test_identical_freeze_reuses_original_numbers_and_generation_time(ready, mon
         assert db.execute("SELECT COUNT(*) FROM mobile_forecast_runs").fetchone()[0] == 1
 
 
+def test_old_history_outside_the_current_decision_scope_is_preserved_without_blocking(ready):
+    _, store, path, _, features, _ = ready
+    before = store.latest_portfolio()
+    for horizon in ("5", "20"):
+        features["features"][horizon].append({
+            "symbol": "9999", "available_at": (CUTOFF - timedelta(days=30)).isoformat(),
+            "f1": 1.0,
+        })
+    result = forecasts.generate(path, store, NOW)
+    snapshot = store.latest_prediction_snapshot()
+    assert result["phase"] == "published"
+    assert snapshot.research_symbols() == ("1000", "7203")
+    assert snapshot.holding_symbols == ("7203",)
+    assert all({symbol for symbol, _ in output["values"]} == {"1000", "7203"}
+               for output in result["outputs"])
+    assert result["data_proof"]["feature_values_sha256"] == content_id(features["features"])
+    assert store.latest_portfolio() == before
+
+
+@pytest.mark.parametrize(("symbol", "stamp"), [
+    ("1000", CUTOFF - timedelta(microseconds=1)),
+    ("7203", CUTOFF - timedelta(days=1)),
+    ("9999", CUTOFF + timedelta(microseconds=1)),
+    ("9999", CUTOFF.replace(tzinfo=None)),
+])
+def test_selected_stale_and_any_future_or_unzoned_features_cannot_publish(ready, symbol, stamp):
+    _, store, path, _, features, _ = ready
+    before = store.latest_portfolio()
+    rows = features["features"]["20"]
+    if symbol == "9999":
+        rows.append({"symbol": symbol, "available_at": stamp.isoformat(), "f1": 1.0})
+    else:
+        next(row for row in rows if row["symbol"] == symbol)["available_at"] = stamp.isoformat()
+    with pytest.raises(ValueError, match="Feature provenance mismatch"):
+        forecasts.generate(path, store, NOW)
+    assert store.latest_prediction_snapshot() is None
+    assert forecasts.latest(path) is None
+    assert store.latest_portfolio() == before
+
+
 def test_missing_held_forecast_preserves_partial_output_and_blocks_publication(ready):
     _, store, path, _, features, _ = ready
     features["features"]["5"] = features["features"]["5"][:1]

@@ -230,14 +230,20 @@ def generate(path: Path, store, now: datetime) -> dict:
     if inputs["as_of"] != cutoff.isoformat() or features["as_of"] != cutoff.isoformat():
         raise ValueError("Feature cutoff mismatch")
     maps = {}
+    decision_symbols = set(selection["decision_symbols"])
     for horizon in (5, 20):
         rows = features["features"][str(horizon)]
         by_symbol = {row["symbol"]: row for row in rows}
-        if len(by_symbol) != len(rows) or any(
-            datetime.fromisoformat(row["available_at"].replace("Z", "+00:00")) != cutoff
-            for row in rows
-        ):
+        if len(by_symbol) != len(rows):
             raise ValueError("Feature provenance mismatch")
+        for row in rows:
+            feature_as_of = datetime.fromisoformat(row["available_at"].replace("Z", "+00:00"))
+            # Retained history can include securities outside today's frozen
+            # candidates/holdings. Preserve its hash, without treating its last
+            # quote as a current decision or allowing future/naive timestamps.
+            if (feature_as_of.tzinfo is None or feature_as_of > cutoff
+                    or (row["symbol"] in decision_symbols and feature_as_of != cutoff)):
+                raise ValueError("Feature provenance mismatch")
         maps[horizon] = by_symbol
     proof = {"source_snapshot_ids": inputs["source_snapshot_ids"],
              "security_master_sources": market.master_references(path, cutoff),
