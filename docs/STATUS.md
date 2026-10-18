@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 旧配布版の保存互換とAPK置換試験の追加
+
+- D171。開始HEAD218c83e、branch android-completion-chatgpt。旧配布0.1.12のsource ab2d5caをGitから新規folderへ書き出し、8主要fileと全191fileを認証した。元の作業tree・私有差分・市場/モデル原本は保全。旧プラグインの分割暗号化から新版owner/WASMへ進む実際のAPK置換を、既存の使い捨てAPI35 AVDに追加した。debugの10012→20000を同じ証明書/IDで比較し、製品番号/署名や配布を変更しない。
+- 旧sourceで、合成の2口座・保有/現金/設定・判断/反映済み約定と型付きBLOBの816,840文字capsuleを生成。旧27table＋検査用1tableをPCで復元・別保存先へ再読込し、件数だけでなく全typed cells・列・既存schemaと入力revisionを照合する。空のmarket_batchesへの受領順序キー追加と技術cursor(1,0,0)だけを明示し、未確認の進捗・モデル採用・予測/判断の新規記録は許可しない。入力fixtureをLFとbyte hashで固定し、実データ/実モデル0を保持した。
+- 新規14件を含む保存/旧版互換/controller113件が単回成功、fail/error/skip0、JUnit16.834秒。Ruff全体と配布42file監査も成功。全1,509件は収集のみ。既知cursorと市場schemaの試験期待値が狭すぎた失敗2件→1件を保存し、現行sourceと独立手値/正確なDDLで確認して未知の変更は拒否した。Windows sandbox内のsocketpair待機は診断stackで切り分け、自分の隔離probeだけを停止して実行条件を修正した。製品の保存/計算/取引ロジックは変更していない。
+- 新しいCIは旧APKでseed→データ非消去の更新→新版verify→プロセス再起動reopenを実行し、UID/署名/Keystoreと各世代、端末出力の全旧tableを確認する。失敗後にuninstall/clearしない。専用3メソッドを通常試験と分離し、fixtureはtest APKのみに置く。新経路のコンパイル/端末実行成功はまだ未確認。空の取得履歴の代表例であり、全量旧履歴/実モデル・製品署名・Xiaomiの更新完了とはしない。
+- 2d8c04e/CI39118698323はverify/android/android-history成功、release skipまで確認。218c83e/CI39120433717は確認時点でandroid成功、verifyの全量保存工程が実行中。新しいsourceの成功へ流用しない。証拠は`.demo-artifacts/android-upgrade-20261018/`。費用込み市場NAV・最終採用・実機/実ChatGPTの残件は維持。実注文・外部AI送信・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 保存baseline/ensembleの同期間精度比較と資金receiptのNAV接続
 
 - D170。開始HEAD2d8c04e、branch android-completion-chatgpt。認証済みのbaselineとforward ensembleを再利用し、新Lightの固定価格で精度を比較した。事前に既存列/後半meta検証境界/20日blockを固定し、重み・校正・閾値・seedを変更しない。全期間のbaselineと18候補のキー/時刻/label_end/foldが一致し、後半はh5の177日/h20の140日に全候補をそろえた。前半も別記し、価格欠損による除外0。

@@ -11,6 +11,7 @@ on:
       - 'tests/test_mobile*.py'
       - 'tests/test_android_lifecycle_controller.py'
       - 'tests/test_android_history_check.py'
+      - 'tests/test_android_upgrade.py'
       - 'tests/test_cost_tax.py'
       - 'tests/test_tax_acquisition.py'
       - 'tests/test_chatgpt_research.py'
@@ -29,6 +30,8 @@ on:
       - 'tests/test_indicators.py'
       - 'scripts/*mobile*.py'
       - 'scripts/android_*.py'
+      - 'scripts/sqlite_evidence.py'
+      - 'scripts/fixtures/**'
       - 'pyproject.toml'
       - 'uv.lock'
   pull_request:
@@ -40,6 +43,7 @@ on:
       - 'tests/test_mobile*.py'
       - 'tests/test_android_lifecycle_controller.py'
       - 'tests/test_android_history_check.py'
+      - 'tests/test_android_upgrade.py'
       - 'tests/test_cost_tax.py'
       - 'tests/test_tax_acquisition.py'
       - 'tests/test_chatgpt_research.py'
@@ -58,6 +62,8 @@ on:
       - 'tests/test_indicators.py'
       - 'scripts/*mobile*.py'
       - 'scripts/android_*.py'
+      - 'scripts/sqlite_evidence.py'
+      - 'scripts/fixtures/**'
       - 'pyproject.toml'
       - 'uv.lock'
   workflow_dispatch:
@@ -109,7 +115,7 @@ jobs:
           uv run mypy src --platform win32
           uv run python -m pytest tests/test_chatgpt_manual.py tests/test_mobile_manual_chatgpt.py tests/test_candidate_registry.py tests/test_fixed_rule.py -q --basetemp=.demo-artifacts/pytest-daily-integration-ci
           uv run python -m pytest tests/test_research_selection.py tests/test_seed_stable_selection.py -q --basetemp=.demo-artifacts/pytest-seed-selection-ci
-          uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
+          uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py tests/test_android_upgrade.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
           uv run python -m pytest tests/test_dividends.py tests/test_market_nav.py tests/test_daily_nav.py tests/test_daily_strategy.py -q --basetemp=.demo-artifacts/pytest-market-nav-ci
           uv run python -m pytest tests/test_daily_market.py tests/test_daily_instruments.py -q --basetemp=.demo-artifacts/pytest-instrument-rules-ci
           uv run python -m pytest tests/test_research_funding.py tests/test_market_funding.py -q --basetemp=.demo-artifacts/pytest-funding-ci
@@ -178,12 +184,17 @@ jobs:
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      # Keep connected-test rebuilds on the same upgrade target version.
+      STOCKAI_VERSION_CODE: '20000'
     outputs:
       native_apks_ready: ${{ steps.native_apks.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Export the exact last-published source for a real APK replacement.
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
@@ -251,7 +262,7 @@ jobs:
       - name: Android persistence tests
         id: native_tests
         working-directory: web/android
-        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest
+        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest,jp.stockai.app.LegacyUpgradeSeedTest,jp.stockai.app.UpgradeCompatibilityTest
       - name: Native encrypted store capacity evidence
         if: always() && (steps.native_tests.outcome == 'success' || steps.native_tests.outcome == 'failure')
         run: |
@@ -278,6 +289,25 @@ jobs:
             screen-wake-and-scheduler) python scripts/android_lifecycle_check.py --dispatch-ready ;;
             *) exit 2 ;;
           esac
+      - name: Build last published source for upgrade acceptance
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          BASE=.demo-artifacts/android-upgrade-base
+          BASE_SHA=$(python -c "import json; print(json.load(open('scripts/fixtures/android-upgrade-source.json'))['source_commit'])")
+          python -m scripts.android_upgrade_check --prepare-base "$BASE"
+          npm ci --prefix "$BASE/web"
+          GITHUB_SHA="$BASE_SHA" python "$BASE/scripts/prepare_mobile.py" --download
+          npm run build --prefix "$BASE/web"
+          python "$BASE/scripts/android_package_audit.py" "$BASE/web/dist"
+          cd "$BASE/web"
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          STOCKAI_VERSION_CODE=10012 ./gradlew --no-daemon :app:assembleDebug
+      - name: Preserve data and keystore across actual same-signature APK upgrade
+        timeout-minutes: 10
+        run: python -m scripts.android_upgrade_check --base-apk .demo-artifacts/android-upgrade-base/web/android/app/build/outputs/apk/debug/app-debug.apk
       - name: Android diagnostics
         if: failure()
         run: |
@@ -296,6 +326,8 @@ jobs:
             .demo-artifacts/android-state-capacity/events.txt
             .demo-artifacts/android-lifecycle/lifecycle-report.json
             .demo-artifacts/android-lifecycle/*.txt
+            .demo-artifacts/android-upgrade/upgrade-report.json
+            .demo-artifacts/android-upgrade/*.txt
           if-no-files-found: ignore
           retention-days: 3
       - name: Stop emulator

@@ -39,10 +39,20 @@ npx cap sync android
 cd android
 .\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
 # 起動済みの専用emulator/テスト端末がある場合だけ:
-.\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest
+.\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest,jp.stockai.app.LegacyUpgradeSeedTest,jp.stockai.app.UpgradeCompatibilityTest
 ```
 
-runtimeのcore/lock/wheelを更新するときは、`mobile/runtime-packages.json`と`runtime-integrity.json`を同じ変更でレビューする。既存pinと異なるダウンロードは自動的に拒否する。テスト用の合成入力・モデルは`.demo-artifacts/android`にのみ生成し、APKに含めない。
+runtimeのcore/lock/wheelを更新するときは、`mobile/runtime-packages.json`と`runtime-integrity.json`を同じ変更でレビューする。既存pinと異なるダウンロードは自動的に拒否する。通常の計算用合成入力・モデルは`.demo-artifacts/android`に生成し、製品APKに含めない。D171の固定旧版fixtureはandroidTest assetsにのみ置き、test APKで使用する。
+
+## 旧版APKからの更新確認（D171）
+
+`scripts/android_upgrade_check.py`をCIの同じ専用API35 AVDへ追加した。最後に公開した0.1.12のsource `ab2d5ca9ecd7ec107e187f7c0697e053c3288316`をGitから新規の隔離folderへ書き出し、旧版APKを組み立てる。既存checkoutや本人のデータをreset/上書きしない。元8fileと全191fileのhashを記録し、合成fixtureの生成時にも旧sourceを照合する。旧APKのversionCode10012、新APKの20000はdebug試験用で、製品版番号・公開署名鍵は変更しない。
+
+旧APKで合成の保有/現金・補足設定・提案/判断・反映済み約定と型付きBLOBを実際のKeystore/分割保存へ書き、`adb install -r`でデータを消さず新版へ置換する。アプリUID・署名fingerprint・合成キーの復号と世代を照合し、新しい同梱WASM runtimeの読み込み・保存・プロセス再起動後にも確認する。更新失敗後にuninstall/clearで成功へ切り替えない。旧27table＋型検査用1tableの内容/列/既存schemaを検査し、空の市場履歴tableへの受領順序キー追加と既知の圧縮cursor `(1,0,0)`だけを明示的に許可する。
+
+fixtureは`src/androidTest/assets/legacy-upgrade.json`に限定し、株価取得歴・実モデルは0。旧ソースの合成生成手順は`scripts/fixtures/android_upgrade_seed.py`、source/hashは隣接JSONで固定する。fixture/capsule/SQLiteを製品APKへ含めず、CIからもmetadata reportだけを保存する。PCの互換試験とAPK置換・製品署名・Xiaomiの成功は別の証拠とする。今回の更新試験は空の取得履歴を持つ旧版の代表例で、全量履歴や実モデルを持つ端末の更新成功とは扱わない。
+
+制御条件は既存の`Controller.guard`と同じで、GitHubの使い捨てAVD以外では拒否する。通常のconnected試験から新しい専用3メソッドを除外し、CIの専用stepが旧版seed→新版verify→再起動reopenの順で実行する。実行を追加したことだけで完了とはせず、`android-test-reports`の`upgrade-report.json`と各phaseを確認する。[ADBの更新オプション](https://developer.android.com/tools/adb)、[Android署名](https://developer.android.com/studio/publish/app-signing)を参照。
 
 CIでは通常のinstrumented試験の後に、専用test APKと`scripts/android_lifecycle_check.py`で実プロセス終了・画面オフ・kernel reboot・強制停止後の明示再起動を確認する。このcontrollerは使い捨てGitHub AVD/API35だけを許可し、debugアプリを初期化する。ローカルや実機では実行せず、拒否条件を外さない。通常の試験と異なり、no-restart instrumentationで準備し、検証コードを差し込む前に外側からnative ACKと暗号化保存の世代更新を観測する。
 
