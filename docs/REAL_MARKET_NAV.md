@@ -10,6 +10,10 @@ $env:PYTHONPATH='.;src'
 
 入力型は`stock_ai.ml.market_nav.MarketStrategyRequest`。既存の`DailyStrategyInput`、認証済み`daily-market-projection-v1`のpath/byte SHA-256/期間、`write_daily_oof_day`で保存した日別予測のpath/byte SHA-256/as_ofを固定する。feature selectionを既存loaderで認証し、dataset・feature selection・holdout境界を市場receiptと照合する。各日の予測は保存済み予測と全項目が一致しなければ拒否する。
 
+D170：D169の共通研究用資金ルールを使う新しい再生では、`research_funding_receipt`へ`research project-research-funding`のpath/byte SHA-256/暦日期間を指定する。NAV入口で内容を認証し、モデル/特徴量/holdoutのidentity、宣言期間と全暦日、calendar ID、全sessionの資金解放時刻を照合する。市場receiptと同じcatalog/store・source_snapshot_as_of・訂正版方針を要求し、別版のカレンダーや早い資金解放、未知末尾を補正しない。宣言期間のholdout検査は市場/資金fileを開く前に行う。
+
+結果の`research_funding_policy`にはpolicy版・calendar ID・元receipt hash・`research_assumption=true`・`broker_verified=false`を保存する。過去の独立した根拠と明示時刻を持つ入力は省略のまま読めるが、結果を`null`として新ルール適用済みとは表示しない。資金scheduleが一致しても企業行動・方向別売買状態/容量・当時の情報・費用の確認は必要で、資金仮定を本人の口座余力や市場データ充足の証明へ使わない。
+
 `evaluation_tier`は`price_only_research`（配当を除く価格ベース）または`dividend_inclusive_research`（配当込み）。新しい配当なし比較では前者を明示する。省略した旧入力は従来の配当込み確認を要求し、勝手に条件を変更しない。CLI出力と成功/停止receiptの両方に区分と`dividend_treatment`を保存する。
 
 配当なしでは`dividend_treatment=excluded_not_assumed_zero`を記録し、未知配当をゼロと判定しない。入力に配当イベントがあれば、市場fileを開く前に拒否する。イベントを黙って削除して実行しない。未調整価格の権利落ちによる価格変化はそのまま損益へ反映し、配当権利/入金を加算しない。同じ扱いをstrategyとHOLDに適用し、配当込み収益とは比較区分を分ける。研究用・税引前・採用不可は両区分で維持する。

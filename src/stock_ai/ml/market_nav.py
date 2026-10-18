@@ -20,11 +20,16 @@ from typing import Any, Literal, Self
 
 from pydantic import Field, model_validator
 
+from stock_ai.ml.daily_market import DailyMarketRequest
 from stock_ai.ml.daily_oof import DailyOofDay
 from stock_ai.ml.daily_strategy import DailyStrategyInput, evaluate_daily_strategy
 from stock_ai.ml.evaluation_audit import write_audit_receipt
 from stock_ai.ml.nav import JST, NavModel
-from stock_ai.ml.selection import load_development_feature_selection
+from stock_ai.ml.research_funding import POLICY_VERSION, require_research_funding
+from stock_ai.ml.selection import (
+    DevelopmentFeatureSelectionArtifact,
+    load_development_feature_selection,
+)
 
 
 class PinnedEvidence(NavModel):
@@ -76,6 +81,9 @@ class MarketStrategyRequest(NavModel):
     feature_selection_path: Path
     strategy: DailyStrategyInput
     market_receipts: tuple[MarketReceipt, ...]
+    # Optional only for old independently reviewed explicit-funding inputs.
+    # New D169 replays pin the full authenticated calendar projection here.
+    research_funding_receipt: MarketReceipt | None = None
     forecast_receipts: tuple[ForecastReceipt, ...] = ()
     evidence_sources: tuple[PinnedEvidence, ...] = ()
     action_coverage: tuple[ActionCoverage, ...] = ()
@@ -118,6 +126,31 @@ def profile_market_rows(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _funding_request(
+    request: MarketStrategyRequest, features: DevelopmentFeatureSelectionArtifact,
+) -> DailyMarketRequest | None:
+    ref = request.research_funding_receipt
+    if ref is None:
+        return None
+    schedule = json.loads(ref.read())
+    if (
+        schedule.get("feature_selection_id") != features.feature_selection_id
+        or schedule.get("model_data_snapshot_id") != features.data_snapshot_id
+        or schedule.get("locked_holdout_start") != features.locked_holdout_start
+        or schedule.get("holdout_rows_read") is not False
+    ):
+        raise ValueError("research funding identity differs from the frozen development input")
+    source = DailyMarketRequest.model_validate(schedule["request"])
+    require_research_funding(request.strategy.accounting, schedule)
+    if (
+        source.start != ref.start or source.end != ref.end
+        or schedule["calendar_rows"][0]["date"] != str(ref.start)
+        or schedule["calendar_rows"][-1]["date"] != str(ref.end)
+    ):
+        raise ValueError("research funding window differs from its pinned calendar")
+    return source
+
+
 def _market_rows(request: MarketStrategyRequest) -> dict[tuple[date, str], dict[str, Any]]:
     features = load_development_feature_selection(request.feature_selection_path)
     boundary = date.fromisoformat(features.locked_holdout_start)
@@ -135,10 +168,25 @@ def _market_rows(request: MarketStrategyRequest) -> dict[tuple[date, str], dict[
     for forecast in request.forecast_receipts:
         if forecast.as_of.astimezone(JST).date() >= boundary:
             raise ValueError("forecast receipt reaches the locked holdout")
+    funding_ref = request.research_funding_receipt
+    if funding_ref is not None and (
+        funding_ref.start > funding_ref.end or funding_ref.end >= boundary
+    ):
+        raise ValueError("research funding reaches locked holdout or reverses its window")
+    funding_source = _funding_request(request, features)
     rows: dict[tuple[date, str], dict[str, Any]] = {}
     for ref in request.market_receipts:
         receipt = json.loads(ref.read())
         envelope = receipt["request"]
+        if funding_source is not None:
+            try:
+                market_source = DailyMarketRequest.model_validate(envelope)
+            except ValueError as exc:
+                raise ValueError("market/funding source vintage is incomplete") from exc
+            if any(getattr(market_source, key) != getattr(funding_source, key) for key in (
+                "catalog_path", "store_root", "source_snapshot_as_of", "revision_policy",
+            )):
+                raise ValueError("market/funding source vintage differs")
         if (
             receipt["schema_version"] != "daily-market-projection-v1"
             or receipt["price_basis"] != "unadjusted"
@@ -279,6 +327,11 @@ def evaluate_market_strategy(request: MarketStrategyRequest) -> dict[str, Any]:
         "schema_version": "market-nav-result-v1", "research_only": True,
         "adoption_eligible": False, "tax_mode": "pre_tax", "no_order_sent": True,
         "holdout_scored": False, "input": request.model_dump(mode="json"),
+        "research_funding_policy": None if request.research_funding_receipt is None else {
+            "policy_version": POLICY_VERSION, "calendar_id": accounting.calendar_id,
+            "receipt_sha256": request.research_funding_receipt.sha256,
+            "research_assumption": True, "broker_verified": False,
+        },
         "evaluation_scope": "development_only",
         "evaluation_tier": request.evaluation_tier,
         "dividend_treatment": (
@@ -292,7 +345,8 @@ def evaluate_market_strategy(request: MarketStrategyRequest) -> dict[str, Any]:
             name: hashlib.sha256((Path(__file__).parents[1] / name).read_bytes()).hexdigest()
             for name in ("ml/daily_strategy.py", "ml/daily_oof.py", "ml/nav.py",
                          "decision/engine.py", "decision/costs.py", "decision/tax.py",
-                         "domain/models.py", "ml/market_nav.py", "ml/selection.py")
+                         "domain/models.py", "ml/market_nav.py", "ml/selection.py",
+                         "ml/research_funding.py")
         },
         "pydantic_version": version("pydantic"), "decimal_precision": 28,
         "evidence_scope": "Pinned local research evidence; not vendor certification or adoption.",

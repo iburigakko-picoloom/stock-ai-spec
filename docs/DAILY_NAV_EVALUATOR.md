@@ -23,6 +23,8 @@ $env:PYTHONPATH='src'
 
 `build_funding_schedule`のcalendar IDと行別`sale_cash_available_at`をNavInput/NavSessionへ明示する。`require_research_funding`は再構築した規則/全日付/時刻と既存sessionを再生前に照合し、不一致・未確定・改変を拒否する。既存の時刻を黙って修正しない。口座間の資金転用・実台帳の更新は行わず、既存NAVの未収金・現金会計を再利用する。
 
+D170で[実市場NAV入口](REAL_MARKET_NAV.md)の`research_funding_receipt`へ接続。元receiptのbyte hash・モデル/特徴量版・期間・市場と同じ取得版を確認してから既存sessionを照合し、適用したpolicyと`broker_verified=false`を評価結果へ残す。旧明示入力は新ルール未適用として区別する。この接続の通し試験も合成データであり、実市場損益や当時の口座余力の検証とは区別する。
+
 ```powershell
 .venv/Scripts/python.exe -m stock_ai research project-research-funding --input <固定calendarの入力JSON> --output-root <私有保存先>
 ```

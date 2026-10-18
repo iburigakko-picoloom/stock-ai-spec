@@ -19,6 +19,7 @@ on:
       - 'tests/test_fixed_rule.py'
       - 'tests/test_daily_instruments.py'
       - 'tests/test_research_funding.py'
+      - 'tests/test_market_funding.py'
       - 'tests/test_daily_market.py'
       - 'tests/test_research_selection.py'
       - 'tests/test_seed_stable_selection.py'
@@ -47,6 +48,7 @@ on:
       - 'tests/test_fixed_rule.py'
       - 'tests/test_daily_instruments.py'
       - 'tests/test_research_funding.py'
+      - 'tests/test_market_funding.py'
       - 'tests/test_daily_market.py'
       - 'tests/test_research_selection.py'
       - 'tests/test_seed_stable_selection.py'
@@ -110,7 +112,7 @@ jobs:
           uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
           uv run python -m pytest tests/test_dividends.py tests/test_market_nav.py tests/test_daily_nav.py tests/test_daily_strategy.py -q --basetemp=.demo-artifacts/pytest-market-nav-ci
           uv run python -m pytest tests/test_daily_market.py tests/test_daily_instruments.py -q --basetemp=.demo-artifacts/pytest-instrument-rules-ci
-          uv run python -m pytest tests/test_research_funding.py -q --basetemp=.demo-artifacts/pytest-funding-ci
+          uv run python -m pytest tests/test_research_funding.py tests/test_market_funding.py -q --basetemp=.demo-artifacts/pytest-funding-ci
           uv run python -m pytest tests/test_cost_tax.py tests/test_tax_acquisition.py -q --basetemp=.demo-artifacts/pytest-cost-tax-ci
           uv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_personal.py tests/test_mobile_models.py tests/test_mobile_bundles.py tests/test_mobile_forecasts.py tests/test_mobile_decisions.py tests/test_mobile_research.py tests/test_mobile_market.py tests/test_mobile_market_codec.py tests/test_mobile_feature_source.py tests/test_mobile_features.py tests/test_mobile_universe.py tests/test_mobile_membership.py tests/test_mobile_release.py tests/test_bounded_decision.py tests/test_decision_engine.py tests/test_domain.py tests/test_daily_contracts.py tests/test_personal_comparison.py tests/test_production_research.py tests/test_features.py tests/test_indicators.py tests/test_chatgpt_research.py tests/test_research_workflow.py tests/test_operations_store.py tests/test_operations_api.py -q --basetemp=.demo-artifacts/pytest-mobile-ci
           uv run python -m pytest tests/test_research_checkpoint.py::test_fold_checkpoint_is_atomic_authenticated_and_read_only_status tests/test_locked_holdout.py::test_locked_holdout_resumes_components_and_never_refits_successes tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom tests/test_research_memory.py::test_low_headroom_never_calls_fit -q --basetemp=.demo-artifacts/pytest-platform-ci

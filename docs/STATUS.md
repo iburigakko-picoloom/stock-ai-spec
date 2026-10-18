@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-18 — 保存baseline/ensembleの同期間精度比較と資金receiptのNAV接続
+
+- D170。開始HEAD2d8c04e、branch android-completion-chatgpt。認証済みのbaselineとforward ensembleを再利用し、新Lightの固定価格で精度を比較した。事前に既存列/後半meta検証境界/20日blockを固定し、重み・校正・閾値・seedを変更しない。全期間のbaselineと18候補のキー/時刻/label_end/foldが一致し、後半はh5の177日/h20の140日に全候補をそろえた。前半も別記し、価格欠損による除外0。
+- 355.965秒で140本の指標系列、2期間×3種類×4出力の全seed平均・ばらつき、四半期、80組の日付を組にした記述的block対比を私有保存。元の18候補×4出力がensembleの保存componentと完全一致し、保存済み重み/校正からensemble出力も再現した。零return予測のICを0と扱わず、順位scoreのMSEをreturn誤差と表示しない。元target列を評価値へ読み込まず、原本4,456fileの前後hash変更0。再学習・再校正・モデル選択・最終期間開封なし。精度比較であり、HOLD/現金/指数との費用込み資産推移ではない。
+- `MarketStrategyRequest.research_funding_receipt`を追加。元byte hashとモデル/特徴量/holdout/暦日期間、同じmarket取得版、calendar IDと全sessionの資金解放時刻を入口で照合する。宣言holdoutは市場/calendar fileを開く前に拒否。適用policyを結果へ保存し、`broker_verified=false`を保持する。旧明示入力は読取互換を保ち、新ルール未適用をnullで区別する。企業行動・方向別執行/容量・当時の情報・費用の既存gateは維持。
+- 新規14件を含む市場/資金/strategy/NAV/固定ルール185件が単回成功、fail/error/skip0、JUnit49.279秒。接続module coverage86.686%、Ruff全体・mypy Linux/win32の74file・配布package42file監査成功。全1,495件は収集のみ。未接続でのfixture拒否1件、精度比較の日時精度差による照合失敗、計測器のdotted module探索によるNumPy/DuckDB再帰初期化失敗を保全。日付はnsへ正規化して値を完全一致させ、計測対象をfilesystemへ変えて85%基準を保った。新通し試験をCIへ追加した。
+- 前回1173b74/CI39116998251はverify/android/android-history成功、release skipまで確認。2d8c04e/CI39118698323は確認時点でverify/android実行中で、今回の新sourceの成功とは扱わない。Android/Web sourceと元私有71/31/89行、既存データ/モデル原本を保全。実市場NAV/単純戦略/ensembleの費用込み比較、最終固定/未使用final、推論weightの紐付け・採用、Xiaomi/実ChatGPT受入は未完。証拠は`.demo-artifacts/baseline-replay-20261018/`。実注文・外部AI送信・新規課金・main merge・製品APK公開なし。
+
 ## 2026-10-18 — 全18候補の4出力精度比較と研究用資金解放の固定
 
 - D169。開始HEAD1173b74、branch android-completion-chatgpt。前回turnは単元/呼値の実装・全期間検証まで進捗ありと確認。実市場NAVの成績を見る前に、現物営業日を決済日のproxyとするT+2と、T+3/09:00 JSTまで待つ研究用資金解放を区別して固定した。後者は本人の証券口座の規則ではなく、`broker_verified=false`の追加仮定。元の資金/配分/費用条件や既存NAV/採用gateは変更しない。
