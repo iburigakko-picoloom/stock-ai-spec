@@ -59,6 +59,7 @@ class DailyMarketRequest(BaseModel):
 
 def _authenticate_object(
     store: ImmutableParquetStore, catalog_row: dict[str, Any],
+    *, dataset: DatasetName = DatasetName.DAILY_PRICES,
 ) -> StoredObject:
     stored = store.verify(Path(catalog_row["parquet_path"]).parent)
     for key in _CATALOG_FIELDS:
@@ -69,7 +70,10 @@ def _authenticate_object(
             matches = expected == observed
         if not matches:
             raise StorageIntegrityError(f"catalog/manifest mismatch: {key}")
-    if stored.provider != "J-Quants" or stored.source_endpoint != "/equities/bars/daily":
+    if (
+        stored.provider != "J-Quants" or stored.dataset != dataset
+        or stored.source_endpoint != ENDPOINT_SCHEMAS[dataset].endpoint
+    ):
         raise StorageIntegrityError("unexpected daily market provider/endpoint")
     return stored
 
@@ -86,7 +90,7 @@ def _read_frame(stored: StoredObject) -> pd.DataFrame:
                 raise StorageIntegrityError("invalid source record hash")
             continue
         expected = (
-            ENDPOINT_SCHEMAS[DatasetName.DAILY_PRICES].schema_version
+            ENDPOINT_SCHEMAS[stored.dataset].schema_version
             if key == "schema_version" else getattr(stored, key)
         )
         if not frame[key].eq(expected).all():
