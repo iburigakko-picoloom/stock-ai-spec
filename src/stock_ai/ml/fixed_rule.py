@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -56,7 +57,7 @@ class FixedSignalDay(NavModel):
             not symbols
             or len(symbols) != len(set(symbols))
             or len(prices) != len(self.reference_prices)
-            or set(prices) != set(symbols)
+            or not set(symbols) <= set(prices)
             or any(not math.isfinite(v) for _, v in self.scores)
             or any(not p.is_finite() or p <= 0 for p in prices.values())
         ):
@@ -89,6 +90,8 @@ def evaluate_fixed_rule(
     accounting: NavInput,
     signals: tuple[FixedSignalDay, ...],
     policy: FixedRulePolicy,
+    *,
+    exposure_guard: Callable[[NavDecisionState, tuple[NavOrder, ...]], None] | None = None,
 ) -> tuple[NavInput, NavResult, tuple[dict[str, object], ...]]:
     """Equal capital per top score; no overlapping label-return compounding.
 
@@ -120,6 +123,8 @@ def evaluate_fixed_rule(
     def decide(state: NavDecisionState) -> tuple[NavOrder, ...]:
         index, signal = by_time[state.as_of]
         if index % policy.horizon:
+            if exposure_guard is not None:
+                exposure_guard(state, ())
             return ()
         prices = dict(signal.reference_prices)
         held = {p.symbol: p.shares for p in state.positions}
@@ -183,6 +188,8 @@ def evaluate_fixed_rule(
                 "orders": [o.model_dump(mode="json") for o in orders],
             }
         )
+        if exposure_guard is not None:
+            exposure_guard(state, tuple(orders))
         return tuple(orders)
 
     realized, result = evaluate_stateful_nav(

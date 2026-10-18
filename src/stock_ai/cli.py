@@ -1853,6 +1853,28 @@ def evaluate_fixed_rule_command(
                            "market_evidence_certified": False}))
 
 
+@research_app.command("evaluate-assumed-market")
+def evaluate_assumed_market_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/assumed-market"),
+) -> None:
+    """Replay explicitly assumed daily execution without relaxing strict evaluation."""
+    from stock_ai.ml.assumed_market import AssumedMarketRequest, write_assumed_market
+
+    try:
+        request = AssumedMarketRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_assumed_market(request, output_root)
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+        typer.echo(f"assumption research blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"status":result["status"], "evaluation_path":str(path),
+                           "elapsed_seconds":result["elapsed_seconds"],
+                           "adoption_eligible":False}))
+    if result["status"] != "COMPLETE_ASSUMPTION_RESEARCH":
+        raise typer.Exit(2)
+
+
 @research_app.command("register-daily-candidates")
 def register_daily_candidates_command(
     features: Annotated[Path, typer.Option(exists=True, dir_okay=False)],

@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-10-18 — 範囲固定と最初の実データ費用込み研究NAV
+
+- 開始HEAD ba696557c6f40645b5144f7e46112f7215440a00、PR #2 / android-completion-chatgpt。未commitの私有71/31/89行・旧原本・現Light固定原本を保全。CI39133680742は同HEAD対象でandroid成功、verify実行中。前HEAD74d5530のCI39131102705は全体success。今回のPC研究変更を既存APKの試験済みと読み替えない。
+- D176で完成範囲を固定し、厳密NAVの既定チェックを保持した専用の仮定付き研究入口を追加。市場読込・保存OOF・固定ルール・状態付きNAVを再利用。入力は成績計算前にhash固定。利用権限不明/破損/既知未来情報は拒否し、保有または注文に影響する既知未処理イベントは不完全/停止。未知の網羅性や厳密執行は仮定・未解決として結果に明記する。
+- 成績で選ばないLightGBM/seed17/回帰順位、2024-09-13〜10-22の25営業日で5日/20日各1本を20/40bpsで完走。初回20bpsは4.540/4.280秒、最終コードの4条件は各4.288〜4.698秒。全日の会計恒等式・非負資金/株数・100株単位・費用一回計上を検算。時刻serialization修正後の20bpsは初回と全金融出力が完全一致。私有結果JSON/比較表・条件・hash・実測は`.demo-artifacts/scoped-completion-20261018/minimum-final-audited.json`と`minimum-comparison.md`。全18候補の比較/採用判断には未使用。
+- 関連168件が単回成功、17.82秒、新module branch込みcoverage86.86%。Ruffとmypy全75source成功。strict既存試験と新規の権限/破損/未来時点/入力不一致/最終期間/既知イベント拒否を維持。失敗した時刻型の試行と初回コード/結果も保全。全体試験やAndroid実機の新たな成功とはしない。
+- 保存済み18構成はOOF認証済みだが、当該report/OOF契約から推論に使えるweightは0件。全面再学習せず、役割選定後に必要fitだけ実行する。リターンheadのみなら最低2、現行4head端末契約なら4。順位head採用やrisk省略時には端末契約の明示的な対応が必要で、偽のrisk0は生成しない。fitは未開始、時間は未実測。
+- 全候補の共通開発期間A/B/C/D/E・単純baseline/HOLD、採否理由、本人用bundle、実モデルPC/端末一致、Xiaomi一括受入は未完。仮定付き研究だけで採用条件を満たさずHOLD、最終holdoutは未開封。候補APKは既存CI成果物/source証拠を再利用して準備し、公開配布や異署名のためのデータ消去は行わない。
+
 ## 2026-10-18 — 全量Android復元と受領履歴からのWASM予測・相談を検証
 
 - 開始HEAD74d5530、branch android-completion-chatgpt。前回はnative84件/旧source debug更新の実証と文書push/PR更新まで進捗あり。同じCI39128328946はverify/android/android-history success・release skipで完了。観測待ちで中止/再起動せず原本を取得し、関連25sourceのGit blob/現製品、合成入力と参照report、前回認証した実APK hashを照合した。

@@ -174,8 +174,19 @@ def _market_rows(request: MarketStrategyRequest) -> dict[tuple[date, str], dict[
     ):
         raise ValueError("research funding reaches locked holdout or reverses its window")
     funding_source = _funding_request(request, features)
+    return read_market_receipts(request.market_receipts, features, funding_source)
+
+
+def read_market_receipts(
+    receipts: tuple[MarketReceipt, ...], features: DevelopmentFeatureSelectionArtifact,
+    funding_source: DailyMarketRequest | None = None,
+) -> dict[tuple[date, str], dict[str, Any]]:
+    """Shared authenticated raw-price reader; supplies no execution certification."""
+    boundary = date.fromisoformat(features.locked_holdout_start)
+    if any(ref.start > ref.end or ref.end >= boundary for ref in receipts):
+        raise ValueError("market receipt reaches locked holdout or reverses its window")
     rows: dict[tuple[date, str], dict[str, Any]] = {}
-    for ref in request.market_receipts:
+    for ref in receipts:
         receipt = json.loads(ref.read())
         envelope = receipt["request"]
         if funding_source is not None:
