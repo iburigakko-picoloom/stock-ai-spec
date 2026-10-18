@@ -432,9 +432,7 @@ def test_altered_lineage_domain_prices_and_execution_assumptions_are_rejected(pr
             update={
                 "rule": rule.model_copy(
                     update={
-                        "policy": rule.policy.model_copy(
-                            update={"invested_fraction": D("0.8")}
-                        )
+                        "policy": rule.policy.model_copy(update={"invested_fraction": D("0.8")})
                     }
                 )
             }
@@ -482,6 +480,128 @@ def test_float_factor_resolution_never_rounds_approximate_values():
     for value in (0, 1, float("nan"), 0.333333):
         with pytest.raises(ValueError):
             reported_share_ratio(value)
+
+
+@pytest.mark.parametrize("task", ["rank_return", "rank_return_risk"])
+def test_fixed_combinations_use_percentile_ranks_and_reverse_loss_probability(task):
+    frame = pd.DataFrame(
+        [
+            {
+                "as_of": at(0, 11),
+                "trading_date": pd.Timestamp(INITIAL.date()),
+                "symbol": str(1000 + i),
+                "task": name,
+                "prediction": value,
+            }
+            for name, values in {
+                "regression": [1, 3, 2],
+                "ranking": [3, 1, 2],
+                "quantile": [3, 2, 1],
+                "large_loss": [0.1, 0.5, 0.9],
+            }.items()
+            for i, value in enumerate(values)
+        ]
+    )
+    observed = module.saved_score_mapping(frame, task)[at(0, 11)]
+    expected = [1 / 3, 1 / 3, 1 / 3] if task == "rank_return" else [0.5, 1 / 6, -1 / 6]
+    assert list(observed.values()) == pytest.approx(expected)
+    if task == "rank_return_risk":
+        with pytest.raises(ValueError, match="every saved task"):
+            module.saved_score_mapping(
+                frame.loc[~((frame.task == "quantile") & (frame.symbol == "1000"))], task
+            )
+
+
+@pytest.mark.parametrize("recipe", ["weighted_return", "momentum_20d"])
+def test_saved_benchmark_requires_authenticated_unchanged_development_receipt(prepared, recipe):
+    request = prepared()
+    folder = request.score_source.path.parent
+    frame = pd.read_parquet(request.score_source.path)
+    frame[recipe] = frame.prediction
+    path = folder / "benchmark.parquet"
+    frame[["as_of", "trading_date", "symbol", recipe]].to_parquet(path, index=False)
+    proof = {
+        "schema_version": "daily-forward-crossfit-v1"
+        if recipe == "weighted_return"
+        else "daily-regression-risk-simple-baselines-v3",
+        "research_only": True,
+        "holdout_scored": False,
+        "adoption_eligible": False,
+        "feature_selection_id": "TEST",
+        "data_snapshot_id": "DATA",
+        "results": [{"horizon": 5, "oof_path": str(path), "oof_byte_sha256": module._sha(path)}],
+    }
+    proof_path = folder / "benchmark-receipt.json"
+    proof_path.write_text(json.dumps(proof))
+    proof_ref = pin(proof_path)
+    audit = {
+        "status": "COMPLETE_RESEARCH",
+        "holdout_opened": False,
+        "training_performed": False,
+        "weights_or_calibration_changed": False,
+        "feature_selection_id": "TEST",
+        "model_data_snapshot_id": "DATA",
+        "input_receipts": {str(proof_ref.path): proof_ref.sha256},
+        "results": [{"horizon": 5, "ensemble_predictions_reproduced_from_saved_models": True}],
+    }
+    audit_path = folder / "authenticated-replay.json"
+    audit_path.write_text(json.dumps(audit))
+    source = module.SavedBenchmarkSource(
+        **pin(path).model_dump(),
+        kind="saved-benchmark",
+        horizon=5,
+        recipe=recipe,
+        receipt=proof_ref,
+        authentication=pin(audit_path),
+    )
+    request = request.model_copy(update={"score_source": source})
+    assert evaluate_assumed_market(request)["status"] == "COMPLETE_ASSUMPTION_RESEARCH"
+    audit["weights_or_calibration_changed"] = True
+    audit_path.write_text(json.dumps(audit))
+    request = request.model_copy(
+        update={"score_source": source.model_copy(update={"authentication": pin(audit_path)})}
+    )
+    with pytest.raises(ValueError, match="authenticated development"):
+        evaluate_assumed_market(request)
+
+
+@pytest.mark.parametrize("task", ["rank_return", "rank_return_risk"])
+def test_combined_saved_heads_reach_the_same_fixed_rule_without_return_units(prepared, task):
+    request = prepared()
+    frame = pd.read_parquet(request.score_source.path)
+    heads = [frame]
+    for name, factor in [("ranking", 2), ("quantile", 0.3), ("large_loss", -0.05)]:
+        head = frame.copy()
+        head["task"] = name
+        head["prediction"] = head.prediction * factor
+        heads.append(head)
+    pd.concat(heads, ignore_index=True).to_parquet(request.score_source.path, index=False)
+    score = request.score_source.model_copy(
+        update={"task": task, "sha256": module._sha(request.score_source.path)}
+    )
+    registry = json.loads(request.candidate_registry.path.read_text())
+    registry["candidates"][0]["authenticated_reports"]["TEST"]["oof_file_sha256"] = score.sha256
+    request.candidate_registry.path.write_text(json.dumps(registry))
+    request = request.model_copy(
+        update={"score_source": score, "candidate_registry": pin(request.candidate_registry.path)}
+    )
+    mapped = module._scores(request)
+    signals = tuple(
+        s.model_copy(
+            update={
+                "scores": tuple(sorted(mapped[s.as_of].items(), key=lambda x: (-x[1], x[0]))[:20]),
+                "score_unit": "ranking_score",
+            }
+        )
+        for s in request.rule.signals
+    )
+    request = request.model_copy(
+        update={"rule": request.rule.model_copy(update={"signals": signals})}
+    )
+    result = evaluate_assumed_market(request)
+    assert result["status"] == "COMPLETE_ASSUMPTION_RESEARCH"
+    assert not result["adoption_eligible"]
+    assert {o["symbol"] for o in result["generated_orders"]} == {str(1000 + i) for i in range(20)}
 
 
 def test_cli_pins_assumptions_before_replay_without_claiming_strict_coverage(prepared, tmp_path):

@@ -17,6 +17,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Literal
 
+import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -34,7 +35,19 @@ class SavedScoreSource(PinnedEvidence):
     family: Literal["lightgbm", "xgboost", "catboost"]
     horizon: Literal[5, 20]
     seed: int
-    task: Literal["regression", "ranking"]
+    task: Literal["regression", "ranking", "rank_return", "rank_return_risk"]
+
+
+class SavedBenchmarkSource(PinnedEvidence):
+    kind: Literal["saved-benchmark"]
+    horizon: Literal[5, 20]
+    recipe: Literal["weighted_return", "momentum_20d"]
+    receipt: PinnedEvidence
+    authentication: PinnedEvidence
+
+    @property
+    def task(self) -> Literal["regression"]:
+        return "regression"
 
 
 class ResearchAssumptions(NavModel):
@@ -55,7 +68,7 @@ class AssumedMarketRequest(NavModel):
     feature_selection_path: Path
     frozen_source_manifest: PinnedEvidence
     candidate_registry: PinnedEvidence
-    score_source: SavedScoreSource
+    score_source: SavedScoreSource | SavedBenchmarkSource
     # A shared, fixed daily domain; never candidate-specific survivor filtering.
     eligible_universe: PinnedEvidence
     market_receipts: tuple[MarketReceipt, ...]
@@ -82,6 +95,8 @@ def reported_share_ratio(factor: Any) -> Fraction:
 
 def _scores(request: AssumedMarketRequest) -> dict[datetime, dict[str, float]]:
     source, signals = request.score_source, request.rule.signals
+    if isinstance(source, SavedBenchmarkSource):
+        return _benchmark_scores(request, source)
     registry = json.loads(request.candidate_registry.read())
     matches = [
         r
@@ -98,6 +113,12 @@ def _scores(request: AssumedMarketRequest) -> dict[datetime, dict[str, float]]:
     timestamp_type = pq.ParquetFile(source.path).schema_arrow.field("as_of").type
     if not pa.types.is_timestamp(timestamp_type) or timestamp_type.tz is None:
         raise ValueError("saved prediction timestamps need an explicit timezone")
+    tasks = {
+        "regression": ["regression"],
+        "ranking": ["ranking"],
+        "rank_return": ["regression", "ranking"],
+        "rank_return_risk": ["regression", "ranking", "quantile", "large_loss"],
+    }[source.task]
     table = pq.read_table(
         source.path,
         columns=[
@@ -116,19 +137,109 @@ def _scores(request: AssumedMarketRequest) -> dict[datetime, dict[str, float]]:
             ("horizon", "=", source.horizon),
             ("model_family", "=", source.family),
             ("seed", "=", source.seed),
-            ("task", "=", source.task),
+            ("task", "in", tasks),
         ],
     )
+    return saved_score_mapping(table.to_pandas(), source.task)
+
+
+def saved_score_mapping(frame: Any, task: str) -> dict[datetime, dict[str, float]]:
+    """One fixed mapping for both input preparation and authenticated replay."""
+    tasks = {
+        "regression": ["regression"],
+        "ranking": ["ranking"],
+        "rank_return": ["regression", "ranking"],
+        "rank_return_risk": ["regression", "ranking", "quantile", "large_loss"],
+    }[task]
+    frame = frame.loc[frame.task.isin(tasks)]
+    _validate_score_rows(frame)
+    if len(tasks) > 1:
+        panel = frame.pivot(index=["as_of", "symbol"], columns="task", values="prediction")
+        if set(panel.columns) != set(tasks) or panel.isna().any().any():
+            raise ValueError("fixed combination requires every saved task on identical keys")
+        # Existing uniform within-date percentile normalization, without fitting.
+        ranks = (panel.groupby(level="as_of").rank(method="average", pct=True) - 0.5) * 2
+        combined = ranks["regression"] + ranks["ranking"]
+        if task == "rank_return_risk":
+            combined = combined + ranks["quantile"] - ranks["large_loss"]
+        frame = (combined / len(tasks)).rename("prediction").reset_index()
+    return _score_mapping(frame)
+
+
+def _validate_score_rows(frame: Any) -> None:
+    if frame.duplicated(
+        ["as_of", "symbol", "task"] if "task" in frame else ["as_of", "symbol"]
+    ).any():
+        raise ValueError("duplicate saved prediction key")
+    if not np.isfinite(frame.prediction.to_numpy(float)).all():
+        raise ValueError("nonfinite saved prediction")
+    local = frame.as_of.dt.tz_convert(JST).dt.tz_localize(None).dt.normalize()
+    if (frame.trading_date >= local).any():
+        raise ValueError("known future feature-day close in saved prediction")
+
+
+def _score_mapping(frame: Any) -> dict[datetime, dict[str, float]]:
     result: dict[datetime, dict[str, float]] = {}
-    for row in table.to_pylist():
-        at = row["as_of"]
-        if row["trading_date"].date() >= at.astimezone(JST).date():
-            raise ValueError("known future feature-day close in saved prediction")
-        values = result.setdefault(at, {})
-        if row["symbol"] in values:
-            raise ValueError("duplicate saved prediction key")
-        values[row["symbol"]] = row["prediction"]
+    for at, symbol, value in frame[["as_of", "symbol", "prediction"]].itertuples(
+        index=False, name=None
+    ):
+        result.setdefault(at.to_pydatetime(), {})[symbol] = float(value)
     return result
+
+
+def _benchmark_scores(
+    request: AssumedMarketRequest, source: SavedBenchmarkSource
+) -> dict[datetime, dict[str, float]]:
+    proof, audit = json.loads(source.receipt.read()), json.loads(source.authentication.read())
+    registry = json.loads(request.candidate_registry.read())
+    expected_schema = (
+        "daily-forward-crossfit-v1"
+        if source.recipe == "weighted_return"
+        else "daily-regression-risk-simple-baselines-v3"
+    )
+    matches = [
+        r
+        for r in proof["results"]
+        if r["horizon"] == source.horizon
+        and Path(r["oof_path"]).resolve() == source.path.resolve()
+        and r["oof_byte_sha256"] == source.sha256
+    ]
+    if (
+        len(matches) != 1
+        or proof["schema_version"] != expected_schema
+        or proof["feature_selection_id"] != registry["feature_selection_id"]
+        or not proof["research_only"]
+        or proof["holdout_scored"]
+        or proof["adoption_eligible"]
+        or audit["status"] != "COMPLETE_RESEARCH"
+        or audit["holdout_opened"]
+        or audit["training_performed"]
+        or audit["weights_or_calibration_changed"]
+        or audit["feature_selection_id"] != proof["feature_selection_id"]
+        or audit["model_data_snapshot_id"] != proof["data_snapshot_id"]
+        or audit["input_receipts"].get(str(source.receipt.path)) != source.receipt.sha256
+    ):
+        raise ValueError("saved benchmark differs from its authenticated development receipt")
+    if source.recipe == "weighted_return":
+        rows = [r for r in audit["results"] if r["horizon"] == source.horizon]
+        if len(rows) != 1 or not rows[0]["ensemble_predictions_reproduced_from_saved_models"]:
+            raise ValueError("saved ensemble lacks its authenticated forward replay")
+    if _sha(source.path) != source.sha256:
+        raise ValueError("saved benchmark bytes changed")
+    timestamp_type = pq.ParquetFile(source.path).schema_arrow.field("as_of").type
+    if not pa.types.is_timestamp(timestamp_type) or timestamp_type.tz is None:
+        raise ValueError("saved benchmark timestamps need an explicit timezone")
+    frame = pq.read_table(
+        source.path,
+        columns=["as_of", "symbol", "trading_date", source.recipe],
+        filters=[
+            ("as_of", ">=", pa.scalar(request.rule.signals[0].as_of, type=timestamp_type)),
+            ("as_of", "<=", pa.scalar(request.rule.signals[-1].as_of, type=timestamp_type)),
+        ],
+    ).to_pandas()
+    frame = frame.rename(columns={source.recipe: "prediction"})
+    _validate_score_rows(frame)
+    return _score_mapping(frame)
 
 
 def evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
@@ -182,7 +293,8 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
     ):
         raise ValueError("funding receipt identity or declared window differs")
     require_research_funding(accounting, schedule)
-    rows = read_market_receipts(request.market_receipts, features, funding_request)
+    scope = frozenset(p.symbol for session in accounting.sessions for p in session.prices)
+    rows = read_market_receipts(request.market_receipts, features, funding_request, symbols=scope)
     frozen = json.loads(request.frozen_source_manifest.read())
     if frozen["snapshot_id"] != accounting.source_snapshot_id:
         raise ValueError("market source snapshot differs from declared input")
@@ -206,7 +318,10 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
             raise ValueError("instrument receipt identity/window differs")
         for row in proof["rows"]:
             if row["symbol"]:
-                instruments[(date.fromisoformat(row["trading_date"]), row["symbol"])] = row
+                instruments[(date.fromisoformat(row["trading_date"]), row["symbol"])] = {
+                    "round_lot_size": row["round_lot_size"],
+                    "tick_size": row["tick_size"],
+                }
     for action in accounting.actions:
         row = rows.get((action.effective_at.astimezone(JST).date(), action.symbol))
         if (
@@ -237,7 +352,9 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         if list(signal.scores) != expected:
             raise ValueError("signal differs from the saved OOF top-N on the common domain")
         if signal.score_unit != (
-            "ranking_score" if source.task == "ranking" else "fractional_return"
+            "ranking_score"
+            if source.task in ("ranking", "rank_return", "rank_return_risk")
+            else "fractional_return"
         ):
             raise ValueError("ranking score and fractional return units differ")
         if signal.available_at != signal.as_of or signal.horizon != source.horizon:
@@ -343,6 +460,7 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         "research_only": True,
         "adoption_eligible": False,
         "holdout_scored": False,
+        "final_test_executed": False,
         "no_order_sent": True,
         "input_sha256": content_id(request.model_dump(mode="json")),
         "policy_sha256": content_id(rule.policy.model_dump(mode="json")),

@@ -2,6 +2,14 @@
 
 ## D176: 明示した仮定付き研究経路
 
+2026-10-19 D177：共通開発比較を結果前に固定した。5日は保存forward ensembleの全177営業日（2025-04-24〜2026-01-15）、20日は140営業日（2025-04-14〜2025-11-06）。期間は保存出力の利用可能範囲から決め、各horizon内で全候補へ同じ期間/銘柄キーを適用する。horizon間は別評価。全18候補の4出力キーと保存ensemble/baselineの一致を確認した。共通の国内100株単元条件以外に、成績や価格欠損による銘柄除外を追加しない。
+
+Aは候補の順位score、Bは回帰return順位。Cは既存の日別平均percentile rankを回帰/順位で均等平均、Dは`(rank(return)+rank(ranking)+rank(q10)-rank(P(return<=-0.08)))/4`の一方式だけ。rankは元OOFの同日母集団上で`2*(average percentile-.5)`、国内対象への絞込みはその後。C/Dは無単位、期待returnとは表示しない。Eは保存forward-crossfitの`weighted_return`、単純baselineは保存`momentum_20d`のみを利用し、再fit/再校正/新ensembleは作らない。各9候補×A〜D＋E/baselineの2本、2horizon×20/40bpsで152条件。全seedを残し、最良seedだけを選ばない。
+
+`SavedScoreSource.task`でA〜Dを明示し、`SavedBenchmarkSource`では元receiptとD170の認証済みreplayをpinする。元hash/特徴量版/研究区分/最終未使用/重み不変を照合し、目標/将来label列は読まない。対象の保有候補だけをメモリへ保持しても、市場receipt全体のhash・日付・重複チェックは省略しない。単一workerと既存RAM guardを維持し、各caseの入力は実行前に固定する。
+
+全期間で保有評価価格が欠けたcaseは`INCOMPLETE`とする。対象銘柄・日付・最後に確認できた保有額・影響case・必要な追加根拠を私有`full/unresolved-issues.json`へまとめる。終値/出来高nullという確認事実を、売買停止や損失ゼロの確認へ読み替えない。欠損日を切り取った比較、仮の現金化、carry-forwardを確定価格にする処理は追加しない。
+
 `research evaluate-assumed-market --input REQUEST.json --output-root PRIVATE_DIR`は既存の市場receipt/保存OOF/固定ルール/状態付きNAVを接続する専用入口。厳密な`evaluate-market-strategy`の企業行動全体・方向別執行・PIT等の根拠チェックと既定動作は変えない。仮定を必須のliteralとして入力し、実行前に入力をcontent-addressed `plans/`へ保存する。
 
 研究条件は資金1,000万円・上位20・90%均等配分・100株単位・片道20または40bps、既存5日/20日入替・研究資金解放receipt。実口座の費用ではない。OOFの特徴量日は予測日より前を要求し、予測利用可能時刻より後の日足終値proxyで約定する。11:30/12:30の実約定を再現したとはしない。HOLDは同じ初期保有/資金で、今回の全現金開始では全現金維持。

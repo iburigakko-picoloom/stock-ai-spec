@@ -180,12 +180,14 @@ def _market_rows(request: MarketStrategyRequest) -> dict[tuple[date, str], dict[
 def read_market_receipts(
     receipts: tuple[MarketReceipt, ...], features: DevelopmentFeatureSelectionArtifact,
     funding_source: DailyMarketRequest | None = None,
+    *, symbols: frozenset[str] | None = None,
 ) -> dict[tuple[date, str], dict[str, Any]]:
     """Shared authenticated raw-price reader; supplies no execution certification."""
     boundary = date.fromisoformat(features.locked_holdout_start)
     if any(ref.start > ref.end or ref.end >= boundary for ref in receipts):
         raise ValueError("market receipt reaches locked holdout or reverses its window")
     rows: dict[tuple[date, str], dict[str, Any]] = {}
+    seen: set[tuple[date, str]] = set()
     for ref in receipts:
         receipt = json.loads(ref.read())
         envelope = receipt["request"]
@@ -216,9 +218,11 @@ def read_market_receipts(
             if row.get("symbol_status") != "standard_equity_code":
                 continue
             key = trading_date, row["symbol"]
-            if key in rows:
+            if key in seen:
                 raise ValueError("duplicate market key across receipts")
-            rows[key] = row
+            seen.add(key)
+            if symbols is None or row["symbol"] in symbols:
+                rows[key] = row
     return rows
 
 

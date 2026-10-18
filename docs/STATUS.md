@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-10-19 — 共通開発比較を固定して実行・候補APKを保存
+
+- 開始checkpoint9df0bcc（D176の実装/最小4条件・168試験をローカル保全）。D177で完成範囲を維持したままA〜Dの全18構成と保存E/単純baselineを20/40bpsで計152条件に固定。5日177営業日、20日140営業日の元forward ensemble利用可能範囲を各horizon内で共通化。全18×4出力の対象キーがensembleと一致し、入力準備76本は全件成功。市場10か月chunk作成74.165秒、予測キー/固定score準備253.076秒、実行入力準備112.701秒。再学習・再校正・目標/label列読込なし。
+- 単一workerで全期間の費用込み計算を開始。最初の5日A/seed17は20/40bpsそれぞれ28.980/29.514秒だが、保有銘柄の当日終値欠損でINCOMPLETE。成績に合わせて期間/銘柄を変えず、他の固定caseも継続。元Light価格に終値/出来高nullがあることと、売買停止の独立確認は区別する。私有`full/comparison-progress.json`と`full/unresolved-issues.json`に実績・影響case/日付/金額/追加根拠を保存。全152完了や採用成功とはしない。
+- 関連174件が単回成功、25.88秒、新module branch込みcoverage87.24%。C/Dの順位単位と逆向きrisk/共通キー欠損、実NAV接続、保存E/baselineの認証と変更拒否を追加。Ruff全体とmypy全75source（既定/Windows）が成功。全体/Androidを現在の新研究commitで試験済みと読み替えない。
+- ba69655対象CI39133680742のverify/android/android-historyが全てsuccess、release skip。同CIの候補debug APK25,849,518bytesを私有保存し、hash defab92e…、build merge7c7e56d、同梱46 Python sourceと現アプリ製品treeの一致、native84件（158.611秒）・同署名debug更新・OS3段階・全17table/520日B1復元（223.235秒、世代7、Java heap192MiB）を認証。合成emulatorであり、本人署名/実モデル/Xiaomiの成功ではない。候補本体は`.demo-artifacts/scoped-completion-20261018/StockAI-candidate-ba69655-debug.apk`、証拠は`candidate-apk.json`。
+- weightは認証OOF18構成へ紐付くもの0件。正式な役割選定前のfitなし。回帰5/20だけなら2fit、現行4head契約なら4fitが条件だが、順位併用/risk/ensembleを採る場合は必要役割から数え直す。任意の4task採用、risk0生成、export専用二重fitを行わない。単回未使用final、本人用bundle、実モデルPC/端末一致、一括Xiaomi受入が残る。A/B/Cは別判定で、保留を理由に無関係な追加開発を続けない。実注文/新規課金/実AI送信/main merge/公開配布なし。
+
 ## 2026-10-18 — 範囲固定と最初の実データ費用込み研究NAV
 
 - 開始HEAD ba696557c6f40645b5144f7e46112f7215440a00、PR #2 / android-completion-chatgpt。未commitの私有71/31/89行・旧原本・現Light固定原本を保全。CI39133680742は同HEAD対象でandroid成功、verify実行中。前HEAD74d5530のCI39131102705は全体success。今回のPC研究変更を既存APKの試験済みと読み替えない。
