@@ -22,7 +22,17 @@ from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
 from stock_ai.operations.store import OperationalConflictError
 
-from . import decisions, forecasts, market, membership, models, personal, research, universe
+from . import (
+    decisions,
+    forecasts,
+    manual_chatgpt,
+    market,
+    membership,
+    models,
+    personal,
+    research,
+    universe,
+)
 from .features import bundled_selection, calculate
 from .model_bundle import parity as bundle_parity
 from .portable_model import predict
@@ -350,6 +360,28 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             }}
     if path == "/api/v1/mobile/market" and method == "GET":
         return {"status": 200, "body": market.status(STATE / "mobile.sqlite3")}
+    if path.startswith("/api/v1/mobile/chatgpt-manual/"):
+        try:
+            store, now = _app.state.store, datetime.now(UTC)
+            local_path = STATE / "mobile.sqlite3"
+            if path == "/api/v1/mobile/chatgpt-manual/status" and method == "GET":
+                result = manual_chatgpt.status(local_path, store, now)
+            elif path == "/api/v1/mobile/chatgpt-manual/export" and method == "POST":
+                result = manual_chatgpt.export(local_path, store, json.loads(body), now)
+            elif path == "/api/v1/mobile/chatgpt-manual/answer" and method == "POST":
+                result = manual_chatgpt.import_answer(local_path, store, json.loads(body), now)
+            else:
+                raise ValueError("手動ChatGPTの操作を確認してください")
+            return {"status": 200, "body": result}
+        except (ValueError, KeyError, TypeError) as error:
+            # Errors are our fixed explanations or schema errors, never raw JSON
+            # or validation's reflected account / answer input.
+            detail = (
+                str(error)
+                if type(error) is ValueError
+                else "回答JSON・利用条件・最新snapshotを確認してください"
+            )
+            return {"status": 422, "body": {"detail": detail}}
     if path == "/api/v1/mobile/research/plan" and method == "GET":
         try:
             return {"status": 200, "body": research.plan(

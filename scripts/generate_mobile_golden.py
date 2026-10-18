@@ -207,6 +207,31 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
             "selection": SELECTION, "now": NOW.isoformat(),
             "expected": decisions.generate(path, store, NOW),
         }
+        from mobile.python import manual_chatgpt
+
+        from stock_ai.operations.chatgpt_manual import ExternalAiPermission
+
+        permission = ExternalAiPermission(
+            service="manual_chatgpt", checked_at=NOW, personal_analysis_only=True,
+            training_disabled=True, private_input=True, private_output=True,
+            data_entitlement_confirmed=True,
+        ).model_dump(mode="json")
+        exported = manual_chatgpt.export(path, store, permission, NOW)
+        package = json.loads(exported["prompt"].split("\n入力:\n")[1])
+        answer = {"schema_version": "chatgpt-target-shares-v1",
+                  "input_snapshot_id": package["input_snapshot_id"],
+                  "evidence_as_of": NOW.isoformat(), "unknowns": ["合成試験です"],
+                  "targets": [{"symbol": x["symbol"], "account": x["account"],
+                               "target_shares": x["current_shares"],
+                               "reason": "合成試験の保有維持", "sources": []}
+                              for x in package["required_targets"]]}
+        answer_json = json.dumps(answer, ensure_ascii=False)
+        decision_fixture["manual_exchange"] = {
+            "permission": permission, "exported": exported, "answer_json": answer_json,
+            "expected": manual_chatgpt.import_answer(path, store, {
+                "input_record_id": exported["input_record_id"], "answer_json": answer_json,
+            }, NOW),
+        }
 with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
     from mobile.python import runtime
 

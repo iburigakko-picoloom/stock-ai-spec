@@ -3,6 +3,8 @@
 更新日: 2026-08-24
 状態: Goal 5 local意思決定支援アプリ実装済み（live data/provider/model採用はfail closed）
 
+2026-10-18の追加開発は、[日次版の接続契約](docs/DAILY_INTEGRATION_CONTRACT.md)（D162）を優先します。5日/20日・18候補の固定ルール評価と、本人用Android・手動ChatGPTコピー/回答JSON取込を進め、1日/前場・12:30向けの新規対応・高度最適化の追加は後回しにします。以下の旧時刻仕様は既存機能の説明です。
+
 ## このリポジトリの目的
 
 Android APKの端末内計算・署名・GitHub Releases更新は [Android運用手順](docs/ANDROID_RUNBOOK.md) を参照。現在は研究用で、実機受入と最終モデル採用は未完です。

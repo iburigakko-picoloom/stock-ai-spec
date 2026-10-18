@@ -427,7 +427,12 @@ class DailyPortfolioDecisionEngine:
         enforce_trade_constraints: bool,
         maximum_invested_value: Decimal | None = None,
         purchase_limits: Mapping[str, Decimal] | None = None,
+        constraint_violations: list[str] | None = None,
     ) -> _Evaluation | None:
+        def reject(code: str) -> None:
+            if constraint_violations is not None:
+                constraint_violations.append(code)
+
         current = portfolio.position_map()
         cash_after = {key: item.deployable_cash for key, item in portfolio.cash_map().items()}
         costs: dict[tuple[str, str], TransactionCostEstimate] = {}
@@ -449,6 +454,7 @@ class DailyPortfolioDecisionEngine:
             current_shares = position.shares if position else 0
             target_shares = targets[key]
             if target_shares < 0:
+                reject("NEGATIVE_TARGET_SHARES")
                 return None
             difference = target_shares - current_shares
             gross_signal_utility += self._signal_utility(candidate, target_shares)
@@ -482,11 +488,13 @@ class DailyPortfolioDecisionEngine:
             turnover += notional
             if enforce_trade_constraints:
                 if candidate.average_daily_trading_value is None:
+                    reject("LIQUIDITY_UNKNOWN")
                     return None
                 if (
                     notional
                     > candidate.average_daily_trading_value * self.config.maximum_trade_adv_ratio
                 ):
+                    reject("ADV_LIMIT")
                     return None
             if difference > 0:
                 purchases[candidate.account_bucket_id] = (
@@ -495,6 +503,7 @@ class DailyPortfolioDecisionEngine:
                 cash_after[candidate.account_bucket_id] -= notional + trade_cost.total
             else:
                 if position is None:
+                    reject("SELL_WITHOUT_HOLDING")
                     return None
                 sales_by_bucket.setdefault(candidate.account_bucket_id, []).append(
                     SaleTaxInput(
@@ -519,12 +528,14 @@ class DailyPortfolioDecisionEngine:
                 cash_after[bucket_id] -= tax.estimated_cash_withholding
 
         if any(value < 0 for value in cash_after.values()):
+            reject("INSUFFICIENT_CASH_AFTER_COST_TAX")
             return None
         if enforce_trade_constraints:
             if purchase_limits is not None and any(
                 purchases.get(bucket, Decimal("0")) > limit
                 for bucket, limit in purchase_limits.items()
             ):
+                reject("ACCOUNT_PURCHASE_LIMIT")
                 return None
             if maximum_invested_value is not None:
                 target_invested = sum(target_symbol_values.values(), Decimal("0"))
@@ -532,28 +543,34 @@ class DailyPortfolioDecisionEngine:
                 # Preserve HOLD as the counterfactual and allow only strict reductions
                 # while existing holdings exceed a newly supplied budget.
                 if target_invested > maximum_invested_value and target_invested >= current_invested:
+                    reject("INVESTMENT_BUDGET")
                     return None
             if len(target_symbols) > self.config.maximum_positions:
                 moves_toward_limit = target_symbols < current_symbols
                 if not moves_toward_limit:
+                    reject("POSITION_LIMIT")
                     return None
             symbol_cap = total_wealth * self.config.maximum_symbol_weight
             for symbol, target_value in target_symbol_values.items():
                 if target_value > symbol_cap and target_value > current_symbol_values.get(
                     symbol, Decimal("0")
                 ):
+                    reject("SYMBOL_WEIGHT_LIMIT")
                     return None
             sector_cap = total_wealth * self.config.maximum_sector_weight
             for sector, target_value in target_sector_values.items():
                 if target_value > sector_cap and target_value > current_sector_values.get(
                     sector, Decimal("0")
                 ):
+                    reject("SECTOR_WEIGHT_LIMIT")
                     return None
             minimum_cash = total_wealth * self.config.minimum_cash_ratio
             target_cash = sum(cash_after.values(), Decimal("0"))
             if target_cash < minimum_cash:
+                reject("CASH_RESERVE_LIMIT")
                 return None
             if turnover > total_wealth * self.config.maximum_turnover_ratio:
+                reject("TURNOVER_LIMIT")
                 return None
 
         if total_wealth > 0:

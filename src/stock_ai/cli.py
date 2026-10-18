@@ -1835,6 +1835,47 @@ def evaluate_nav_command(
     )
 
 
+@research_app.command("evaluate-fixed-rule")
+def evaluate_fixed_rule_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/fixed-rule"),
+) -> None:
+    """Replay explicit research accounting inputs with a common top-N rule."""
+    from stock_ai.ml.fixed_rule import FixedRuleRequest, write_fixed_rule
+
+    try:
+        request = FixedRuleRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_fixed_rule(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"fixed-rule evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"evaluation_path": str(path), "research_only": True,
+                           "market_evidence_certified": False}))
+
+
+@research_app.command("register-daily-candidates")
+def register_daily_candidates_command(
+    features: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    campaigns: Annotated[list[Path], typer.Option("--campaign", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/candidate-registry"
+    ),
+) -> None:
+    """Authenticate saved daily artifacts without training or reading final labels."""
+    from stock_ai.ml.candidate_registry import build_candidate_registry
+    from stock_ai.ml.evaluation_audit import write_audit_receipt
+
+    try:
+        receipt = build_candidate_registry(features, campaigns)
+        path = write_audit_receipt(receipt, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"candidate registry blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"registry_path": str(path), "status": receipt["status"]}))
+    if receipt["status"] != "AUTHENTICATED_OOF":
+        raise typer.Exit(2)
+
+
 @research_app.command("evaluate-market-strategy")
 def evaluate_market_strategy_command(
     input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],

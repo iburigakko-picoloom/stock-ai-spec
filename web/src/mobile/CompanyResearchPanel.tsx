@@ -6,6 +6,7 @@ import type { StockDetail } from "../types";
 import { ChatGPT, type ChatGPTStatus, type ResearchPass, type ResearchRunView } from "./chatgpt";
 import { isAndroid } from "./native";
 import { researchFailure, runResearch } from "./research";
+import { ExternalPermissionPanel } from "./ExternalPermissionPanel";
 
 const researchTime = (value: string | null): string => dateTime(value, true);
 
@@ -96,6 +97,7 @@ export function CompanyResearchPanel({
       </div>}
       <p role="status" className="research-message">{message}</p>
       {android && <p className="setting-footnote">調査はChatGPTの利用枠を使います。同じ条件の保存済み結果は再利用します。</p>}
+      {android && <ExternalPermissionPanel />}
     </>}
     {latestRecord && <>
       <p className="research-preview">{latestRecord.comparison.text.replace(/\s+/g, " ").slice(0, 180)}{latestRecord.comparison.text.length > 180 ? "…" : ""}</p>

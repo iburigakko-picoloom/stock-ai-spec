@@ -53,6 +53,31 @@ with connect(path) as db:
 first = decisions.generate(path, store, now)
 today = await runtime.request('GET', '/api/v1/today?businessDate=' + now.date().isoformat(), 'null')
 assert ledger == store.latest_portfolio() and snapshot == store.latest_prediction_snapshot()
+# Only this excluded harness supplies a synthetic clock; production has none.
+class FixtureClock(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return now if tz is None else now.astimezone(tz)
+runtime.datetime = FixtureClock
+manual = fixture['manual_exchange']
+export_reply = await runtime.request('POST', '/api/v1/mobile/chatgpt-manual/export', json.dumps(manual['permission']))
+assert export_reply['status'] == 200, export_reply
+exported = export_reply['body']
+assert exported == manual['exported']
+invalid = json.loads(manual['answer_json'])
+invalid['input_snapshot_id'] = '0'*64
+rejected = await runtime.request('POST', '/api/v1/mobile/chatgpt-manual/answer', json.dumps({
+    'input_record_id': exported['input_record_id'], 'answer_json': json.dumps(invalid)}))
+assert rejected['status'] == 422
+for bad_text in (None, 123, {}):
+    bad_type = await runtime.request('POST', '/api/v1/mobile/chatgpt-manual/answer', json.dumps({
+        'input_record_id': exported['input_record_id'], 'answer_json': bad_text}))
+    assert bad_type['status'] == 422, bad_type
+accepted = await runtime.request('POST', '/api/v1/mobile/chatgpt-manual/answer', json.dumps({
+    'input_record_id': exported['input_record_id'], 'answer_json': manual['answer_json']}))
+assert accepted['status'] == 200, accepted
+assert accepted['body'] == manual['expected']
+assert ledger == store.latest_portfolio() and snapshot == store.latest_prediction_snapshot()
 runtime.initialize(runtime.export_state())
 for kind in DatasetName:
     pd.testing.assert_frame_equal(reader.point_in_time(kind, now), legacy_frames[kind], check_exact=True)
@@ -60,7 +85,13 @@ with connect(path) as db:
     assert db.execute(identity_query).fetchall() == identities
 restored = decisions.generate(path, runtime._app.state.store, now + timedelta(minutes=1))
 assert first == restored
+manual_status = await runtime.request('GET', '/api/v1/mobile/chatgpt-manual/status', 'null')
+assert manual_status['status'] == 200
+assert manual_status['body']['answers'] == [accepted['body']['review']]
+assert ledger == runtime._app.state.store.latest_portfolio()
 json.dumps({'result': first, 'today': today, 'restored': restored,
+            'manual_exchange': {'accepted': accepted['body'], 'rejected_status': rejected['status'],
+                                'restored': manual_status['body']['answers'], 'ledger_unchanged': True},
             'market_parity': {'batches': len(rows), 'datasets': len(legacy_frames),
                               'exact_values_types_receipts_after_migration_and_restore': True},
             'active': decisions.view(path, runtime._app.state.store)['is_active']})

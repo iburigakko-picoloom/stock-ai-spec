@@ -40,6 +40,7 @@ SOURCE_FILES = [
     "operations/store.py",
     "operations/daily.py",
     "operations/chatgpt_research.py",
+    "operations/chatgpt_manual.py",
     "operations/manual_portfolio.py",
     "operations/manual_settings.py",
     "operations/personal.py",

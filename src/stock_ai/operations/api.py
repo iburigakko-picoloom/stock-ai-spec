@@ -30,6 +30,11 @@ from stock_ai.domain import (
     UserDecision,
     UserDecisionLine,
 )
+from stock_ai.operations.chatgpt_manual import (
+    ExternalAiPermission,
+    permission_record,
+    read_permission_record,
+)
 from stock_ai.operations.chatgpt_research import ResearchConfiguration
 from stock_ai.operations.daily import (
     CompanyResearchRecord,
@@ -488,12 +493,46 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.post("/api/v1/research/permission")
+    def research_permission(
+        body: ExternalAiPermission,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        try:
+            body.require(current_time(), "account_codex")
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        # This is an owner's dated attestation, not provider verification.
+        store.set_metadata("external-ai-permission:account_codex", permission_record(body))
+        return {
+            "service": body.service,
+            "checked_at": body.checked_at,
+            "basis": "owner_attestation",
+            "expires_after_hours": 24,
+        }
+
     @app.post("/api/v1/research/{run_id}/claim")
     def research_claim(
         run_id: str, body: ResearchClaimInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
         try:
+            saved = store.research_run(run_id)
+            if saved["record"] is not None:
+                # Reading a completed receipt does not send a provider request.
+                return {"state": "completed", **saved}
+            permission = store.metadata("external-ai-permission:account_codex")
+            if permission is None:
+                raise ValueError(
+                    "EXTERNAL_AI_PERMISSION_UNCONFIRMED: 外部送信の利用条件を確認してください"
+                )
+            try:
+                read_permission_record(permission).require(current_time(), "account_codex")
+            except (ValueError, KeyError, TypeError) as exc:
+                raise HTTPException(status_code=422, detail=(
+                    "EXTERNAL_AI_PERMISSION_UNCONFIRMED: "
+                    "連携先の利用条件・契約・設定を確認してください"
+                )) from exc
             return store.claim_research(run_id, now=current_time(), retry=body.retry)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="research run not found") from exc

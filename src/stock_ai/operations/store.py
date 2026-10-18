@@ -472,6 +472,12 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
         value = _cash_receipt(linked[0], row[1])
         if value["status"]["business_date"] != row[0].removeprefix("mobile-cash-active:"):
             raise OperationalIntegrityError("cash-only publication date changed")
+    from stock_ai.operations.chatgpt_manual import verify_exchange_records
+
+    try:
+        verify_exchange_records(connection)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise OperationalIntegrityError("manual ChatGPT exchange integrity check failed") from exc
     return counts
 
 
@@ -1344,6 +1350,10 @@ class OperationalStore:
             return tuple(self._research_view(connection, run) for run in sorted(
                 runs, key=lambda run: (run.context.revision, run.run_id),
             ))
+
+    def research_run(self, run_id: str) -> dict[str, Any]:
+        with self._connect() as connection:
+            return self._research_view(connection, _chatgpt_run(connection, run_id))
 
     def begin_research(
         self, snapshot_id: str, symbol: str, configuration: ResearchConfiguration,

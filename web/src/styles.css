@@ -143,6 +143,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .button--secondary { color: var(--ink); background: #e8f0f4; border: 1px solid #cbd9e1; }
 .button:disabled { opacity: 0.45; cursor: not-allowed; }
 .button-stack { display: grid; gap: 12px; margin-top: 18px; }
+.manual-chatgpt label.checkbox { min-height: 48px; padding: 8px 0; margin: 12px 0; }
+.manual-chatgpt .difference-row { flex-wrap: wrap; }
+.manual-chatgpt .share-change { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 8px; }
+.manual-chatgpt .share-change > span { white-space: nowrap; }
+.manual-chatgpt details { margin-top: 16px; }
 .text-link, .back-link { color: var(--blue); font-size: 0.8rem; font-weight: 700; }
 .back-link { display: inline-flex; align-items: center; min-height: 44px; margin: 2px 0 8px; }
 

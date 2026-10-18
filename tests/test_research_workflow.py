@@ -59,9 +59,10 @@ def test_durable_claim_prevents_duplicate_calls_and_receipts_are_atomic(tmp_path
     assert complete_phase(store, first, 1) == result
     reopened = OperationalStore(store.path)
     second = reopened.claim_research(run_id, now=START + timedelta(minutes=3))
-    assert reopened.claim_research(run_id, now=START + timedelta(minutes=3))[
-        "request_sha256"
-    ] == second["request_sha256"]
+    assert (
+        reopened.claim_research(run_id, now=START + timedelta(minutes=3))["request_sha256"]
+        == second["request_sha256"]
+    )
     assert second["attempt"]["phase"] == "comparison"
     assert result["passes"][0]["text"] in second["request_json"]
     final = complete_phase(reopened, second, 3)
@@ -74,6 +75,23 @@ def test_durable_claim_prevents_duplicate_calls_and_receipts_are_atomic(tmp_path
         backup, tmp_path / "restore.sqlite", confirm_replace=True
     )
     assert OperationalStore(restored).research_runs(snapshot.snapshot_id) == (final,)
+
+
+def test_completed_research_remains_readable_without_new_external_permission(tmp_path):
+    store, snapshot, view = started(tmp_path)
+    run_id = view["run"]["run_id"]
+    first = store.claim_research(run_id, now=START + timedelta(minutes=1))
+    complete_phase(store, first, 1)
+    second = store.claim_research(run_id, now=START + timedelta(minutes=3))
+    final = complete_phase(store, second, 3)
+    client = TestClient(create_app(store.path, clock=lambda: START+timedelta(days=2)),
+                        base_url="http://localhost")
+    reply = client.post(f"/api/v1/research/{run_id}/claim", json={},
+                        headers={"X-Stock-AI-Intent": "manual-record"})
+    assert reply.status_code == 200
+    assert reply.json() == {"state": "completed", **final}
+    assert "request_json" not in reply.json()
+    assert len(store.research_runs(snapshot.snapshot_id)[0]["attempts"]) == 2
 
 
 def test_interrupted_comparison_requires_explicit_retry_and_keeps_independent_result(
@@ -170,6 +188,21 @@ def test_api_requires_intent_restricts_targets_and_keeps_numeric_output_read_onl
     response = client.post(endpoint, json=body, headers=headers)
     assert response.status_code == 200
     run_id = response.json()["run"]["run_id"]
+    denied = client.post(f"/api/v1/research/{run_id}/claim", json={}, headers=headers)
+    assert denied.status_code == 422
+    assert store.research_runs(snapshot.snapshot_id)[0]["attempts"] == []
+    consent = {
+        "service": "account_codex",
+        "checked_at": current.isoformat(),
+        "personal_analysis_only": True,
+        "training_disabled": True,
+        "private_input": True,
+        "private_output": True,
+        "data_entitlement_confirmed": True,
+    }
+    assert (
+        client.post("/api/v1/research/permission", json=consent, headers=headers).status_code == 200
+    )
     claim = client.post(f"/api/v1/research/{run_id}/claim", json={}, headers=headers).json()
     assert "expected_return" not in claim["request_json"]
     detail = client.get("/api/v1/stocks/A").json()
@@ -243,6 +276,18 @@ def test_embedded_mobile_dispatch_and_exact_backup_preserve_completed_research(
         assert reply["status"] == 200, reply
         return reply["body"]
 
+    request(
+        "/api/v1/research/permission",
+        {
+            "service": "account_codex",
+            "checked_at": current[0].isoformat(),
+            "personal_analysis_only": True,
+            "training_disabled": True,
+            "private_input": True,
+            "private_output": True,
+            "data_entitlement_confirmed": True,
+        },
+    )
     view = request(
         f"/api/v1/research/{snapshot.snapshot_id}/A/start",
         {

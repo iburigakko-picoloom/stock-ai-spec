@@ -46,6 +46,7 @@ export function TodayPage(): ReactNode {
       <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} />
       <RuntimeBanner mode={data.runtimeMode} />
       <DailyPanel />
+      <Link className="button button--secondary" to="/today/chatgpt">ChatGPTと相談</Link>
       {!data.isStale && data.pipelineState === "CASH_ONLY" ? (
         <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
       ) : !proposal ? (

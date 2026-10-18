@@ -1,5 +1,7 @@
 # Data Contract
 
+2026-10-18追記（D162）：今回のデータ/予測/モデル/口座snapshot/評価結果の接続と評価区分は[DAILY_INTEGRATION_CONTRACT.md](DAILY_INTEGRATION_CONTRACT.md)で固定する。研究価格と実取引価格、当時の公開情報と後日訂正、配当の権利と入金を分ける。外部ChatGPT用射影は上位20と全保有に必要なfieldだけとし、口座番号・認証情報を含めない。原予測・ChatGPT目標株数案・本人の実約定は別保存し、回答取込で実台帳を更新しない。
+
 更新日: 2026-08-22  
 状態: v0.2
 
