@@ -1,3 +1,10 @@
+## 2026-10-19 — 残る価格欠損を拡張Light履歴と対象限定で照合
+
+- 既存の一つの未解決一覧30件を、後から拡張した許可済みLight履歴へ読取専用で照合。対象26個のnormalized日次objectは完成済みNAVの版と全て同一で、価格null23件・元recordなし6件・価格はあるが既知企業行動未対応1件、新規補完可能価格0件。4.909秒、DuckDB単一thread/128MiB。source manifest/各Parquetのhashを前後照合し、旧NAV入力・152結果・期間/候補・holdoutは変更していない。
+- 最初の品質確認では4桁symbolを候補keyとしたが、普通株/優先株の異なる5桁provider_codeが同じlabelへ正規化されるため停止した。元の試行を保存し、既存productionの普通株suffix0条件に合わせ、provider_code/dateの一意性と対象recordを検査した。これは元データ破損やアプリの銘柄混入と判定したものではない。null/不存在を売買停止、価値0、約定可能性へ読み替えない。
+- 既存の拡張Light履歴で同じ欠損が解消する見込みはないため、同じ根拠の再取得や152条件の再実行はしない。企業行動・日付別評価根拠等の追加保存資料の取得元/保存先を本人へ一度確認済みで、回答待ち。追加資料のない間は正式HOLDと一つの未解決一覧を維持し、仮の価格/現金化や架空の根拠で正常結果へ変えない。通常bundle/本人DBの日次一連/Xiaomiは引き続き未完。
+- 証拠は私有remaining-price-check-20261019-v2の固定plan・query.sql・result.jsonと再現script。製品source cc3d2d5、全CI39164164508、本人署名0.1.15候補は不変で、重い試験は再実行しない。実注文・新規課金・外部AI送信・main merge・公開配布なし。
+
 ## 2026-10-19 — 全量Android計算の短縮、対象CI成功、通常候補0.1.15
 
 - D182。製品source cc3d2d5/tested merge0345ae7、CI39164164508のverify/android/android-historyが全てsuccess、releaseはskip。今回ログでnative84件221.819秒、Python group527件、React97件、WASM18/11/6件を確認。5,000銘柄/520日/17table全内容のB1復元220.366秒、OS3段階と旧source debug更新も成功。groupを足して重複なしの総数とはしない。以前のCI failureとLinux上Task Scheduler skipも保持。
