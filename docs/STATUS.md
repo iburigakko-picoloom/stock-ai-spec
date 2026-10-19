@@ -1,3 +1,9 @@
+## 2026-10-19 — 本番ラベル訂正のCIと候補0.1.18を検証済み
+
+- 製品`11957b2`／tested merge`41f0a44`／CI39197573498の必要3jobすべてsuccess、release skip。基本研究用と本番研究用を区別する実生成器の回帰試験、関連Python・React/WASM、native86件、OS3段階・旧版更新・全17table復元が通過。
+- 正しい予測は入力株価日の翌営業日終値→そこから5/20営業日後。元の2weight/plan・数値・NAV・152条件は不変。D184/0.1.17の誤説明は撤回記録を保全し、0.1.18/code10018を同CI資産で作成・署名/内容検証済み。SHA256`cf462fc0cdf9d58a59175710a3b66aeaee54c7e809731489e9923c3594a0bdb1`。
+- Aは56研究完走/96不完全・正式HOLD、Bは訂正source必要CI/候補package試験済み、Cは通常bundle・現在の本人実データ一連・Xiaomi未確認。元私有差分・全データ保全、追加fit/holdoutアクセス0。詳細はcompletion-report-v7、bundle具体条件v4。一括受入票も0.1.18へ更新。
+
 ## 2026-10-19 — 実際の本番学習経路を照合しD184を訂正（D185）
 
 - D184は基本研究用generatorを本番OOF/fitへ誤適用していた。本番は翌営業日終値→そこから5/20営業日後。元datasetのhash/metadataとproducerを認証し、元label・各head自身の保存OOF・現fit入力を照合。各horizon10行ずつ一致、quote起点式とは不一致。holdout行の読取0。元の2weight/planは正しく、不変。

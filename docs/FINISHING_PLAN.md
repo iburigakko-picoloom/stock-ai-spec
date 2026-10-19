@@ -1,8 +1,10 @@
 2026-10-19 D183確認済み：製品59ea01e/CI39187276127はverify/android/android-history全成功、release skip。JS/Android/Pythonの分割256MiB（native一括128MiB・Java192MiB・app3500MiB・host予備1GiB・通常600秒は維持）で、実188,857,904文字の保存/B1/再openと全17table一致が438.815秒。通常本人署名0.1.16/code10016候補は私有保存。Aは152条件56研究完走/96不完全でHOLD、通常bundle/本人日次/Xiaomiは未完。回帰のみを選ぶ場合の未提供risk契約も残件であり、無関係な追加機能へ広げない。最新の一括受入は既存Xiaomi票を参照。以下の「検証中」等は先行時点の記録。
 
-D185（2026-10-19）：D184の起点判断を撤回。実際の保存OOFと2実weightは本番研究用`build_production_supervised_dataset`／`_add_horizon_labels`を使用し、Tを入力株価日として`adjusted_close[T+1+h] / adjusted_close[T+1] - 1`（翌営業日終値を起点にh営業日後）である。基本研究用`build_supervised_dataset`のT→T+hと混同しない。元datasetのidentityと保存OOF/fit入力の開発期間の値を照合済み。新規snapshot/bundleは元のnext-session記述を使用し、c710/0.1.17のquote-session記述原本は保全して新規判断使用を拒否する。モデル採用認証とは別。数値・weight・NAV・18候補比較は不変。0.1.17候補は撤回し、修正版のCI/候補を待つ。
+D185検証済み：製品11957b2／CI39197573498の必要job全成功、正しい本番next-sessionラベルの候補0.1.18を作成・署名内容確認済み。0.1.17は撤回、元weight/比較不変。A採用HOLD、B対象source試験済み、C通常bundle/現行実データ/Xiaomi待ち。追加機能へ広げない。
 
-D184更新（2026-10-19）：製品c7103f8／CI39194492545の必要jobが全成功、非公開候補0.1.17/code10017作成・検証済み。予測の起点説明を実際のT→T+h終値ラベルへ修正、数値・weight・売買評価不変。旧原本を保全し、新規使用時は理由付き拒否。Aは152条件記録/正式HOLD、Bは対象source必要試験済み、Cは通常bundle・現行実データ一連・Xiaomi待ち。回帰2本は再利用可能、残るfitは最終役割次第。新しい高度機能は追加しない。
+D185（2026-10-19）：D184の起点判断を撤回。実際の保存OOFと2実weightは本番研究用`build_production_supervised_dataset`／`_add_horizon_labels`を使用し、Tを入力株価日として`adjusted_close[T+1+h] / adjusted_close[T+1] - 1`（翌営業日終値を起点にh営業日後）である。基本研究用`build_supervised_dataset`のT→T+hと混同しない。元datasetのidentityと保存OOF/fit入力の開発期間の値を照合済み。新規snapshot/bundleは元のnext-session記述を使用し、c710/0.1.17のquote-session記述原本は保全して新規判断使用を拒否する。モデル採用認証とは別。数値・weight・NAV・18候補比較は不変。0.1.17候補は撤回。修正版0.1.18はCI39197573498の必要試験・署名候補の検証済み。
+
+撤回記録（D185で訂正）：D184更新（2026-10-19）：製品c7103f8／CI39194492545の必要jobが全成功、非公開候補0.1.17/code10017作成・検証済み。予測の起点説明を実際のT→T+h終値ラベルへ修正、数値・weight・売買評価不変。旧原本を保全し、新規使用時は理由付き拒否。Aは152条件記録/正式HOLD、Bは対象source必要試験済み、Cは通常bundle・現行実データ一連・Xiaomi待ち。回帰2本は再利用可能、残るfitは最終役割次第。新しい高度機能は追加しない。
 
 # Android版の完成条件
 

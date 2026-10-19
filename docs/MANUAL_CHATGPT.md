@@ -6,7 +6,7 @@
 
 入力は新規候補上位20銘柄と順位外を含む全保有、別々の5日/20日予測・意味・単位、既知の不確実性/リスク、口座別株数/利用可能資金/NISA残枠、設定済み費用とリスク制限、予測/データ時刻・モデル版・口座snapshotを含む。ランキングscoreを期待リターン率へ変換せず、5日/20日を加算しない。不明値や未校正の確信度を作らない。
 
-D185（2026-10-19）：D184の起点判断を撤回。実際の保存OOFと2実weightは本番研究用`build_production_supervised_dataset`／`_add_horizon_labels`を使用し、Tを入力株価日として`adjusted_close[T+1+h] / adjusted_close[T+1] - 1`（翌営業日終値を起点にh営業日後）である。基本研究用`build_supervised_dataset`のT→T+hと混同しない。元datasetのidentityと保存OOF/fit入力の開発期間の値を照合済み。新規snapshot/bundleは元のnext-session記述を使用し、c710/0.1.17のquote-session記述原本は保全して新規判断使用を拒否する。モデル採用認証とは別。数値・weight・NAV・18候補比較は不変。0.1.17候補は撤回し、修正版のCI/候補を待つ。
+D185（2026-10-19）：D184の起点判断を撤回。実際の保存OOFと2実weightは本番研究用`build_production_supervised_dataset`／`_add_horizon_labels`を使用し、Tを入力株価日として`adjusted_close[T+1+h] / adjusted_close[T+1] - 1`（翌営業日終値を起点にh営業日後）である。基本研究用`build_supervised_dataset`のT→T+hと混同しない。元datasetのidentityと保存OOF/fit入力の開発期間の値を照合済み。新規snapshot/bundleは元のnext-session記述を使用し、c710/0.1.17のquote-session記述原本は保全して新規判断使用を拒否する。モデル採用認証とは別。数値・weight・NAV・18候補比較は不変。0.1.17候補は撤回。修正版0.1.18はCI39197573498の必要試験・署名候補の検証済み。
 
 外部用口座名はA1等のaliasとし、口座番号・broker名・APIキー・認証情報・モデルweightは出さない。アプリ内表示名への対応は端末内だけで使う。入力項目の射影と検証実装hashをsnapshot IDへ含める。個人比較receiptと原予測/台帳/設定/価格の一致を検査し、比較後15分・JST同日を超える入力は拒否する。
 
