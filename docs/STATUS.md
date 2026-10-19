@@ -1,3 +1,12 @@
+## 2026-10-20 — 実保存予測から手動相談・回答検算・保存・再起動まで接続（D200）
+
+- 製品58c8a2e/通常署名0.1.22は変更せず、D199で保存した実730日・当日membership・研究2回帰の590予測を隔離コピーで再利用した。口座・回答だけ試験用。18候補/OOF/152条件/正式HOLD/holdoutを変更せず、再学習/予測再計算/外部ChatGPT送信/実注文なし。
+- PC通常APIで相談context→上位20/20pair→不正回答10種/未確認許可/期限切れの拒否→正常な維持案と費用付き100株案→同一回答再取込→runtime再初期化→期限後のcontext更新まで10.848秒。元の15market/model/forecast table、実台帳と実約定を保持した。最初の私有監査ではdaily_statusの新規1行を不変違反としたため停止し、原失敗を保全。risk未提供の状態表示更新を内容/hashまで検査し、新しい隔離コピーで正当な更新以外を拒否して再検証した。
+- 同じ保存予測を使うAndroid35/4GiB guestの通常LocalComputeOwner/APIでも成功。読込69.984秒、口座/価格照合と保存28.202秒、相談入力と保存31.008秒、費用付き株数案の検算と保存26.303秒。未確認許可と不正JSON/snapshot違い/単元/資金違反を理由付き拒否。20銘柄・予測/意味/価格/口座alias/費用/現金見込みがPC完全一致。原予測の590値を変えず、risk/校正null・未採用を維持する。
+- 実app processを終了して別PIDから保存した入力・2回答を再表示し、初回63.747秒/以後0.641秒・GETでgeneration不変。期限切れ回答を拒否し、明示の再照合で新contextを作っても元予測の時刻/値と旧回答を保持した。hostで両exportの全17mobile/全27operation tableの型付き値/schemaと回答record hashを検査し、変更はdecision receipt・相談metadata・risk未提供の状態表示だけ。保有/現金/予測/税・約定台帳は不変、実約定0。
+- 私有test clock APK/PC時刻制御による統合試験で、OS時計・データの実取得時刻を変更しない。通常候補へclock/試験回答/実市場データ/モデルを混入しない。sampled app+renderer最大1959727104bytes、VM最大5230411776bytes、host空き最小1568292864bytes、OOM/OS終了なし。通常600秒/Java192MiB/RAM guardを維持し、Xiaomi/実ChatGPT/実時刻OS日次へ読み替えない。
+- 残る本人用の確認を同じXiaomi一括票へ集約。数値のPC照合は本人の手計算を要求せず、同じ端末snapshotのbackupを本人管理PCへ移してからこちらで再計算する。画面が開くことと数値一致を分け、未照合は未確認とする。実REST→日次OS更新/通知、訂正・候補入替・保有/モデル変更の実データ端末確認と、日次数分以内は未完。原出力は.demo-artifacts/input-memory-20261019/manual-real-PC-02・manual-owner-v7、集約のみdocs/evidence/android-runtime-20261020/manual-exchange.jsonへ保存。
+
 ## 2026-10-20 — 実API差分のAndroid一致と通常予測の保存・プロセス再起動（D199）
 
 - 製品58c8a2eのCI39296287728はverify/android/android-history全成功、release skip。Android89件の失敗/error/skip0、OS復旧/旧版更新/全量owner保存が成功し、同梱計算51fileとCI成果物のbyte一致を確認。最新141関連PC試験も同じ修正sourceの証拠として保持する。

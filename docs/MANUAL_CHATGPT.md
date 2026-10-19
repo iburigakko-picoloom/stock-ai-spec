@@ -74,3 +74,7 @@ research bundleの5日/20日returnだけでも、通常の原予測保存から�
 入力には未提供risk/uncertaintyをnullと `model_risk_available=false` で渡す。nullをゼロリスクと解釈せず、外部回答の株数・資金検算もモデルriskの検証とは扱わない。既存の費用/税/単元/口座/数量/利用可能資金/設定済み制限と、未約定売却を買付余力へ使わない規則は同じengineで維持する。自動効用の比較は行わない。
 
 15分超の回答は従来どおり拒否する。明示的な最新条件の再照合で新しい相談contextを作れるが、原予測の時刻/価格を更新せず、旧入力/回答の履歴を残す。正常回答も別の提案保存に留める。合成受領履歴を実feature計算から通すPC/WASM試験にreturn-only分岐を加え、非ゼロ費用、snapshot拒否、全tableの復元と実台帳不変を確認した。実bundleのbrowser-WASM取込/予測一致/再読込は別証拠であり、Xiaomiや本人実ChatGPT操作の代替ではない。
+
+## D200：実保存予測を使うAndroid通常APIの接続確認
+
+2026-10-20、製品58c8a2e・既存署名0.1.22は変更せず、実730日/研究2回帰から保存した原予測で、上位20の入力、回答拒否、維持案/費用付き株数案の検算、重複抑止、別processの読戻し、期限切れと新contextを確認した。全入力射影・株数・費用・現金見込みはPC一致し、原予測/実台帳/実約定は不変。全17mobile/全operation tableと回答recordをhostで独立検査した。試験口座・試験回答とprivate clockによる通常APIの試験であり、外部ChatGPTへの実送信、実時刻OS更新、Xiaomiの本人操作を実施済みとはしない。許可欄の自動有効化や新しい外部連携を追加しない。集約結果は[evidence](evidence/android-runtime-20261020/manual-exchange.json)、本人操作は既存の一括受入票へまとめる。
