@@ -8,12 +8,13 @@ from pathlib import Path
 
 from mobile.python.model_bundle import ModelBundle, encoded
 
-from stock_ai.operations.daily import canonical_json, content_id
+from stock_ai.operations.daily import canonical_json, content_id, require_quote_close_label
 from stock_ai.operations.manual_portfolio import strict_json
 
 
 def package(metadata: dict, heads: list[dict], selection: dict) -> tuple[str, dict]:
     bundle = ModelBundle.create(**metadata, heads=heads)
+    require_quote_close_label(bundle.label_definition)
     if any(getattr(bundle, key) != selection[key]
            for key in ("feature_selection_id", "feature_manifest_hash")):
         raise ValueError("Bundle differs from the frozen feature selection")

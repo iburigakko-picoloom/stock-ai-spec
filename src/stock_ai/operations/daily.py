@@ -7,7 +7,7 @@ import hashlib
 import io
 import json
 from datetime import datetime
-from typing import Any, Literal, Self
+from typing import Any, Final, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
@@ -22,6 +22,30 @@ RESEARCH_CRITERIA = (
     "liquidity_portfolio_risk",
     "contrary_facts",
 )
+
+DAILY_QUOTE_CLOSE_LABEL: Final = "quote_session_adjusted_close_to_h_sessions_later"
+LEGACY_DAILY_LABEL: Final = "next_session_adjusted_close_to_h_sessions_later"
+DailyLabelDefinition = Literal[
+    "quote_session_adjusted_close_to_h_sessions_later",
+    "next_session_adjusted_close_to_h_sessions_later",
+]
+
+
+def require_quote_close_label(definition: str) -> None:
+    """Legacy metadata stays readable; it cannot certify a new decision input."""
+    if definition != DAILY_QUOTE_CLOSE_LABEL:
+        raise ValueError("FORECAST_LABEL_DEFINITION_UNVERIFIED")
+
+
+def quote_close_forecast_basis() -> dict[str, str | bool]:
+    return {
+        "T": "input quote session, not the prediction or execution session",
+        "formula": "adjusted_close[T+h] / adjusted_close[T] - 1",
+        "horizon_unit": "trading_sessions",
+        "is_execution_return": False,
+        "fees_taxes_dividend_cashflows_included": False,
+        "dividends_zero_confirmed": False,
+    }
 
 
 def canonical_json(value: object) -> str:
@@ -51,9 +75,7 @@ class PredictionSnapshot(DomainModel):
     active_horizons: tuple[Literal[5, 20], ...] = (5, 20)
     risk_horizon: Literal[20] = 20
     unit: Literal["fractional_return"] = "fractional_return"
-    label_definition: Literal["next_session_adjusted_close_to_h_sessions_later"] = (
-        "next_session_adjusted_close_to_h_sessions_later"
-    )
+    label_definition: DailyLabelDefinition = DAILY_QUOTE_CLOSE_LABEL
     price_semantics: Literal["daily_close_research_proxy"] = "daily_close_research_proxy"
     large_loss_threshold: float = Field(gt=-1, lt=0)
     downside_quantile_alpha: float = Field(gt=0, lt=0.5)
@@ -275,6 +297,9 @@ def export_prediction_snapshot(snapshot: PredictionSnapshot, *, format: str = "j
             f"Snapshot: {snapshot.snapshot_id}",
             f"Data: {snapshot.data_as_of.isoformat()} / Model: {snapshot.model_version}",
             f"Unit: {snapshot.unit} / Label: {snapshot.label_definition} / Mode: {snapshot.mode}",
+            ("入力株価日Tの調整済み終値からT+h営業日後までの研究ラベル。約定後損益ではありません。"
+             if snapshot.label_definition == DAILY_QUOTE_CLOSE_LABEL else
+             "旧ラベルの起点は未確認です。原本を保持し、新しい判断入力には使用できません。"),
             "",
             "| 銘柄 | 1日 | 5日 | 20日 | 20日下振れ | 20日下落確率 |",
             "|---|---|---:|---:|---:|---:|",

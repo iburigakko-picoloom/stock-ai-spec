@@ -61,6 +61,9 @@ def _checked(row) -> dict:
                 or snapshot.data_as_of != market.receipt_time(proof["latest_source_received_at"])
                 or tuple(snapshot.holding_symbols) != tuple(scope["holding_symbols"])):
             raise ValueError("Forecast receipt lineage mismatch")
+        if any(key in scope and getattr(snapshot, key) != scope[key]
+               for key in ("label_definition", "price_semantics")):
+            raise ValueError("Forecast label semantics differ from their receipt")
         outputs = {(x["horizon"], x["task"]): dict(x["values"]) for x in value["outputs"]}
         expected_symbols = {x.symbol for x in snapshot.predictions}
         excluded = {x["symbol"] for x in value["excluded_candidates"]}
@@ -221,6 +224,7 @@ def generate(path: Path, store, now: datetime) -> dict:
     scope.update(bundle_sha256=pin["sha256"], bundle_id=bundle.bundle_id,
                  selection_id=bundle.selection_id, large_loss_threshold=bundle.large_loss_threshold,
                  downside_quantile_alpha=bundle.downside_quantile_alpha,
+                 label_definition=bundle.label_definition, price_semantics=bundle.price_semantics,
                  feature_manifest_hash=bundle.feature_manifest_hash,
                  calibration=bundle.calibration.model_dump(mode="json"))
     if not selection["decision_symbols"]:
@@ -293,6 +297,7 @@ def generate(path: Path, store, now: datetime) -> dict:
         as_of=cutoff, generated_at=now, data_as_of=data_as_of,
         selection_id=bundle.selection_id, model_version=model_version,
         feature_version=bundle.feature_manifest_hash, data_snapshot_id=content_id(proof),
+        label_definition=bundle.label_definition, price_semantics=bundle.price_semantics,
         large_loss_threshold=bundle.large_loss_threshold,
         downside_quantile_alpha=bundle.downside_quantile_alpha,
         candidate_symbols=tuple(sorted(

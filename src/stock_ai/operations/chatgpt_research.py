@@ -9,7 +9,13 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator, model_validator
 
 from stock_ai.domain.models import DomainModel, _require_aware
-from stock_ai.operations.daily import PredictionSnapshot, canonical_json, content_id
+from stock_ai.operations.daily import (
+    PredictionSnapshot,
+    canonical_json,
+    content_id,
+    quote_close_forecast_basis,
+    require_quote_close_label,
+)
 
 PROMPT_VERSION: Literal["independent-company-research-v1"] = "independent-company-research-v1"
 INSTRUCTIONS = """あなたは日本株の企業調査担当です。日本語で判断と根拠を整理してください。
@@ -112,6 +118,8 @@ def comparison_request(
         "input": [{"role": "user", "content": canonical_json({
             **_target(context),
             "numerical_as_of": snapshot.as_of.isoformat(),
+            "label_definition": snapshot.label_definition,
+            "forecast_basis": quote_close_forecast_basis(),
             "independent_pass_id": independent.pass_id,
             "independent_research": independent.text,
             "independent_sources": [item.model_dump(mode="json") for item in independent.sources],
@@ -234,6 +242,7 @@ class ChatGPTResearchRecord(DomainModel):
 def validate_context(context: ResearchContext, snapshot: PredictionSnapshot) -> None:
     context = ResearchContext.model_validate_json(context.model_dump_json())
     snapshot = PredictionSnapshot.model_validate_json(snapshot.model_dump_json())
+    require_quote_close_label(snapshot.label_definition)
     if (
         context.prediction_snapshot_id != snapshot.snapshot_id
         or context.numerical_as_of != snapshot.as_of

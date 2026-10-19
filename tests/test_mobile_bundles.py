@@ -16,7 +16,12 @@ from mobile.python import models
 from mobile.python.model_bundle import ModelBundle, approved, encoded
 from mobile.python.portable_model import predict
 
-from stock_ai.operations.daily import OwnerAdoptionReview, canonical_json, content_id
+from stock_ai.operations.daily import (
+    LEGACY_DAILY_LABEL,
+    OwnerAdoptionReview,
+    canonical_json,
+    content_id,
+)
 
 IMPORTED = datetime.fromisoformat("2026-02-02T09:00:00Z")
 CUTOFF = datetime.fromisoformat("2026-02-03T11:30:00+09:00")
@@ -91,6 +96,35 @@ def test_atomic_idempotent_bundle_import_does_not_promote_adoption(imported):
         assert db.execute("SELECT COUNT(*) FROM mobile_model_bundles").fetchone()[0] == 1
         assert db.execute("SELECT COUNT(*) FROM mobile_model_selections").fetchone()[0] == 1
         assert db.execute("SELECT COUNT(*) FROM mobile_models").fetchone()[0] == 0
+
+
+def test_legacy_label_bundle_is_archivable_but_cannot_be_imported_or_selected(imported):
+    path, bundle, _, current = imported
+    legacy = ModelBundle.create(
+        **{**bundle.model_dump(mode="json", exclude={"bundle_id"}),
+           "label_definition": LEGACY_DAILY_LABEL}
+    )
+    content = encoded(legacy)
+    assert ModelBundle.model_validate_json(content).bundle_id == legacy.bundle_id
+    pin = fixture_pin(legacy)
+    current["approved_bundles"].append(pin)
+    with pytest.raises(ValueError, match="LABEL_DEFINITION_UNVERIFIED"):
+        models.import_bundle(path, content, IMPORTED)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM mobile_model_bundles").fetchone()[0] == 0
+        # Simulate a previously saved legacy bundle without reinterpreting it.
+        db.execute("INSERT INTO mobile_model_bundles VALUES(?,?,?)",
+                   (pin["sha256"], content, IMPORTED.isoformat()))
+        db.execute("INSERT INTO mobile_model_selections VALUES(NULL,?,?)",
+                   (pin["sha256"], IMPORTED.isoformat()))
+    with pytest.raises(ValueError, match="LABEL_DEFINITION_UNVERIFIED"):
+        models.load_bundle(path, CUTOFF)
+    assert models.status(path)["bundle_ready"] is False
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT payload FROM mobile_model_bundles").fetchone()[0] == content
+    metadata = legacy.model_dump(mode="json", exclude={"bundle_id", "heads"})
+    with pytest.raises(ValueError, match="LABEL_DEFINITION_UNVERIFIED"):
+        package(metadata, [h.model_dump(mode="json") for h in legacy.heads], SELECTION)
 
 
 def test_import_or_new_selection_after_cutoff_never_falls_back_to_an_older_model(imported):

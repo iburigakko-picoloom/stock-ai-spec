@@ -10,7 +10,14 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AwareDatetime, Field, StrictFloat, StrictInt, ValidationInfo, model_validator
 
-from stock_ai.operations.daily import OwnerAdoptionReview, canonical_json, content_id
+from stock_ai.operations.daily import (
+    DAILY_QUOTE_CLOSE_LABEL,
+    DailyLabelDefinition,
+    OwnerAdoptionReview,
+    canonical_json,
+    content_id,
+    require_quote_close_label,
+)
 from stock_ai.operations.manual_portfolio import Digest, InputModel, strict_json
 
 from .portable_model import predict, validate
@@ -71,9 +78,7 @@ class ModelBundle(InputModel):
     large_loss_threshold: Annotated[StrictFloat, Field(gt=-1, lt=0)]
     downside_quantile_alpha: Annotated[StrictFloat, Field(gt=0, lt=0.5)]
     unit: Literal["fractional_return"] = "fractional_return"
-    label_definition: Literal["next_session_adjusted_close_to_h_sessions_later"] = (
-        "next_session_adjusted_close_to_h_sessions_later"
-    )
+    label_definition: DailyLabelDefinition = DAILY_QUOTE_CLOSE_LABEL
     price_semantics: Literal["daily_close_research_proxy"] = "daily_close_research_proxy"
     heads: Annotated[tuple[ModelHead, ...], Field(min_length=4, max_length=4)]
 
@@ -128,6 +133,7 @@ def approved(content: str, policy: dict,
         raise ValueError("MODEL_DISTRIBUTION_NOT_REVIEWED")
     selection = selection() if callable(selection) else selection
     bundle = ModelBundle.model_validate(strict_json(content))
+    require_quote_close_label(bundle.label_definition)
     if (entry.get("bundle_id") != bundle.bundle_id
             or entry["adoption_evidence_sha256"] != content_id(
                 bundle.adoption_review.model_dump(mode="json"))
@@ -162,6 +168,8 @@ def parity(content: str, rows: dict, selection: dict) -> dict:
         raise ValueError("Frozen feature selection mismatch")
     return {"bundle_id": bundle.bundle_id, "sha256": hashlib.sha256(content.encode()).hexdigest(),
             "research_only": True, "model_adopted": False, "persisted": False,
+            "label_definition": bundle.label_definition,
+            "label_definition_supported": bundle.label_definition == DAILY_QUOTE_CLOSE_LABEL,
             "heads": [{"horizon": head.horizon, "task": head.task, "model_id": head.model_id,
                        "sha256": head.sha256,
                        "values": predict(head.decoded(selection), rows[str(head.horizon)])}

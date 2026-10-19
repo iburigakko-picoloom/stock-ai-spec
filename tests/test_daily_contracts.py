@@ -17,15 +17,50 @@ from stock_ai.ml.evaluation_audit import audit_training_labels
 from stock_ai.operations.api import create_app
 from stock_ai.operations.cloud import cloud_projection, sync_private_results
 from stock_ai.operations.daily import (
+    LEGACY_DAILY_LABEL,
     RESEARCH_CRITERIA,
     CompanyResearchRecord,
     PredictionSnapshot,
     ResearchFinding,
     ResearchSource,
+    canonical_json,
+    export_prediction_snapshot,
     validate_research_link,
 )
 from tests.conftest import AS_OF
 from tests.test_daily_readiness import daily_snapshot, research_for
+
+
+def test_legacy_label_archives_keep_original_content_and_identity() -> None:
+    source = daily_snapshot()
+    legacy = PredictionSnapshot.create(
+        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": LEGACY_DAILY_LABEL}
+    )
+    original = canonical_json(legacy.model_dump(mode="json"))
+    restored = PredictionSnapshot.model_validate_json(original)
+    assert restored.snapshot_id == legacy.snapshot_id
+    assert export_prediction_snapshot(restored).strip() == original
+    markdown = export_prediction_snapshot(restored, format="markdown")
+    assert "新しい判断入力には使用できません" in markdown
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_stock_view_distinguishes_label_semantics_without_changing_archive(tmp_path, legacy):
+    app = create_app(tmp_path / "operations.sqlite3")
+    original = daily_snapshot()
+    snapshot = PredictionSnapshot.create(**{
+        **original.model_dump(exclude={"snapshot_id"}),
+        **({"label_definition": LEGACY_DAILY_LABEL} if legacy else {}),
+    })
+    app.state.store.append_prediction_snapshot(snapshot)
+    client = TestClient(app, base_url="http://127.0.0.1")
+    response = client.get(f"/api/v1/stocks/A?businessDate={AS_OF.date().isoformat()}")
+    assert response.status_code == 200
+    view = response.json()["forecast"]
+    assert view["labelDefinition"] == snapshot.label_definition
+    assert view["labelDefinitionSupported"] is (not legacy)
+    assert view["researchEligible"] is (not legacy)
+    assert app.state.store.prediction_snapshot(snapshot.snapshot_id) == snapshot
 
 
 @pytest.mark.parametrize(

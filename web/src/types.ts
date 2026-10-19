@@ -199,6 +199,7 @@ export interface StockDetail {
   forecast: {
     snapshotId: string; asOf: string; generatedAt: string; isStale: boolean;
     mode: "research" | "paper" | "owner_approved"; blockingReasons: string[];
+    labelDefinition?: string; labelDefinitionSupported?: boolean;
     prediction: { expected_return_5d: number; expected_return_20d: number; large_loss_probability: number };
     researchEligible: boolean;
   } | null;

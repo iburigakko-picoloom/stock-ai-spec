@@ -73,6 +73,9 @@ export function StockDetailPage(): ReactNode {
       {data.forecast && <section className="section numerical-forecast" aria-labelledby="numerical-forecast-title">
         <div className="section-title"><div><span>NUMERICAL FORECAST</span><h2 id="numerical-forecast-title">数値モデルの予測</h2></div></div>
         <p className="explain">入力締切 {dateTime(data.forecast.asOf, true)} JST{data.forecast.isStale && "（過去の予測）"}</p>
+        <p className="explain">{data.forecast.labelDefinitionSupported
+          ? "入力に使った株価日の終値を基準とした、5・20営業日先の研究値です。現在の約定価格からの損益ではありません。"
+          : "過去のラベル説明は未確認です。新しい判断には使えません。"}</p>
         <div className="metric-grid metric-grid--2">
           <Metric label="5営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_5d)} />
           <Metric label="20営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_20d)} />

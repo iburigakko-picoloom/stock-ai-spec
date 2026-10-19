@@ -14,6 +14,7 @@ from stock_ai.operations.chatgpt_manual import (
     parse_answer,
     review_answer,
 )
+from stock_ai.operations.daily import LEGACY_DAILY_LABEL, PredictionSnapshot, content_id
 from stock_ai.operations.personal import compare_personal
 from tests.conftest import AS_OF
 from tests.test_personal_comparison import scenario
@@ -82,6 +83,39 @@ def test_complete_hold_is_valid_without_mutating_originals(context):
     assert comparison.proposal is not None
     assert {x["symbol"] for x in package["securities"]} == {"1001", "1002"}
     assert next(x for x in package["securities"] if x["symbol"] == "1001")["holding"]
+
+
+def test_prompt_explains_quote_label_without_turning_it_into_execution_profit(context):
+    _, inputs, _, _, package, _ = context
+    assert package["forecast_basis"]["formula"] == "adjusted_close[T+h] / adjusted_close[T] - 1"
+    assert package["forecast_basis"]["is_execution_return"] is False
+    assert package["forecast_basis"]["fees_taxes_dividend_cashflows_included"] is False
+    assert package["forecast_basis"]["dividends_zero_confirmed"] is False
+    values = {p.symbol: p for p in inputs["forecast"].predictions}
+    for security in package["securities"]:
+        original = values[security["symbol"]]
+        assert security["forecast_5d"]["value"] == original.expected_return_5d
+        assert security["forecast_20d"]["value"] == original.expected_return_20d
+    prompt = manual_prompt(package)
+    assert "現在価格や次の約定価格からの損益ではなく" in prompt
+
+
+def test_legacy_label_cannot_become_a_new_chatgpt_input_or_prompt(context):
+    comparison, inputs, permission, now, package, _ = context
+    source = inputs["forecast"]
+    legacy = PredictionSnapshot.create(
+        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": LEGACY_DAILY_LABEL}
+    )
+    original = legacy.model_dump_json()
+    with pytest.raises(ValueError, match="LABEL_DEFINITION_UNVERIFIED"):
+        input_package(comparison, inputs["ledger"], legacy, now=now, permission=permission)
+    old_package = {**package, "label_definition": LEGACY_DAILY_LABEL}
+    old_package["input_snapshot_id"] = content_id(
+        {k: v for k, v in old_package.items() if k != "input_snapshot_id"}
+    )
+    with pytest.raises(ValueError, match="LABEL_DEFINITION_UNVERIFIED"):
+        manual_prompt(old_package)
+    assert legacy.model_dump_json() == original
 
 
 def test_target_shares_are_converted_by_app_and_exact_cost_is_reused(context):

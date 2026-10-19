@@ -33,7 +33,7 @@ from stock_ai.domain import (
     TaxState,
 )
 from stock_ai.domain.models import DailyDecisionAudit, PersonalPublicationGuard
-from stock_ai.operations.daily import PredictionSnapshot, content_id
+from stock_ai.operations.daily import DAILY_QUOTE_CLOSE_LABEL, PredictionSnapshot, content_id
 from stock_ai.operations.manual_portfolio import (
     Digest,
     Identifier,
@@ -249,6 +249,8 @@ def compare_personal(
     as_of = request.checked_at if forecast is None else forecast.as_of
     age = timedelta(hours=request.maximum_input_age_hours)
     if forecast is not None:
+        if forecast.label_definition != DAILY_QUOTE_CLOSE_LABEL:
+            block("FORECAST_LABEL_DEFINITION_UNVERIFIED")
         cutoff = as_of.astimezone(JST)
         if (cutoff.hour, cutoff.minute, cutoff.second, cutoff.microsecond) != (11, 30, 0, 0):
             block("FORECAST_NOT_1130_FREEZE")

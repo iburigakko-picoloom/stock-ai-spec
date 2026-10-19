@@ -1,3 +1,9 @@
+## 2026-10-19 — 予測の起点説明を実ラベルに一致（D184）
+
+- 元OOFと既存full-fitのラベルは入力株価日Tの調整済み終値からT+h営業日後まで。翌営業日11:30の利用可能時刻や約定価格を起点とする旧metadataを修正。数値ラベル・weight・NAV・比較結果は不変。旧原本はID/内容を保全して読取可能、新しい判断・モデル選択・ChatGPT入力には使わない。
+- 画面/prompt/入力metadataで研究ラベルと約定後損益を区別。2実weightには別の訂正sidecarを付け、元plan/weight/preprocessorは保持。原OOFの残差とfold指標の照合は読取専用・holdout未開封で完了したが、採用モデル用の校正器は未作成。rank空間の既存校正をraw-returnへ流用しない。
+- 最新の関連29試験、Ruff、mypy75ファイル、frontend lint/typecheck成功。修正commitのCIと新候補APKは未完で継続。旧59ea01eの全CI/189MB実保存復旧/0.1.16候補は保全し、今回の全コードの合格証拠へ流用しない。152条件・採用HOLD・最終holdout未開封、本人利用の未完条件は維持。
+
 ## 2026-10-19 — 実188MBの保存復旧と通常候補0.1.16、対象CI全成功
 
 - D183。製品59ea01e/tested merge42e95cd、CI39187276127のverify/android/android-history全success、release skip。今回のnative86件210.244秒、共有Python group529件、Ruff/mypy75、ブラウザー/通信遮断WASM、OS3段階・旧source debug更新、全17table合成B1復元223.613秒を確認。PC5,000銘柄/520日保存788.919秒、最新特徴量304.299秒/peak3,124,248,576bytes。過去件数や重複groupを合算していない。
