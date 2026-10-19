@@ -1,3 +1,15 @@
+## 2026-10-20 — 実API差分のAndroid一致と通常予測の保存・プロセス再起動（D199）
+
+- 製品58c8a2eのCI39296287728はverify/android/android-history全成功、release skip。Android89件の失敗/error/skip0、OS復旧/旧版更新/全量owner保存が成功し、同梱計算51fileとCI成果物のbyte一致を確認。最新141関連PC試験も同じ修正sourceの証拠として保持する。
+- 実1営業日のAPI受領→730日入力→共通統計→候補限定特徴量→実5/20日推論はAndroid35/4GiB guestで424.972秒（受領3.083、入力411.639、特徴量6.607、推論1.081、その他setup2.562）。同一page再投入2.163秒で17table不変。全共通context/対象全特徴量23,276数値/590予測/上位20がPC一致、最大差0。native全体455.422秒。受信時刻/新source IDsを保持する。native downloader ackや通常OS日次を実行済みとはしない。
+- 同じapp+renderer sampled RSSは直前全市場計算3,031,322,624bytes、候補限定の初回3,026,989,056bytes、今回の差分3,009,716,224bytes。入力peakはほぼ同じで、候補限定による大幅なメモリ削減とは言わない。今回のVM最大5,183,455,232bytes/host空き最小1,939,488,768bytes。600秒/Java192MiB/既存RAM guardは変更せずOOM/OS終了なし。単一emulatorの実測をXiaomiの保証へ代用しない。
+- 実730日/当日membership/研究2回帰と合成口座を隔離ownerへ入れ、通常forecast要求から暗号化保存まで490.421秒、同日GET0.352秒で590予測一致・再計算なし。実際にapp processを終了して別processから読戻し、予測/元入力/モデル/初期現金/台帳を独立hostで照合した。締切前生成と締切後の保有変更を理由付き拒否し、実約定0。全量B1保存復旧のD197証拠は別試験として保持する。
+- このowner試験だけはprivate WorkerのDateを制御し、11:30前後を再現した。OS時計/monotonic実測/実データの受領時刻は変更しない。51計算fileと通常frontendは製品と同じで、追加clock bootstrapは隔離debug testのみ。通常署名候補へ混入しない。実時刻のOS配送、本人口座、Xiaomiの成功とはしない。owner中のsampled app+renderer最大3,283,562,496bytes/VM最大5,204,877,312bytes/host空き最小1,641,902,080bytesを記録し、算術だけの試験と区別する。
+- 初回controllerはJUnit終了後にPIDを問い合わせ、runnerが終了時にappを停止済みのため末尾で失敗した。両JUnit成功と原失敗を保全し、実行中のstage別memory記録からapp PID1821→2453、途中の停止guard通過、Androidのfinished-inst停止ログを独立照合した。計算/実機試験を再実行せず、取り出し済み全DBを元のexport hashから再検証して保存/台帳不変を確認した。
+- 既存署名の非debug私有0.1.22/code10022を作成・package/証明書/43assets/秘密非混入検証済み。SHA256 419b556e91c2a979baf208a92ce66efe84bfb927d45e53f852fa55686482d210。モデル/市場データ/APIキー/clock shimは同梱なし、旧候補は保全。本人端末install/main merge/公開配布は行っていない。
+- 残件はXiaomiでの一括受入、実REST取得と通常日次の一連、訂正/候補入替/保有・モデル変更の実データ端末確認。訂正/同一入力再利用/全保有/再起動の関連unit試験と実機実測を区別する。日次数分以内は未達で、入力構築が短縮候補。日別共通cache/全指標再帰更新は追加せず、必要なら版管理・訂正/分割の無効化とPC/native再照合を伴う別工程とする。
+- 18候補/OOF/費用込み152条件/正式HOLD・未使用holdout採点なしを維持。新規fit/実注文/本人台帳更新/新規課金/外部AI送信なし。公開の集約実測はdocs/evidence/android-runtime-20261020/summary.json、原出力/失敗/私有model/原本は.demo-artifacts以下に保全する。
+
 ## 2026-10-20 — 実APIの1日追加で見つけた日付型混在を修正（D198）
 
 - D197の0.1.21は730日算術/全量保存復旧までの候補で、通常日次の完成版ではない。続く1日追加試験で、bulkのdatetime64/JSTとAPIのISO文字列/UTCが同じ列へ入り、calendarの並べ替えがTypeErrorで停止した。旧bulk rawをAPI ingestへ直接入れた試作は必須列不足で拒否され、記録を残した。列を補完/検査緩和せず、既存Light/V2から実1営業日分を再取得して不具合を切り分けた。

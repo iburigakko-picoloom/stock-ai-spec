@@ -1,12 +1,12 @@
 # Xiaomi 14T Pro：USBなしの実機確認
 
-## 0.1.21の一括受入（2026-10-20、通常日次の準備残件あり・本人未実施）
+## 0.1.22の一括受入（2026-10-20、本人未実施）
 
-本人用の非公開`StockAI-0.1.21-candidate.apk`、versionCode10021、製品source e75ba84。SHA256 `ea4aca8960c0a7afe3b7a44d5dff1422ae801712cd75fabac21a94942baab299`。既存版と同じ署名・非debugで、市場データ/APIキー/私有modelを含まない。必要CI39284664580は全成功、release skip。Android89件と同梱runtime51fileの一致を確認している。
+本人用の非公開`StockAI-0.1.22-candidate.apk`、versionCode10022、製品source58c8a2e。SHA256 `419b556e91c2a979baf208a92ce66efe84bfb927d45e53f852fa55686482d210`。既存版と同じ署名・非debug。市場データ/APIキー/私有model/試験clockは含まない。必要CI39296287728全成功、release skip。Android89件・同梱計算51fileの一致を確認した。旧0.1.21とその原証拠は私有保存/Git履歴へ保全している。
 
-正式採用HOLD。本人用`StockAI-private-research-5d20d.json`（7,066,264bytes、SHA256 `5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5`）は同じ未採用の研究用2回帰bundleで、risk/校正はnullのまま。最新730日の実SQLiteによるAndroid算術試験は452.336秒で完走し、候補の全特徴量/590予測/共通統計/上位20がPC一致。別の全量owner/B1復元試験も約422.427秒で成功し、hostで17table全内容・研究bundle・試験設定を照合した。いずれもXiaomiや本人の保有/現金を使った証拠ではない。
+正式採用HOLD。本人用`StockAI-private-research-5d20d.json`（7,066,264bytes、SHA256 `5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5`）は同じ未採用の研究用2回帰bundleで、risk/校正はnull。実730日Android算術は初回452.336秒、API1日追加424.972秒でPC全特徴量/590予測/上位20一致。通常forecast保存490.421秒、同日読取0.352秒・process終了後の読戻しも確認したが、後者は隔離Worker時刻制御/試験用口座による。OS時計/データ取得時刻は変更せず、この仕組みは候補APKに含めない。全量B1保存復旧/17table一致は別試験で成功した。
 
-残る通常予測保存・1営業日差分/訂正/入替/保有変更/予測保存後の再表示と再起動の実測を先に締める。この票は一括受入の準備であり、現時点で本人へ操作開始をお願いする案内ではない。取込/受信時刻を11:30以前へ戻さない。
+実時刻のREST取得→通常日次→通知と、Xiaomiの性能/保存/訂正・候補入替/保有・モデル変更は実機未確認。数分以内は未達。emulator/合成CIや旧0.1.11の本人成功を今回の成功へ読み替えない。本人の時刻/取込時刻を過去へ戻さない。
 
 以下の8項目を準備完了後に一度に確認する。USBは必須にしない。旧0.1.11の本人成功や、emulatorの試験を新source/Xiaomi成功へ読み替えない。取込/受信時刻を11:30以前へ戻さない。
 
