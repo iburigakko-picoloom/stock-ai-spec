@@ -1,10 +1,12 @@
 # Xiaomi 14T Pro：USBなしの実機確認
 
-## 0.1.20の一括受入（2026-10-19、準備未了・本人未実施）
+## 0.1.21の一括受入（2026-10-20、通常日次の準備残件あり・本人未実施）
 
-本人用の非公開`StockAI-0.1.20-candidate.apk`、versionCode10020、製品source d150b07。SHA256 `127ee7612da44a82c9349c542d3eeac7215458b8bf3476f097068d86b80f15de`。既存版と同じ署名・非debugで、市場データ/APIキー/私有modelを含まない。CI39251810913のAndroid89件と候補の51計算source/config一致は確認済みだが、必要CI全体は未完。
+本人用の非公開`StockAI-0.1.21-candidate.apk`、versionCode10021、製品source e75ba84。SHA256 `ea4aca8960c0a7afe3b7a44d5dff1422ae801712cd75fabac21a94942baab299`。既存版と同じ署名・非debugで、市場データ/APIキー/私有modelを含まない。必要CI39284664580は全成功、release skip。Android89件と同梱runtime51fileの一致を確認している。
 
-正式採用HOLD。別の本人用`StockAI-private-research-5d20d.json`（7,066,264bytes、SHA256 `5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5`）は、未提供risk/校正をnullとする研究用2回帰bundleである。PC/WASM/Androidの通常取込と小さな実入力の予測/保存復元は試験済みだが、最新730日の実SQLiteからのAndroid入力生成は591.172秒にguestのlowmemorykillerで終了し、全量の予測一致は未達。入力生成の省メモリ化・全量一致/モデル入り復元・時点が成立する通常日次を先に確認する。現時点で本人へ以下の操作開始をお願いする案内ではない。
+正式採用HOLD。本人用`StockAI-private-research-5d20d.json`（7,066,264bytes、SHA256 `5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5`）は同じ未採用の研究用2回帰bundleで、risk/校正はnullのまま。最新730日の実SQLiteによるAndroid算術試験は452.336秒で完走し、候補の全特徴量/590予測/共通統計/上位20がPC一致。別の全量owner/B1復元試験も約422.427秒で成功し、hostで17table全内容・研究bundle・試験設定を照合した。いずれもXiaomiや本人の保有/現金を使った証拠ではない。
+
+残る通常予測保存・1営業日差分/訂正/入替/保有変更/予測保存後の再表示と再起動の実測を先に締める。この票は一括受入の準備であり、現時点で本人へ操作開始をお願いする案内ではない。取込/受信時刻を11:30以前へ戻さない。
 
 以下の8項目を準備完了後に一度に確認する。USBは必須にしない。旧0.1.11の本人成功や、emulatorの試験を新source/Xiaomi成功へ読み替えない。取込/受信時刻を11:30以前へ戻さない。
 
@@ -66,3 +68,10 @@
 同日、補足設定・初回台帳を追加した0.1.12/versionCode10012を公開した。0.1.11からの更新案内→Androidの確認→保存内容の維持と、新画面の操作は実機で未確認。既存の成功報告を新機能の確認済み扱いにはしない。[0.1.12の検証記録](../android-personal-20261016/verification.json)を参照する。
 
 採用モデルは現在0件。データ未取得・研究用表示は現状の仕様であり、今回の導入確認を投資予測・個人比較の完成と扱わない。実注文機能はない。
+
+
+## 旧0.1.20候補の準備時点（履歴）
+
+本人用の非公開`StockAI-0.1.20-candidate.apk`、versionCode10020、製品source d150b07。SHA256 `127ee7612da44a82c9349c542d3eeac7215458b8bf3476f097068d86b80f15de`。既存版と同じ署名・非debugで、市場データ/APIキー/私有modelを含まない。CI39251810913のAndroid89件と候補の51計算source/config一致は確認済みだが、必要CI全体は未完。
+
+正式採用HOLD。別の本人用`StockAI-private-research-5d20d.json`（7,066,264bytes、SHA256 `5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5`）は、未提供risk/校正をnullとする研究用2回帰bundleである。PC/WASM/Androidの通常取込と小さな実入力の予測/保存復元は試験済みだが、最新730日の実SQLiteからのAndroid入力生成は591.172秒にguestのlowmemorykillerで終了し、全量の予測一致は未達。入力生成の省メモリ化・全量一致/モデル入り復元・時点が成立する通常日次を先に確認する。現時点で本人へ以下の操作開始をお願いする案内ではない。
