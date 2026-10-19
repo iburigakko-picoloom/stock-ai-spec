@@ -1,3 +1,11 @@
+## 2026-10-19 — 全量Android計算の短縮、対象CI成功、通常候補0.1.15
+
+- D182。製品source cc3d2d5/tested merge0345ae7、CI39164164508のverify/android/android-historyが全てsuccess、releaseはskip。今回ログでnative84件221.819秒、Python group527件、React97件、WASM18/11/6件を確認。5,000銘柄/520日/17table全内容のB1復元220.366秒、OS3段階と旧source debug更新も成功。groupを足して重複なしの総数とはしない。以前のCI failureとLinux上Task Scheduler skipも保持。
+- 同じ4GiB API35/WebView124で、実データ489営業日/1,854,462行・各horizon3820銘柄の全JSON、296507数値がPCと完全一致。全体717.019→375.870秒、特徴量608.963→285.055秒、decode74.980秒。Java heap192MiB、app/renderer3500MiB/host予備1GiBを維持し、実測RSS最大2,990,034,944bytes・host空き最小1,970,909,184bytes。計算式/入力窓/許容差/通常600秒制限は不変。私有harnessであり、通常owner DBからのsource再構成込みの日次一連やXiaomiの成功ではない。
+- 本人署名の通常版0.1.15-candidate/code10015（非debug、23,957,697bytes）を172.615秒で私有作成し、同じ43資産・30共有/16mobile source、既存証明書、APIキー/私有市場データ/モデルの非混入を認証。SHA256=1312c1c521e21121f55c1a84535429c14d0e0098ce8ddd4c171ce2fda3b52aa4。旧候補・署名鍵・失敗/中止ログ・元私有差分は保全。実機導入/公開配布/main mergeなし。
+- Aは全152条件を実行して56研究完走/96不完全と正式HOLD理由を記録したが、全条件の比較可能性や採用を完了扱いにしない。Bは対象sourceの必要CI成功。Cは通常私有bundle、本人DBの日次一連、Xiaomi受入が未完。現在の通常4head/校正/review/pin契約を数合わせのrisk fitや架空holdoutで満たさず、return-only採用時は未提供riskの契約対応も必要と明記。2本の実回帰fitは一致する最終条件なら再利用し、通常bundleと偽らない。最終holdout未開封、今回fit0。
+- 最終の比較表/JSON/未解決一覧/採否理由、候補APK、bundle作成の具体条件、実機一括票、commit/試験/残件は私有completion-report-v4とverified-batch-milestoneへ集約。文書のみのcheckpointで製品sourceを変更せず、同じ重い検証を再実行しない。実注文/新規課金/外部AI送信なし。
+
 ## 2026-10-19 — 実データ全量のAndroid一致と日次計算の短縮
 
 - D181。source682ec49の実データ489営業日/1,854,462行から、Android35/WebView124とPCで各horizon3820銘柄・296507数値・全JSON値が完全一致。2.5GiB guestのrenderer killを保全し、4GiB guestでは全体717.019秒、decode85.155秒、特徴量608.963秒。Java heap192MiB、app/renderer3500MiB、host予備1GiBを維持。通常owner/daily経路・Xiaomiの受入成功ではない。
