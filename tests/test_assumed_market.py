@@ -15,6 +15,7 @@ from stock_ai.cli import app
 from stock_ai.ml import assumed_market as module
 from stock_ai.ml.assumed_market import (
     AssumedMarketRequest,
+    DocumentedCashConversion,
     KnownActionBlocker,
     ResearchAssumptions,
     SavedScoreSource,
@@ -731,3 +732,122 @@ def test_cli_pins_assumptions_before_replay_without_claiming_strict_coverage(pre
     )
     assert receipt["unverified"] and receipt["not_standalone_adoption_evidence"]
     assert receipt["frozen_input"]["sha256"] == module._sha(Path(receipt["frozen_input"]["path"]))
+
+
+def cash_request(request, *, pending=True):
+    """Synthetic reviewed terms; never a real issuer-evidence receipt."""
+    document = request.feature_selection_path.parent / "synthetic-cash-terms.txt"
+    document.write_text("SYNTHETIC unconditional cash terms only", encoding="utf-8")
+    evidence = pin(document)
+    event = NavAction(
+        event_id="synthetic-cash-conversion", symbol="1000",
+        kind="cash_conversion_pending_payment" if pending else "cash_conversion",
+        effective_at=at(1, 9), available_at=at(0, 9),
+        source_id="documented-cash-conversion:" + evidence.sha256,
+        cash_per_share=D(310), payment_at=None if pending else at(1, 15),
+    )
+    conversion = DocumentedCashConversion(
+        action=event, delisted_from=DATES[1], terms_evidence=evidence,
+        payment_evidence=None if pending else evidence,
+        entitlement_review="confirmed_unconditional_cash",
+    )
+    assumptions = ResearchAssumptions.model_validate({
+        **request.assumptions.model_dump(),
+        "version": "daily-close-declared-assumptions-v3",
+        "missing_held_reference": "skip_rebalance",
+        "comparison_use": "post_result_exploratory_sensitivity",
+        "action_scope": "reported-splits-and-documented-cash-unreported-coverage-unverified",
+    })
+    return request.model_copy(update={
+        "assumptions": assumptions, "cash_conversions": (conversion,),
+        "known_action_blockers": (KnownActionBlocker(
+            symbol="1000", effective_from=DATES[1],
+            kind="delisting_cash_accounting_unresolved", evidence=evidence,
+        ),),
+        "rule": request.rule.model_copy(update={
+            "accounting": request.rule.accounting.model_copy(update={"actions": (event,)})
+        }),
+    })
+
+
+@pytest.mark.parametrize("pending", [True, False])
+def test_documented_cash_is_connected_without_early_cash_or_silent_success(prepared, pending):
+    request = cash_request(prepared(), pending=pending)
+    result = evaluate_assumed_market(request)
+    assert result["strategy"] is not None and result.get("stopped_reason") is None
+    first, last = result["strategy"]["days"]
+    shares = next(p["shares"] for p in first["positions"] if p["symbol"] == "1000")
+    assert not any(p["symbol"] == "1000" for p in last["positions"])
+    claim = D(310) * shares
+    if pending:
+        assert last["cash"] == first["cash"]
+        assert D(last["receivables"][0]["amount"]) == claim
+        assert last["receivables"][0]["payment_at"] is None
+        assert result["status"] == "INCOMPLETE"
+        assert result["strategy"]["total_return"] is None
+        assert result["metrics"]["unresolved_cash_payment_ids"] == ["synthetic-cash-conversion"]
+    else:
+        assert D(last["cash"][0]["amount"]) == D(first["cash"][0]["amount"]) + claim
+        assert not last["receivables"] and result["status"] == "COMPLETE_ASSUMPTION_RESEARCH"
+    assert not result["adoption_eligible"] and not result["holdout_scored"]
+
+
+def test_cash_terms_cannot_bypass_scope_identity_evidence_or_other_rights(prepared):
+    request = cash_request(prepared())
+    with pytest.raises(ValueError, match="explicit v3"):
+        evaluate_assumed_market(request.model_copy(update={
+            "assumptions": prepared(horizon=20).assumptions,
+        }))
+    with pytest.raises(ValueError, match="exact documented"):
+        evaluate_assumed_market(request.model_copy(update={"cash_conversions": ()}))
+    event = request.rule.accounting.actions[0].model_copy(update={"cash_per_share": D(999)})
+    with pytest.raises(ValueError, match="exact documented"):
+        evaluate_assumed_market(request.model_copy(update={
+            "rule": request.rule.model_copy(update={
+                "accounting": request.rule.accounting.model_copy(update={"actions": (event,)})
+            }),
+        }))
+    conversion = request.cash_conversions[0]
+    conversion.terms_evidence.path.write_text("changed synthetic terms", encoding="utf-8")
+    with pytest.raises(ValueError):
+        evaluate_assumed_market(request)
+
+
+def test_cash_evidence_declarations_do_not_open_holdout_files(prepared):
+    request = cash_request(prepared())
+    proof = request.cash_conversions[0]
+    event = proof.action.model_copy(update={"effective_at": at(1).replace(month=8, day=1)})
+    proof = proof.model_copy(update={"action": event})
+    proof.terms_evidence.path.unlink()  # Boundary must reject before reading it.
+    with pytest.raises(ValueError, match="locked holdout"):
+        evaluate_assumed_market(request.model_copy(update={"cash_conversions": (proof,)}))
+
+
+def test_documented_cash_cannot_hide_a_reported_rights_or_consolidation_event(prepared):
+    request = cash_request(prepared(rights="3"))
+    with pytest.raises(ValueError, match="unresolved share or rights event"):
+        evaluate_assumed_market(request)
+
+
+def test_cash_terms_do_not_clear_a_different_delisting_blocker(prepared):
+    request = cash_request(prepared())
+    # The cash document addresses day two, not a different event on day one.
+    blocker = request.known_action_blockers[0].model_copy(update={"effective_from": DATES[0]})
+    result = evaluate_assumed_market(
+        request.model_copy(update={"known_action_blockers": (blocker,)})
+    )
+    assert result["status"] == "INCOMPLETE"
+    assert result["stopped_reason"] == "KNOWN_UNRESOLVED_CORPORATE_ACTION"
+
+
+def test_cash_payment_and_source_identity_require_their_own_matching_evidence(prepared):
+    request = cash_request(prepared())
+    proof = request.cash_conversions[0]
+    with pytest.raises(ValueError, match="matching reviewed terms"):
+        DocumentedCashConversion.model_validate({
+            **proof.model_dump(), "payment_evidence": proof.terms_evidence,
+        })
+    with pytest.raises(ValueError, match="matching reviewed terms"):
+        DocumentedCashConversion.model_validate({
+            **proof.model_dump(), "action": proof.action.model_copy(update={"source_id": "wrong"}),
+        })

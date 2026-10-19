@@ -94,6 +94,11 @@ class MarketStrategyRequest(NavModel):
 
     @model_validator(mode="after")
     def explicit_dividend_treatment(self) -> Self:
+        if any(
+            event.kind == "cash_conversion_pending_payment"
+            for event in self.strategy.accounting.actions
+        ):
+            raise ValueError("strict market evaluation requires verified cash payment timing")
         if self.evaluation_tier == "price_only_research" and any(
             event.kind == "dividend" for event in self.strategy.accounting.actions
         ):

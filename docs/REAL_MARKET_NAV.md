@@ -78,3 +78,12 @@ D174：市場射影に保存した`ex_rights_type`も照合する。ライツ(3)
 配当通知の入口は[配当データ接続](DIVIDEND_DATA.md)。保存済みV2通知の訂正・削除・予想/決定・利用可能時刻を照合し、条件が揃う決定配当だけを既存NavActionへ変換する。この処理単独では企業行動の全期間網羅を成立させない。
 
 公式仕様を2026-10-17に確認：日足の調整価格は後続イベントで再計算され、ULは高値の上限到達を示す。特別気配、当時の取得可能時刻、訂正前データは日足だけでは補えない。[J-Quants日足仕様](https://jpx-jquants.com/ja/spec/eq-bars-daily)。配当の通知系列・訂正削除・予想/決定を区別し、権利落日・金額・支払開始予定日を確認する。通知時刻をJ-Quantsでの取得可能時刻へ読み替えない。[配当仕様](https://jpx-jquants.com/ja/spec/fin-dividend)。T+2の受渡制度と口座の買付余力解放は別に扱う。[JPX受渡制度](https://www.jpx.co.jp/equities/clearing-settlement/tplus2-settlement-cycle/index.html)。
+
+
+## D187：根拠付き現金交付と入金日未確認の受取権
+
+明示assumptions-v3では、`action_scope=reported-splits-and-documented-cash-unreported-coverage-unverified`と探索的用途を要求する。`cash_conversions`は確認済みの無条件現金権利、上場廃止日、既存NavAction、terms_evidence、指定入金時刻があればpayment_evidenceを固定する。hash一致は内容の正しさや予定の実現を証明しない。条件付き端数処分・未確認の効力・ライツは未処理として残す。
+
+入金時刻を確認できない確認済み権利には`kind=cash_conversion_pending_payment`を明示する。株式から口座別の名目受取権へ一度だけ変え、`payment_at=null`の間は現金へ振替せず再投資しない。影響日の`unresolved_cash_payments`を保存し、確定NAV/収益/MDDにはしない。既存の仮評価列に含まれる名目額は条件付き評価であり、実際の資産価値や支払確率を保証しない。既存cash_conversionは指定時刻での入金を維持する。
+
+元のv1/v2と152条件の結果を置き換えず、strict側では入金不明を拒否する。補足情報のholdout境界はfileを開く前に確認する。上場廃止の停止根拠を解決する場合は銘柄と日付を一致させる。報告済みの分割・併合・ライツを現金の書類だけで回避しない。新しい根拠は新入力版へ保存し、処理中の入力を変更しない。

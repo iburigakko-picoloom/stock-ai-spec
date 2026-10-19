@@ -26,7 +26,7 @@ from stock_ai.ml.daily_market import DailyMarketRequest
 from stock_ai.ml.evaluation_audit import write_audit_receipt
 from stock_ai.ml.fixed_rule import FixedRuleRequest, evaluate_fixed_rule
 from stock_ai.ml.market_nav import MarketReceipt, PinnedEvidence, read_market_receipts
-from stock_ai.ml.nav import JST, NavDecisionState, NavModel, NavOrder, evaluate_daily_nav
+from stock_ai.ml.nav import JST, NavAction, NavDecisionState, NavModel, NavOrder, evaluate_daily_nav
 from stock_ai.ml.research_funding import require_research_funding
 from stock_ai.ml.selection import load_development_feature_selection
 from stock_ai.operations.daily import content_id
@@ -53,13 +53,17 @@ class SavedBenchmarkSource(PinnedEvidence):
 
 class ResearchAssumptions(NavModel):
     version: Literal[
-        "daily-close-declared-assumptions-v1", "daily-close-declared-assumptions-v2"
+        "daily-close-declared-assumptions-v1", "daily-close-declared-assumptions-v2",
+        "daily-close-declared-assumptions-v3",
     ]
     entitlement_basis: Literal["confirmed-current-Light-frozen-acquisition"]
     known_future_information_present: Literal[False]
     execution: Literal["reported-close-with-5pct-volume-capacity"]
     limit_touches: Literal["withhold-buy-on-UL-sell-on-LL"]
-    action_scope: Literal["reported-splits-only-unreported-coverage-unverified"]
+    action_scope: Literal[
+        "reported-splits-only-unreported-coverage-unverified",
+        "reported-splits-and-documented-cash-unreported-coverage-unverified",
+    ]
     revision_policy: Literal["single-as-revised-vintage-not-historical-known-at"]
     timing: Literal["saved-OOF-asof-after-feature-day-before-next-close-proxy"]
     split_factor_interpretation: Literal["small-rational-with-identical-float-representation"]
@@ -77,6 +81,13 @@ class ResearchAssumptions(NavModel):
         )
         if (self.missing_held_reference, self.comparison_use) != expected:
             raise ValueError("missing reference sensitivity requires explicit v2 exploratory use")
+        expected_scope = (
+            "reported-splits-and-documented-cash-unreported-coverage-unverified"
+            if self.version == "daily-close-declared-assumptions-v3"
+            else "reported-splits-only-unreported-coverage-unverified"
+        )
+        if self.action_scope != expected_scope:
+            raise ValueError("documented cash accounting requires explicit v3 research scope")
         return self
 
 
@@ -88,6 +99,35 @@ class KnownActionBlocker(NavModel):
     kind: Literal["delisting_cash_accounting_unresolved"]
     evidence: PinnedEvidence
     evidence_use: Literal["ex_post_accounting_only"] = "ex_post_accounting_only"
+
+
+class DocumentedCashConversion(NavModel):
+    """Reviewed cash-only terms; a hash authenticates bytes, not their meaning.
+
+    Conditional fractional proceeds and other rights do not satisfy this
+    contract. Ex-post evidence is for accounting only, never model features.
+    """
+
+    action: NavAction
+    delisted_from: date
+    terms_evidence: PinnedEvidence
+    payment_evidence: PinnedEvidence | None = None
+    entitlement_review: Literal["confirmed_unconditional_cash"]
+    evidence_use: Literal["ex_post_accounting_only"] = "ex_post_accounting_only"
+
+    @model_validator(mode="after")
+    def coherent_terms(self) -> DocumentedCashConversion:
+        event = self.action
+        if (
+            event.kind not in {"cash_conversion", "cash_conversion_pending_payment"}
+            or self.delisted_from > event.effective_at.astimezone(JST).date()
+            or event.source_id != "documented-cash-conversion:" + self.terms_evidence.sha256
+            or (event.payment_at is not None) != (self.payment_evidence is not None)
+        ):
+            raise ValueError(
+                "cash conversion requires matching reviewed terms and payment evidence"
+            )
+        return self
 
 
 class AssumedMarketRequest(NavModel):
@@ -104,6 +144,7 @@ class AssumedMarketRequest(NavModel):
     research_funding_receipt: MarketReceipt
     rule: FixedRuleRequest
     known_action_blockers: tuple[KnownActionBlocker, ...] = ()
+    cash_conversions: tuple[DocumentedCashConversion, ...] = ()
 
 
 def _sha(path: Path) -> str:
@@ -300,15 +341,36 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
             r.end >= boundary for r in (*request.market_receipts, request.research_funding_receipt)
         )
         or any(b.effective_from >= boundary for b in request.known_action_blockers)
+        or any(
+            c.delisted_from >= boundary
+            or c.action.effective_at.astimezone(JST).date() >= boundary
+            or (c.action.payment_at is not None
+                and c.action.payment_at.astimezone(JST).date() >= boundary)
+            for c in request.cash_conversions
+        )
     ):
         raise ValueError("assumption research reaches the locked holdout")
     for blocker in request.known_action_blockers:
         blocker.evidence.read()
+    cash_events = {c.action.event_id: c for c in request.cash_conversions}
+    if len(cash_events) != len(request.cash_conversions) or len(
+        {c.action.symbol for c in request.cash_conversions}
+    ) != len(request.cash_conversions):
+        raise ValueError("duplicate documented cash conversion")
+    declared_cash = {a.event_id: a for a in accounting.actions if a.kind != "split"}
+    if (
+        declared_cash != {key: value.action for key, value in cash_events.items()}
+        or (cash_events and request.assumptions.version != "daily-close-declared-assumptions-v3")
+    ):
+        raise ValueError("cash actions require exact documented terms and explicit v3 scope")
+    for conversion in request.cash_conversions:
+        conversion.terms_evidence.read()
+        if conversion.payment_evidence is not None:
+            conversion.payment_evidence.read()
     if (
         rule.evaluation_tier != "price_only_research"
         or accounting.data_mode != "historical_research"
         or accounting.execution_semantics != "daily_close_research_proxy"
-        or any(a.kind != "split" for a in accounting.actions)
         or rule.policy.horizon != source.horizon
         or registry_feature_id(request) != features.feature_selection_id
     ):
@@ -327,6 +389,16 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
     require_research_funding(accounting, schedule)
     scope = frozenset(p.symbol for session in accounting.sessions for p in session.prices)
     rows = read_market_receipts(request.market_receipts, features, funding_request, symbols=scope)
+    for conversion in request.cash_conversions:
+        effective = conversion.action.effective_at.astimezone(JST).date()
+        if any(
+            symbol == conversion.action.symbol
+            and conversion.delisted_from <= day <= effective
+            and (row.get("ex_rights_type") not in (None, "")
+                 or row.get("adjustment_requires_event_evidence"))
+            for (day, symbol), row in rows.items()
+        ):
+            raise ValueError("cash terms cannot replace an unresolved share or rights event")
     frozen = json.loads(request.frozen_source_manifest.read())
     if frozen["snapshot_id"] != accounting.source_snapshot_id:
         raise ValueError("market source snapshot differs from declared input")
@@ -355,6 +427,8 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
                     "tick_size": row["tick_size"],
                 }
     for action in accounting.actions:
+        if action.kind != "split":
+            continue  # Matched to reviewed supplemental cash terms above.
         row = rows.get((action.effective_at.astimezone(JST).date(), action.symbol))
         if (
             row is None
@@ -402,7 +476,8 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
                 else Decimal(str(original["raw_close"]))
             )
             for action in accounting.actions:
-                if action.symbol == symbol and prior_at < action.effective_at <= signal.as_of:
+                if (action.kind == "split" and action.symbol == symbol
+                        and prior_at < action.effective_at <= signal.as_of):
                     if expected_price is not None:
                         expected_price = expected_price * action.denominator / action.numerator
             if expected_price is None or value != expected_price:
@@ -451,6 +526,12 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         day = state.as_of.astimezone(JST).date()
         for blocker in request.known_action_blockers:
             if blocker.symbol in exposed and day >= blocker.effective_from:
+                if any(
+                    c.action.symbol == blocker.symbol
+                    and c.delisted_from == blocker.effective_from
+                    for c in request.cash_conversions
+                ):
+                    continue
                 issues.append(
                     {
                         "symbol": blocker.symbol,
@@ -479,6 +560,7 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
                 ratio = None
             matched = any(
                 a.symbol == symbol
+                and a.kind == "split"
                 and a.effective_at.astimezone(JST).date() == day
                 and factor is not None
                 and Fraction(str(factor)) != 1
@@ -524,6 +606,8 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         "supersedes_original_comparison": False,
         "known_action_blockers": [b.model_dump(mode="json")
                                   for b in request.known_action_blockers],
+        "documented_cash_conversions": [c.model_dump(mode="json")
+                                       for c in request.cash_conversions],
         "assumptions": request.assumptions.model_dump(mode="json"),
         "dividend_treatment": "excluded_not_assumed_zero",
         "tax_mode": "pre_tax",
@@ -571,6 +655,9 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
                 "skipped_rebalances": sum(
                     d.get("status") == "SKIPPED_MISSING_HELD_REFERENCE" for d in decisions
                 ),
+                "unresolved_cash_payment_ids": sorted({
+                    event for day in result.days for event in day.unresolved_cash_payments
+                }),
                 "sessions": len(result.days),
                 "common_domain_rows": sum(len(v) for v in domains.values()),
                 "hold_return_difference": None
@@ -580,6 +667,10 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         )
         if not result.valuation_complete:
             receipt["status"] = "INCOMPLETE"
+        if any(day.unresolved_cash_payments for day in result.days):
+            receipt["unverified"].append(
+                "cash payment timing: nominal claim retained; no reinvestment or confirmed NAV"
+            )
     except ValueError as exc:
         receipt.update(status="INCOMPLETE", stopped_reason=str(exc))
     if _sha(source.path) != source.sha256:

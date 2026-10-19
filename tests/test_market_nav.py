@@ -24,6 +24,20 @@ from stock_ai.ml.nav import NavAction
 from tests.test_daily_strategy import scenario
 
 
+def test_strict_market_does_not_accept_unknown_cash_payment_timing(connected):
+    accounting = connected.strategy.accounting
+    event = NavAction(
+        event_id="synthetic-pending-cash", symbol="A",
+        kind="cash_conversion_pending_payment", cash_per_share="100",
+        effective_at=accounting.sessions[0].execution_at,
+        available_at=accounting.initial_as_of, source_id="synthetic-only",
+    )
+    value = connected.model_dump()
+    value["strategy"]["accounting"]["actions"] = (event,)
+    with pytest.raises(ValueError, match="verified cash payment timing"):
+        MarketStrategyRequest.model_validate(value)
+
+
 @pytest.fixture
 def connected(tmp_path, monkeypatch):
     strategy = scenario(bps=20)

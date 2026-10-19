@@ -118,7 +118,7 @@ class NavOrder(NavModel):
 class NavAction(NavModel):
     event_id: str = Field(min_length=1)
     symbol: str = Field(min_length=1)
-    kind: Literal["split", "dividend", "cash_conversion"]
+    kind: Literal["split", "dividend", "cash_conversion", "cash_conversion_pending_payment"]
     effective_at: datetime
     available_at: datetime
     source_id: str = Field(min_length=1)
@@ -139,6 +139,17 @@ class NavAction(NavModel):
                 raise ValueError("split requires a non-unit share ratio and no distribution")
             if (self.fractional_cash_price is None) != (self.payment_at is None):
                 raise ValueError("fractional cash requires both an amount and a payment time")
+        elif self.kind == "cash_conversion_pending_payment":
+            if (
+                self.cash_per_share is None
+                or self.payment_at is not None
+                or self.numerator != 1
+                or self.denominator != 1
+                or self.fractional_cash_price is not None
+            ):
+                raise ValueError(
+                    "pending cash conversion requires amount and an unknown payment time"
+                )
         elif (
             self.cash_per_share is None
             or self.payment_at is None
@@ -226,8 +237,16 @@ class NavReceivable(NavModel):
     reference_id: str
     bucket: str
     amount: Money
-    payment_at: datetime
-    kind: Literal["sale", "dividend", "cash_conversion", "fractional_cash"]
+    payment_at: datetime | None
+    kind: Literal[
+        "sale", "dividend", "cash_conversion", "fractional_cash", "cash_conversion_pending_payment"
+    ]
+
+    @model_validator(mode="after")
+    def explicit_pending_payment(self) -> Self:
+        if (self.payment_at is None) != (self.kind == "cash_conversion_pending_payment"):
+            raise ValueError("only explicitly pending cash conversion can lack a payment time")
+        return self
 
 
 class NavFill(NavModel):
@@ -255,6 +274,8 @@ class NavDay(NavModel):
     missing_mark_haircut_100_nav: Money
     traded_notional: Money
     trading_cost: Money
+    # Nominal claims with unverified payment timing are not confirmed daily NAV.
+    unresolved_cash_payments: tuple[str, ...] = ()
 
 
 class NavResult(NavModel):
@@ -316,7 +337,7 @@ class _Ledger:
     def settle(self, at: datetime) -> None:
         pending = []
         for item in self.receivables:
-            if item.payment_at <= at:
+            if item.payment_at is not None and item.payment_at <= at:
                 cash = self.cash[item.bucket]
                 self.cash[item.bucket] = cash.model_copy(
                     update={"amount": cash.amount + item.amount}
@@ -331,8 +352,11 @@ class _Ledger:
         reference: str,
         bucket: str,
         amount: Decimal,
-        payment_at: datetime,
-        kind: Literal["sale", "dividend", "cash_conversion", "fractional_cash"],
+        payment_at: datetime | None,
+        kind: Literal[
+            "sale", "dividend", "cash_conversion", "fractional_cash",
+            "cash_conversion_pending_payment",
+        ],
     ) -> None:
         self.receivables.append(
             NavReceivable(
@@ -374,7 +398,7 @@ class _Ledger:
                 else:
                     del self.positions[key]
             else:
-                assert event.cash_per_share is not None and event.payment_at is not None
+                assert event.cash_per_share is not None
                 self.claim(
                     reference=event.event_id,
                     bucket=position.bucket,
@@ -382,7 +406,7 @@ class _Ledger:
                     payment_at=event.payment_at,
                     kind=event.kind,
                 )
-                if event.kind == "cash_conversion":
+                if event.kind in {"cash_conversion", "cash_conversion_pending_payment"}:
                     del self.positions[key]
         self.events.append(event)
         self.settle(event.effective_at)
@@ -410,12 +434,16 @@ class _Ledger:
             return no_fill("INVALID_LOT")
         if any(
             event.symbol == order.symbol
-            and event.kind in {"split", "cash_conversion"}
+            and event.kind in {"split", "cash_conversion", "cash_conversion_pending_payment"}
             and order.decided_at < event.effective_at <= session.execution_at
             for event in self.events
         ):
             return no_fill("CORPORATE_ACTION_AFTER_DECISION")
-        if any(e.symbol == order.symbol and e.kind == "cash_conversion" for e in self.events):
+        if any(
+            e.symbol == order.symbol
+            and e.kind in {"cash_conversion", "cash_conversion_pending_payment"}
+            for e in self.events
+        ):
             return no_fill("CASH_CONVERSION_COMPLETE")
         quote = prices.get(order.symbol)
         if quote is None or quote.execution_price is None:
@@ -524,7 +552,8 @@ class _Ledger:
                 )
                 self.positions[key] = position
                 known += position.shares * quote.close_price
-        nav = known if not missing else None
+        pending = tuple(sorted({r.reference_id for r in self.receivables if r.payment_at is None}))
+        nav = known if not missing and not pending else None
         daily_return = nav / previous_nav - ONE if nav is not None and previous_nav else None
         return NavDay(
             trading_date=session.trading_date,
@@ -542,6 +571,7 @@ class _Ledger:
             missing_mark_haircut_100_nav=known,
             traded_notional=sum((fill.notional for fill in fills), ZERO),
             trading_cost=sum((fill.cost.total for fill in fills), ZERO),
+            unresolved_cash_payments=pending,
         )
 
 
