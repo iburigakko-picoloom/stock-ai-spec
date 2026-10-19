@@ -18,7 +18,9 @@ _MARKETS = frozenset(("0111", "0112", "0113"))
 
 
 def amount(value):
-    if value is None:
+    # Bulk CSV uses an empty field for missing values. Retain it as missing,
+    # so it cannot count as a zero-yen observation in the twenty-session filter.
+    if value is None or value == "":
         return None
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         raise ValueError("Invalid monetary value")

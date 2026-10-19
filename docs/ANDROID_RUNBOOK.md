@@ -1,3 +1,5 @@
+2026-10-19 D190：32e1e1aの必要CI3jobが全成功し、旧0.1.19候補は保全。現在のLight730日/485営業日と実2回帰を新しいPC試験cacheで保存復元し、17table全内容一致469.360秒。現在入力の各horizon3,781行でnative/端末tree差0、候補300を確認。CSV空欄の金額readerを欠損として扱う関連27試験が成功したが、この修正を含む新CI/次候補は未完。PC参照は明示した翌10月20日cutoffの計算で、native全量/current membership/通常日次/Xiaomiの証拠ではない。受信/取込時刻を戻さず、同じ一括票の準備を続ける。
+
 2026-10-19 D189：実research bundleの通常取込をAndroid35の同source ownerで検証済み。取込2.904秒、各horizon1,000行のPC差0、暗号化backup/認証preview/復元と再open後にモデル・元の合成口座が一致。Java192MiB、VMは2048MiB指定から実2560MiBへ自動増量。private fixtureはinstrumentationのみ。CI39241822817/androidの89件/失敗0と候補0.1.19の51同梱source/config一致を確認し、必要全体CIは未完。現在Lightの1日分は取得/既存保存検証済みだが、旧試験cache終端2月26日以降の不足履歴、全量モデル込み通常日次と現在のPC参照、Xiaomiは未確認。同じ一括票を使い、modelの実取込時刻より前へ遡及しない。
 
 2026-10-19 D188：通常取込へ別schemaの私有2回帰research bundleを接続した。実bundleのPC/WASM取込・各horizon1,000行最大差0・worker再作成後の再読込は成功。正式採用0/校正なし/risk未提供を維持し、自動株数proposalは作らない。日次は認証済み相談contextだけを相談準備完了と表示し、手動回答を既存制約で検算する。以前の「4head/採用がないため研究用通常取込も不可」という残件はこの経路で解消する。新native3試験/対象commit CI/候補APK・現在の実市場日次一連/全量モデル込み通常経路/Xiaomiは未確認。旧個別head/実市場特徴量/大容量保存の証拠範囲を拡張しない。

@@ -63,14 +63,17 @@ def test_top300_ties_units_boundary_and_every_holding_without_narrowing_sources(
     assert len({x["payload_hash"] for x in selected["sources"]}) >= 22
 
 
-def test_null_cap_never_uses_deprecated_bars_and_null_or_missing_value_is_not_zero(acquired):
+@pytest.mark.parametrize("missing", [None, ""])
+def test_null_cap_never_uses_deprecated_bars_and_null_or_missing_value_is_not_zero(
+    acquired, missing,
+):
     path, days = acquired
     changed = daily(days[-1])
     changed["received_at"] = "2026-02-03T02:00:00+00:00"
-    changed["valuations"][0]["MktCap"] = None
+    changed["valuations"][0]["MktCap"] = missing
     changed["valuations"][1]["MktCap"] = 29999
     changed["datasets"]["daily_prices"][0]["MktCap"] = 999999
-    changed["datasets"]["daily_prices"][2]["Va"] = None
+    changed["datasets"]["daily_prices"][2]["Va"] = missing
     changed["datasets"]["daily_prices"].pop(3)
     market.ingest(path, changed)
     result = universe.select(path, CUTOFF, ("1000", "1001", "1002", "1003"))
@@ -111,7 +114,7 @@ def test_missing_whole_session_blocks_new_candidates_but_preserves_holdings(acqu
     assert result["decision_symbols"] == ["ZZZZ"] and not result["new_candidates"]
 
 
-@pytest.mark.parametrize("value", [-1, float("inf"), float("nan"), True, "yen"])
+@pytest.mark.parametrize("value", [-1, float("inf"), float("nan"), True, "yen", " "])
 def test_invalid_valuation_is_atomic_and_cannot_publish_day(tmp_path, value):
     path = tmp_path / "mobile.sqlite3"
     market.initialize(path)
