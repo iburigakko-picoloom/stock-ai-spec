@@ -313,6 +313,30 @@ def _daily_snapshots(db, dataset, as_of, *, descending=False):
     )
 
 
+def _mixed_datetime_casts(parts):
+    """Unify mixed bulk/API time representations without changing old snapshots.
+
+    Bulk dates can be stored as datetime64 while API date objects round-trip as
+    ISO strings. Mixed aware timezones otherwise become expensive object arrays.
+    Preserve homogeneous schemas; only these mixed representations need casts.
+    """
+    casts = {}
+    for name in dict.fromkeys(name for part in parts for name in part):
+        dtypes = [part[name].dtype for part in parts if name in part]
+        if all(isinstance(dtype, pd.DatetimeTZDtype) for dtype in dtypes):
+            if len({str(dtype.tz) for dtype in dtypes}) > 1:
+                casts[name] = pd.DatetimeTZDtype(unit="ns", tz="UTC")
+        elif name in {"effective_date", "trading_date"}:
+            dates = [pd.api.types.is_datetime64_dtype(dtype) for dtype in dtypes]
+            if any(dates) and not all(dates) and all(
+                date_dtype or pd.api.types.is_object_dtype(dtype)
+                or isinstance(dtype, pd.StringDtype)
+                for dtype, date_dtype in zip(dtypes, dates, strict=True)
+            ):
+                casts[name] = pd.api.types.pandas_dtype("datetime64[ns]")
+    return casts
+
+
 def _canonical_daily_part(frame, common, keys, sequence, day):
     if not frame.dtypes.equals(common):
         frame = frame.reindex(columns=common.index).astype(common.to_dict())
@@ -363,6 +387,10 @@ class SQLiteSource:
                     parts.append(frame)
         if not parts:
             return pd.DataFrame()
+        casts = _mixed_datetime_casts(parts)
+        if casts:
+            parts = [part.astype({name: dtype for name, dtype in casts.items() if name in part},
+                                 copy=False) for part in parts]
         frame = pd.concat(parts, ignore_index=True)
         parts.clear()
         cache.clear()
@@ -398,6 +426,8 @@ class SQLiteSource:
             if not profiles:
                 return pd.DataFrame()
             common = pd.concat(profiles, ignore_index=True).dtypes
+            for name, dtype in _mixed_datetime_casts(profiles).items():
+                common[name] = dtype
             profiles.clear()
             for sequence, day, raw, normalized, expected in _daily_snapshots(
                 db, kind, as_of, descending=True
@@ -464,6 +494,8 @@ class FeatureSource(SQLiteSource):
                 self._identities.pop(dataset, None)
                 return pd.DataFrame()
             common = pd.concat(profiles, ignore_index=True).dtypes
+            for name, dtype in _mixed_datetime_casts(profiles).items():
+                common[name] = dtype
             profiles.clear()
             schema = tuple((str(name), str(dtype)) for name, dtype in common.items())
             metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True)

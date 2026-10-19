@@ -4,6 +4,7 @@ import copy
 import gc
 import hashlib
 import io
+import json
 import random
 import sqlite3
 import weakref
@@ -73,6 +74,69 @@ def test_projection_preserves_every_value_dtype_order_and_complete_source_identi
     assert len(actual) == len(original) == 12
     assert "source_record_hash" not in actual and "available_at" in actual
     assert reader.source_frame_id(kind, actual) == _source_frame_id(kind, original)
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+
+
+@pytest.mark.parametrize("kind", [*KINDS, DatasetName.TRADING_CALENDAR, DatasetName.TOPIX])
+@pytest.mark.parametrize("legacy", [False, True])
+def test_mixed_bulk_dates_and_api_dates_keep_instants_and_full_projection_parity(
+    tmp_path, kind, legacy
+):
+    """A real daily update joins bulk Timestamp/JST with API string/UTC storage."""
+    path = tmp_path / "mixed.sqlite3"
+    market.initialize(path)
+    parts = []
+    key = "effective_date" if kind is DatasetName.SECURITY_MASTER else "trading_date"
+    for index, value in enumerate(observations()):
+        with sqlite3.connect(path) as db:
+            for batch in legacy_rows(value):
+                content = pd.read_json(io.BytesIO(zlib.decompress(batch[5])), orient="table")
+                if batch[0] == kind.value:
+                    if index < 2:
+                        content[key] = pd.to_datetime(content[key])
+                        for column in content:
+                            if isinstance(content[column].dtype, pd.DatetimeTZDtype):
+                                content[column] = content[column].dt.tz_convert("Asia/Tokyo")
+                    parts.append(content.copy())
+                encoded = content.to_json(orient="table", date_format="iso").encode()
+                if legacy:
+                    raw, normalized = batch[4], zlib.compress(encoded)
+                else:
+                    records = json.loads(zlib.decompress(batch[4]))
+                    raw = market.market_codec.pack_records(db, records)
+                    normalized = market.market_codec.pack_table(db, encoded, records)
+                db.execute(
+                    "INSERT INTO market_batches(dataset,day,received_at,payload_hash,raw,"
+                    "normalized,normalized_hash) VALUES(?,?,?,?,?,?,?)",
+                    (*batch[:4], raw, normalized, hashlib.sha256(encoded).hexdigest()),
+                )
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    # The earlier homogeneous snapshot must retain its original dtype and ID.
+    keys = [key, "provider_code"] if kind in KINDS else [key]
+    earlier = pd.concat(parts[:2], ignore_index=True).drop_duplicates(keys, keep="last")
+    earlier = earlier.sort_values(keys, ignore_index=True)
+    old = market.SQLiteSource(path).point_in_time(kind, datetime(2025, 1, 11, 3, tzinfo=UTC))
+    pd.testing.assert_frame_equal(old, earlier, check_exact=True)
+    assert _source_frame_id(kind, old) == _source_frame_id(kind, earlier)
+    # Construct the mixed reference independently from the original observations.
+    for part in parts:
+        part[key] = pd.to_datetime(part[key], format="ISO8601")
+        for column in part:
+            if isinstance(part[column].dtype, pd.DatetimeTZDtype):
+                part[column] = pd.to_datetime(part[column], utc=True)
+    expected = pd.concat(parts, ignore_index=True).drop_duplicates(keys, keep="last")
+    expected = expected.sort_values(keys, ignore_index=True)
+    cutoff = datetime(2025, 1, 20, tzinfo=UTC)
+    full = market.SQLiteSource(path).point_in_time(kind, cutoff)
+    pd.testing.assert_frame_equal(full, expected, check_exact=True)
+    reader = market.FeatureSource(path)
+    focused = reader.point_in_time(kind, cutoff)
+    pd.testing.assert_frame_equal(focused, expected[focused.columns], check_exact=True)
+    assert reader.source_frame_id(kind, focused) == _source_frame_id(kind, expected)
+    if kind is DatasetName.DAILY_PRICES:
+        latest = reader.latest_closed_prices(cutoff)
+        wanted = expected.loc[expected[key] == expected[key].max()].reset_index(drop=True)
+        pd.testing.assert_frame_equal(latest, wanted, check_exact=True)
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
 
 

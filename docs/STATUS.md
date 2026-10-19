@@ -1,3 +1,13 @@
+## 2026-10-20 — 実APIの1日追加で見つけた日付型混在を修正（D198）
+
+- D197の0.1.21は730日算術/全量保存復旧までの候補で、通常日次の完成版ではない。続く1日追加試験で、bulkのdatetime64/JSTとAPIのISO文字列/UTCが同じ列へ入り、calendarの並べ替えがTypeErrorで停止した。旧bulk rawをAPI ingestへ直接入れた試作は必須列不足で拒否され、記録を残した。列を補完/検査緩和せず、既存Light/V2から実1営業日分を再取得して不具合を切り分けた。
+- mobile読込の混在箇所だけで日付keyをdatetime64へ、複数のaware timezoneをUTCへそろえる。時刻の瞬間/欠損/元原本/実取得時刻を保持し、原本行hashの検証を続ける。同じ型でそろう旧入力はcastしない。SQLiteSource/省メモリFeatureSource/終値読取の共通dtypeを合わせ、期間・対象300+全保有・全市場共通母集団・特徴量/前処理/モデルは変えない。再取得データの版を旧入力版へ置換しない。
+- compact/legacy×4datasetの混在8件が成功。関連7fileの141件276.87秒、失敗/error/skip0・既存Starlette warning1、Ruff全体が成功。初期のtestの期待calendar重複/不足importは原ログを保持して修正し、製品条件を緩めていない。
+- 同じ修正関数で従来の730日を再照合し、全5 source IDs/共通context/候補集合/全対象特徴量と実590予測が元PC一致、最大差0。入力175.133秒・特徴量3.115秒・全体180.145秒、peak2343575552bytes。元SQLite不変。D197のe75ba84/Android452.336秒を今回の未実行Androidの証拠へ流用しない。
+- 実APIは2026-10-19のmaster4,443/価格4,443/財務15/TOPIX1と、実取得済みcalendarを合わせた6pageを保存。実取得時刻のまま、私有コピーだけで欠けた最終1営業日を追加する再生試験を行った。受領0.884秒、同一入力再投入0.916秒、再投入前後の全17table/schemaが完全一致。更新後の入力191.054秒/特徴量3.615秒/予測0.303秒、再計算194.973秒・peak2379870208bytes。新source IDsを保持し、候補集合/順序・全特徴量・590予測は元の同値データと完全一致した。
+- これはPCの実API再生/算術試験で、native download ackや通常forecast公開/owner保存、実時刻の自動日次、Xiaomi成功ではない。次は同じ新入力版/PC参照を固定してAndroidの1日追加→推論と必要CIを測り、修正後の署名候補を更新する。日別統計cacheや全指標の再帰更新は追加しない。
+- 18候補/元OOF/費用込み152条件/正式HOLD・未使用holdout採点なしを維持。新たな研究fit/実注文/本人台帳更新/新規課金/外部AI送信/main merge/公開配布なし。原入力・失敗ログ・旧0.1.21候補は保全する。
+
 ## 2026-10-20 — 候補限定方式の実Android完走と全量保存復旧（D197）
 
 - 製品e75ba84の必要CI39284664580はverify/android/android-historyすべて成功、release skip。同じCIの計算file51件は同梱runtimeとbyte一致。公開web成果物41件を比較し、APKだけの2件は空のCapacitor生成file。Android89件の失敗/error/skip0とOS復旧/旧版更新を確認。関連PC71件・WASM4件も成功しており、私有実データの試験と合成CIを区別する。
