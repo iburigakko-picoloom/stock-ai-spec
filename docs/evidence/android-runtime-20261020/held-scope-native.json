@@ -1,0 +1,94 @@
+{
+  "status": "CURRENT_REAL_SQLITE_FEATURE_MODEL_NATIVE_VERIFIED",
+  "source_commit": "4cde7ef4428ffc1a6f4273554b0c6399b9ac8abe",
+  "native_environment": "AndroidJUnitRunner/API35/ranchu, same packaged source, independent host comparison",
+  "independent_numeric_cells": 23501,
+  "independent_maximum_feature_error": 0,
+  "all_serialized_features_exact": true,
+  "independent_model_checks": [
+    {
+      "horizon": 5,
+      "rows": 298,
+      "max_absolute_error": 0.0
+    },
+    {
+      "horizon": 20,
+      "rows": 298,
+      "max_absolute_error": 0.0
+    }
+  ],
+  "java_max_heap_bytes": 201326592,
+  "android_webview": "124.0.6367.219",
+  "native_seconds": 434.435,
+  "app_sha256": "85c7fb1e9dbc8aba24c95451eaa393c6084cc8dd3d7db026f5cd80febc3c7f45",
+  "test_sha256": "c70d71fe96a07a75919cafd2c060fb2e864cecc7392bf977192f4d50dd0be4fc",
+  "planned_arithmetic_asof": "2026-10-20T11:30:00+09:00",
+  "source_scope": "Full730-day source verification/common context, candidate+holdings detailed features, real research bundle",
+  "common_context_exact": true,
+  "calculation_domain": "fixed-top300-plus-three-rank-outside-holdings-v1",
+  "source_typed_tables_verified": 17,
+  "owner_state_used": false,
+  "Xiaomi_verified": false,
+  "normal_daily_pipeline_verified": false,
+  "current_membership_verified": false,
+  "new_fits": 0,
+  "holdout_scored": false,
+  "operational_price_dates_overlap_locked_test_calendar": true,
+  "model_adopted": false,
+  "observations": {
+    "source_rows": {
+      "daily": 144704,
+      "market": 485,
+      "sector": 16490,
+      "financials": 144704
+    },
+    "feature_rows": {
+      "5": 298,
+      "20": 298
+    },
+    "numeric_cells_compared": 23501,
+    "maximum_feature_absolute_error": 0,
+    "all_serialized_features_exact": true,
+    "prediction_checks": [
+      {
+        "horizon": 5,
+        "rows": 298,
+        "maximum_absolute_error": 0
+      },
+      {
+        "horizon": 20,
+        "rows": 298,
+        "maximum_absolute_error": 0
+      }
+    ],
+    "preview_candidates": 300,
+    "forecast_cohort": 298,
+    "setup_seconds": 2.965700000000002,
+    "inputs_seconds": 398.9031,
+    "features_seconds": 8.190499999999986,
+    "prediction_seconds": 0.7094999999999914,
+    "request_seconds": 410.7688,
+    "private_elapsed_seconds": 411.2381,
+    "request_timing_scope": "Production calculations only; excludes independent fixture comparison",
+    "request_budget_seconds": 600,
+    "source_typed_tables_unchanged": true,
+    "common_context_exact": true,
+    "common_context_sha256": "ca15f696e8bf9bb7301d004f4d9bd88afd29a12bf05b7ff8dd5cee98068fad58",
+    "calculation_domain": "fixed-top300-plus-three-rank-outside-holdings-v1",
+    "candidate_exclusions_for_feature_history_count": 5
+  },
+  "sampled_app_renderer_RSS_max_bytes": 3042369536,
+  "sampled_VM_RSS_max_bytes": 4599582720,
+  "sampled_host_free_min_bytes": 2270212096,
+  "held_only_count": 3,
+  "decision_symbols_count": 303,
+  "candidate_top20_exact_per_horizon": true,
+  "original_source_DB_unchanged": true,
+  "actual_personal_holdings_or_ledger_changed": false,
+  "clock_shim": false,
+  "OS_clock_modified": false,
+  "product_main_assets_unchanged": true,
+  "public_distribution": false,
+  "resource_guards_unchanged": true,
+  "proposed_scope": "additional arithmetic parity only; no live personal-portfolio update or publication"
+}

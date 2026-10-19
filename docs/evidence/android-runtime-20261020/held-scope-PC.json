@@ -1,0 +1,54 @@
+{
+  "status": "FULL_REAL_PC_RANK_OUTSIDE_HOLDINGS_FEATURE_AND_MODEL_PARITY_EXACT",
+  "input_seconds": 175.74015810003038,
+  "feature_seconds": 3.1714274999685585,
+  "prediction_seconds": 0.34335439995629713,
+  "total_seconds": 182.17946670000674,
+  "peak_bytes": 2370174976,
+  "rows_before_projection": {
+    "daily": 1822834,
+    "market": 485,
+    "sector": 16490,
+    "financials": 1822834
+  },
+  "rows_after_projection": {
+    "daily": 144704,
+    "market": 485,
+    "sector": 16490,
+    "financials": 144704
+  },
+  "candidate_count": 300,
+  "decision_count": 303,
+  "new_candidate_set_and_order_exact": true,
+  "same_full_source_ids": true,
+  "common_context_exact": true,
+  "all_candidate_features_exact": true,
+  "model_checks": [
+    {
+      "horizon": 5,
+      "count": 298,
+      "maximum_error": 0.0
+    },
+    {
+      "horizon": 20,
+      "count": 298,
+      "maximum_error": 0.0
+    }
+  ],
+  "input_unchanged": true,
+  "scope": "read-only actual 730-day input with three independently chosen rank-outside holdings; not account mutation, Android, or publication",
+  "CPU_threads_requested": 1,
+  "code_source_base_commit": "4cde7ef4428ffc1a6f4273554b0c6399b9ac8abe",
+  "operational_price_dates_overlap_locked_test_calendar": true,
+  "final_holdout_scored": false,
+  "new_real_research_fits": 0,
+  "normal_daily_pipeline_verified": false,
+  "actual_owner_state_used": false,
+  "Xiaomi_verified": false,
+  "held_only_count": 3,
+  "held_selection_rule": "symbol order outside frozen top300, without inspecting predictions",
+  "original_candidate_top20_exact_per_horizon": true,
+  "common_context_sha256": "ca15f696e8bf9bb7301d004f4d9bd88afd29a12bf05b7ff8dd5cee98068fad58",
+  "actual_holdings_or_ledger_changed": false,
+  "public_product_changed": false
+}
