@@ -20,6 +20,7 @@ from typing import Any, Literal
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
+from pydantic import model_validator
 
 from stock_ai.ml.daily_market import DailyMarketRequest
 from stock_ai.ml.evaluation_audit import write_audit_receipt
@@ -51,7 +52,9 @@ class SavedBenchmarkSource(PinnedEvidence):
 
 
 class ResearchAssumptions(NavModel):
-    version: Literal["daily-close-declared-assumptions-v1"]
+    version: Literal[
+        "daily-close-declared-assumptions-v1", "daily-close-declared-assumptions-v2"
+    ]
     entitlement_basis: Literal["confirmed-current-Light-frozen-acquisition"]
     known_future_information_present: Literal[False]
     execution: Literal["reported-close-with-5pct-volume-capacity"]
@@ -60,6 +63,31 @@ class ResearchAssumptions(NavModel):
     revision_policy: Literal["single-as-revised-vintage-not-historical-known-at"]
     timing: Literal["saved-OOF-asof-after-feature-day-before-next-close-proxy"]
     split_factor_interpretation: Literal["small-rational-with-identical-float-representation"]
+    missing_held_reference: Literal["stop", "skip_rebalance"] = "stop"
+    comparison_use: Literal[
+        "original_frozen_comparison", "post_result_exploratory_sensitivity"
+    ] = "original_frozen_comparison"
+
+    @model_validator(mode="after")
+    def explicit_sensitivity(self) -> ResearchAssumptions:
+        expected = (
+            ("stop", "original_frozen_comparison")
+            if self.version == "daily-close-declared-assumptions-v1"
+            else ("skip_rebalance", "post_result_exploratory_sensitivity")
+        )
+        if (self.missing_held_reference, self.comparison_use) != expected:
+            raise ValueError("missing reference sensitivity requires explicit v2 exploratory use")
+        return self
+
+
+class KnownActionBlocker(NavModel):
+    """Supplemental evidence can stop accounting, never certify an event treatment."""
+
+    symbol: str
+    effective_from: date
+    kind: Literal["delisting_cash_accounting_unresolved"]
+    evidence: PinnedEvidence
+    evidence_use: Literal["ex_post_accounting_only"] = "ex_post_accounting_only"
 
 
 class AssumedMarketRequest(NavModel):
@@ -75,6 +103,7 @@ class AssumedMarketRequest(NavModel):
     instrument_receipts: tuple[PinnedEvidence, ...]
     research_funding_receipt: MarketReceipt
     rule: FixedRuleRequest
+    known_action_blockers: tuple[KnownActionBlocker, ...] = ()
 
 
 def _sha(path: Path) -> str:
@@ -270,8 +299,11 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         or any(
             r.end >= boundary for r in (*request.market_receipts, request.research_funding_receipt)
         )
+        or any(b.effective_from >= boundary for b in request.known_action_blockers)
     ):
         raise ValueError("assumption research reaches the locked holdout")
+    for blocker in request.known_action_blockers:
+        blocker.evidence.read()
     if (
         rule.evaluation_tier != "price_only_research"
         or accounting.data_mode != "historical_research"
@@ -417,6 +449,24 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
     def guard(state: NavDecisionState, orders: tuple[NavOrder, ...]) -> None:
         exposed = {p.symbol for p in state.positions} | {o.symbol for o in orders}
         day = state.as_of.astimezone(JST).date()
+        for blocker in request.known_action_blockers:
+            if blocker.symbol in exposed and day >= blocker.effective_from:
+                issues.append(
+                    {
+                        "symbol": blocker.symbol,
+                        "date": str(day),
+                        "related_held_value_yen": str(sum(
+                            (p.shares * p.last_price for p in state.positions
+                             if p.symbol == blocker.symbol), Decimal(0)
+                        )),
+                        "reason": "KNOWN_UNRESOLVED_CORPORATE_ACTION",
+                        "event_kind": blocker.kind,
+                        "source_evidence_sha256": blocker.evidence.sha256,
+                        "required_evidence": (
+                            "dated cash entitlement, valuation and release treatment"
+                        ),
+                    }
+                )
         for symbol in sorted(exposed):
             row = rows.get((day, symbol))
             if row is None:
@@ -464,6 +514,16 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         "no_order_sent": True,
         "input_sha256": content_id(request.model_dump(mode="json")),
         "policy_sha256": content_id(rule.policy.model_dump(mode="json")),
+        "decision_policy_sha256": content_id(
+            {
+                "allocation": rule.policy.model_dump(mode="json"),
+                "missing_held_reference": request.assumptions.missing_held_reference,
+            }
+        ),
+        "comparison_use": request.assumptions.comparison_use,
+        "supersedes_original_comparison": False,
+        "known_action_blockers": [b.model_dump(mode="json")
+                                  for b in request.known_action_blockers],
         "assumptions": request.assumptions.model_dump(mode="json"),
         "dividend_treatment": "excluded_not_assumed_zero",
         "tax_mode": "pre_tax",
@@ -487,7 +547,8 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
     }
     try:
         realized, result, decisions = evaluate_fixed_rule(
-            accounting, rule.signals, rule.policy, exposure_guard=guard
+            accounting, rule.signals, rule.policy, exposure_guard=guard,
+            missing_held_reference_policy=request.assumptions.missing_held_reference,
         )
         hold = evaluate_daily_nav(accounting)
         navs = [d.nav for d in result.days]
@@ -507,6 +568,9 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
                 "trading_cost_yen": str(result.total_trading_cost),
                 "unfilled_reasons": dict(reasons),
                 "orders": len(realized.orders),
+                "skipped_rebalances": sum(
+                    d.get("status") == "SKIPPED_MISSING_HELD_REFERENCE" for d in decisions
+                ),
                 "sessions": len(result.days),
                 "common_domain_rows": sum(len(v) for v in domains.values()),
                 "hold_return_difference": None

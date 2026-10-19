@@ -15,6 +15,7 @@ from stock_ai.cli import app
 from stock_ai.ml import assumed_market as module
 from stock_ai.ml.assumed_market import (
     AssumedMarketRequest,
+    KnownActionBlocker,
     ResearchAssumptions,
     SavedScoreSource,
     evaluate_assumed_market,
@@ -482,6 +483,111 @@ def test_float_factor_resolution_never_rounds_approximate_values():
             reported_share_ratio(value)
 
 
+@pytest.mark.parametrize("changed", ["version", "missing_held_reference", "comparison_use"])
+def test_reference_gap_sensitivity_requires_a_separate_explicit_exploratory_contract(
+    prepared, changed
+):
+    values = prepared().assumptions.model_dump()
+    values[changed] = {
+        "version": "daily-close-declared-assumptions-v2",
+        "missing_held_reference": "skip_rebalance",
+        "comparison_use": "post_result_exploratory_sensitivity",
+    }[changed]
+    with pytest.raises(ValueError, match="explicit v2 exploratory"):
+        ResearchAssumptions.model_validate(values)
+
+
+def test_exploratory_replay_cannot_claim_original_comparison_or_adoption(prepared):
+    request = prepared()
+    original = evaluate_assumed_market(request)
+    assumptions = ResearchAssumptions.model_validate({
+        **request.assumptions.model_dump(),
+        "version": "daily-close-declared-assumptions-v2",
+        "missing_held_reference": "skip_rebalance",
+        "comparison_use": "post_result_exploratory_sensitivity",
+    })
+    result = evaluate_assumed_market(request.model_copy(update={"assumptions": assumptions}))
+    assert result["strategy"] == original["strategy"]  # No reference gap in this fixture.
+    assert result["comparison_use"] == "post_result_exploratory_sensitivity"
+    assert result["decision_policy_sha256"] != original["decision_policy_sha256"]
+    assert result["input_sha256"] != original["input_sha256"]
+    assert result["metrics"]["skipped_rebalances"] == 0
+    assert not result["supersedes_original_comparison"]
+    assert not result["adoption_eligible"] and not result["holdout_scored"]
+
+
+def test_exploratory_mode_still_stops_a_known_unsupported_right(prepared):
+    request = prepared(rights="3")
+    assumptions = ResearchAssumptions.model_validate({
+        **request.assumptions.model_dump(),
+        "version": "daily-close-declared-assumptions-v2",
+        "missing_held_reference": "skip_rebalance",
+        "comparison_use": "post_result_exploratory_sensitivity",
+    })
+    result = evaluate_assumed_market(request.model_copy(update={"assumptions": assumptions}))
+    assert result["status"] == "INCOMPLETE"
+    assert result["stopped_reason"] == "KNOWN_UNRESOLVED_CORPORATE_ACTION"
+    assert not result["adoption_eligible"]
+
+
+@pytest.mark.parametrize("event_day", [0, 1])
+def test_supplemental_delisting_evidence_blocks_new_orders_and_existing_holdings(
+    prepared, event_day
+):
+    request = prepared()
+    # A genuine fixture file stands in for the externally retained document.
+    document = request.feature_selection_path.parent / "synthetic-delisting-document.txt"
+    document.write_text("Synthetic evidence only", encoding="utf-8")
+    blocker = KnownActionBlocker(
+        symbol="1000", effective_from=DATES[event_day],
+        kind="delisting_cash_accounting_unresolved", evidence=pin(document),
+    )
+    if event_day:
+        market = request.market_receipts[0]
+        value = json.loads(market.path.read_text(encoding="utf-8"))
+        value["rows"] = [r for r in value["rows"]
+                         if (r["symbol"], r["trading_date"]) != ("1000", str(DATES[1]))]
+        market.path.write_text(json.dumps(value), encoding="utf-8")
+        sessions = list(request.rule.accounting.sessions)
+        sessions[1] = sessions[1].model_copy(
+            update={"prices": tuple(p for p in sessions[1].prices if p.symbol != "1000")}
+        )
+        request = request.model_copy(update={
+            "market_receipts": (market.model_copy(update={"sha256": module._sha(market.path)}),),
+            "rule": request.rule.model_copy(update={
+                "accounting": request.rule.accounting.model_copy(
+                    update={"sessions": tuple(sessions)}
+                )
+            }),
+        })
+    result = evaluate_assumed_market(
+        request.model_copy(update={"known_action_blockers": (blocker,)})
+    )
+    assert result["status"] == "INCOMPLETE"
+    assert result["stopped_reason"] == "KNOWN_UNRESOLVED_CORPORATE_ACTION"
+    issue = result["unresolved_exposures"][0]
+    assert issue["symbol"] == "1000" and issue["date"] == str(DATES[event_day])
+    assert issue["event_kind"] == "delisting_cash_accounting_unresolved"
+    assert (D(issue["related_held_value_yen"]) > 0) == bool(event_day)
+    assert not result["adoption_eligible"] and not result["holdout_scored"]
+
+
+def test_supplemental_event_evidence_cannot_be_changed_or_open_the_holdout(prepared):
+    request = prepared()
+    document = request.feature_selection_path.parent / "synthetic-delisting-document.txt"
+    document.write_text("Synthetic evidence only", encoding="utf-8")
+    blocker = KnownActionBlocker(
+        symbol="1000", effective_from=DATES[1],
+        kind="delisting_cash_accounting_unresolved", evidence=pin(document),
+    )
+    document.write_text("Changed fixture evidence", encoding="utf-8")
+    with pytest.raises(ValueError):
+        evaluate_assumed_market(request.model_copy(update={"known_action_blockers": (blocker,)}))
+    blocker = blocker.model_copy(update={"effective_from": DATES[0].replace(month=8, day=1)})
+    with pytest.raises(ValueError, match="locked holdout"):
+        evaluate_assumed_market(request.model_copy(update={"known_action_blockers": (blocker,)}))
+
+
 @pytest.mark.parametrize("task", ["rank_return", "rank_return_risk"])
 def test_fixed_combinations_use_percentile_ranks_and_reverse_loss_probability(task):
     frame = pd.DataFrame(
@@ -607,7 +713,7 @@ def test_combined_saved_heads_reach_the_same_fixed_rule_without_return_units(pre
 def test_cli_pins_assumptions_before_replay_without_claiming_strict_coverage(prepared, tmp_path):
     request = prepared(task="ranking")
     path = tmp_path / "input.json"
-    path.write_text(request.model_dump_json())
+    path.write_text(request.model_dump_json(), encoding="utf-8")
     result = CliRunner().invoke(
         app,
         [
@@ -620,6 +726,8 @@ def test_cli_pins_assumptions_before_replay_without_claiming_strict_coverage(pre
         ],
     )
     assert result.exit_code == 0, result.output
-    receipt = json.loads(Path(json.loads(result.output)["evaluation_path"]).read_text())
+    receipt = json.loads(
+        Path(json.loads(result.output)["evaluation_path"]).read_text(encoding="utf-8")
+    )
     assert receipt["unverified"] and receipt["not_standalone_adoption_evidence"]
     assert receipt["frozen_input"]["sha256"] == module._sha(Path(receipt["frozen_input"]["path"]))

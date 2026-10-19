@@ -92,16 +92,20 @@ def evaluate_fixed_rule(
     policy: FixedRulePolicy,
     *,
     exposure_guard: Callable[[NavDecisionState, tuple[NavOrder, ...]], None] | None = None,
+    missing_held_reference_policy: Literal["stop", "skip_rebalance"] = "stop",
 ) -> tuple[NavInput, NavResult, tuple[dict[str, object], ...]]:
     """Equal capital per top score; no overlapping label-return compounding.
 
     Buys use only currently released cash, never an unfilled sale. Missing held
-    references stop the replay instead of removing the holding. Generated orders
-    and unfilled quantities remain in the existing NAV receipt.
+    references stop by default. An explicit research sensitivity may skip the
+    entire rebalance, retaining holdings/cash without inventing a price. The
+    next attempt is the next scheduled rebalance, never a next-day retry.
     """
     accounting = NavInput.model_validate(accounting.model_dump())
     signals = tuple(FixedSignalDay.model_validate(s.model_dump()) for s in signals)
     policy = FixedRulePolicy.model_validate(policy.model_dump())
+    if missing_held_reference_policy not in ("stop", "skip_rebalance"):
+        raise ValueError("unknown missing held reference policy")
     if (
         len(accounting.cash) != 1
         or accounting.positions
@@ -128,7 +132,8 @@ def evaluate_fixed_rule(
             return ()
         prices = dict(signal.reference_prices)
         held = {p.symbol: p.shares for p in state.positions}
-        if set(held) - set(prices):
+        missing = sorted(set(held) - set(prices))
+        if missing and missing_held_reference_policy == "stop":
             raise ValueError("missing held reference; cannot silently exclude a holding")
         prior = accounting.initial_as_of if index == 0 else accounting.sessions[index - 1].close_at
         if signal.reference_price_at < prior:
@@ -142,6 +147,25 @@ def evaluate_fixed_rule(
         ):
             raise ValueError("reference predates a share-changing corporate action")
         ranked = sorted(signal.scores, key=lambda x: (-x[1], x[0]))[: policy.top_n]
+        if missing:
+            # A no-trade decision still exposes every existing holding to the
+            # action guard. This cannot bypass a known unsupported entitlement.
+            if exposure_guard is not None:
+                exposure_guard(state, ())
+            decisions.append(
+                {
+                    "as_of": state.as_of.isoformat(),
+                    "status": "SKIPPED_MISSING_HELD_REFERENCE",
+                    "missing_reference_symbols": missing,
+                    "held_shares": held,
+                    "ranked_symbols": [s for s, _ in ranked],
+                    "source_id": signal.source_id,
+                    "target_shares": None,
+                    "orders": [],
+                    "next_attempt": "next_scheduled_rebalance",
+                }
+            )
+            return ()
         # Receivables remain in NAV but cannot be deployed before their release.
         cash = sum((c.amount - c.reserved for c in state.cash), Decimal(0))
         wealth = cash + sum((prices[s] * q for s, q in held.items()), Decimal(0))
