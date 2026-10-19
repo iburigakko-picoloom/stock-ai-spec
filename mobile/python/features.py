@@ -62,6 +62,12 @@ def calculate(payload: dict, selection: dict) -> dict:
         source = payload[name]
         frame = (_json_records_frame(source) if isinstance(source, pd.DataFrame)
                  else pd.DataFrame.from_records(source))
+        if (name == "financials" and payload.get("decision_symbols") is not None
+                and isinstance(source, pd.DataFrame) and source.empty):
+            # An authenticated projection can have no matching financial rows.
+            # Keep its schema so the engine preserves missing values. An empty
+            # or incomplete source schema still fails the existing checks.
+            frame = source.iloc[:0].copy()
         for column in ("available_at",):
             if column in frame:
                 frame[column] = pd.to_datetime(frame[column], utc=True)
@@ -71,14 +77,40 @@ def calculate(payload: dict, selection: dict) -> dict:
     as_of = datetime.fromisoformat(payload["as_of"])
     names = {name for item in selection["horizons"] for name in item["feature_names"]}
     required = max(FEATURE_REGISTRY.definition(name).warmup_period for name in names)
+    for horizon in selection["horizons"]:
+        if (horizon["horizon"], len(horizon["feature_names"])) not in ((5, 41), (20, 51)):
+            raise ValueError("Unexpected frozen feature selection")
     daily = frames["daily"]
-    completed = daily.loc[
-        (daily.available_at <= as_of)
-        & (daily.trading_date.dt.date < as_of.astimezone(ZoneInfo("Asia/Tokyo")).date())
-    ]
-    counts = completed.groupby("symbol").trading_date.nunique()
-    eligible = set(counts[counts >= required].index)
+    focus = payload.get("decision_symbols")
+    if focus is not None:
+        if (not isinstance(focus, list) or not focus
+                or any(type(symbol) is not str or not symbol for symbol in focus)
+                or focus != sorted(set(focus))):
+            raise ValueError("Invalid decision-symbol calculation scope")
+        for name in ("daily", "financials"):
+            frame = frames[name]
+            if not frame.empty and ("symbol" not in frame or set(frame.symbol) - set(focus)):
+                raise ValueError("Individual inputs differ from the decision-symbol scope")
+    if focus is not None and daily.empty:
+        eligible = set()
+    else:
+        completed = daily.loc[
+            (daily.available_at <= as_of)
+            & (daily.trading_date.dt.date < as_of.astimezone(ZoneInfo("Asia/Tokyo")).date())
+        ]
+        counts = completed.groupby("symbol").trading_date.nunique()
+        eligible = set(counts[counts >= required].index)
     if not eligible:
+        if focus is not None:
+            # Preserve missing/short candidate and held coverage for the
+            # forecast publisher, which blocks missing holdings/no usable
+            # candidates. Never turn missing history into a prediction.
+            return {"as_of": payload["as_of"],
+                    "features": {str(item["horizon"]): [] for item in selection["horizons"]},
+                    "research_only": True,
+                    "excluded_for_insufficient_history": (
+                        sorted(set(daily.symbol)) if "symbol" in daily else []),
+                    "required_history_sessions": required}
         raise ValueError(f"INSUFFICIENT_HISTORY: at least {required} completed sessions required")
     result = FeatureEngine(V2_EXTENDED_MANIFEST).latest_snapshot(
         frames["daily"],
@@ -92,8 +124,6 @@ def calculate(payload: dict, selection: dict) -> dict:
     output = {}
     for horizon in selection["horizons"]:
         days, names = horizon["horizon"], horizon["feature_names"]
-        if (days, len(names)) not in ((5, 41), (20, 51)):
-            raise ValueError("Unexpected frozen feature selection")
         output[str(days)] = json.loads(
             result[["symbol", "available_at", *names]].to_json(orient="records", date_format="iso")
         )

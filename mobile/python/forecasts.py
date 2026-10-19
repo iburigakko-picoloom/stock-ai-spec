@@ -66,6 +66,9 @@ def _checked(row) -> dict:
         if any(key in scope and getattr(snapshot, key) != scope[key]
                for key in ("label_definition", "price_semantics")):
             raise ValueError("Forecast label semantics differ from their receipt")
+        if ("feature_calculation_symbols" in proof and proof["feature_calculation_symbols"]
+                != sorted(set(scope["universe"]["decision_symbols"]))):
+            raise ValueError("Forecast feature calculation scope differs from its universe")
         outputs = {(x["horizon"], x["task"]): dict(x["values"]) for x in value["outputs"]}
         expected_symbols = {x.symbol for x in snapshot.predictions}
         excluded = {x["symbol"] for x in value["excluded_candidates"]}
@@ -237,7 +240,8 @@ def generate(path: Path, store, now: datetime) -> dict:
                               bundle.calibration.model_dump(mode="json")))
     if not selection["decision_symbols"]:
         return _save(path, store, scope, now, outcome="cash_only")
-    inputs = market.feature_inputs(path, now, True)
+    inputs = market.feature_inputs(path, now, True,
+                                   decision_symbols=selection["decision_symbols"])
     features = calculate(inputs, bundled_selection())
     if inputs["as_of"] != cutoff.isoformat() or features["as_of"] != cutoff.isoformat():
         raise ValueError("Feature cutoff mismatch")
@@ -262,6 +266,10 @@ def generate(path: Path, store, now: datetime) -> dict:
              "revision_policy": inputs["revision_policy"],
              "feature_values_sha256": content_id(features["features"]),
              "membership_and_universe": selection}
+    if "decision_symbols" in inputs:
+        if inputs["decision_symbols"] != sorted(decision_symbols):
+            raise ValueError("Feature calculation domain mismatch")
+        proof["feature_calculation_symbols"] = inputs["decision_symbols"]
     source_ids = dict(inputs["source_snapshot_ids"])
     if (len(source_ids) != 5 or set(source_ids) != {x.value for x in market.DatasetName}
             or any(not re.fullmatch(r"[0-9a-f]{64}", x) for x in source_ids.values())):

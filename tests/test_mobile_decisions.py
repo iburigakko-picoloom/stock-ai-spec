@@ -99,10 +99,11 @@ def ready(tmp_path, monkeypatch):
     master = market.SQLiteSource(path).point_in_time(DatasetName.SECURITY_MASTER, CUTOFF)
     source_ids = [(name.value, _source_frame_id(name, master) if name is DatasetName.SECURITY_MASTER
                    else "4" * 64) for name in DatasetName]
-    monkeypatch.setattr(forecasts.market, "feature_inputs", lambda *args: {
-        "as_of": CUTOFF.isoformat(), "latest_source_received_at": RECEIVED,
-        "source_snapshot_ids": source_ids, "revision_policy": "synthetic-test-only",
-    })
+    def selected_inputs(*args, decision_symbols):
+        assert "7203" in decision_symbols
+        return {"as_of": CUTOFF.isoformat(), "latest_source_received_at": RECEIVED,
+                "source_snapshot_ids": source_ids, "revision_policy": "synthetic-test-only"}
+    monkeypatch.setattr(forecasts.market, "feature_inputs", selected_inputs)
     monkeypatch.setattr(forecasts, "calculate", lambda *args: {
         "as_of": CUTOFF.isoformat(), "features": {str(horizon): [
             {"symbol": symbol, "available_at": CUTOFF.isoformat(), "f1": factor}

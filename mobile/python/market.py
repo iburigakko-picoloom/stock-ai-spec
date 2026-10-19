@@ -550,7 +550,17 @@ def master_references(path: Path, cutoff: datetime) -> list[dict]:
              "received_at": row[2], "payload_hash": row[3]} for row in rows]
 
 
-def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False) -> dict:
+def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
+                   decision_symbols: list[str] | tuple[str, ...] | None = None) -> dict:
+    # Keep full-market verification/context construction. Only the individual
+    # model frames are projected before copying/JSON precision conversion.
+    selected = None
+    if decision_symbols is not None:
+        if (not isinstance(decision_symbols, (list, tuple)) or not decision_symbols
+                or any(type(symbol) is not str or not symbol for symbol in decision_symbols)
+                or len(set(decision_symbols)) != len(decision_symbols)):
+            raise ValueError("Invalid decision-symbol calculation scope")
+        selected = frozenset(decision_symbols)
     cutoff = datetime.combine(
         as_of.astimezone(ZoneInfo("Asia/Tokyo")).date(), time(11, 30), ZoneInfo("Asia/Tokyo")
     )
@@ -567,19 +577,18 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False) -> dict
         ).fetchone()[0]
     if latest_receipt is None:
         raise ValueError("Source receipt missing")
-    return {
+    result = {
         "as_of": cutoff.isoformat(),
         "latest_source_received_at": latest_receipt,
         "source_snapshot_ids": list(bundle.source_snapshot_ids),
         "revision_policy": bundle.revision_policy.value,
-        **{
-            key: (model_input_frame(key, frame) if as_frames else
-                  json.loads(frame.to_json(orient="records", date_format="iso")))
-            for key, frame in [
-                ("daily", bundle.daily),
-                ("market", bundle.market_context),
-                ("sector", bundle.sector_context),
-                ("financials", bundle.financials),
-            ]
-        },
     }
+    for key, frame in [("daily", bundle.daily), ("market", bundle.market_context),
+                       ("sector", bundle.sector_context), ("financials", bundle.financials)]:
+        if selected is not None and key in ("daily", "financials"):
+            frame = frame.loc[frame.symbol.isin(selected)].reset_index(drop=True)
+        result[key] = (model_input_frame(key, frame) if as_frames else
+                       json.loads(frame.to_json(orient="records", date_format="iso")))
+    if selected is not None:
+        result["decision_symbols"] = sorted(selected)
+    return result

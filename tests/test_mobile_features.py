@@ -117,7 +117,18 @@ def test_dataframe_feature_inputs_produce_the_same_frozen_json_as_records(scenar
     }
     native["as_of"] = legacy["as_of"] = cutoff.isoformat()
     selection = frozen_selection()
-    assert features.calculate(native, selection) == features.calculate(legacy, selection)
+    reference = features.calculate(native, selection)
+    assert reference == features.calculate(legacy, selection)
+    focused = {**native, "decision_symbols": [first]}
+    for name in ("daily", "financials"):
+        focused[name] = native[name].loc[native[name].symbol == first].copy()
+    expected = {**reference, "features": {
+        horizon: [row for row in rows if row["symbol"] == first]
+        for horizon, rows in reference["features"].items()},
+        "excluded_for_insufficient_history": [
+            symbol for symbol in reference["excluded_for_insufficient_history"]
+            if symbol == first]}
+    assert features.calculate(focused, selection) == expected
     for name, frame in original.items():
         pd.testing.assert_frame_equal(native[name], frame, check_exact=True)
 
@@ -136,8 +147,70 @@ def test_timely_market_inputs_match_records_and_preserve_frozen_source_identity(
             check_exact=True,
         )
     assert len(native["daily"]) == 4 * 270
-    assert features.calculate(native, frozen_selection()) == features.calculate(
-        legacy, frozen_selection()
-    )
+    reference = features.calculate(native, frozen_selection())
+    assert reference == features.calculate(legacy, frozen_selection())
+    symbols = sorted(native["daily"].symbol.unique())
+    # One candidate plus a holding outside that candidate's selection. Shared
+    # market/sector inputs still cover every original security and session.
+    selected = [symbols[0], symbols[-1]]
+    focused = market.feature_inputs(path, cutoff, True, decision_symbols=selected)
+    assert focused["decision_symbols"] == selected
+    for key in ("as_of", "latest_source_received_at", "source_snapshot_ids", "revision_policy"):
+        assert focused[key] == native[key]
+    for name in ("market", "sector"):
+        pd.testing.assert_frame_equal(focused[name], native[name], check_exact=True)
+    for name in ("daily", "financials"):
+        expected_frame = native[name].loc[native[name].symbol.isin(selected)].reset_index(drop=True)
+        pd.testing.assert_frame_equal(focused[name], expected_frame, check_exact=True)
+    expected = {**reference, "features": {
+        horizon: [row for row in rows if row["symbol"] in selected]
+        for horizon, rows in reference["features"].items()},
+        "excluded_for_insufficient_history": [
+            symbol for symbol in reference["excluded_for_insufficient_history"]
+            if symbol in selected]}
+    assert features.calculate(focused, frozen_selection()) == expected
+    absent = market.feature_inputs(path, cutoff, True, decision_symbols=["9999"])
+    missing = features.calculate(absent, frozen_selection())
+    assert missing["features"] == {"5": [], "20": []}
+    assert missing["excluded_for_insufficient_history"] == []
     with pytest.raises(ValueError, match="cutoff is not closed"):
         market.feature_inputs(path, cutoff - timedelta(seconds=1), True)
+
+
+@pytest.mark.parametrize("scope", [[], "1000", ["1000", "1000"], [None], [""]])
+def test_invalid_feature_scope_is_rejected_before_opening_the_source(tmp_path, scope):
+    path = tmp_path / "not-created.sqlite3"
+    with pytest.raises(ValueError, match="calculation scope"):
+        market.feature_inputs(path, initial_cutoff(270), True, decision_symbols=scope)
+    assert not path.exists()
+
+
+def test_focused_inputs_keep_insufficient_history_explicit_and_reject_extra_symbols():
+    daily, context, sector, financials = market_fixture(270)
+    symbol = sorted(daily.symbol.unique())[0]
+    short = daily.loc[daily.symbol == symbol].tail(5)
+    daily = pd.concat([daily.loc[daily.symbol != symbol], short], ignore_index=True)
+    original = dict(as_of=daily.available_at.max().isoformat(), daily=daily,
+                    market=context, sector=sector, financials=financials)
+    reference = features.calculate(original, frozen_selection())
+    focused = {**original, "decision_symbols": [symbol], "daily": short.copy(),
+               "financials": financials.loc[financials.symbol == symbol].copy()}
+    result = features.calculate(focused, frozen_selection())
+    assert result["features"] == {"5": [], "20": []}
+    assert result["excluded_for_insufficient_history"] == [symbol]
+    assert symbol in reference["excluded_for_insufficient_history"]
+    assert result["required_history_sessions"] == reference["required_history_sessions"]
+    with pytest.raises(ValueError, match="differ from the decision-symbol scope"):
+        features.calculate({**original, "decision_symbols": [symbol]}, frozen_selection())
+
+
+@pytest.mark.parametrize("availability_only", [False, True])
+def test_focused_missing_financial_source_schema_is_still_rejected(availability_only):
+    daily, context, sector, _ = market_fixture(270)
+    financials = (pd.DataFrame({"available_at": pd.Series(dtype="datetime64[ns, UTC]")})
+                  if availability_only else pd.DataFrame())
+    payload = dict(as_of=daily.available_at.max().isoformat(), daily=daily,
+                   market=context, sector=sector, financials=financials,
+                   decision_symbols=sorted(daily.symbol.unique()))
+    with pytest.raises(ValueError, match=r"missing|required"):
+        features.calculate(payload, frozen_selection())

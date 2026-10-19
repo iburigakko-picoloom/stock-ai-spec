@@ -53,7 +53,10 @@ def ready(tmp_path, monkeypatch):
               "source_snapshot_ids": [(name.value, "4" * 64) for name in market.DatasetName],
               "revision_policy": "synthetic-fixture-conservative"}
     monkeypatch.setattr(forecasts.universe, "select", lambda *a, **kw: copy.deepcopy(selection))
-    monkeypatch.setattr(forecasts.market, "feature_inputs", lambda *a: copy.deepcopy(inputs))
+    def selected_inputs(*args, decision_symbols):
+        assert sorted(decision_symbols) == sorted(selection["decision_symbols"])
+        return copy.deepcopy(inputs)
+    monkeypatch.setattr(forecasts.market, "feature_inputs", selected_inputs)
     monkeypatch.setattr(forecasts, "calculate", lambda *a: copy.deepcopy(features))
     return device, store, path, selection, features, current
 
@@ -88,6 +91,30 @@ def test_identical_freeze_reuses_original_numbers_and_generation_time(ready, mon
     assert forecasts.generate(path, store, NOW + timedelta(minutes=1)) == original
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT COUNT(*) FROM mobile_forecast_runs").fetchone()[0] == 1
+
+
+@pytest.mark.parametrize("omit_holding", [False, True])
+def test_forecast_authenticates_the_calculation_domain_including_holdings(
+    ready, monkeypatch, omit_holding,
+):
+    _, store, path, _, _, _ = ready
+    original = forecasts.market.feature_inputs
+    def scoped_inputs(*args, decision_symbols):
+        value = original(*args, decision_symbols=decision_symbols)
+        value["decision_symbols"] = ["1000"] if omit_holding else sorted(decision_symbols)
+        return value
+    monkeypatch.setattr(forecasts.market, "feature_inputs", scoped_inputs)
+    before = store.latest_portfolio()
+    if omit_holding:
+        with pytest.raises(ValueError, match="Feature calculation domain mismatch"):
+            forecasts.generate(path, store, NOW)
+        with sqlite3.connect(path) as db:
+            assert db.execute("SELECT COUNT(*) FROM mobile_forecast_runs").fetchone()[0] == 0
+    else:
+        result = forecasts.generate(path, store, NOW)
+        assert result["data_proof"]["feature_calculation_symbols"] == ["1000", "7203"]
+        assert forecasts.latest(path) == result
+    assert store.latest_portfolio() == before
 
 
 def test_old_history_outside_the_current_decision_scope_is_preserved_without_blocking(ready):
