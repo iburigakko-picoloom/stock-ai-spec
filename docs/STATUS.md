@@ -1,3 +1,12 @@
+## 2026-10-19 — 候補0.1.20と、全量SQLite読込のAndroid低メモリ終了（D191）
+
+- 製品source d150b07から非公開0.1.20-candidate/code10020を200.357秒で作成。23,963,597bytes、SHA256 `127ee7612da44a82c9349c542d3eeac7215458b8bf3476f097068d86b80f15de`。既存本人署名・非debug・43資産・秘密/私有モデル/市場データの非混入を検証。旧候補/鍵を保全し、本人端末へ導入/公開配布はしていない。
+- d150b07のCI39251810913/androidは成功。89件・失敗/skip0、tested merge2dd048aとの製品diff0、候補との同梱計算source/config51件とJS/CSS5件がbyte一致。外側ZIP/出所commit/改行/HTML空行だけの差を照合。verifyと後続android-historyは確認未完で、必要CI全体の成功とはしない。
+- 最新730日/485営業日の実SQLite168,570,880bytesと既存実2回帰bundleを、従来と同じAPI35/4GiB guest/Java192MiB/2coresの専用emulatorで検証。今回は中間frameだけでなく、製品のSQLite reader→入力作成→全市場特徴量→実modelを対象にした。591.172秒で入力作成中のrendererがAndroid lowmemorykillerにより終了。特徴量/予測の照合には未到達で、全量の通常日次成功と表示しない。
+- 28回のsampleでapp+renderer最大3,011,338,240bytes、VM RSS合計最大5,127,725,056bytes、host空き最小2,039,648,256bytes。設定guard超過は観測されなかったが、OS終了ログはrenderer RSS3,337,158,656bytesとguestのwatermark/swap不足を記録。sample値を瞬間peakとしない。600秒timeout超過での失敗とも断定しない。
+- 私有current-d150-candidate / current-d150-nativeへ候補・ソース照合・失敗/メモリ/低メモリ終了ログを保全。所有したemulatorは終了済み。モデル入り全量owner保存/復元の追加票は準備のみで、本人の「一区切りで報告」を受け新しい重い試験は開始しない。次の最優先は入力生成のメモリ/不要copyを調べ、同一入力・計算式・既存制限を保って修正すること。その後に全量一致、通常日次、一括Xiaomi受入を確認する。
+- A＝元152条件56研究完走/96不完全・正式HOLD、B＝関連/Android試験済みだが実全量入力は未合格、C＝未完。現在用途の価格日付とfinal暦の重複を記録済みで、最終target/保存最終予測/成績は未読・選択未実施。追加fit/実台帳更新/実注文/新規課金/外部AI送信/main mergeなし。製品sourceはd150b07のまま、文書checkpointはローカルに保全する。
+
 ## 2026-10-19 — 現在Lightの必要履歴・実モデルPC参照・CSV欠損の修正（D190）
 
 - 製品32e1e1aのCI39241822817はverify/android/android-history全成功。Android89件、合成5,000銘柄/520日/17tableのnative保存復元218.645秒を確認。既存候補0.1.19・その実bundle通常Android取込/2,000行一致の証拠は保全する。下記のCSV境界修正を含む新sourceの全体CI/次候補は別に必要で、旧成功を流用しない。
