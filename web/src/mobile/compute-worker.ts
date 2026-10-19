@@ -71,7 +71,7 @@ async function exportNative(id: number, progress: (phase: string) => void): Prom
   try {
     progress("export-archive");
     const length = Number(await interpreter.runPythonAsync("_native_export = runtime.StateExport()\n_native_export.length"));
-    if (!Number.isSafeInteger(length) || length < 0 || length > 128 * 1024 * 1024) throw new Error("Invalid state length");
+    if (!Number.isSafeInteger(length) || length < 0 || length > 256 * 1024 * 1024) throw new Error("Invalid state length");
     await sendState(id, -1, { state_begin: length });
     progress("export-chunks");
     let received = 0;
@@ -103,7 +103,7 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
       if (input.command === "initialize") {
         if (input.state_bytes !== undefined) {
           stage = "state";
-          if (!(input.state_bytes instanceof ArrayBuffer) || input.state_bytes.byteLength > 128 * 1024 * 1024 || input.state !== undefined) throw new TypeError("Invalid state transfer");
+          if (!(input.state_bytes instanceof ArrayBuffer) || input.state_bytes.byteLength > 256 * 1024 * 1024 || input.state !== undefined) throw new TypeError("Invalid state transfer");
         }
         try { await initialize(input.state_bytes ?? input.state ?? "", progress); }
         finally { delete input.state; delete input.state_bytes; }

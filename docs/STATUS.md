@@ -1,3 +1,8 @@
+## 2026-10-19 — 実転送で判明したJavaScript上限の修正
+
+- 188,857,904文字を同じAPI35/Java192MiB profileへ転送しhash一致後、通常owner開始時に失敗。JavaScript host/workerに残っていた128MiBの分割転送guardを特定し、D183どおり256MiBへ統一。一括文字列・JSON応答・byte配列暗号の128MiB制限と実行中RAM/600秒制限は維持。失敗した実転送と、転送前の私有runner停止は全て保全。
+- c328d31のAndroid CIはsuccess。WindowsローカルJVM試験は日本語pathでGradleWorkerMain読込に失敗し、合格としていない。Java単体/コンパイル/lint・native/OS復旧/旧版更新は同source Linux CIで検証。今回のJS変更はlint/typecheck成功、全CI/実保存量の試験は新commitで継続する。評価152条件・採用HOLD・未開封holdout・元私有差分は不変。
+
 ## 2026-10-19 — 実保存量に合わせた分割転送・backup容量の修正（検証中）
 
 - D183。固定した実履歴731暦日＋calendarのみ2日を既存の可逆形式で保存すると188,857,904base64文字、mobile SQLite159,989,760bytes。PCのexport/restoreで全17tableの型付き内容が一致したが、旧native128MiB転送枠を超える。全件保存446.068秒、PC準備peak672,440,320bytes。取得時刻/元値/hashを保ち、bulk cacheの型付き状態復元とREST初期取得の成功を区別する。

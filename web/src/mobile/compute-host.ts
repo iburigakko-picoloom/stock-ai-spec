@@ -18,7 +18,7 @@ const bridge = hostWindow.StockAICompute;
 if (bridge) {
   const worker = new Worker(new URL("./compute-worker.ts", import.meta.url), { type: "module" });
   const chunkCharacters = 256 * 1024;
-  const maxCharacters = 128 * 1024 * 1024;
+  const maxCharacters = 256 * 1024 * 1024;
   const yieldTurn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
   let active: number | null = null;
   let completing = false;
