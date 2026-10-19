@@ -1769,3 +1769,5 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 - Source IDのv1 byte streamを保ち、全幅frameのsort copyをキー順序とbounded row hashへ置き換える。分割の累積係数とlineageのsortは必要列へ絞り、入力sourceの全列コピー/index再作成を減らす。列の変換は新しい配列へ代入し、元sourceの変更を試験で拒否する。
 - mobileのprojected日次入力では、同じimmutable文字列の値/型/nullを保って列ごとに共有する。共有poolは一回の読取内・各列8,192値までとし、永久cacheや全履歴の文字列無制限保持にしない。全raw/normalized照合と既存array budgetを通す。
 - PCの段階計測/互換性成功とAndroid guestの全量成功を別に記録する。旧CI全成功、関連96件成功はそれぞれの対象sourceと範囲に限定する。新しい全量照合、通常owner/daily、Xiaomi受入と正式採用HOLDの残件を維持する。
+
+- 同じ実SQLiteの修正後PC照合は全特徴量JSON/7,562実予測最大差0、元source IDs/件数/hash不変。入力process peakは3,500,724,224→2,322,100,224bytes（33.668%削減）。診断profile付きの秒数を通常Android日次時間とせず、0455e48の同条件native再試験/CI結果を待つ。

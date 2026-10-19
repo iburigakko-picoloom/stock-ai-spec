@@ -4,7 +4,8 @@
 - 同じ730日/485営業日・実SQLiteで修正前の読取専用PC段階計測を完走。入力件数/元snapshot ID/原本hashを保持し、分割調整中にprocess peak working set3,500,724,224bytesを観測。診断用profileを付けた528.033秒を通常日次の所要時間としない。
 - 分割調整では係数/lineageの必要列だけを並べ替え、source IDはキーの順序と10,000行ずつの値をhashする。変換前のsource全列コピーとsort後のindex再作成を減らす。mobile readerは日をまたぐ同じimmutable文字列を列ごと最大8,192値まで共有する。入力期間/母集団/型/欠損/全出所検証/768MiB array budget/通常600秒を維持する。
 - 関連source/codec45件16.70秒、production51件9.07秒が成功。元v1 hash、chunk境界/欠損キー/重複index、分割/入力不変、時点分離を確認。Ruff全体と変更productionのmypyが成功。最初のcodec一件は既定sandbox temp内のSQLite置換でWinError5となり、workspace専用tempで同じcaseと関連全体が成功。元の失敗XMLを保持する。
-- 修正後の同じ全量PC入力/全特徴量/実モデル照合は実行中。新sourceのCI・Android全量・現在日次/モデル入りowner復元・Xiaomiは別に残り、修正前591.172秒のAndroid低メモリ終了を成功へ書き換えない。Aの元152条件56研究完走/96不完全・正式HOLDを維持。追加fit/実台帳更新/実注文/新規課金/外部AI送信/main mergeなし。
+- 修正後の同じ全量PC入力・特徴量JSONは既存参照と完全一致し、実2回帰7,562予測の最大誤差0。入力/全計算peak2,322,100,224bytesで旧3,500,724,224bytesから33.668%削減。診断profile込み入力543.015秒/全体659.295秒、profileなし特徴量113.138秒であり通常Android日次の所要時間としない。入力件数/元snapshot ID/原本hash不変、追加fitなし。
+- 0455e48は既存PR#2へpush済み、CI39258924897は実行中。隔離試験APKは153.940秒で作成し43資産/51計算fileの出所と2fileだけの変更を照合。Android全量の再試験を同じfixture/4GiB guest/192MiB Java/600秒基準で開始したが、現時点では未完了。修正前591.172秒の低メモリ終了と元152条件56研究完走/96不完全・正式HOLDを維持する。現在日次/モデル入りowner復元・Xiaomi・更新候補releaseは別に残る。追加fit/実台帳更新/実注文/新規課金/外部AI送信/main mergeなし。
 
 ## 2026-10-19 — 候補0.1.20と、全量SQLite読込のAndroid低メモリ終了（D191）
 
