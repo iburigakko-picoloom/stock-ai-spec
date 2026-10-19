@@ -19,6 +19,7 @@ public class DailyPipelineTest {
     final AtomicBoolean stopped = new AtomicBoolean();
     boolean complete, partial, late, closed, failCommit, badDecision, forbid, failAck, stopAfterCommit;
     boolean planSaved, stopAfterForecast, rolloverAfterForecast, rolloverAfterDecision, rejectForeground;
+    boolean returnOnly, extraBlock, missingContext;
     String decisionTime = "2026-01-06T11:30:00+09:00";
     JSONObject forecast;
     Instant now = Instant.parse("2026-01-06T02:31:00Z");
@@ -47,7 +48,14 @@ public class DailyPipelineTest {
         } else if (path.endsWith("/decision/generate")) {
             result = new JSONObject().put("is_active", !badDecision)
                 .put("scope", new JSONObject().put("as_of", decisionTime)).put("run_id", "fixture-result");
-            planSaved = !badDecision;
+            if (returnOnly) {
+                JSONArray blocks = new JSONArray().put("FORECAST_RISK_UNAVAILABLE");
+                if (extraBlock) blocks.put("CASH_DIFFERS");
+                result.put("is_active", false).put("phase", "blocked").put("outcome", "blocked")
+                    .put("blocking_reasons", blocks).put("comparison", new JSONObject()
+                        .put("proposal", JSONObject.NULL).put("manual_context_sha256", missingContext ? "" : "a".repeat(64)));
+            }
+            planSaved = !badDecision && !returnOnly;
             if (rolloverAfterDecision) now = now.plusSeconds(86400);
         }
         else throw new AssertionError(path);
@@ -86,6 +94,28 @@ public class DailyPipelineTest {
         assertTrue(events.contains("fetch:false:" + prior));
         assertFalse(complete);
         assertFalse(events.stream().anyMatch(e -> e.startsWith("ack:") || e.contains("generate")));
+    }
+    @Test public void returnOnlyConsultationIsSavedWithoutClaimingQuantityCompletion() throws Exception {
+        complete = true; returnOnly = true;
+        forecast = forecast("published", today + "T11:30:00+09:00");
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:consultation_ready"));
+        assertFalse(events.contains("state:numerical_saved"));
+        assertFalse(events.contains("state:inputs"));
+    }
+    @Test public void returnOnlyWithAnotherBlockCannotClaimConsultationReadiness() throws Exception {
+        complete = true; returnOnly = true; extraBlock = true;
+        forecast = forecast("published", today + "T11:30:00+09:00");
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:inputs"));
+        assertFalse(events.contains("state:consultation_ready"));
+    }
+    @Test public void returnOnlyWithoutAuthenticatedContextCannotClaimConsultationReadiness() throws Exception {
+        complete = true; returnOnly = true; missingContext = true;
+        forecast = forecast("published", today + "T11:30:00+09:00");
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:inputs"));
+        assertFalse(events.contains("state:consultation_ready"));
     }
     @Test public void ingestDurablyCommitsBeforeAcknowledgmentAndLostAckRecoversWithoutFetch() throws Exception {
         failAck = true;

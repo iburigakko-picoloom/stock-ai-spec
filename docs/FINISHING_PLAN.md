@@ -1,3 +1,5 @@
+D188現在地：正式採用を待たず、認証済み5/20日回帰を通常の研究用bundleとして使う経路を実装。実bundleのPC/WASM取込・予測一致・再読込は成功、追加fit0。risk/校正はnull、自動株数proposalを生成せず手動相談/既存制約検算へ接続する。承認bundle0と正式HOLD/未使用holdoutを保持。現在の残件は新native/CI・私有候補APKの更新、現在の実市場日次一連と同一入力PC参照、Xiaomi一括受入。過去の「weight紐付け0/通常bundle未作成」はこの研究経路では解消したが、正式採用の成果物完成とはしない。
+
 2026-10-19 D183確認済み：製品59ea01e/CI39187276127はverify/android/android-history全成功、release skip。JS/Android/Pythonの分割256MiB（native一括128MiB・Java192MiB・app3500MiB・host予備1GiB・通常600秒は維持）で、実188,857,904文字の保存/B1/再openと全17table一致が438.815秒。通常本人署名0.1.16/code10016候補は私有保存。Aは152条件56研究完走/96不完全でHOLD、通常bundle/本人日次/Xiaomiは未完。回帰のみを選ぶ場合の未提供risk契約も残件であり、無関係な追加機能へ広げない。最新の一括受入は既存Xiaomi票を参照。以下の「検証中」等は先行時点の記録。
 
 D185検証済み：製品11957b2／CI39197573498の必要job全成功、正しい本番next-sessionラベルの候補0.1.18を作成・署名内容確認済み。0.1.17は撤回、元weight/比較不変。A採用HOLD、B対象source試験済み、C通常bundle/現行実データ/Xiaomi待ち。追加機能へ広げない。

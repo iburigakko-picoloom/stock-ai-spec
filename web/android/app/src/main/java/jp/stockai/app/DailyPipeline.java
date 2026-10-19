@@ -142,6 +142,20 @@ final class DailyPipeline {
         progress.state("deciding", today);
         JSONObject decision = api("POST", "decision/generate", new JSONObject());
         if (!today.equals(clock.get().atZone(JST).toLocalDate().toString())) return true;
+        JSONArray blocks = decision.optJSONArray("blocking_reasons");
+        JSONObject comparison = decision.optJSONObject("comparison");
+        if (!decision.optBoolean("is_active") && currentCutoff(decision, today)
+                && "blocked".equals(decision.optString("phase"))
+                && "blocked".equals(decision.optString("outcome"))
+                && blocks != null && blocks.length() == 1
+                && "FORECAST_RISK_UNAVAILABLE".equals(blocks.optString(0))
+                && comparison != null && comparison.has("proposal") && comparison.isNull("proposal")
+                && comparison.optString("manual_context_sha256").matches("[0-9a-f]{64}")) {
+            progress.state("consultation_ready", today);
+            progress.notice(today + ":" + decision.getString("run_id"),
+                "研究用の予測を保存しました。株数の自動判定はなく、ChatGPTへの相談と回答の検算を利用できます。");
+            return false;
+        }
         if (!decision.optBoolean("is_active") || !currentCutoff(decision, today)) {
             progress.state("inputs", today);
             progress.notice(today + ":inputs", "株数の判定を完了できません。本人設定と台帳を確認してください。");

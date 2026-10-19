@@ -15,6 +15,7 @@ sys.path.insert(0, '/stockai-code')
 from stock_ai.mobile import runtime, models, forecasts, decisions, market
 fixture = json.loads(fixture_json)
 assert fixture['synthetic_only'] is True
+return_only = fixture.get('return_only_research', False)
 # Supply model/selection configuration and time only. No market/universe,
 # features, predictions, cost calculation or validation doubles.
 models.policy = lambda: fixture['policy']
@@ -54,17 +55,25 @@ for symbol, frame in daily.groupby('symbol'):
 assert len(set(expected_loss.values())) == 2
 for prediction in snapshot.predictions:
     assert prediction.expected_return_5d == .01 and prediction.expected_return_20d == .04
-    assert math.isclose(prediction.large_loss_probability, expected_loss[prediction.symbol],
-                        rel_tol=1e-6, abs_tol=1e-7)
+    if return_only:
+        assert prediction.schema_version == 3 and prediction.uncertainty is None
+        assert prediction.large_loss_probability is None and prediction.downside_quantile is None
+    else:
+        assert math.isclose(prediction.large_loss_probability, expected_loss[prediction.symbol],
+                            rel_tol=1e-6, abs_tol=1e-7)
 comparison_reply = await runtime.request('POST', '/api/v1/mobile/decision/generate', 'null')
 assert comparison_reply['status'] == 200, comparison_reply
 comparison = decisions.latest(path, store)
-assert comparison['phase'] == 'published', comparison['blocking_reasons']
 proposal = comparison['comparison']['proposal']
-assert proposal['is_research_only'] and not proposal['is_order_instruction']
-assert any(x['share_difference'] and sum(float(x['transaction_cost'][field])
-           for field in ('commission', 'spread', 'slippage', 'market_impact')) > 0
-           for x in proposal['lines']), 'nonzero trade costs must be exercised'
+if return_only:
+    assert comparison['phase'] == 'blocked' and proposal is None
+    assert comparison['blocking_reasons'] == ['FORECAST_RISK_UNAVAILABLE']
+else:
+    assert comparison['phase'] == 'published', comparison['blocking_reasons']
+    assert proposal['is_research_only'] and not proposal['is_order_instruction']
+    assert any(x['share_difference'] and sum(float(x['transaction_cost'][field])
+               for field in ('commission', 'spread', 'slippage', 'market_impact')) > 0
+               for x in proposal['lines']), 'nonzero trade costs must be exercised'
 exported_reply = await runtime.request('POST', '/api/v1/mobile/chatgpt-manual/export',
                                       json.dumps(fixture['permission']))
 assert exported_reply['status'] == 200, exported_reply
@@ -72,7 +81,8 @@ exported = exported_reply['body']
 package = json.loads(exported['prompt'].split('\\n入力:\\n')[1])
 targets = package['required_targets']
 assert len(targets) == 21 and any(x['symbol'] == '1023' for x in targets)
-proposed_shares = {x['symbol']:x['recommended_shares'] for x in proposal['lines']}
+proposed_shares = (fixture['target_shares'] if return_only else
+                   {x['symbol']:x['recommended_shares'] for x in proposal['lines']})
 answer = dict(schema_version='chatgpt-target-shares-v1',
               input_snapshot_id=package['input_snapshot_id'], evidence_as_of=now.isoformat(),
               targets=[dict(symbol=x['symbol'], account=x['account'],
@@ -121,6 +131,7 @@ json.dumps({'predictions':numerical['snapshot']['predictions'], 'proposal':propo
             'table_counts':{name:len(value['tables']) for name,value in reference.items()},
             'manual_review':{key:accepted['body']['review'][key] for key in
                              ('lines', 'estimated_cost_yen', 'estimated_cash_after')},
+            'model_risk_available':snapshot.risk_available,
             'adopted':models.status(path, store)['model_adopted']})
 `)));
     self.postMessage(output);

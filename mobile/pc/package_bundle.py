@@ -6,14 +6,16 @@ import argparse
 import hashlib
 from pathlib import Path
 
-from mobile.python.model_bundle import ModelBundle, encoded
+from mobile.python.model_bundle import ModelBundle, ResearchModelBundle, encoded
 
 from stock_ai.operations.daily import canonical_json, content_id, require_daily_close_label
 from stock_ai.operations.manual_portfolio import strict_json
 
 
 def package(metadata: dict, heads: list[dict], selection: dict) -> tuple[str, dict]:
-    bundle = ModelBundle.create(**metadata, heads=heads)
+    bundle = (ResearchModelBundle.create(**metadata, heads=heads)
+              if metadata.get("schema_version") == "stockai-mobile-research-bundle-v1"
+              else ModelBundle.create(**metadata, heads=heads))
     require_daily_close_label(bundle.label_definition)
     if any(getattr(bundle, key) != selection[key]
            for key in ("feature_selection_id", "feature_manifest_hash")):
@@ -21,6 +23,13 @@ def package(metadata: dict, heads: list[dict], selection: dict) -> tuple[str, di
     for head in bundle.heads:
         head.decoded(selection)
     content = encoded(bundle)
+    if isinstance(bundle, ResearchModelBundle):
+        return content, {
+            "sha256": hashlib.sha256(content.encode()).hexdigest(), "bundle_id": bundle.bundle_id,
+            "source_evidence_sha256": bundle.source_evidence_sha256,
+            "pc_parity_evidence_sha256": None, "device_parity_evidence_sha256": None,
+            "use": "return-only-research", "distribution_review": "pending",
+        }
     proposal = {
         "sha256": hashlib.sha256(content.encode()).hexdigest(), "bundle_id": bundle.bundle_id,
         "adoption_evidence_sha256": content_id(bundle.adoption_review.model_dump(mode="json")),

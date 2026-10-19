@@ -6,12 +6,14 @@ import { StockAI } from "./native";
 interface ModelStatus {
   approved_bundle_count: number; imported_bundle_count: number; bundle_ready: boolean;
   model_adopted: boolean; bundle_blocking_reason?: string | null;
+  research_bundle_count?: number; return_only_research?: boolean; risk_available?: boolean;
 }
 interface ForecastRun {
   run_id: string; phase: string; outcome: string; checked_at: string;
   scope: { as_of: string; universe?: { latest_source_date?: string | null } };
   snapshot: { generated_at: string; data_as_of: string; predictions: { symbol: string;
-    expected_return_5d: number; expected_return_20d: number }[] } | null;
+    expected_return_5d: number; expected_return_20d: number }[];
+    candidate_symbols?: string[]; holding_symbols?: string[] } | null;
   outputs: { horizon: number; task: string; values: [string, number][] }[];
   excluded_candidates: { symbol: string; reason: string }[]; blocking_reasons: string[];
 }
@@ -29,7 +31,8 @@ function reason(code: string): string {
     HOLDINGS_NEED_RECONCILIATION: "入力した保有と約定台帳を照合してください。",
     UNIVERSE_CURRENT_MEMBERSHIP_MISSING: "11:30までに受領した当日の銘柄一覧がありません。",
     UNIVERSE_NON_BUSINESS_DAY: "当日は休場日です。",
-    CALIBRATED_MODEL_BUNDLE_UNAVAILABLE: "締切内に取り込んだ確認済みモデル一式と校正情報が必要です。",
+    CALIBRATED_MODEL_BUNDLE_UNAVAILABLE: "締切までに取り込まれた、利用条件を確認済みのモデル一式が必要です。",
+    FORECAST_RISK_UNAVAILABLE: "下振れ・下落確率・確信度は未提供です。株数の自動判定を行わず、ChatGPTへの相談と回答の検算を利用できます。",
     NO_USABLE_FORECAST: "候補銘柄の予測に必要な履歴が不足しています。",
     NUMERICAL_FORECAST_INCOMPLETE: "数値予測の保存を完了してから株数を計算します。",
     NUMERICAL_FORECAST_NOT_CURRENT_DAY: "当日の数値予測が必要です。",
@@ -70,31 +73,38 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
   }
   const five = new Map(run?.outputs.find(x => x.horizon === 5 && x.task === "regression")?.values ?? []);
   const twenty = new Map(run?.outputs.find(x => x.horizon === 20 && x.task === "regression")?.values ?? []);
-  const symbols = [...five.keys()].filter(symbol => twenty.has(symbol)).sort();
+  const available = [...five.keys()].filter(symbol => twenty.has(symbol));
+  const holdings = new Set(run?.snapshot?.holding_symbols ?? []);
+  const top = run?.snapshot?.candidate_symbols?.filter(symbol => twenty.has(symbol))
+    .sort((a, b) => twenty.get(b)! - twenty.get(a)! || a.localeCompare(b)).slice(0, 20);
+  const symbols = top ? [...new Set([...top, ...[...holdings].sort()])].filter(symbol => available.includes(symbol)) : available.sort();
+  const researchConsultation = decision?.blocking_reasons.length === 1 && decision.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE";
+  const bundleCount = (model?.approved_bundle_count ?? 0) + (model?.research_bundle_count ?? 0);
   return <section className="section model-panel" aria-label="端末内のモデルと予測">
     <h2>モデルと計算</h2>
-    <p>確認済みの一式：{model?.approved_bundle_count ?? 0}件／端末へ取込済み：{model?.imported_bundle_count ?? 0}件</p>
-    <p>5日・20日のモデル、下振れ、大幅下落確率、校正情報を一度に取り込みます。</p>
+    <p>確認済みの一式：{bundleCount}件／端末へ取込済み：{model?.imported_bundle_count ?? 0}件</p>
+    <p>5日・20日のモデルを一式で取り込みます。研究用の一式に含まれない下振れ・下落確率・校正情報は未提供です。</p>
     <p>実運用の採用確認：{model?.model_adopted ? "確認済み" : "未完了・研究用"}</p>
     {!inputsSaved && <p>口座・保有の編集を保存してから予測を計算します。</p>}
     {model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
     <div className="button-stack">
-      <button className="button button--secondary" disabled={disabled || !model?.approved_bundle_count} onClick={() => void perform(async () => {
+      <button className="button button--secondary" disabled={disabled || !bundleCount} onClick={() => void perform(async () => {
         const content = await StockAI.importModel(); await apiPost("/api/v1/mobile/models/import", content);
-        setModel(await apiGet("/api/v1/mobile/models")); setMessage("確認済みのモデル一式と校正情報を保存しました。");
+        setModel(await apiGet("/api/v1/mobile/models")); setMessage("確認済みのモデル一式を保存しました。");
       })}>モデル一式を取り込む</button>
       <button className="button button--primary" disabled={disabled || !inputsSaved || !model?.bundle_ready} onClick={() => void perform(async () => {
         setDecision(null);
         const value = await apiPost<ForecastRun>("/api/v1/mobile/daily/generate", {}); setRun(value);
         const shares = await apiPost<DecisionRun>("/api/v1/mobile/decision/generate", {}); setDecision(shares);
-        setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : "計算状況と不足項目を保存しました。");
-      })}>当日の予測・株数を計算・保存</button>
+        setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : shares.blocking_reasons.length === 1 && shares.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE" ? "研究用の予測を保存しました。ChatGPTへの相談で株数案を検討できます。" : "計算状況と不足項目を保存しました。");
+      })}>{model?.return_only_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
     </div>
     <p role="status">{message}</p>
     {run && <div className="forecast-state">
       <p>判定時点：{timestamp(run.scope.as_of)}</p>
-      <p>推奨株数：{decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>
+      <p>推奨株数：{researchConsultation ? "自動判定なし・ChatGPTで案を検討" : decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>
       {decision?.is_active && <Link className="button button--secondary" to="/today">今日の判定を見る</Link>}
+      {researchConsultation && <Link className="button button--secondary" to="/today/chatgpt">予測を使ってChatGPTへ相談する</Link>}
       {decision?.phase === "published" && !decision.is_active && <p>保存後に入力や計算対象が変わっています。最新の条件を確認して再実行してください。</p>}
       {decision?.phase === "computed" && <p>株数の保存が途中です。同じ計算を実行すると保存を再開します。</p>}
       {decision && decision.blocking_reasons.length > 0 && <ul>{decision.blocking_reasons.map(code => <li key={code}>{reason(code)}</li>)}</ul>}
@@ -109,9 +119,9 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
       </details>
       {run.excluded_candidates.length > 0 && <details><summary>履歴不足で予測を見送った候補 {run.excluded_candidates.length}社</summary>
         <p>{run.excluded_candidates.map(x => x.symbol).join("、")}</p></details>}
-      {symbols.length > 0 && <details><summary>算出できた予測を見る {symbols.length}社</summary>
+      {symbols.length > 0 && <details><summary>{top ? "上位20と全保有の予測を見る" : "算出できた予測を見る"} {symbols.length}社</summary>
         <table><thead><tr><th>銘柄</th><th>5日</th><th>20日</th></tr></thead><tbody>{symbols.map(symbol => <tr key={symbol}>
-          <td>{symbol}</td><td>{percent(five.get(symbol)!)}</td><td>{percent(twenty.get(symbol)!)}</td></tr>)}</tbody></table>
+          <td><Link to={`/stocks/${symbol}`}>{symbol}</Link>{holdings.has(symbol) && "（保有）"}</td><td>{percent(five.get(symbol)!)}</td><td>{percent(twenty.get(symbol)!)}</td></tr>)}</tbody></table>
       </details>}
     </div>}
   </section>;

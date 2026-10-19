@@ -17,6 +17,7 @@ afterEach(cleanup);
 
 test.each([
   ["forecast_saved", "原予測を保存済み・株数判定待ち"],
+  ["consultation_ready", "研究用の原予測を保存済み・ChatGPTへの相談準備完了"],
   ["deciding", "株数を計算しています"],
   ["compute_wait", "Androidの計算待ち・アプリで保存状態を確認してください"],
 ])("%s keeps partial progress separate from completion", async (state, label) => {

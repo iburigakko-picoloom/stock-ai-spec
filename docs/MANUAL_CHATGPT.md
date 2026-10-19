@@ -65,3 +65,12 @@ D164：画面再作成・アプリ再起動後は、保存済み入力の元ID�
 `web/mobile-tests/received.spec.ts`は同じ受領履歴の予測前状態から、同梱WASM自身で対象抽出/41・51特徴量/4head予測→費用込み株数比較→21pairの目標株数回答を検証する。別の合成設定で非ゼロの売買費用を確認し、snapshot違いの拒否、重複回答1件、原予測/台帳不変・実約定0、操作27＋市場等17tableの全schema/typed cell一致をexport前後/復元後/再取込後に要求する。元の無売買PCケースも保持する。PC/WASMの数値は既存portable許容差、金額文字列・株数・その他の非数値は完全一致。既知のPandas32/64bitの欠損値hashだけを元masterから計算してWASMのデータIDを予測し、全data proof（特徴量内容hashを含む）を完全照合する。製品の出所IDは変更しない。提案の派生ID/出所guardは各環境で既存実装が照合し、環境間で同一IDとは主張しない。
 
 準備は上記と同じで、webから`npx playwright test --config playwright.mobile.config.ts mobile-tests/received.spec.ts mobile-tests/feature-input.spec.ts`を実行する。2026-10-18には3件が212.292秒、fail/skip/retry0で成功。新しい通し部分は63.982秒。合成のモデル/承認/時計とSQLite証拠utilityは試験harnessだけに供給し、製品APKへ含めない。WindowsのEdge/WASM検証であり、実ChatGPT・Android native保存・採用モデル・全市場model推論・Xiaomiの受入とは区別する。
+
+
+## D188：risk未提供の研究用相談
+
+research bundleの5日/20日returnだけでも、通常の原予測保存から相談を作れる。自動proposalがない場合は、他の全照合が成功し、唯一の停止理由が `FORECAST_RISK_UNAVAILABLE` で、現行口座/原予測/設定へ結び付いたdigestが一致することを要求する。最新run/model pin、本人/設定revision、実約定が変われば拒否する。
+
+入力には未提供risk/uncertaintyをnullと `model_risk_available=false` で渡す。nullをゼロリスクと解釈せず、外部回答の株数・資金検算もモデルriskの検証とは扱わない。既存の費用/税/単元/口座/数量/利用可能資金/設定済み制限と、未約定売却を買付余力へ使わない規則は同じengineで維持する。自動効用の比較は行わない。
+
+15分超の回答は従来どおり拒否する。明示的な最新条件の再照合で新しい相談contextを作れるが、原予測の時刻/価格を更新せず、旧入力/回答の履歴を残す。正常回答も別の提案保存に留める。合成受領履歴を実feature計算から通すPC/WASM試験にreturn-only分岐を加え、非ゼロ費用、snapshot拒否、全tableの復元と実台帳不変を確認した。実bundleのbrowser-WASM取込/予測一致/再読込は別証拠であり、Xiaomiや本人実ChatGPT操作の代替ではない。

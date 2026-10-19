@@ -528,3 +528,8 @@ live_delay
 - 将来の取引履歴・残高CSV取込を前提にデータ層を設計する
 - 特徴量候補・計算規則は `docs/FEATURE_CATALOG.md` を正本にする
 - TA-Lib等のライブラリは実装手段であり、Feature Definitionと数値fixtureを仕様の正本にする
+
+
+## D188：returnのみの研究用原予測
+
+`PredictionSnapshot.predictions` の内側schema3は `ReturnOnlyPrediction`。5日/20日returnは有限の小数比率で、1日値、下振れquantile、下落確率、uncertainty、risk horizonと校正metadataはnull。snapshot全体がresearchであることと全行同じ提供範囲を要求し、正式adoption/mixed riskを拒否する。旧schema1/2の必須risk契約は変更しない。新しい派生propertyを旧原本のserialized hashへ加えない。手動相談の口座/原予測/設定結合digestは新しい相談だけへ付け、旧比較原本のnull fieldはserializeしない。

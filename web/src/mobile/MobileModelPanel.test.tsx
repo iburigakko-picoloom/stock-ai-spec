@@ -87,3 +87,22 @@ test.each(["cash_only", "proposal"])("saved %s receipt displays only while its r
   await waitFor(() => expect(screen.getByText(/保存後に入力や計算対象が変わっています/)).toBeVisible());
   expect(screen.queryByRole("link", { name: "今日の判定を見る" })).not.toBeInTheDocument();
 });
+
+test("return-only research imports without adoption and opens manual consultation", async () => {
+  const research = { ...model, approved_bundle_count: 0, research_bundle_count: 1,
+    return_only_research: true, risk_available: false };
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? research : null);
+  vi.mocked(apiPost).mockImplementation(async path => path.includes("/decision/") ? {
+    ...decision, outcome: "blocked", phase: "blocked", is_active: false,
+    blocking_reasons: ["FORECAST_RISK_UNAVAILABLE"],
+  } : { ...run, snapshot: { ...run.snapshot, candidate_symbols: ["7203"], holding_symbols: ["7203"] } });
+  panel();
+  await waitFor(() => expect(screen.getByRole("button", { name: "モデル一式を取り込む" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "当日の予測を計算・保存" }));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("ChatGPTへの相談"));
+  expect(screen.getByRole("link", { name: "予測を使ってChatGPTへ相談する" })).toHaveAttribute("href", "/today/chatgpt");
+  expect(screen.queryByRole("link", { name: "今日の判定を見る" })).not.toBeInTheDocument();
+  expect(screen.getByText(/下振れ・下落確率・確信度は未提供/)).toBeVisible();
+  expect(screen.getByText("上位20と全保有の予測を見る 1社")).toBeVisible();
+  expect(screen.getByText(/実運用の採用確認/)).toHaveTextContent("未完了・研究用");
+});

@@ -127,7 +127,7 @@ def cloud_projection(
                 "expected_return_20d": item.expected_return_20d,
                 "downside_quantile": item.downside_quantile,
                 "large_loss_probability": item.large_loss_probability,
-                "uncertainty": item.uncertainty.combined,
+                "uncertainty": None if item.uncertainty is None else item.uncertainty.combined,
             }
             for item in snapshot.predictions
             if item.symbol in symbols

@@ -36,13 +36,22 @@ class SearchSpaceTooLarge(RuntimeError):
     """Fail-closed signal rather than silently using a different optimizer."""
 
 
-class DecisionCandidate(BaseModel):
+class TradeConstraintCandidate(BaseModel):
+    """Prices and instruments needed to validate a fixed human/ChatGPT target."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     security: Security
     account_bucket_id: str = Field(min_length=1)
     price: Decimal = Field(gt=0)
     average_daily_trading_value: Decimal | None = Field(default=None, gt=0)
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.security.symbol, self.account_bucket_id)
+
+
+class DecisionCandidate(TradeConstraintCandidate):
     prediction: Prediction
 
     @model_validator(mode="after")
@@ -421,13 +430,14 @@ class DailyPortfolioDecisionEngine:
         *,
         targets: dict[tuple[str, str], int],
         portfolio: PortfolioState,
-        candidates: dict[tuple[str, str], DecisionCandidate],
+        candidates: Mapping[tuple[str, str], TradeConstraintCandidate],
         buckets: dict[str, AccountBucket],
         total_wealth: Decimal,
         enforce_trade_constraints: bool,
         maximum_invested_value: Decimal | None = None,
         purchase_limits: Mapping[str, Decimal] | None = None,
         constraint_violations: list[str] | None = None,
+        constraints_only: bool = False,
     ) -> _Evaluation | None:
         def reject(code: str) -> None:
             if constraint_violations is not None:
@@ -457,7 +467,10 @@ class DailyPortfolioDecisionEngine:
                 reject("NEGATIVE_TARGET_SHARES")
                 return None
             difference = target_shares - current_shares
-            gross_signal_utility += self._signal_utility(candidate, target_shares)
+            if not constraints_only:
+                if not isinstance(candidate, DecisionCandidate):
+                    raise ValueError("Risk-complete predictions required for signal utility")
+                gross_signal_utility += self._signal_utility(candidate, target_shares)
             target_value = candidate.price * target_shares
             current_value = candidate.price * current_shares
             target_symbol_values[candidate.security.symbol] = (

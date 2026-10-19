@@ -32,7 +32,7 @@ from stock_ai.domain import (
     Security,
     TaxState,
 )
-from stock_ai.domain.models import DailyDecisionAudit, PersonalPublicationGuard
+from stock_ai.domain.models import DailyDecisionAudit, PersonalPublicationGuard, Prediction
 from stock_ai.operations.daily import DAILY_NEXT_SESSION_CLOSE_LABEL, PredictionSnapshot, content_id
 from stock_ai.operations.manual_portfolio import (
     Digest,
@@ -145,6 +145,7 @@ class PersonalComparison(InputModel):
     research_only: Literal[True] = True
     adoption_eligible: Literal[False] = False
     applied_to_ledger: Literal[False] = False
+    manual_context_sha256: Digest | None = Field(default=None, exclude_if=lambda v: v is None)
     warnings: tuple[str, ...] = (
         "RISK_PREFERENCE_RECORDED_NOT_A_DRAWDOWN_BOUND",
         "RESEARCH_PRICE_COST_TAX_ASSUMPTIONS_NOT_LIVE_EXECUTION_EVIDENCE",
@@ -164,6 +165,24 @@ class PersonalComparison(InputModel):
         ):
             raise ValueError("personal comparison must remain research only")
         return self
+
+
+def manual_context_digest(
+    portfolio: PortfolioState, forecast: PredictionSnapshot, request: PersonalComparisonRequest,
+) -> str:
+    """Bind a research consultation to the same price-marked ledger and inputs."""
+    if request.market is None or request.settings is None:
+        raise ValueError("Complete market and personal settings required")
+    marked = portfolio.model_copy(update={
+        "as_of": forecast.as_of,
+        "positions": tuple(
+            p.model_copy(update={"market_price": request.market.market.prices[p.symbol]})
+            for p in portfolio.positions if p.shares > 0
+        ),
+    })
+    return content_id({"forecast": forecast.model_dump(mode="json"),
+                       "portfolio": marked.model_dump(mode="json"),
+                       "request": request.model_dump(mode="json")})
 
 
 def implementation_hashes(settings: PersonalSettings | None) -> tuple[tuple[str, str], ...]:
@@ -318,6 +337,12 @@ def compare_personal(
                     or symbol not in adv
                 ):
                     block("MARKET_EVIDENCE_MISSING", symbol=symbol)
+    manual_context = None
+    if forecast is not None and not forecast.risk_available:
+        if not blocks:
+            assert ledger is not None
+            manual_context = manual_context_digest(ledger, forecast, request)
+        block("FORECAST_RISK_UNAVAILABLE")
     proposal = None
     selected_value = None
     if not blocks:
@@ -346,6 +371,7 @@ def compare_personal(
             )
             for b in current.account_buckets
             for p in forecast.predictions
+            if isinstance(p, Prediction)
         )
         engine = DailyPortfolioDecisionEngine(
             config=settings.decision_policy,
@@ -411,6 +437,7 @@ def compare_personal(
         holding_symbols=holdings,
         blocking_reasons=tuple(blocks),
         proposal=proposal,
+        manual_context_sha256=manual_context,
         investment_budget_yen=budget,
         selected_equity_value_yen=selected_value,
         budget_exceeded_by_existing_holdings=selected_value is not None

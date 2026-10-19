@@ -287,6 +287,36 @@ class Prediction(DomainModel):
         return self
 
 
+class ReturnOnlyPrediction(DomainModel):
+    """Unadopted daily returns with explicitly unavailable risk, never zero risk."""
+
+    schema_version: Literal[3] = 3
+    active_horizons: tuple[Literal[5, 20], ...] = (5, 20)
+    risk_horizon: None = None
+    symbol: str = Field(min_length=1)
+    as_of: datetime
+    expected_return_1d: None = None
+    expected_return_5d: float
+    expected_return_20d: float
+    downside_quantile: None = None
+    large_loss_probability: None = None
+    uncertainty: None = None
+    morning_revision: None = None
+    model_version: str = Field(min_length=1)
+    feature_version: str = Field(min_length=1)
+    data_snapshot_id: str = Field(min_length=1)
+
+    _aware = field_validator("as_of")(_require_aware)
+
+    @model_validator(mode="after")
+    def daily_returns_only(self) -> Self:
+        if self.active_horizons != (5, 20) or not all(math.isfinite(value) for value in (
+            self.expected_return_5d, self.expected_return_20d,
+        )):
+            raise ValueError("return-only research requires finite 5d/20d returns")
+        return self
+
+
 class TransactionCostEstimate(DomainModel):
     commission: Money = Decimal("0")
     spread: Money = Decimal("0")

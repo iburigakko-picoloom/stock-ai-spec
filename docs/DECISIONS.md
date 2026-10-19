@@ -1728,3 +1728,13 @@ An explicit cash_conversion_pending_payment event represents an authenticated ca
 The supplemental adapter accepts only explicit v3 scope, authenticates pinned evidence, matches each blocker by symbol and delisting date, and refuses reported share/rights events rather than overriding them with cash. Window declarations are checked before supplemental evidence is read. Evidence discovered after the historical period is accounting-only, never model input. Later confirmation should create a new pinned input, not mutate a running evaluation.
 
 Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pass. These are synthetic accounting/adapter proofs, not a new completed real-data comparison. Two additional official documents are retained privately; the six affected cash cases have a concrete readiness list. No newly confirmed real cash action is asserted, and the original56 assumption-complete/96 incomplete results remain unchanged. No model fit, holdout read, owner-ledger write, real order, APK rebuild or public distribution.
+
+
+## D188（2026-10-19）：未採用の2回帰headで通常の研究用相談経路を接続する
+
+- 正式採用と本人用統合試験を分離する。既存4headの採用review/校正/承認pinは維持し、別schema `stockai-mobile-research-bundle-v1` に認証済み5日/20日回帰だけを格納する。research専用pinでbyte/hash/特徴量/前処理/出所とPC・端末計算証拠を固定し、正式採用0件を変更しない。新しいfitは行わない。
+- 原予測の内側schema3はresearch限定。下振れ、下落確率、不確実性、risk horizon/閾値/校正器はnullであり、ゼロや架空値へ置換しない。旧schema1/2・旧保存原本のhash互換性を保つ。riskあり/なしの混在は拒否する。
+- risk欠如時は自動株数proposalを作らない。他の照合が全て成功した場合だけ、価格反映済み口座・原予測・設定へ結び付いた相談contextを保存する。ChatGPTの固定目標株数は既存engineの資金/費用/税/単元/口座/保有/集中度等で検算し、モデル効用を計算しない。設定済み制限を外さず、モデルrisk未検証を明示する。
+- 相談時にも最新の原予測run、model pin、本人設定/台帳revision、実約定を照合する。15分超は拒否し、明示再照合だけで新しい相談contextを作る。原予測の時刻/値や旧相談原本は変更しない。回答取込は提案保存だけで、現金/保有/税台帳を更新しない。
+- 日次処理はrisk欠如だけが残る認証済みcontextを `consultation_ready` と表示する。数値/株数自動判定の完了に偽装せず、他の不足は従来どおり未完にする。20日回帰で上位20と順位外の全保有を表示し、5日値を足さず併記する。
+- 実2weightの通常PC取込と同梱WASMの取込/再読込が成功し、各horizon1,000行の最大差0。これはブラウザーWASM証拠であり、Android nativeの通常bundle取込・実市場の現在の日次一連・Xiaomiの合格ではない。以前の個別head emulator証拠もその範囲に限定する。元152条件/採用HOLD/未使用holdoutは維持する。

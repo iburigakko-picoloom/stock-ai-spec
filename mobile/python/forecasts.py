@@ -9,11 +9,13 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from stock_ai.domain import Prediction, PredictionUncertainty
+from stock_ai.domain.models import ReturnOnlyPrediction
 from stock_ai.operations.daily import PredictionSnapshot, canonical_json, content_id
 from stock_ai.operations.store import OperationalConflictError
 
 from . import market, models, universe
 from .features import bundled_selection, calculate
+from .model_bundle import ModelBundle
 from .portable_model import predict
 from .storage import connect
 
@@ -72,14 +74,19 @@ def _checked(row) -> dict:
                 or any(set(output) != expected_symbols for output in outputs.values())):
             raise ValueError("Forecast symbol coverage changed")
         for prediction in snapshot.predictions:
-            expected = [outputs[key][prediction.symbol] for key in (
-                (5, "regression"), (20, "regression"), (20, "quantile"), (20, "large_loss")
-            )]
-            if expected != [prediction.expected_return_5d, prediction.expected_return_20d,
-                            prediction.downside_quantile, prediction.large_loss_probability]:
+            required = {(5, "regression"), (20, "regression")}
+            values = [prediction.expected_return_5d, prediction.expected_return_20d]
+            keys = [(5, "regression"), (20, "regression")]
+            if isinstance(prediction, Prediction):
+                required |= {(20, "quantile"), (20, "large_loss")}
+                keys += [(20, "quantile"), (20, "large_loss")]
+                values += [prediction.downside_quantile, prediction.large_loss_probability]
+                if prediction.uncertainty.standard_error != scope["calibration"]["residual_rmse"]:
+                    raise ValueError("Forecast uncertainty differs from calibration")
+            elif scope["calibration"] is not None:
+                raise ValueError("Return-only forecast cannot invent calibration")
+            if set(outputs) != required or [outputs[k][prediction.symbol] for k in keys] != values:
                 raise ValueError("Forecast differs from the preserved numerical output")
-            if prediction.uncertainty.standard_error != scope["calibration"]["residual_rmse"]:
-                raise ValueError("Forecast uncertainty differs from calibration")
     return {**value, "phase": phase}
 
 
@@ -226,7 +233,8 @@ def generate(path: Path, store, now: datetime) -> dict:
                  downside_quantile_alpha=bundle.downside_quantile_alpha,
                  label_definition=bundle.label_definition, price_semantics=bundle.price_semantics,
                  feature_manifest_hash=bundle.feature_manifest_hash,
-                 calibration=bundle.calibration.model_dump(mode="json"))
+                 calibration=(None if bundle.calibration is None else
+                              bundle.calibration.model_dump(mode="json")))
     if not selection["decision_symbols"]:
         return _save(path, store, scope, now, outcome="cash_only")
     inputs = market.feature_inputs(path, now, True)
@@ -293,6 +301,28 @@ def generate(path: Path, store, now: datetime) -> dict:
                      blocks=() if not excluded else ("NO_USABLE_FORECAST",))
     heads = {(x["horizon"], x["task"]): dict(x["values"]) for x in outputs}
     model_version = "mobile-bundle:" + bundle.bundle_id
+    predictions = []
+    for symbol in symbols:
+        common = dict(
+            symbol=symbol, as_of=cutoff,
+            expected_return_5d=heads[5, "regression"][symbol],
+            expected_return_20d=heads[20, "regression"][symbol],
+            model_version=model_version, feature_version=bundle.feature_manifest_hash,
+            data_snapshot_id=content_id(proof),
+        )
+        if isinstance(bundle, ModelBundle):
+            predictions.append(Prediction(
+                **common, schema_version=2, active_horizons=(5, 20), risk_horizon=20,
+                expected_return_1d=None, downside_quantile=heads[20, "quantile"][symbol],
+                large_loss_probability=heads[20, "large_loss"][symbol],
+                uncertainty=PredictionUncertainty(
+                    standard_error=bundle.calibration.residual_rmse, model_disagreement=0,
+                    coverage_warning="Received past-only 20d residual RMSE; not a "
+                    "confidence interval; single candidate per horizon",
+                ),
+            ))
+        else:
+            predictions.append(ReturnOnlyPrediction(**common))
     snapshot = PredictionSnapshot.create(
         as_of=cutoff, generated_at=now, data_as_of=data_as_of,
         selection_id=bundle.selection_id, model_version=model_version,
@@ -300,25 +330,11 @@ def generate(path: Path, store, now: datetime) -> dict:
         label_definition=bundle.label_definition, price_semantics=bundle.price_semantics,
         large_loss_threshold=bundle.large_loss_threshold,
         downside_quantile_alpha=bundle.downside_quantile_alpha,
+        risk_horizon=20 if isinstance(bundle, ModelBundle) else None,
         candidate_symbols=tuple(sorted(
             {x["symbol"] for x in selection["new_candidates"]} & usable
         )),
-        holding_symbols=tuple(held), predictions=tuple(
-            Prediction(schema_version=2, active_horizons=(5, 20), risk_horizon=20,
-                       symbol=symbol, as_of=cutoff, expected_return_1d=None,
-                       expected_return_5d=heads[5, "regression"][symbol],
-                       expected_return_20d=heads[20, "regression"][symbol],
-                       downside_quantile=heads[20, "quantile"][symbol],
-                       large_loss_probability=heads[20, "large_loss"][symbol],
-                       uncertainty=PredictionUncertainty(
-                           standard_error=bundle.calibration.residual_rmse,
-                           model_disagreement=0,
-                           coverage_warning="Received past-only 20d residual RMSE; not a "
-                           "confidence interval; single candidate per horizon",
-                       ), model_version=model_version, feature_version=bundle.feature_manifest_hash,
-                       data_snapshot_id=content_id(proof))
-            for symbol in symbols
-        ),
+        holding_symbols=tuple(held), predictions=tuple(predictions),
     )
     # The shared store rechecks immutability; concurrent input changes must not
     # publish a snapshot with a different set of holdings than the frozen scope.

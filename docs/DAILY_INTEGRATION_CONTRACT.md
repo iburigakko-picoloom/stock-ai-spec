@@ -1,3 +1,5 @@
+D188：研究用2回帰headの通常bundleを正式採用とは別schema/pinで認証する。5/20日のreturnのみを生成し、未提供risk/校正はnull、自動株数proposalなし。他の入力が照合済みの場合だけsnapshot結合の手動相談contextを保存し、ChatGPTの固定目標株数を既存の資金/費用/口座/設定済み制限で検算する。日次の相談準備完了と株数自動判定完了を分ける。私有実bundleのPC/WASM取込・予測一致・再読込は試験済み、現在の実市場日次一連/Android native通常取込/Xiaomiは未確認。採用HOLD・最終holdout保護は不変。
+
 D187：確認済み無条件の現金権利は、明示v3の追加研究で既存NAVへ接続できる。入金不明は口座別の受取権に留め、再投資と確定NAVへ使わない。strict側は入金不明を拒否し、予定/条件付き端数/ライツの根拠不足を解除しない。元152条件・HOLD・未使用holdoutは保持する。詳細は[実市場NAV](REAL_MARKET_NAV.md)。
 
 # 日次版の接続契約

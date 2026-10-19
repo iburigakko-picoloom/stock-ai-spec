@@ -81,6 +81,7 @@ export function StockDetailPage(): ReactNode {
           <Metric label="20営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_20d)} />
         </div>
         {data.forecast.mode !== "owner_approved" && <p className="explain">検証用の予測です。採用済みの運用提案として扱いません。</p>}
+        {data.forecast.prediction.large_loss_probability === null && <p className="explain">下振れ・下落確率・確信度は未提供です。リスクがないという意味ではありません。</p>}
         {data.forecast.blockingReasons.length > 0 && <details className="research-disclosure"><summary>予測の未解決事項</summary><ul>{data.forecast.blockingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></details>}
       </section>}
       <CompanyResearchPanel symbol={symbol} forecast={data.forecast ?? null} runs={data.researchRuns ?? []} records={data.chatgptResearch ?? []} onChanged={reload} />

@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from stock_ai.decision.costs import TransactionCostEngine
-from stock_ai.decision.engine import DailyPortfolioDecisionEngine, DecisionCandidate
+from stock_ai.decision.engine import DailyPortfolioDecisionEngine, TradeConstraintCandidate
 from stock_ai.decision.tax import SimpleJapanTaxEngine
 from stock_ai.domain import PortfolioState, Position
 from stock_ai.operations.daily import (
@@ -29,7 +29,11 @@ from stock_ai.operations.daily import (
     daily_close_forecast_basis,
     require_daily_close_label,
 )
-from stock_ai.operations.personal import PersonalComparison, implementation_hashes
+from stock_ai.operations.personal import (
+    PersonalComparison,
+    implementation_hashes,
+    manual_context_digest,
+)
 
 JST = ZoneInfo("Asia/Tokyo")
 TERMS_URL = "https://jpx-jquants.com/ja/help/usage"
@@ -142,7 +146,10 @@ def _context(
     forecast = PredictionSnapshot.model_validate_json(forecast.model_dump_json())
     if (
         now.utcoffset() is None
-        or comparison.proposal is None
+        or (comparison.proposal is None and (
+            forecast.risk_available or comparison.manual_context_sha256 is None
+            or [b.code for b in comparison.blocking_reasons] != ["FORECAST_RISK_UNAVAILABLE"]
+        ))
         or comparison.request.settings is None
         or comparison.request.market is None
         or comparison.ledger_portfolio_id != portfolio.portfolio_id
@@ -154,6 +161,12 @@ def _context(
         or comparison.implementation_sha256 != implementation_hashes(comparison.request.settings)
     ):
         raise ValueError("STALE_CONTEXT: 最新の原予測・口座・設定を照合し直してください")
+    if comparison.proposal is None:
+        if comparison.manual_context_sha256 != manual_context_digest(
+            portfolio, forecast, comparison.request,
+        ):
+            raise ValueError("SNAPSHOT_MISMATCH: 相談用の原予測・口座・設定が一致しません")
+        return comparison, portfolio, forecast
     audit = comparison.proposal.daily_audit
     market = comparison.request.market
     assert market is not None
@@ -252,10 +265,11 @@ def input_package(
                 "value": forecasts[s].expected_return_20d,
                 "unit": "fractional_return",
             },
-            "risk_horizon": 20,
+            "risk_horizon": forecast.risk_horizon,
             "downside_quantile": forecasts[s].downside_quantile,
             "large_loss_probability": forecasts[s].large_loss_probability,
-            "uncertainty": forecasts[s].uncertainty.model_dump(mode="json"),
+            "uncertainty": (None if (uncertainty := forecasts[s].uncertainty) is None else
+                            uncertainty.model_dump(mode="json")),
         }
         for s in symbols
     ]
@@ -288,6 +302,7 @@ def input_package(
         "downside_quantile_alpha": forecast.downside_quantile_alpha,
         "research_only": True,
         "adoption_eligible": False,
+        "model_risk_available": forecast.risk_available,
         "blocking_reasons": forecast.blocking_reasons,
         "accounts": accounts,
         "securities": rows,
@@ -322,6 +337,8 @@ def manual_prompt(package: dict[str, Any]) -> str:
         "日足終値の研究proxyであり、実約定による損益の再現ではありません。費用・税・配当入金を含みません。"
         "配当がゼロと確認できた意味でもありません。足し合わせないでください。順位scoreは期待returnではありません。"
         "研究用・未採用の制約と各根拠の時点を尊重してください。\n"
+        "nullの下振れ・下落確率・不確実性は未提供で、ゼロリスクではありません。"
+        "アプリの資金・株数検算は収益性やモデルのリスク検証を保証しません。\n"
         "required_targetsの全銘柄/口座を一度ずつ、目標保有株数(target_shares)で回答してください。"
         "売買差分・費用・税・実台帳の確定はアプリが行います。原予測を変更しないでください。\n"
         "回答は次のschemaのJSONだけ。reasonは根拠/反対材料を含め、sourcesは確認したHTTPS URL、"
@@ -373,7 +390,6 @@ def review_answer(
     current = portfolio.position_map()
     prices = market.market.prices
     securities = {s.symbol: s for s in market.securities}
-    predictions = {p.symbol: p for p in forecast.predictions}
     adv = dict(market.average_daily_trading_values)
     targets = {(t.symbol, aliases[t.account]): t.target_shares for t in answer.targets}
     candidates = {}
@@ -393,11 +409,10 @@ def review_answer(
             == "unknown_manual"
         ):
             raise ValueError("ACCOUNT_CONSTRAINT: 未確認口座で買付できません")
-        candidates[(symbol, bucket)] = DecisionCandidate(
+        candidates[(symbol, bucket)] = TradeConstraintCandidate(
             security=securities[symbol],
             account_bucket_id=bucket,
             price=prices[symbol],
-            prediction=predictions[symbol],
             average_daily_trading_value=adv.get(symbol),
         )
         lines.append(
@@ -445,6 +460,7 @@ def review_answer(
         maximum_invested_value=comparison.investment_budget_yen,
         purchase_limits=limits,
         constraint_violations=violations,
+        constraints_only=True,
     )
     if result is None:
         explanations = {
@@ -486,6 +502,7 @@ def review_answer(
         "research_only": True,
         "applied_to_ledger": False,
         "order_submitted": False,
+        "model_risk_available": forecast.risk_available,
     }
 
 

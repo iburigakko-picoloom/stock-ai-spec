@@ -23,6 +23,7 @@ from stock_ai.operations.store import OperationalConflictError
 
 from . import decision_market, forecasts, models, personal
 from .market import receipt_time
+from .model_bundle import ResearchModelBundle
 from .storage import connect
 
 
@@ -359,6 +360,11 @@ def generate(path: Path, store, now: datetime, numerical=None) -> dict:
             or pin["sha256"] != numerical["scope"]["bundle_sha256"]):
         return blocked("MODEL_SELECTION_DIFFERS_FROM_NUMERICAL")
     scope["bundle_pin_sha256"] = content_id(pin)
+    if isinstance(bundle, ResearchModelBundle):
+        # A fresh explicit calculation can renew the consultation context while
+        # preserving the original forecast, prices and expired exchanges.
+        elapsed = now - datetime.fromisoformat(numerical["checked_at"])
+        scope["consultation_window"] = int(elapsed.total_seconds() // (15 * 60))
     with connect(path) as db:
         existing = db.execute("SELECT run_id,scope_hash,payload,content_hash,phase "
                               "FROM mobile_decision_runs WHERE scope_hash=?", (content_id(scope),)

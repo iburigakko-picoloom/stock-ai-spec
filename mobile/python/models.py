@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .features import bundled_selection, calculate
 from .market import feature_inputs
-from .model_bundle import approved
+from .model_bundle import ModelBundle, ResearchModelBundle, reviewed
 from .portable_model import predict
 from .storage import connect
 
@@ -43,12 +43,12 @@ def initialize(path: Path) -> None:
 
 
 def import_bundle(path: Path, content: str, now: datetime) -> dict:
-    bundle, entry = approved(content, policy(), bundled_selection)
+    bundle, entry = reviewed(content, policy(), bundled_selection)
     if now.tzinfo is None or bundle.created_at > now:
         raise ValueError("Invalid model import time")
     digest = entry["sha256"]
     with connect(path) as db:
-        # All four heads, calibration and review are validated before a single
+        # Every declared head and its applicable evidence is validated before a single
         # immutable write. No partial head import can become usable.
         db.execute("BEGIN IMMEDIATE")
         previous = db.execute("SELECT payload,imported_at FROM mobile_model_bundles WHERE sha256=?",
@@ -75,7 +75,8 @@ def import_bundle(path: Path, content: str, now: datetime) -> dict:
             db.execute("INSERT INTO mobile_model_selections VALUES(NULL,?,?)",
                        (digest, now.astimezone(UTC).isoformat()))
     return {"sha256": digest, "bundle_id": bundle.bundle_id,
-            "head_count": 4, "research_only": True}
+            "head_count": len(bundle.heads), "research_only": True,
+            "risk_available": isinstance(bundle, ModelBundle)}
 
 
 def load_bundle(path: Path, cutoff: datetime):
@@ -88,7 +89,8 @@ def load_bundle(path: Path, cutoff: datetime):
             "ORDER BY s.sequence DESC LIMIT 1"
         ).fetchone()
     current = policy()
-    pins = {x["sha256"] for x in current.get("approved_bundles", [])}
+    pins = {x["sha256"] for key in ("approved_bundles", "research_bundles")
+            for x in current.get(key, [])}
     if row is None:
         raise ValueError("MODEL_BUNDLE_NOT_IMPORTED")
     digest, content, imported, selected = row
@@ -96,7 +98,7 @@ def load_bundle(path: Path, cutoff: datetime):
         raise ValueError("MODEL_BUNDLE_APPROVAL_REMOVED")
     if content is None or hashlib.sha256(content.encode()).hexdigest() != digest:
         raise ValueError("Imported bundle changed")
-    bundle, entry = approved(content, current, bundled_selection)
+    bundle, entry = reviewed(content, current, bundled_selection)
     if max(datetime.fromisoformat(imported), datetime.fromisoformat(selected)) > cutoff:
         raise ValueError("MODEL_IMPORTED_AFTER_ALPHA_CUTOFF")
     bundle.at(cutoff)
@@ -148,14 +150,18 @@ def status(path: Path, store=None) -> dict:
     current = policy()
     approved = current["approved_models"]
     bundle_pins = {x["sha256"] for x in current.get("approved_bundles", [])}
+    research_pins = {x["sha256"] for x in current.get("research_bundles", [])}
     ready = False
     adopted = False
     reason = None
-    if bundles & bundle_pins:
+    research_ready = False
+    if bundles & (bundle_pins | research_pins):
         try:
             bundle, _ = load_bundle(path, datetime.now(UTC))
             ready = True
-            if store is not None and bundle.adoption_review.decision == "adopt":
+            research_ready = isinstance(bundle, ResearchModelBundle)
+            if (store is not None and isinstance(bundle, ModelBundle)
+                    and bundle.adoption_review.decision == "adopt"):
                 try:
                     adopted = store.adoption_review(
                         bundle.adoption_review.review_id
@@ -168,10 +174,13 @@ def status(path: Path, store=None) -> dict:
         "approved_count": len(approved),
         "imported_count": len(imported),
         "approved_bundle_count": len(bundle_pins),
-        "imported_bundle_count": len(bundles & bundle_pins),
+        "research_bundle_count": len(research_pins),
+        "imported_bundle_count": len(bundles & (bundle_pins | research_pins)),
         # A reviewed legacy head alone is not a calibrated daily model bundle.
         "model_adopted": adopted,
         "bundle_ready": ready,
+        "return_only_research": research_ready,
+        "risk_available": ready and not research_ready,
         "bundle_blocking_reason": reason,
         "research_only": True,
     }

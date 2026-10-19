@@ -11,18 +11,22 @@ from stock_ai.operations.chatgpt_manual import (
     save_record,
     verify_exchange_records,
 )
-from stock_ai.operations.daily import PredictionSnapshot
+from stock_ai.operations.daily import PredictionSnapshot, content_id
 from stock_ai.operations.personal import PersonalComparison
 
-from . import decisions
+from . import decisions, forecasts, models, personal
 
 
 def _current(path, store, now):
     value = decisions.view(path, store)
+    return_only = bool(
+        value and value["outcome"] == "blocked" and value["comparison"] is not None
+        and value["blocking_reasons"] == ["FORECAST_RISK_UNAVAILABLE"]
+        and value["comparison"].get("manual_context_sha256")
+    )
     if (
         not value
-        or not value["is_active"]
-        or value["outcome"] != "proposal"
+        or (not return_only and (not value["is_active"] or value["outcome"] != "proposal"))
         or value["comparison"] is None
     ):
         raise ValueError(
@@ -32,6 +36,23 @@ def _current(path, store, now):
     comparison = PersonalComparison.model_validate(value["comparison"])
     portfolio = PortfolioState.model_validate(frozen["ledger"])
     forecast = PredictionSnapshot.model_validate(frozen["forecast"])
+    if return_only:
+        manual, ledger = store.latest_manual_portfolio(), store.latest_portfolio()
+        _profile, saved, gaps, compiled = personal.input_state(store, now)
+        numerical = forecasts.latest(path)
+        refs = value["scope"]["personal_refs"]
+        _bundle, pin = models.load_bundle(path, forecast.as_of)
+        if (manual is None or ledger != portfolio or saved is None or gaps
+                or compiled != comparison.request.settings
+                or manual.export.revision_id != refs["manual_revision_id"]
+                or saved["revision_id"] != refs["settings_revision_id"]
+                or numerical is None or numerical["phase"] != "published"
+                or numerical["run_id"] != value["scope"]["numerical_run_id"]
+                or content_id(pin) != value["scope"]["bundle_pin_sha256"]
+                or content_id([x.model_dump(mode="json") for x in sorted(
+                    store.executions(), key=lambda x: x.execution_id,
+                )]) != refs["executions_sha256"]):
+            raise ValueError("口座・原予測・設定が変わりました。最新の条件で照合してください")
     _context(comparison, portfolio, forecast, now)
     return value, comparison, portfolio, forecast
 

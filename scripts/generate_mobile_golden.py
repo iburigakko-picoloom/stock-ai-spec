@@ -332,6 +332,36 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
             ),
         }
 
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    from mobile.python import models
+    from tests.test_mobile_research_bundle import research_bundle, research_pin
+
+    with MonkeyPatch.context() as patch:
+        patch.setattr(runtime, "STATE", Path(temporary))
+        research_policy = deepcopy(received_fixture["policy"])
+        patch.setattr(models, "policy", lambda: research_policy)
+        patch.setattr(models, "bundled_selection", lambda: received_fixture["selection"])
+        patch.setattr(forecasts, "bundled_selection", lambda: received_fixture["selection"])
+        runtime.initialize(received_fixture["state"])
+        path, store = runtime.STATE / "mobile.sqlite3", runtime._app.state.store
+        now = datetime.fromisoformat(received_fixture["now"])
+        cutoff = datetime.fromisoformat(received_fixture["cutoff"])
+        two_heads = research_bundle(models.load_bundle(path, cutoff)[0])
+        research_policy["research_bundles"] = [research_pin(two_heads)]
+        models.import_bundle(path, encoded(two_heads), cutoff)
+        research_state = runtime.export_state()
+        numerical = forecasts.generate(path, store, now)
+        comparison = decisions.generate(path, store, now)
+        assert comparison["blocking_reasons"] == ["FORECAST_RISK_UNAVAILABLE"]
+        assert comparison["comparison"]["manual_context_sha256"]
+        target_shares = {x["symbol"]: x["recommended_shares"]
+                         for x in received_fixture["proposal"]["lines"]}
+        research_received_fixture = {
+            **received_fixture, "state": research_state, "policy": research_policy,
+            "predictions": numerical["snapshot"]["predictions"], "proposal": None,
+            "return_only_research": True, "target_shares": target_shares,
+        }
+
 destination.write_text(
     json.dumps(
         {"inputs": inputs, "expected": expected, "models": vectors,
@@ -341,7 +371,8 @@ destination.write_text(
                     "expected": bundle_expected}, "bounded": bounded_fixture,
          "decision": decision_fixture, "feature_inputs": feature_input_fixture,
          "withholding": withholding_fixtures, "manual_execution": manual_execution_fixture,
-         "received_forecast": received_fixture},
+         "received_forecast": received_fixture,
+         "received_return_only": research_received_fixture},
         ensure_ascii=False,
         allow_nan=False,
     ),
