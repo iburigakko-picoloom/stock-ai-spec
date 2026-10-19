@@ -1,3 +1,9 @@
+## 2026-10-19 — ラベル説明修正のCI・候補0.1.17を固定
+
+- 製品source`c7103f8`／tested merge`8e9cdc1`／CI39194492545のverify・android・android-historyがsuccess、releaseはskip。D184の起点・旧原本ID保全/新規使用拒否・元数値不変を含む関連試験、native86件、OS3段階、旧debug APK更新、全17table復元が通過。PC全量特徴量は172.632秒・peak3097714688bytes。旧証拠の単純合算ではなく対象sourceのCIを確認。
+- 非公開署名候補0.1.17/code10017を同CI資産から作成し、hash/署名/43資産と秘密情報非混入を検証。SHA256`fc018fb22d1d666baf4d2045df63edf38b2914878512f29b91c69e0f2e3098db`。旧0.1.16・元私有差分・全データ/weightを保全。
+- A評価は152条件記録/56研究完走/96不完全、採用HOLD・最終holdout未開封。B実装は対象sourceの必要CIと候補package検証済み。C本人利用は通常bundle・採用校正/review・現在の実データ日次一連・Xiaomiが未完。既存回帰2本の起点訂正はsidecarで保持し、追加fit0。詳細は非公開completion-report-v6とmodel-bundle条件v2。無関係な追加機能へ広げない。
+
 ## 2026-10-19 — 予測の起点説明を実ラベルに一致（D184）
 
 - 元OOFと既存full-fitのラベルは入力株価日Tの調整済み終値からT+h営業日後まで。翌営業日11:30の利用可能時刻や約定価格を起点とする旧metadataを修正。数値ラベル・weight・NAV・比較結果は不変。旧原本はID/内容を保全して読取可能、新しい判断・モデル選択・ChatGPT入力には使わない。
