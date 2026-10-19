@@ -23,7 +23,7 @@ from stock_ai.operations.chatgpt_research import (
     validate_context,
 )
 from stock_ai.operations.daily import (
-    LEGACY_DAILY_LABEL,
+    QUOTE_SESSION_LABEL,
     PredictionSnapshot,
     canonical_json,
     content_id,
@@ -45,7 +45,7 @@ def context_for(snapshot: PredictionSnapshot) -> ResearchContext:
 def test_legacy_label_cannot_start_new_numerical_research_context():
     source = daily_snapshot()
     legacy = PredictionSnapshot.create(**{
-        **source.model_dump(exclude={"snapshot_id"}), "label_definition": LEGACY_DAILY_LABEL,
+        **source.model_dump(exclude={"snapshot_id"}), "label_definition": QUOTE_SESSION_LABEL,
     })
     original = legacy.model_dump_json()
     with pytest.raises(ValueError, match="LABEL_DEFINITION_UNVERIFIED"):

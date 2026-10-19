@@ -14,7 +14,7 @@ from stock_ai.operations.chatgpt_manual import (
     parse_answer,
     review_answer,
 )
-from stock_ai.operations.daily import LEGACY_DAILY_LABEL, PredictionSnapshot, content_id
+from stock_ai.operations.daily import QUOTE_SESSION_LABEL, PredictionSnapshot, content_id
 from stock_ai.operations.personal import compare_personal
 from tests.conftest import AS_OF
 from tests.test_personal_comparison import scenario
@@ -87,7 +87,7 @@ def test_complete_hold_is_valid_without_mutating_originals(context):
 
 def test_prompt_explains_quote_label_without_turning_it_into_execution_profit(context):
     _, inputs, _, _, package, _ = context
-    assert package["forecast_basis"]["formula"] == "adjusted_close[T+h] / adjusted_close[T] - 1"
+    assert package["forecast_basis"]["formula"] == "adjusted_close[T+1+h] / adjusted_close[T+1] - 1"
     assert package["forecast_basis"]["is_execution_return"] is False
     assert package["forecast_basis"]["fees_taxes_dividend_cashflows_included"] is False
     assert package["forecast_basis"]["dividends_zero_confirmed"] is False
@@ -97,19 +97,20 @@ def test_prompt_explains_quote_label_without_turning_it_into_execution_profit(co
         assert security["forecast_5d"]["value"] == original.expected_return_5d
         assert security["forecast_20d"]["value"] == original.expected_return_20d
     prompt = manual_prompt(package)
-    assert "現在価格や次の約定価格からの損益ではなく" in prompt
+    assert "翌営業日の調整済み終値" in prompt
+    assert "実約定による損益の再現ではありません" in prompt
 
 
 def test_legacy_label_cannot_become_a_new_chatgpt_input_or_prompt(context):
     comparison, inputs, permission, now, package, _ = context
     source = inputs["forecast"]
     legacy = PredictionSnapshot.create(
-        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": LEGACY_DAILY_LABEL}
+        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": QUOTE_SESSION_LABEL}
     )
     original = legacy.model_dump_json()
     with pytest.raises(ValueError, match="LABEL_DEFINITION_UNVERIFIED"):
         input_package(comparison, inputs["ledger"], legacy, now=now, permission=permission)
-    old_package = {**package, "label_definition": LEGACY_DAILY_LABEL}
+    old_package = {**package, "label_definition": QUOTE_SESSION_LABEL}
     old_package["input_snapshot_id"] = content_id(
         {k: v for k, v in old_package.items() if k != "input_snapshot_id"}
     )

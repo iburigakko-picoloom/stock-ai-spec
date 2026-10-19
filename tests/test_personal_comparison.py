@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 from stock_ai.cli import app
 from stock_ai.domain import ExecutionRecord, MarketSnapshot, Position, Security
 from stock_ai.operations.api import create_app
-from stock_ai.operations.daily import LEGACY_DAILY_LABEL, PredictionSnapshot
+from stock_ai.operations.daily import QUOTE_SESSION_LABEL, PredictionSnapshot
 from stock_ai.operations.manual_portfolio import ImportedManualPortfolio
 from stock_ai.operations.personal import (
     AccountBinding,
@@ -32,7 +32,7 @@ def test_legacy_label_blocks_new_proposal_without_rewriting_original():
     request, inputs = scenario()
     source = inputs["forecast"]
     legacy = PredictionSnapshot.create(
-        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": LEGACY_DAILY_LABEL}
+        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": QUOTE_SESSION_LABEL}
     )
     original = legacy.model_dump_json()
     result = compare_personal(request, **{**inputs, "forecast": legacy})

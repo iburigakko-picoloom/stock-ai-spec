@@ -7,7 +7,6 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 import pytest
-from mobile.python.model_bundle import ModelBundle
 
 import stock_ai.ml as public_ml
 from stock_ai.features import V0_MANIFEST, FeatureEngine
@@ -21,7 +20,6 @@ from stock_ai.ml import (
     walk_forward_validate,
     write_dataset_snapshot,
 )
-from stock_ai.operations.daily import PredictionSnapshot
 
 
 def test_one_five_twenty_day_targets_are_forward_only() -> None:
@@ -46,27 +44,6 @@ def test_one_five_twenty_day_targets_are_forward_only() -> None:
     assert pd.isna(dataset.loc[24, "target_return_1d"])
     assert dataset.loc[0, "label_end_date_5d"] == dates[5]
     assert dataset.loc[0, "label_available_at_5d"] == pd.Timestamp(frame.loc[5, "available_at"])
-
-
-def test_daily_label_metadata_uses_the_quote_close_not_the_next_execution_close():
-    dates = pd.bdate_range("2026-01-01", periods=26)
-    prices = np.full(25, 100.0)
-    prices[1], prices[5], prices[20] = 200.0, 150.0, 250.0
-    data = build_supervised_dataset(pd.DataFrame({
-        "symbol": ["A"] * 25, "trading_date": dates[:25], "adjusted_close": prices,
-        "available_at": [d.to_pydatetime().replace(
-            hour=11, minute=30, tzinfo=ZoneInfo("Asia/Tokyo")
-        ) for d in dates[1:]],
-    }))
-    for cls in (ModelBundle, PredictionSnapshot):
-        assert cls.model_fields["label_definition"].default == (
-            "quote_session_adjusted_close_to_h_sessions_later"
-        )
-    assert data.loc[0, "target_return_5d"] == pytest.approx(.5)
-    assert data.loc[0, "target_return_20d"] == pytest.approx(1.5)
-    assert data.loc[0, "target_return_5d"] != pytest.approx(prices[5] / prices[1] - 1)
-    assert data.loc[0, "as_of"].date() == dates[1].date()
-    assert data.loc[0, "label_end_date_5d"] == dates[5]
 
 
 def test_historical_snapshot_blanks_labels_not_available_at_cutoff(tmp_path: object) -> None:

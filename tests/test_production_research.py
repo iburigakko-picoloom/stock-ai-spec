@@ -335,6 +335,47 @@ def test_mobile_latest_features_require_authenticated_next_session_and_closed_cu
         )
 
 
+def test_daily_label_metadata_matches_actual_production_next_session_target() -> None:
+    from mobile.python.model_bundle import ModelBundle
+
+    from stock_ai.ml import build_supervised_dataset
+    from stock_ai.operations.daily import PredictionSnapshot
+
+    frames, _ = _source_frames()
+    bundle = build_production_data(  # type: ignore[arg-type]
+        FrameCatalog(frames), source_snapshot_as_of=datetime(2026, 8, 24, tzinfo=UTC),
+        minimum_market_coverage=0.60,
+    )
+    dates = pd.DatetimeIndex(bundle.universe.effective_date.unique()).sort_values()
+    origin = 100
+    daily = bundle.daily.copy()
+    for offset, price in ((0, 100.0), (1, 200.0), (5, 150.0), (6, 170.0),
+                          (20, 250.0), (21, 300.0)):
+        daily.loc[(daily.symbol == "B") & (daily.trading_date == dates[origin + offset]),
+                  "adjusted_close"] = price
+    bundle = replace(bundle, daily=daily)
+    features = build_production_feature_sets(bundle).v2_extended
+    assert features is not None
+    production, _ = build_production_supervised_dataset(
+        features, bundle, plan=SubscriptionPlan.LIGHT,
+    )
+    row = production.loc[(production.symbol == "B") &
+                         (production.trading_date == dates[origin])].iloc[0]
+    assert row.label_entry_date == dates[origin + 1]
+    assert row.as_of.tz_convert(JST).date() == row.label_entry_date.date()
+    for h, value in ((5, 170 / 200 - 1), (20, 300 / 200 - 1)):
+        assert row[f"target_return_{h}d"] == pytest.approx(value)
+        assert row[f"label_end_date_{h}d"] == dates[origin + 1 + h]
+    generic = build_supervised_dataset(features.loc[features.symbol == "B"])
+    generic_row = generic.loc[generic.trading_date == dates[origin]].iloc[0]
+    assert generic_row.target_return_5d == pytest.approx(150 / 100 - 1)
+    assert generic_row.target_return_20d == pytest.approx(250 / 100 - 1)
+    for cls in (ModelBundle, PredictionSnapshot):
+        assert cls.model_fields["label_definition"].default == (
+            "next_session_adjusted_close_to_h_sessions_later"
+        )
+
+
 def test_production_pipeline_is_point_in_time_and_uses_fixed_calendar_labels(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

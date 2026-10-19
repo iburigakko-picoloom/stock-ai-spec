@@ -17,7 +17,7 @@ from mobile.python.model_bundle import ModelBundle, approved, encoded
 from mobile.python.portable_model import predict
 
 from stock_ai.operations.daily import (
-    LEGACY_DAILY_LABEL,
+    QUOTE_SESSION_LABEL,
     OwnerAdoptionReview,
     canonical_json,
     content_id,
@@ -102,7 +102,7 @@ def test_legacy_label_bundle_is_archivable_but_cannot_be_imported_or_selected(im
     path, bundle, _, current = imported
     legacy = ModelBundle.create(
         **{**bundle.model_dump(mode="json", exclude={"bundle_id"}),
-           "label_definition": LEGACY_DAILY_LABEL}
+           "label_definition": QUOTE_SESSION_LABEL}
     )
     content = encoded(legacy)
     assert ModelBundle.model_validate_json(content).bundle_id == legacy.bundle_id

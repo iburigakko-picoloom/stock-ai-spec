@@ -26,8 +26,8 @@ from stock_ai.operations.daily import (
     PredictionSnapshot,
     canonical_json,
     content_id,
-    quote_close_forecast_basis,
-    require_quote_close_label,
+    daily_close_forecast_basis,
+    require_daily_close_label,
 )
 from stock_ai.operations.personal import PersonalComparison, implementation_hashes
 
@@ -209,7 +209,7 @@ def input_package(
 ) -> dict[str, Any]:
     """Project only required fields; never dump credentials/account identifiers."""
     permission.require(now, "manual_chatgpt")
-    require_quote_close_label(forecast.label_definition)
+    require_daily_close_label(forecast.label_definition)
     comparison, portfolio, forecast = _context(comparison, portfolio, forecast, now)
     settings, market = comparison.request.settings, comparison.request.market
     assert settings is not None and market is not None
@@ -283,7 +283,7 @@ def input_package(
         "data_snapshot_id": forecast.data_snapshot_id,
         "label_definition": forecast.label_definition,
         "price_semantics": forecast.price_semantics,
-        "forecast_basis": quote_close_forecast_basis(),
+        "forecast_basis": daily_close_forecast_basis(),
         "large_loss_threshold": forecast.large_loss_threshold,
         "downside_quantile_alpha": forecast.downside_quantile_alpha,
         "research_only": True,
@@ -313,13 +313,13 @@ def manual_prompt(package: dict[str, Any]) -> str:
         {k: v for k, v in package.items() if k != "input_snapshot_id"}
     ):
         raise ValueError("SNAPSHOT_MISMATCH")
-    require_quote_close_label(str(package.get("label_definition", "")))
+    require_daily_close_label(str(package.get("label_definition", "")))
     return (
         "本人用の日本株判断支援です。外部公開せず、学習利用をoffにした会話で扱ってください。\n"
         "企業IR等を独立に調べ、数値モデルに同調せず、反対材料・不明点も示してください。"
         "入力外の重要論点も自由に検討できます。確率や未確認事実を作らず、事実と推論を分けてください。\n"
-        "5日/20日は、入力株価日Tの調整済み終値からT+h営業日後までの研究ラベルの予測です。"
-        "現在価格や次の約定価格からの損益ではなく、費用・税・配当入金を含みません。"
+        "5日/20日は、入力株価日Tの翌営業日の調整済み終値を起点とした、h営業日後までの研究ラベルの予測です。"
+        "日足終値の研究proxyであり、実約定による損益の再現ではありません。費用・税・配当入金を含みません。"
         "配当がゼロと確認できた意味でもありません。足し合わせないでください。順位scoreは期待returnではありません。"
         "研究用・未採用の制約と各根拠の時点を尊重してください。\n"
         "required_targetsの全銘柄/口座を一度ずつ、目標保有株数(target_shares)で回答してください。"

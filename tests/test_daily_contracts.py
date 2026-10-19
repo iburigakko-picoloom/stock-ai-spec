@@ -17,7 +17,7 @@ from stock_ai.ml.evaluation_audit import audit_training_labels
 from stock_ai.operations.api import create_app
 from stock_ai.operations.cloud import cloud_projection, sync_private_results
 from stock_ai.operations.daily import (
-    LEGACY_DAILY_LABEL,
+    QUOTE_SESSION_LABEL,
     RESEARCH_CRITERIA,
     CompanyResearchRecord,
     PredictionSnapshot,
@@ -34,7 +34,7 @@ from tests.test_daily_readiness import daily_snapshot, research_for
 def test_legacy_label_archives_keep_original_content_and_identity() -> None:
     source = daily_snapshot()
     legacy = PredictionSnapshot.create(
-        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": LEGACY_DAILY_LABEL}
+        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": QUOTE_SESSION_LABEL}
     )
     original = canonical_json(legacy.model_dump(mode="json"))
     restored = PredictionSnapshot.model_validate_json(original)
@@ -50,7 +50,7 @@ def test_stock_view_distinguishes_label_semantics_without_changing_archive(tmp_p
     original = daily_snapshot()
     snapshot = PredictionSnapshot.create(**{
         **original.model_dump(exclude={"snapshot_id"}),
-        **({"label_definition": LEGACY_DAILY_LABEL} if legacy else {}),
+        **({"label_definition": QUOTE_SESSION_LABEL} if legacy else {}),
     })
     app.state.store.append_prediction_snapshot(snapshot)
     client = TestClient(app, base_url="http://127.0.0.1")

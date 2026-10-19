@@ -37,7 +37,7 @@ from stock_ai.operations.chatgpt_manual import (
 )
 from stock_ai.operations.chatgpt_research import ResearchConfiguration
 from stock_ai.operations.daily import (
-    DAILY_QUOTE_CLOSE_LABEL,
+    DAILY_NEXT_SESSION_CLOSE_LABEL,
     CompanyResearchRecord,
     OwnerAdoptionReview,
     PredictionSnapshot,
@@ -900,10 +900,13 @@ def create_app(
                 "isStale": snapshot.as_of.astimezone(JST).date() != proposal_date,
                 "mode": snapshot.mode, "blockingReasons": snapshot.blocking_reasons,
                 "labelDefinition": snapshot.label_definition,
-                "labelDefinitionSupported": snapshot.label_definition == DAILY_QUOTE_CLOSE_LABEL,
+                "labelDefinitionSupported": (
+                    snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL
+                ),
                 "prediction": prediction.model_dump(mode="json"),
                 "researchEligible": (symbol in snapshot.research_symbols()
-                                     and snapshot.label_definition == DAILY_QUOTE_CLOSE_LABEL),
+                                     and snapshot.label_definition
+                                     == DAILY_NEXT_SESSION_CLOSE_LABEL),
             },
             "researchRuns": [] if snapshot is None else store.research_runs(
                 snapshot.snapshot_id, symbol,

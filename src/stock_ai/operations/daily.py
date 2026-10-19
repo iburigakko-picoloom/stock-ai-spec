@@ -23,24 +23,25 @@ RESEARCH_CRITERIA = (
     "contrary_facts",
 )
 
-DAILY_QUOTE_CLOSE_LABEL: Final = "quote_session_adjusted_close_to_h_sessions_later"
-LEGACY_DAILY_LABEL: Final = "next_session_adjusted_close_to_h_sessions_later"
+DAILY_NEXT_SESSION_CLOSE_LABEL: Final = "next_session_adjusted_close_to_h_sessions_later"
+QUOTE_SESSION_LABEL: Final = "quote_session_adjusted_close_to_h_sessions_later"
 DailyLabelDefinition = Literal[
     "quote_session_adjusted_close_to_h_sessions_later",
     "next_session_adjusted_close_to_h_sessions_later",
 ]
 
 
-def require_quote_close_label(definition: str) -> None:
-    """Legacy metadata stays readable; it cannot certify a new decision input."""
-    if definition != DAILY_QUOTE_CLOSE_LABEL:
+def require_daily_close_label(definition: str) -> None:
+    """Archives stay readable; new inputs must match the actual production target."""
+    if definition != DAILY_NEXT_SESSION_CLOSE_LABEL:
         raise ValueError("FORECAST_LABEL_DEFINITION_UNVERIFIED")
 
 
-def quote_close_forecast_basis() -> dict[str, str | bool]:
+def daily_close_forecast_basis() -> dict[str, str | bool]:
     return {
-        "T": "input quote session, not the prediction or execution session",
-        "formula": "adjusted_close[T+h] / adjusted_close[T] - 1",
+        "T": "input quote session",
+        "entry": "next trading session close, after the 11:30 prediction cutoff",
+        "formula": "adjusted_close[T+1+h] / adjusted_close[T+1] - 1",
         "horizon_unit": "trading_sessions",
         "is_execution_return": False,
         "fees_taxes_dividend_cashflows_included": False,
@@ -75,7 +76,7 @@ class PredictionSnapshot(DomainModel):
     active_horizons: tuple[Literal[5, 20], ...] = (5, 20)
     risk_horizon: Literal[20] = 20
     unit: Literal["fractional_return"] = "fractional_return"
-    label_definition: DailyLabelDefinition = DAILY_QUOTE_CLOSE_LABEL
+    label_definition: DailyLabelDefinition = DAILY_NEXT_SESSION_CLOSE_LABEL
     price_semantics: Literal["daily_close_research_proxy"] = "daily_close_research_proxy"
     large_loss_threshold: float = Field(gt=-1, lt=0)
     downside_quantile_alpha: float = Field(gt=0, lt=0.5)
@@ -297,9 +298,9 @@ def export_prediction_snapshot(snapshot: PredictionSnapshot, *, format: str = "j
             f"Snapshot: {snapshot.snapshot_id}",
             f"Data: {snapshot.data_as_of.isoformat()} / Model: {snapshot.model_version}",
             f"Unit: {snapshot.unit} / Label: {snapshot.label_definition} / Mode: {snapshot.mode}",
-            ("入力株価日Tの調整済み終値からT+h営業日後までの研究ラベル。約定後損益ではありません。"
-             if snapshot.label_definition == DAILY_QUOTE_CLOSE_LABEL else
-             "旧ラベルの起点は未確認です。原本を保持し、新しい判断入力には使用できません。"),
+            ("入力株価日Tの翌営業日終値からh営業日後までの研究ラベル。実約定後損益ではありません。"
+             if snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL else
+             "入力株価日終値を起点とする別ラベルです。原本を保持し、新しい判断入力には使用できません。"),
             "",
             "| 銘柄 | 1日 | 5日 | 20日 | 20日下振れ | 20日下落確率 |",
             "|---|---|---:|---:|---:|---:|",

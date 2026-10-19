@@ -1,3 +1,9 @@
+## 2026-10-19 — 実際の本番学習経路を照合しD184を訂正（D185）
+
+- D184は基本研究用generatorを本番OOF/fitへ誤適用していた。本番は翌営業日終値→そこから5/20営業日後。元datasetのhash/metadataとproducerを認証し、元label・各head自身の保存OOF・現fit入力を照合。各horizon10行ずつ一致、quote起点式とは不一致。holdout行の読取0。元の2weight/planは正しく、不変。
+- c710/0.1.17の誤説明を訂正。0.1.17候補を撤回し、APK・旧合格ログ・誤った訂正sidecarも保全して撤回根拠を別保存。新しい通常入力は本番next-session記述を要求し、quote-session記述原本はID/内容を残す。実際の本番生成器を通す非線形価格の回帰試験を追加。
+- 関連155件87.32秒、最終説明2件2.19秒、Ruff/mypy75・frontend lint/typecheck成功。修正commitのCIと候補0.1.18はこれから。18構成の再比較/追加fit0、採用HOLD、holdout未開封。B全体の最新版合格は新CI待ち、Cの通常bundle・現在の本人用日次一連・Xiaomiは未完。追加機能へ広げない。
+
 ## 2026-10-19 — ラベル説明修正のCI・候補0.1.17を固定
 
 - 製品source`c7103f8`／tested merge`8e9cdc1`／CI39194492545のverify・android・android-historyがsuccess、releaseはskip。D184の起点・旧原本ID保全/新規使用拒否・元数値不変を含む関連試験、native86件、OS3段階、旧debug APK更新、全17table復元が通過。PC全量特徴量は172.632秒・peak3097714688bytes。旧証拠の単純合算ではなく対象sourceのCIを確認。
