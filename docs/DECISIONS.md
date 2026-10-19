@@ -1779,3 +1779,10 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 - 既存のplatform別期待値は旧IDのoracleとして保存し、今後のWASM入力・予測data proofはPC共通IDを要求する。実32bit WASMの少量再現、32bit欠損を模したunit検査、旧PC v1のchunk/missing-key/index検査と全量PC/実model一致を分けて記録する。少量成功を全量Android/Xiaomiへ読み替えない。
 - 原本の行hashは同じv1 canonical JSONのbyte列から計算する。検証済みscalar tokensを使って行dictとJSON再変換の重複を減らし、不正JSONを受け入れない。legacy/疎なfieldは元のdecodeへ戻す。raw columnと正規化全byteの照合、128cacheとRAM/通常600秒の上限を維持する。
 - 全量Androidは入力作成後のID assertで614.262秒に失敗し、実際に異なるfull IDsの初回記録は欠けた。次の私有workerにはdataset/変換段階とID/timerの記録だけを追加し、同じfixture・model・assert・予算で再試験する。全体CI/全量推論/owner/daily/Xiaomi・候補releaseが未完の間は全完成としない。追加の研究学習と採用基準の緩和は行わない。
+
+
+## D194（2026-10-20）：明示dtypeの非null定数を一度だけ型変換する
+
+- 性能のために同じmetadataを各行で再解釈せず、64行以上の定数のみ同じPandas scalar castから独立配列を作る。各列で所有し、参照cacheや他列へ変更を共有しない。最終DataFrameは不要copyを抑えるが、元のschema cast/index操作を残す。
+- schemaの未指定dtypeはDataFrame mappingでは推論維持、Series.astype(None)ではfloatを意味するため、未指定とnullは元経路を使う。欠損をゼロ/文字へ置換しない。raw/normalized原本と全入力identityの検証を省略しない。
+- 少量実データのpaired timing/出所IDと関連62件の成功は、通常600秒や全量・Xiaomi合格の証拠にしない。新sourceを固定した全量検証、通常owner保存復元/日次、候補APK/実機受入を続け、旧失敗と元152条件/採用HOLDを保持する。

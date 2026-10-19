@@ -92,6 +92,50 @@ def test_direct_raw_hashes_reject_invalid_json_string_tokens(tmp_path, token):
             market_codec._raw_record_hashes(db, packed, OrderedDict())
 
 
+@pytest.mark.parametrize("rows", [1, 63, 64, 129])
+def test_constant_casts_match_legacy_types_and_own_their_mutable_arrays(tmp_path, rows):
+    records = [{"row": index} for index in range(rows)]
+    frame = pd.DataFrame({
+        "row": range(rows), "source_record_hash": [record_hash_v1(row) for row in records],
+        "date": pd.Series(pd.Timestamp("2026-01-05", tz="UTC"), index=range(rows),
+                          dtype="datetime64[ns, UTC]"),
+        "same_date": pd.Series(pd.Timestamp("2026-01-05", tz="UTC"), index=range(rows),
+                               dtype="datetime64[ns, UTC]"),
+        "null_date": pd.Series(pd.NaT, index=range(rows), dtype="datetime64[ns, UTC]"),
+        "integer": pd.Series([pd.NA] * rows, dtype="Int64"),
+        "flag": pd.Series([pd.NA] * rows, dtype="boolean"),
+        "label": pd.Series(["合成/😀"] * rows, dtype="string"),
+        "untyped_label": pd.Series(["合成/😀"] * rows, dtype=object),
+        "numeric_label": pd.Series(["00123"] * rows, dtype=object),
+        "none": pd.Series([None] * rows, dtype=object),
+        "negative_zero": [-0.0] * rows,
+        "category": pd.Categorical(["C"] * rows, categories=["A", "C"]),
+        "other_category": pd.Categorical(["C"] * rows, categories=["C", "A"]),
+    })
+    original = frame.to_json(orient="table", date_format="iso").encode()
+    expected = hashlib.sha256(original).hexdigest()
+    with sqlite3.connect(tmp_path / "constant-casts.sqlite3") as db:
+        market_codec.initialize(db)
+        raw = market_codec.pack_records(db, records)
+        normalized = market_codec.pack_table(db, original, records)
+        table_oracle = pd.read_json(io.BytesIO(market_codec.table(db, normalized, raw, expected)),
+                                    orient="table")
+        # The v1 codec explicitly preserves an all-null object column as None.
+        # Pandas' table reader instead infers float64 here. Retain both checks:
+        # table-reader agreement elsewhere and the original typed input in full.
+        oracle = frame
+        pd.testing.assert_frame_equal(table_oracle.drop(columns="none"),
+                                      oracle.drop(columns="none"), check_exact=True)
+        cache = OrderedDict()
+        actual = market_codec.frame(db, normalized, raw, expected, cache)
+        pd.testing.assert_frame_equal(actual, oracle, check_exact=True)
+        actual.loc[0, "date"] = pd.Timestamp("2027-01-01", tz="UTC")
+        actual.loc[0, "label"] = "changed"
+        assert actual.loc[0, "same_date"] == oracle.loc[0, "same_date"]
+        reopened = market_codec.frame(db, normalized, raw, expected, cache)
+        pd.testing.assert_frame_equal(reopened, oracle, check_exact=True)
+
+
 def test_normalized_numeric_spelling_and_original_bytes_are_preserved(tmp_path):
     raw = [{"value": 1}, {"value": 2}]
     hashes = [record_hash_v1(row) for row in raw]

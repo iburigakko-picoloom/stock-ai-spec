@@ -320,7 +320,7 @@ def frame(db, payload, raw, expected, cache):
 
     Verify the exact frozen row JSON before materializing its columns. Constant
     strings are parsed once, and immutable reference columns share decoded
-    values within this one PIT read. Values, types and indexes match read_json.
+    values within this one PIT read. Preserve the v1 values, types and indexes.
     """
     if not payload.startswith(PREFIX):
         return pd.read_json(io.BytesIO(table(db, payload, raw, expected)), orient="table")
@@ -334,6 +334,8 @@ def frame(db, payload, raw, expected, cache):
         # columns. Keep its exact empty-schema semantics across pinned runtimes.
         return pd.read_json(io.BytesIO(decoded), orient="table")
     schema = ujson_loads(document["schema"], precise_float=False)
+    order = [field["name"] for field in schema["fields"]]
+    dtypes = {field["name"]: convert_json_field_to_pandas_type(field) for field in schema["fields"]}
     columns = {}
     for spec, name, items in zip(document["columns"], names, values, strict=True):
         key = spec.get("ref")
@@ -341,17 +343,24 @@ def frame(db, payload, raw, expected, cache):
             cache.move_to_end(key)
             columns[name] = cache[key]
         elif "constant" in spec:
-            columns[name] = [ujson_loads(spec["constant"], precise_float=False)] * document["rows"]
+            value = ujson_loads(spec["constant"], precise_float=False)
+            if document["rows"] >= 64 and value is not None and dtypes[name] is not None:
+                # Cast repeated metadata once. Each repeat owns its array;
+                # neither the source cache nor another column is mutated.
+                scalar = pd.Series([value]).astype(dtypes[name]).array
+                columns[name] = pd.Series(scalar.repeat(document["rows"]), dtype=dtypes[name])
+            else:
+                # Keep v1 null/unspecified dtype inference unchanged. A scalar
+                # Series.astype(None) means float, unlike DataFrame's mapping.
+                columns[name] = [value] * document["rows"]
         else:
             columns[name] = ujson_loads("[" + ",".join(items) + "]", precise_float=False)
             if key is not None:
                 cache[key] = columns[name]
                 if len(cache) > 128:
                     cache.popitem(last=False)
-    order = [field["name"] for field in schema["fields"]]
-    dtypes = {field["name"]: convert_json_field_to_pandas_type(field) for field in schema["fields"]}
     # These are the same casts/index operations as Pandas' table-schema reader.
-    result = pd.DataFrame(columns, columns=order).astype(dtypes)
+    result = pd.DataFrame(columns, columns=order).astype(dtypes, copy=False)
     if "primaryKey" in schema:
         result = result.set_index(schema["primaryKey"])
         result.index.names = [

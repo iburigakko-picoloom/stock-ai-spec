@@ -1,3 +1,19 @@
+## 2026-10-20 — 定数metadataの型変換を一度にする読込短縮（D194）
+
+- compact batchの64行以上の非null・明示dtypeの定数列をscalar一件で型変換し、独立した配列へ繰り返す。原本byte/hash/型/行数/index/全履歴検証と128cache、入力期間・母集団・RAM/通常600秒の制限は不変。null/未指定dtypeは元の推論を維持する。Series.astype(None)をDataFrameのdtype mappingと同一視しない。
+- 同じ少量の実5datasetを同一WASM process内で順序を交互にして4組比較し、全組の元PC source IDsが一致。warmupを除く銘柄masterは旧0.631〜0.830秒/新0.400〜0.552秒、株価は旧0.676〜0.916秒/新0.424〜0.492秒。部分計測を全量やXiaomiの600秒合格としない。
+- 関連codec/FeatureSource/market62件11.32秒、Ruff全体が成功。未指定の文字列dtypeをscalarでfloatへ変換した初回実sampleの失敗は保全し、文字列/数値に見える文字列/欠損/日時精度/カテゴリ/配列分離を検査して修正した。追加した文書の表現修正以外はこの試験後に計算codeを変更しない。
+- source51d0b21の実Android数値一致・823.586秒で600秒超過という結果は下記のまま保持。今回の全量PC/WASM/Androidと通常owner/日次、更新候補/Xiaomiは未検証で、次に同じ固定入力と制限で検証する。18候補の元152条件/正式HOLD・最終holdout採点なし、追加研究fit0を維持する。
+
+## 2026-10-20 — 全量実入力のAndroid数値一致と、時間超過を分けて記録
+
+- 製品source51d0b21の隔離Android35試験は、730日/485営業日の既存実SQLiteから入力を作成し、全source IDsが元PCと一致。5日/20日各3,781特徴量行の全JSONと285,179数値が一致し、実2回帰の各295予測も最大誤差0。元入力/モデル/条件は変更せず、本人DBは使っていない。
+- 通常要求部分823.586秒（入力568.9094秒、特徴量251.6369秒、予測0.5749秒）で既存600秒を超え、JUnitは847.071秒・失敗。数値一致を全体合格へ読み替えない。sampled app+renderer RSS最大2,988,883,968bytes、VM最大4,577,767,424bytes、host空き最小2,351,177,728bytes。所有emulatorは停止済み。通常owner/current membership/日次一連/Xiaomiは未確認。
+- 失敗時に保存した実出力をホスト側でも元PC参照と独立照合し、全特徴量と590予測の差0を確認。私有input-memory-20261019/native-v2/verified-budget-failure.jsonへ結果を保存。試験失敗と入力・出力・実測原本を保全する。
+- 入力読込の計測で型変換が大きいため、非null定数列を一度だけ変換して繰り返す短縮案をローカルで作業中。v1の全null object/None、日時精度、カテゴリ順、mutable配列の分離を維持し、関連57件9.76秒と対象Ruffが成功。初回のoracle差/None型変化とsandbox tempのWinError5は失敗ログとして保持し、旧codecと照合して修正。workspace tempで全件再実行した。短縮効果・全量PC/WASM/Androidは未検証で、未commitの案を51d0b21の検証済み製品や完成扱いにしない。
+- 00:04 JST時点でPR#2のheadは51d0b21。CI39268543923のandroidは成功、verifyは進行中であり必要全体CIの成功とはしない。旧非公開0.1.20候補/実2回帰bundleを保全し、更新署名APKは未作成。元152条件56研究完走/96不完全・正式HOLDを維持。新研究fit/最終holdout採点/実台帳更新/実注文/新規課金/外部AI送信/main merge/公開配布なし。
+- 区切り報告のため新しい重い試験は開始しない。次は同じ入力/数式/600秒とRAM guardを維持して読込短縮を計測し、全量一致と通常owner保存復元/日次を確認、同じ一括Xiaomi受入票と更新候補へ進む。評価根拠の不足を理由に追加機能・全面再学習へ広げない。
+
 ## 2026-10-19 — PC/WASM出所IDの共通化と原本検証の重複削減（D193）
 
 - 0455e48の同条件Android再試験は614.262秒で失敗。全量SQLite入力は作成できたが、直後のPC source IDsとのassertで停止し、特徴量/実予測照合には未到達。これはrenderer低メモリ終了や600秒timeoutではない。正常要求の600秒以内も未証明。29sampleのapp/renderer RSS最大3,007,008,768bytes、VM最大4,548,321,280bytes、host空き最小2,402,627,584bytes。sampleを瞬間peakとせず、所有emulatorは停止済み。元失敗/初回の実source IDs未記録を保持する。
