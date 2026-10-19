@@ -1,3 +1,8 @@
+## 2026-10-19 — D188の候補0.1.19を私有作成・内容検証
+
+- 製品source32e1e1aの固定archiveから0.1.19-candidate/code10019を203.358秒で作成。23,963,509bytes、SHA256 `b988519abaf8869426e2ad1d3c41c0b9a678f309cc5e9c5aecab1dd16d43a7e8`。既存署名・非debug・43資産・全共有source/ランタイム一致・秘密/市場/モデル非混入を照合。旧候補と鍵を保全し、公開/実機導入なし。native試験APKもcompile済みで、実行成功とはしない。
+- 前ba79aa4のCI39236826761はverify/android/android-history全成功、release skip。D188のCI39241822817は実行中。実bundleのPC/WASM2,000行一致/再読込と、Android native通常経路/現在の実市場日次一連/Xiaomiを区別する。同じ一括実機票を0.1.19/研究用bundleへ更新し、必要CI/現在のPC参照がそろうまで本人操作を要求しない。AはHOLD、最終holdout未開封。私有return-only-32e-ciへ候補と原証拠を保全。
+
 ## 2026-10-19 — 研究用2モデルの通常取込・原予測・手動相談を接続（D188）
 
 - 認証済み5日/20日回帰を、正式採用とは別の私有research bundleとして通常取込へ接続。実モデル7,066,264bytes、追加fit0。校正/risk/adoption reviewを捏造せずnullの原予測schema3とし、自動株数提案は作らず、既存の資金/費用/口座/リスク設定等で手動目標株数を検算する。表示は上位20＋全保有、日次は相談準備完了と株数自動判定完了を区別する。
