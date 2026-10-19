@@ -1,3 +1,5 @@
+D189現在地：研究用実bundleのAndroid通常owner取込・PC2,000行一致・暗号化backup/復元・再openは試験済み。source32e1e1aのCI/android89件とverifyは成功、全量native履歴のCIは進行中。候補0.1.19と私有bundleを保全。Lightの現在日1日分は既存ingestion/再読込を通過した。残件は旧試験cache終端2月26日からの不足履歴を原本再利用優先で補完し、現在の同一入力PC参照と全量モデル込み通常日次を検証してからXiaomi一括受入。現金1件の接続後も追加2条件は後続既知イベントで不完全。Aの正式HOLDと最終holdout保護を保持し、無関係な追加機能や全面再学習を行わない。
+
 D188現在地：正式採用を待たず、認証済み5/20日回帰を通常の研究用bundleとして使う経路を実装。実bundleのPC/WASM取込・予測一致・再読込は成功、追加fit0。risk/校正はnull、自動株数proposalを生成せず手動相談/既存制約検算へ接続する。承認bundle0と正式HOLD/未使用holdoutを保持。現在の残件は新native/CI・私有候補APKの更新、現在の実市場日次一連と同一入力PC参照、Xiaomi一括受入。過去の「weight紐付け0/通常bundle未作成」はこの研究経路では解消したが、正式採用の成果物完成とはしない。
 
 2026-10-19 D183確認済み：製品59ea01e/CI39187276127はverify/android/android-history全成功、release skip。JS/Android/Pythonの分割256MiB（native一括128MiB・Java192MiB・app3500MiB・host予備1GiB・通常600秒は維持）で、実188,857,904文字の保存/B1/再openと全17table一致が438.815秒。通常本人署名0.1.16/code10016候補は私有保存。Aは152条件56研究完走/96不完全でHOLD、通常bundle/本人日次/Xiaomiは未完。回帰のみを選ぶ場合の未提供risk契約も残件であり、無関係な追加機能へ広げない。最新の一括受入は既存Xiaomi票を参照。以下の「検証中」等は先行時点の記録。

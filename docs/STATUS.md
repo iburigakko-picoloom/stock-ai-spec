@@ -1,3 +1,11 @@
+## 2026-10-19 — 実bundleのAndroid通常取込・現時点Light保存・対象現金処理（D189）
+
+- 製品source32e1e1a/CI39241822817のAndroid89件・失敗/skip0をXMLで確認（追加3件を含む）。tested merge3eef067との製品差分0、候補0.1.19との51同梱source/configとJS/CSSのbyte一致を照合。外側ZIP時刻/出所commit、改行/HTML空行だけの差は別記。verifyも成功、残るandroid-history（全量native SQLite）は実行中。必要全体の完了とはしない。
+- 私有実bundleを同候補と同じ計算資産のAndroid35通常ownerへ取り込み、2,000予測のPC差0、再作成・暗号化backup/復元・誤password拒否後のモデル/合成口座保持が成功。取込2.904秒、処理67.875秒/JUnit70.714秒、Java192MiB。VM指定2048MiBは実2560MiBへ自動増量、終了時PSSはpeakとしない。私有fixtureはinstrumentationだけで、署名候補/本人DBは不変。全市場モデル込み通常日次/Xiaomiは別に未完。
+- 現Lightの今日5種類は全てHTTP200、既存検証/正規化/不変保存と再読込が成功。株価/銘柄各4,443、財務15、calendar/TOPIX各1、原本/正規化10object。ingestion0.958秒/保存検証3.140秒。既存端末用試験cacheは2024-02-27〜2026-02-26、calendarのみ2月28日まで。現在日次へは保存済みLight原本を再利用優先で照合し、不足分を追加する。今日1日を全履歴完成とはしない。
+- 確認済み無条件の現金権利1件を、元の保有影響が記録された20/40bpsの2条件へ接続し36.163/28.133秒で追加検証。後続の別の既知イベントで両方不完全。未入金権利を一度だけ計上して現金へ入れず、確定NAV等を作らない。初回の補助観測assertion誤りとingestion成功enumの検算誤りも保全し、修正後に既存契約で確認。元152条件56研究完走/96不完全・正式HOLD・未使用holdoutは不変。
+- 詳細は私有normal-bundle-android-20261019 / cash-evidence-20261019-v2 / current-light-readiness-20261019。追加fit/実台帳更新/実注文/新規課金/外部AI送信なし。次は不足履歴→現在の同一入力PC参照/モデル込み通常経路→一括Xiaomi受入。補助文書checkpointは実行中CIへ重複の重い検証を要求しないようローカルで保全。
+
 ## 2026-10-19 — D188の候補0.1.19を私有作成・内容検証
 
 - 製品source32e1e1aの固定archiveから0.1.19-candidate/code10019を203.358秒で作成。23,963,509bytes、SHA256 `b988519abaf8869426e2ad1d3c41c0b9a678f309cc5e9c5aecab1dd16d43a7e8`。既存署名・非debug・43資産・全共有source/ランタイム一致・秘密/市場/モデル非混入を照合。旧候補と鍵を保全し、公開/実機導入なし。native試験APKもcompile済みで、実行成功とはしない。
