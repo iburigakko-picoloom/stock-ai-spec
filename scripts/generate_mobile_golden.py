@@ -42,8 +42,8 @@ from stock_ai.operations.daily import OwnerAdoptionReview, canonical_json, conte
 WASM_NA_HASH = 2**31 - 1
 
 
-def wasm_master_source_id(master):
-    """Predict the existing wasm32 Pandas identity; never rewrite product IDs."""
+def legacy_wasm_master_source_id(master):
+    """Retain the historical wasm32 identity as an independent compatibility oracle."""
     master = master.sort_values(["effective_date", "provider_code"]).reset_index(drop=True)
     assert str(master.round_lot_size.dtype) == "Int64" and master.round_lot_size.isna().all()
     hashes = [pd.util.hash_pandas_object(master[name], index=False).to_numpy() for name in master]
@@ -279,13 +279,11 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
     frames = market.feature_inputs(path, cutoff, True)
     feature_expected = features.calculate(records, selection)
     assert features.calculate(frames, selection) == feature_expected
-    # The shipped Pandas v1 row identity includes hash(pd.NA): 64-bit PC and
-    # wasm32 differ for the master's all-missing nullable round-lot column.
-    # Predict the old wasm32 identity from the exact PC source, without
-    # changing production identities or ignoring that column in the test.
+    # Keep the old platform-specific identity as historical evidence, while
+    # current production input identities must equal the original64-bit PC ID.
     master = market.SQLiteSource(path).point_in_time(DatasetName.SECURITY_MASTER, cutoff)
-    wasm_master_id = wasm_master_source_id(master)
-    wasm_source_ids = [
+    wasm_master_id = legacy_wasm_master_source_id(master)
+    legacy_wasm_source_ids = [
         [name, wasm_master_id if name == "security_master" else digest]
         for name, digest in records["source_snapshot_ids"]
     ]
@@ -296,7 +294,7 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
         "synthetic_only": True, "state": base64.b64encode(archive_bytes.getvalue()).decode(),
         "cutoff": cutoff.isoformat(), "selection": selection, "expected": feature_expected,
         "source_ids": records["source_snapshot_ids"], "daily_rows": len(frames["daily"]),
-        "wasm_source_ids": wasm_source_ids, "wasm_na_hash": WASM_NA_HASH,
+        "legacy_wasm_source_ids": legacy_wasm_source_ids, "wasm_na_hash": WASM_NA_HASH,
     }
 with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
     with MonkeyPatch.context() as patch:
@@ -314,12 +312,6 @@ with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
         comparison = decisions.generate(path, store, now)
         assert numerical["phase"] == comparison["phase"] == "published"
         wasm_proof = deepcopy(numerical["data_proof"])
-        master = market.SQLiteSource(path).point_in_time(DatasetName.SECURITY_MASTER, cutoff)
-        wasm_master_id = wasm_master_source_id(master)
-        wasm_proof["source_snapshot_ids"] = [
-            [name, wasm_master_id if name == "security_master" else digest]
-            for name, digest in wasm_proof["source_snapshot_ids"]
-        ]
         received_fixture = {
             "synthetic_only": True, "state": initial_state, "policy": policy,
             "selection": received_selection, "now": now.isoformat(),

@@ -63,6 +63,35 @@ def test_scalar_types_missing_fields_unicode_and_nested_values_are_lossless(tmp_
         assert market_codec.records(db, encoded) == nested
 
 
+@pytest.mark.parametrize("kind", ["complete", "sparse", "nested", "empty", "empty_objects"])
+def test_direct_raw_hashes_preserve_v1_scalar_spelling_keys_and_missing_fields(tmp_path, kind):
+    first = {"code": "00010", "値/😀": '合成/株 "😀" \\ \n', "number": -0.0,
+             "small": 1e-20, "big": 2**64 + 3, "flag": False, "null": None}
+    second = {**first, "code": "00020", "number": 1.23e17, "flag": True}
+    rows = {
+        "complete": [first, dict(reversed(list(second.items())))],
+        "sparse": [first, {"code": "00020", "flag": 0}],
+        "nested": [{"extra": {"b": [False, 0, None], "a": "合成/😀"}}],
+        "empty": [], "empty_objects": [{}, {}],
+    }[kind]
+    expected = [record_hash_v1(row) for row in rows]
+    with sqlite3.connect(tmp_path / "hashes.sqlite3") as db:
+        market_codec.initialize(db)
+        packed = market_codec.pack_records(db, rows)
+        assert market_codec._raw_record_hashes(db, packed, OrderedDict()) == expected
+
+
+@pytest.mark.parametrize("token", ['"bad"quote"', '"unterminated', '"bad\ncontrol"'])
+def test_direct_raw_hashes_reject_invalid_json_string_tokens(tmp_path, token):
+    with sqlite3.connect(tmp_path / "invalid.sqlite3") as db:
+        market_codec.initialize(db)
+        packed = market_codec._document("records", 1, [{"name": "value", "constant": token}])
+        with pytest.raises(ValueError):
+            market_codec.records(db, packed)
+        with pytest.raises(ValueError):
+            market_codec._raw_record_hashes(db, packed, OrderedDict())
+
+
 def test_normalized_numeric_spelling_and_original_bytes_are_preserved(tmp_path):
     raw = [{"value": 1}, {"value": 2}]
     hashes = [record_hash_v1(row) for row in raw]

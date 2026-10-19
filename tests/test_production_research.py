@@ -1406,3 +1406,34 @@ def test_source_frame_identity_keeps_the_original_hash_across_chunk_boundaries(
         row_bytes = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
         expected = hashlib.sha256(metadata + row_bytes).hexdigest()
         assert production_module._source_frame_id(DatasetName.DAILY_PRICES, original) == expected
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_source_identity_keeps_v1_with_32_bit_nullable_missing_hashes(empty, monkeypatch):
+    frame = pd.DataFrame({
+        "trading_date": pd.to_datetime(["2025-01-06"] * 3),
+        "provider_code": ["00010", "00020", "00030"],
+        "nullable_int": pd.Series([1, None, -2], dtype="Int64"),
+        "nullable_float": pd.Series([None, -0.0, 1.25], dtype="Float64"),
+        "nullable_bool": pd.Series([True, None, False], dtype="boolean"),
+        "text": pd.Series(["合成/😀", None, "0123"], dtype="string"),
+        "float": [np.nan, 1.0, -0.0],
+    })
+    if empty:
+        frame = frame.iloc[:0]
+    before = frame.copy(deep=True)
+    expected = production_module._source_frame_id(DatasetName.DAILY_PRICES, frame)
+    original_hash = pd.util.hash_pandas_object
+    masked_types = (pd.arrays.IntegerArray, pd.arrays.FloatingArray, pd.arrays.BooleanArray)
+
+    def wasm_hash(value, *args, **kwargs):
+        result = original_hash(value, *args, **kwargs)
+        if isinstance(value, pd.Series) and isinstance(value.array, masked_types):
+            result = result.copy()
+            result.loc[value.isna()] = np.uint64(2147483647)
+        return result
+
+    monkeypatch.setattr(production_module, "hash", lambda _: 2147483647, raising=False)
+    monkeypatch.setattr(pd.util, "hash_pandas_object", wasm_hash)
+    assert production_module._source_frame_id(DatasetName.DAILY_PRICES, frame) == expected
+    pdt.assert_frame_equal(frame, before, check_exact=True)

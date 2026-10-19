@@ -16,7 +16,7 @@ import pandas as pd
 
 from stock_ai.data.contracts import ENDPOINT_SCHEMAS, DatasetName, FetchedPayload
 from stock_ai.data.normalize import canonical_payload_hash, normalize_payload
-from stock_ai.data.production import _source_frame_id, build_production_data
+from stock_ai.data.production import _source_frame_id, _source_row_hashes, build_production_data
 from stock_ai.data.quality import require_quality, validate_rows
 
 from . import market_codec
@@ -474,7 +474,7 @@ class FeatureSource(SQLiteSource):
                 if frame.empty:
                     continue
                 frame = _canonical_daily_part(frame, common, keys, sequence, day)
-                identity.update(pd.util.hash_pandas_object(frame, index=False).to_numpy().tobytes())
+                identity.update(_source_row_hashes(frame).tobytes())
                 columns = (
                     self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
                     else self.PRICE_COLUMNS
@@ -511,9 +511,7 @@ class FeatureSource(SQLiteSource):
                         {"dataset": dataset.value, "schema": projected_schema}, sort_keys=True
                     )
                     projected_digest = hashlib.sha256(header.encode())
-                projected_digest.update(
-                    pd.util.hash_pandas_object(projected, index=False).to_numpy().tobytes()
-                )
+                projected_digest.update(_source_row_hashes(projected).tobytes())
                 parts.append(projected)
         del frame, projected
         cache.clear()

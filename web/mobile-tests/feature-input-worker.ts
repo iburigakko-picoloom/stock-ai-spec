@@ -34,7 +34,8 @@ for name, _ in records['source_snapshot_ids']:
     metadata = json.dumps({'dataset':name, 'schema':schema}, sort_keys=True).encode()
     rows = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
     legacy_ids.append((name, hashlib.sha256(metadata + rows).hexdigest()))
-assert legacy_ids == records['source_snapshot_ids']
+assert json.loads(json.dumps(legacy_ids)) == fixture['legacy_wasm_source_ids']
+assert json.loads(json.dumps(records['source_snapshot_ids'])) == fixture['source_ids']
 source = market.SQLiteSource(path).point_in_time(DatasetName.DAILY_PRICES, cutoff)
 closed = source.loc[
     source.provider_code.astype(str).str.fullmatch(r'[0-9A-Z]{4}0')
@@ -62,7 +63,7 @@ assert models.status(path, runtime._app.state.store)['imported_bundle_count'] ==
 json.dumps({'result':result, 'source_ids':records['source_snapshot_ids'],
             'daily_rows':len(frames['daily']), 'records_exact':True,
             'source_unchanged':True, 'restored_exact':True, 'model_count':0,
-            'legacy_source_ids_exact':True, 'na_hash':hash(pd.NA),
+            'legacy_source_ids_exact':True, 'pc_source_ids_exact':True, 'na_hash':hash(pd.NA),
             'latest_closed_price_rows':len(latest_prices)})
 `)));
     self.postMessage(output);

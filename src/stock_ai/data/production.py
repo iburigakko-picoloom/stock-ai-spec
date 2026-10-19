@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime, time
 from itertools import pairwise
-from typing import Final, Protocol, runtime_checkable
+from typing import Final, Protocol, cast, runtime_checkable
 from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
+from pandas.core.util.hashing import combine_hash_arrays  # type: ignore[attr-defined]
 
 from stock_ai.data.contracts import (
     CapabilityStatus,
@@ -175,6 +178,28 @@ def build_production_data(
     )
 
 
+def _source_row_hashes(frame: pd.DataFrame) -> NDArray[np.uint64]:
+    """Keep the persisted 64-bit v1 NA hash on 32-bit WASM as well."""
+    masked_types = (pd.arrays.IntegerArray, pd.arrays.FloatingArray, pd.arrays.BooleanArray)
+    na_hash = 2305843009213693951
+    if hash(pd.NA) == na_hash or not any(
+        isinstance(column.array, masked_types) for _, column in frame.items()
+    ):
+        values = pd.util.hash_pandas_object(frame, index=False).to_numpy()
+        return values.astype(np.uint64, copy=False)
+
+    def arrays() -> Iterator[NDArray[np.uint64]]:
+        for _, column in frame.items():
+            values = pd.util.hash_pandas_object(column, index=False).to_numpy().astype(
+                np.uint64, copy=False
+            )
+            if isinstance(column.array, masked_types):
+                values[column.isna().to_numpy()] = np.uint64(na_hash)
+            yield values
+
+    return cast(NDArray[np.uint64], combine_hash_arrays(arrays(), len(frame.columns)))
+
+
 def _source_frame_id(dataset: DatasetName, frame: pd.DataFrame) -> str:
     """Hash the exact PIT source-frame schema and values used by a derived build."""
 
@@ -196,9 +221,7 @@ def _source_frame_id(dataset: DatasetName, frame: pd.DataFrame) -> str:
     # Preserve the exact ordered row-hash byte stream without factorizing
     # high-cardinality text columns for the whole market at once.
     for start in range(0, len(frame), 10000):
-        rows = pd.util.hash_pandas_object(
-            frame.iloc[order[start:start + 10000]], index=False
-        ).to_numpy().tobytes()
+        rows = _source_row_hashes(frame.iloc[order[start:start + 10000]]).tobytes()
         digest.update(rows)
     return digest.hexdigest()
 

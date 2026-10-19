@@ -1,3 +1,12 @@
+## 2026-10-19 — PC/WASM出所IDの共通化と原本検証の重複削減（D193）
+
+- 0455e48の同条件Android再試験は614.262秒で失敗。全量SQLite入力は作成できたが、直後のPC source IDsとのassertで停止し、特徴量/実予測照合には未到達。これはrenderer低メモリ終了や600秒timeoutではない。正常要求の600秒以内も未証明。29sampleのapp/renderer RSS最大3,007,008,768bytes、VM最大4,548,321,280bytes、host空き最小2,402,627,584bytes。sampleを瞬間peakとせず、所有emulatorは停止済み。元失敗/初回の実source IDs未記録を保持する。
+- 少量の同じ実batchで原因を再現。installed Pandas2.3.3のmasked NA hashはPC64bitで2305843009213693951、wasm32で2147483647。銘柄masterの未取得round_lot_sizeが全NAで、値/型が同じでもfull source IDが異なった。新しい読取では元PC64bitのv1 hashを維持し、masked整数/浮動小数/booleanの欠損hashだけを同じ定義へそろえる。NAを値へ補完せず、全出所照合を維持する。
+- 既存WASM試験は旧wasm32 IDを別の期待値として認めていた。旧IDの独立oracle/検査を残し、現在の入力/予測data proofはPC共通IDと一致する条件へ更新。保存済みforecast/capsule/原本IDを移行・書換えしない。少量の実5datasetは32bit WASMで全ID一致。全量のAndroid再確認は別に必要。
+- compact原本の既存v1行hashを、検証済みscalar tokenから同じcanonical JSONとして再構成し、行dict→再JSON化を減らす。legacy/疎なfieldの既存経路、正規化全byte SHA、型/全履歴検証/既存128cache上限を維持。不正JSON tokenを拒否する。少量WASM読取5.550→4.260秒は部分計測であり全量/実機保証ではない。関連59件・Ruff全体・production mypyが成功。更新したbrowser期待値の再生成/試験は次工程。
+- 最新の3計算fileで全量PCを再確認し、元snapshot IDs/入力件数/原本hash/特徴量JSON完全一致、実2回帰7,562予測最大差0。診断profile付き入力525.521秒/全体669.033秒、profileなし特徴量140.166秒、process peak2,322,575,360bytes。通常Android日次の所要時間として報告しない。私有input-memory-20261019に原本/失敗/比較を保存。
+- 0455e48のCI39258924897/Android89件は成功、51同梱計算fileとJS/CSS5件は私有debugとbyte一致。tested merge34b1482との製品diff0。全体CIは確認未完で、今回のD193を含むCI成功ではない。次は更新goldenのWASM/必要CI、同一実データで全量Android、通常owner保存復元/日次、一括Xiaomi受入と修正候補APK。元152条件56研究完走/96不完全・正式HOLD・最終target/予測/成績未読を維持。追加研究fit/実台帳更新/実注文/新規課金/外部AI送信/main mergeなし。
+
 ## 2026-10-19 — 全量入力の不要コピー削減と出所互換性（D192）
 
 - 旧製品d150b07のCI39251810913はverify/android/android-history全成功、release skip。これを今回の変更後の全体成功とは扱わない。

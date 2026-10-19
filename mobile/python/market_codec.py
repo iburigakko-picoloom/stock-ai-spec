@@ -152,7 +152,7 @@ def pack_table(db, original, raw):
     return _document("table", len(rows), columns, schema=schema)
 
 
-def _read(db, payload, kind, raw=None, *, profile_only=False, cache=None):
+def _read(db, payload, kind, raw=None, *, profile_only=False, cache=None, raw_hashes=None):
     document = json.loads(_inflate(payload[len(PREFIX):]))
     expected = {"kind", "rows", "columns"}
     if kind == "table":
@@ -198,6 +198,10 @@ def _read(db, payload, kind, raw=None, *, profile_only=False, cache=None):
                 # Only dtype/all-null evidence; full hash verification follows
                 # in frame() in the caller's same SQLite snapshot.
                 items = [_token("0" * 64)] * count
+            elif raw_hashes is not None:
+                if len(raw_hashes) != count:
+                    raise ValueError("Raw market records missing")
+                items = [_token(value) for value in raw_hashes]
             else:
                 if raw is None or len(raw) != count:
                     raise ValueError("Raw market records missing")
@@ -286,6 +290,31 @@ def table(db, payload, raw, expected):
     return decoded
 
 
+def _raw_record_hashes(db, payload, cache):
+    """The frozen v1 raw identity without a dict/JSON roundtrip for every row."""
+    if not payload.startswith(PREFIX):
+        return [record_hash_v1(row) for row in records(db, payload, cache=cache)]
+    document, names, values, presence = _read(db, payload, "records", cache=cache)
+    if any(indexes is not None for indexes in presence) or len(set(names)) != len(names):
+        return [record_hash_v1(row) for row in records(db, payload, cache=cache)]
+    if not names:
+        return [hashlib.sha256(b"{}").hexdigest()] * document["rows"]
+
+    keys, columns = [], []
+    for index in sorted(range(len(names)), key=names.__getitem__):
+        keys.append(json.dumps(names[index], ensure_ascii=False) + ":")
+        canonical = {}
+        for token in values[index]:
+            if token not in canonical:
+                # A valid quoted string with no escape is already canonical v1.
+                canonical[token] = (token if re.fullmatch(r'"[^"\\\x00-\x1f]*"', token) else
+                    json.dumps(json.loads(token), ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":"), allow_nan=False))
+        columns.append([canonical[token] for token in values[index]])
+    return [hashlib.sha256(("{" + ",".join(map(add, keys, row)) + "}").encode()).hexdigest()
+            for row in zip(*columns, strict=True)]
+
+
 def frame(db, payload, raw, expected, cache):
     """Use Pandas' own scalar parser/schema conversion with shared columns.
 
@@ -295,8 +324,8 @@ def frame(db, payload, raw, expected, cache):
     """
     if not payload.startswith(PREFIX):
         return pd.read_json(io.BytesIO(table(db, payload, raw, expected)), orient="table")
-    source = records(db, raw, cache=cache)
-    document, names, values, _ = _read(db, payload, "table", source, cache=cache)
+    hashes = _raw_record_hashes(db, raw, cache)
+    document, names, values, _ = _read(db, payload, "table", cache=cache, raw_hashes=hashes)
     decoded = _table(document["schema"], names, values, document["rows"])
     if hashlib.sha256(decoded).hexdigest() != expected:
         raise ValueError("Stored normalized data changed")

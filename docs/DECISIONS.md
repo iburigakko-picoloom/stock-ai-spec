@@ -1771,3 +1771,11 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 - PCの段階計測/互換性成功とAndroid guestの全量成功を別に記録する。旧CI全成功、関連96件成功はそれぞれの対象sourceと範囲に限定する。新しい全量照合、通常owner/daily、Xiaomi受入と正式採用HOLDの残件を維持する。
 
 - 同じ実SQLiteの修正後PC照合は全特徴量JSON/7,562実予測最大差0、元source IDs/件数/hash不変。入力process peakは3,500,724,224→2,322,100,224bytes（33.668%削減）。診断profile付きの秒数を通常Android日次時間とせず、0455e48の同条件native再試験/CI結果を待つ。
+
+
+## D193（2026-10-19）：新しい入力の出所IDを元PC64bitのv1定義へそろえる
+
+- 旧wasm32のPandas masked NA hashとPC64bitの差を、値の差やデータ破損と混同しない。新しいsource-row hashは元PC v1の64bit欠損hashをmasked整数/浮動小数/booleanへ適用する。型/値/列順/全履歴/未使用列をhashから除外せず、入力ID一致の検査を残す。新schemaへの再採番や保存済み履歴の書換えはしない。
+- 既存のplatform別期待値は旧IDのoracleとして保存し、今後のWASM入力・予測data proofはPC共通IDを要求する。実32bit WASMの少量再現、32bit欠損を模したunit検査、旧PC v1のchunk/missing-key/index検査と全量PC/実model一致を分けて記録する。少量成功を全量Android/Xiaomiへ読み替えない。
+- 原本の行hashは同じv1 canonical JSONのbyte列から計算する。検証済みscalar tokensを使って行dictとJSON再変換の重複を減らし、不正JSONを受け入れない。legacy/疎なfieldは元のdecodeへ戻す。raw columnと正規化全byteの照合、128cacheとRAM/通常600秒の上限を維持する。
+- 全量Androidは入力作成後のID assertで614.262秒に失敗し、実際に異なるfull IDsの初回記録は欠けた。次の私有workerにはdataset/変換段階とID/timerの記録だけを追加し、同じfixture・model・assert・予算で再試験する。全体CI/全量推論/owner/daily/Xiaomi・候補releaseが未完の間は全完成としない。追加の研究学習と採用基準の緩和は行わない。
