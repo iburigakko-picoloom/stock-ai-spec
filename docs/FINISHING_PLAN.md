@@ -1,3 +1,5 @@
+2026-10-19 D183確認済み：製品59ea01e/CI39187276127はverify/android/android-history全成功、release skip。JS/Android/Pythonの分割256MiB（native一括128MiB・Java192MiB・app3500MiB・host予備1GiB・通常600秒は維持）で、実188,857,904文字の保存/B1/再openと全17table一致が438.815秒。通常本人署名0.1.16/code10016候補は私有保存。Aは152条件56研究完走/96不完全でHOLD、通常bundle/本人日次/Xiaomiは未完。回帰のみを選ぶ場合の未提供risk契約も残件であり、無関係な追加機能へ広げない。最新の一括受入は既存Xiaomi票を参照。以下の「検証中」等は先行時点の記録。
+
 # Android版の完成条件
 
 2026-10-19 D182：製品source cc3d2d5/CI39164164508はverify/android/android-history全成功、release skip。実データ489営業日/1,854,462行から各3820銘柄・296507数値・全JSONがAndroid35/WebView124とPCで完全一致し、同じ4GiB guestの全体375.870秒/特徴量285.055秒（従来717.019/608.963秒）。Java heap192MiB、app3500MiB上限/host予備1GiBと通常600秒制限を維持。native84件、OS3段階/旧source debug更新、17table全量復元220.366秒も成功。本人署名通常0.1.15-candidate/code10015（23,957,697bytes、SHA256=1312c1c521e21121f55c1a84535429c14d0e0098ce8ddd4c171ce2fda3b52aa4）を172.615秒で私有作成、43資産/署名/秘密非混入を認証した。旧候補も保全。Cの通常bundle・本人DBの日次一連・Xiaomiは未完で、下記の一括票の前提は未達。現在の4head契約へ未選定risk/架空reviewを入れず、return-only選択時の未提供risk対応を条件として明示する。正式HOLD/holdout未開封を維持し、過去の不完全96条件や失敗ログを成功へ読み替えない。この追記は製品sourceを変更しない。

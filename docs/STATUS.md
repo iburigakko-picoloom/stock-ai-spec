@@ -1,3 +1,11 @@
+## 2026-10-19 — 実188MBの保存復旧と通常候補0.1.16、対象CI全成功
+
+- D183。製品59ea01e/tested merge42e95cd、CI39187276127のverify/android/android-history全success、release skip。今回のnative86件210.244秒、共有Python group529件、Ruff/mypy75、ブラウザー/通信遮断WASM、OS3段階・旧source debug更新、全17table合成B1復元223.613秒を確認。PC5,000銘柄/520日保存788.919秒、最新特徴量304.299秒/peak3,124,248,576bytes。過去件数や重複groupを合算していない。
+- 実cache188,857,904文字の通常owner保存・再作成・B1書出し/認証preview/復元/再openが438.815秒で成功。mobile全17tableの全typed cell一致、試験で保存した保有取込1件をrevision/hashで認証し他operations table不変。Java192MiB、実測app/renderer最大1,673,953,280bytes、host空き最小1,745,833,984bytes。native422は11:30前の観測であり鮮度単独の受入ではない。空の試験用個人設定へのcache復元を、本人DB/REST初期取得/現在予測/Xiaomiの成功としない。
+- 非debug/本人署名0.1.16/code10016を93.375秒で私有作成、23,957,789bytes、SHA256=24be5bc660a4fd075397526e896100bf5951ba4d8ce23ae9752f2c730039a2f1。43資産/30共有/16mobile sourceと秘密情報非混入を照合。新256MiB拒否境界・読出し0回を追加したブラウザー10件8.7秒とlint/typecheckも成功。文書/試験のみのcheckpointで製品は59ea01eのまま、重いCIを再実行しない。
+- Aは152件記録/56研究完走/96不完全で正式HOLD、holdout未開封。Bは現行sourceの必要試験成功。Cは通常bundle・本人日次一連・Xiaomi未完。回帰2本は一致条件なら再利用、4head採用なら未選定risk2fit、回帰のみなら未提供risk契約の実装対応が残る。具体条件/比較表/結果JSON/候補/一括受入票を私有completion-report-v5・streamed-state-milestoneへ集約。追加資料の取得元/場所は回答待ち。
+- 元の私有差分71/31/89行、データ、旧候補、既存鍵、失敗ログを保全。c328全CIはsuperseded中止であり成功扱いにしない。新nativeの初回ホスト照合は意図した保有取込を見落として停止し、同じ保存出力の厳密なprofile/hash照合で確認済み。実注文/新規課金/追加AI送信/main merge/公開配布なし。
+
 ## 2026-10-19 — 実転送で判明したJavaScript上限の修正
 
 - 188,857,904文字を同じAPI35/Java192MiB profileへ転送しhash一致後、通常owner開始時に失敗。JavaScript host/workerに残っていた128MiBの分割転送guardを特定し、D183どおり256MiBへ統一。一括文字列・JSON応答・byte配列暗号の128MiB制限と実行中RAM/600秒制限は維持。失敗した実転送と、転送前の私有runner停止は全て保全。

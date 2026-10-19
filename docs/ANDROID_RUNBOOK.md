@@ -1,3 +1,5 @@
+2026-10-19 D183確認済み：製品59ea01e/CI39187276127はverify/android/android-history全成功、release skip。JS/Android/Pythonの分割256MiB（native一括128MiB・Java192MiB・app3500MiB・host予備1GiB・通常600秒は維持）で、実188,857,904文字の保存/B1/再openと全17table一致が438.815秒。通常本人署名0.1.16/code10016候補は私有保存。Aは152条件56研究完走/96不完全でHOLD、通常bundle/本人日次/Xiaomiは未完。回帰のみを選ぶ場合の未提供risk契約も残件であり、無関係な追加機能へ広げない。最新の一括受入は既存Xiaomi票を参照。以下の「検証中」等は先行時点の記録。
+
 2026-10-19 D183（検証中）：実cacheの通常状態は188,857,904base64文字で旧128MiB枠を超えるため、分割state/streamed B1のみ256MiB＋envelope余白4096bytesとする。一括JSON/全String/byte配列暗号は128MiB、Java192MiB・app3500MiB・host予備1GiB・SQLite256MiB/file・通常600秒を維持。旧小容量backupは互換、新しい大容量backupは旧128MiB版へ復元できない。以下の128MiB記載は当時の検証履歴。新sourceの全量native/候補/Xiaomiは別途検証する。
 
 # StockAI Android APK

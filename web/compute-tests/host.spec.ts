@@ -84,15 +84,18 @@ test("production compute entry boots offline under the native CSP and returns du
 for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "input-oversize", "output-rejected", "output-legacy-string", "output-order", "output-early-complete", "output-nonascii"] as const) {
   test(`native transfer keeps large capsules outside command/reply JSON: ${failure}`, async ({ page }) => {
     await page.addInitScript(({ failure }) => {
-      const host = window as unknown as { StockAICompute: unknown; ready: boolean; reply?: Record<string, unknown>; received?: string; output?: string; maximumChunk: number; replyLength: number; inputFinished: boolean; transferred?: boolean; Worker: unknown };
+      const host = window as unknown as { StockAICompute: unknown; ready: boolean; reply?: Record<string, unknown>; received?: string; output?: string; maximumChunk: number; replyLength: number; inputFinished: boolean; inputReads: number; transferred?: boolean; Worker: unknown };
       const chunk = 256 * 1024;
       const source = "a".repeat(chunk - 7) + "b".repeat(chunk) + "c".repeat(30);
       const pieces = [source.slice(0, chunk - 7), source.slice(chunk - 7, 2 * chunk - 7), source.slice(2 * chunk - 7)];
       const output: string[] = [];
-      host.ready = false; host.maximumChunk = 0; host.inputFinished = false;
+      host.ready = false; host.maximumChunk = 0; host.inputFinished = false; host.inputReads = 0;
       host.StockAICompute = {
         ready: () => { host.ready = true; },
-        inputChunk: (_id: string, index: number) => failure === "input-short" && index === 2 ? "" : failure === "input-nonascii" && index === 0 ? "あ".repeat(pieces[0].length) : pieces[index],
+        inputChunk: (_id: string, index: number) => {
+          host.inputReads++;
+          return failure === "input-short" && index === 2 ? "" : failure === "input-nonascii" && index === 0 ? "あ".repeat(pieces[0].length) : pieces[index];
+        },
         inputDone: () => { host.inputFinished = failure !== "input-auth"; return host.inputFinished; },
         beginState: (_id: string, length: number) => length === source.length && host.inputFinished,
         stateChunk: (_id: string, index: number, fragment: string) => {
@@ -134,12 +137,12 @@ for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "i
     await page.evaluate(failure => {
       // Native evaluateJavascript dispatches without awaiting the JS return.
       // Completion is the authenticated bridge reply checked below.
-      (window as unknown as { stockAICompute: (input: unknown) => void }).stockAICompute({ id: 1, command: "initialize", state_length: failure === "input-oversize" ? 128 * 1024 * 1024 + 1 : 2 * 256 * 1024 + 23 });
+      (window as unknown as { stockAICompute: (input: unknown) => void }).stockAICompute({ id: 1, command: "initialize", state_length: failure === "input-oversize" ? 256 * 1024 * 1024 + 1 : 2 * 256 * 1024 + 23 });
     }, failure);
     await expect.poll(() => page.evaluate(() => Boolean((window as unknown as { reply?: unknown }).reply))).toBe(true);
     const actual = await page.evaluate(() => {
-      const host = window as unknown as { reply: Record<string, unknown>; received?: string; output: string; maximumChunk: number; replyLength: number; inputFinished: boolean; transferred?: boolean };
-      return { ...host.reply, receivedLength: host.received?.length, outputLength: host.output.length, exact: host.output === host.received, maximumChunk: host.maximumChunk, replyLength: host.replyLength, inputFinished: host.inputFinished, transferred: host.transferred };
+      const host = window as unknown as { reply: Record<string, unknown>; received?: string; output: string; maximumChunk: number; replyLength: number; inputFinished: boolean; inputReads: number; transferred?: boolean };
+      return { ...host.reply, receivedLength: host.received?.length, outputLength: host.output.length, exact: host.output === host.received, maximumChunk: host.maximumChunk, replyLength: host.replyLength, inputFinished: host.inputFinished, inputReads: host.inputReads, transferred: host.transferred };
     });
     expect(actual.replyLength).toBeLessThan(1024);
     expect(actual.maximumChunk).toBeLessThanOrEqual(256 * 1024);
@@ -149,6 +152,7 @@ for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "i
       expect(actual).toMatchObject({ error: "COMPUTE_WORKER_FAILED", code: "state_other" });
       expect(actual).not.toHaveProperty("state");
       if (failure.startsWith("input")) expect(actual.receivedLength).toBeUndefined();
+      if (failure === "input-oversize") expect(actual.inputReads).toBe(0);
     }
   });
 }
