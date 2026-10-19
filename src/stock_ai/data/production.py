@@ -185,17 +185,19 @@ def _source_frame_id(dataset: DatasetName, frame: pd.DataFrame) -> str:
         DatasetName.TOPIX: ("trading_date",),
         DatasetName.FINANCIAL_SUMMARY: ("disclosure_number",),
     }[dataset]
-    canonical = frame.sort_values(list(keys)).reset_index(drop=True)
-    schema = tuple((str(column), str(dtype)) for column, dtype in canonical.dtypes.items())
+    # Sort only the keys, then gather bounded row slices. Sorting the entire
+    # wide source would retain another full-market copy just to hash it.
+    order = frame[list(keys)].reset_index(drop=True).sort_values(list(keys)).index.to_numpy()
+    schema = tuple((str(column), str(dtype)) for column, dtype in frame.dtypes.items())
     metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True).encode(
         "utf-8"
     )
     digest = hashlib.sha256(metadata)
     # Preserve the exact ordered row-hash byte stream without factorizing
     # high-cardinality text columns for the whole market at once.
-    for start in range(0, len(canonical), 10000):
+    for start in range(0, len(frame), 10000):
         rows = pd.util.hash_pandas_object(
-            canonical.iloc[start:start + 10000], index=False
+            frame.iloc[order[start:start + 10000]], index=False
         ).to_numpy().tobytes()
         digest.update(rows)
     return digest.hexdigest()
@@ -219,7 +221,9 @@ def build_point_in_time_universe(
         "available_at",
     }
     _require_columns(master, required, "security master")
-    frame = master.copy()
+    # Replace converted columns without copying all unchanged source arrays.
+    # The filtered frame below owns its arrays before any further mutation.
+    frame = master.copy(deep=False)
     frame["effective_date"] = pd.to_datetime(frame["effective_date"]).dt.normalize()
     frame["provider_code"] = frame["provider_code"].astype("string")
     frame["revision_available_at"] = pd.to_datetime(frame["available_at"], utc=True)
@@ -298,7 +302,7 @@ def build_point_in_time_universe(
         "revision_available_at",
     ]
     optional = [column for column in columns if column in universe]
-    return universe[optional].sort_values(["effective_date", "symbol"]).reset_index(drop=True)
+    return universe[optional].sort_values(["effective_date", "symbol"], ignore_index=True)
 
 
 def _business_dates(calendar: pd.DataFrame) -> pd.DatetimeIndex:
@@ -403,7 +407,9 @@ def _canonical_daily(
         "available_at",
     }
     _require_columns(prices, required, "daily prices")
-    frame = prices.copy()
+    # Only whole-column replacement occurs before merge creates the working
+    # frame; the caller's original source arrays remain unchanged.
+    frame = prices.copy(deep=False)
     frame["trading_date"] = pd.to_datetime(frame["trading_date"]).dt.normalize()
     frame["provider_code"] = frame["provider_code"].astype("string")
     if frame.duplicated(["trading_date", "provider_code"]).any():
@@ -494,7 +500,7 @@ def _canonical_daily(
     )
     if invalid.any():
         raise ValueError("daily production prices contain invalid finite/positive values")
-    return frame.sort_values(["trading_date", "symbol"]).reset_index(drop=True)
+    return frame.sort_values(["trading_date", "symbol"], ignore_index=True)
 
 
 def _reconstruct_bulk_adjusted_prices(frame: pd.DataFrame) -> pd.DataFrame:
@@ -535,10 +541,13 @@ def _reconstruct_bulk_adjusted_prices(frame: pd.DataFrame) -> pd.DataFrame:
     if invalid_factor.any():
         raise ValueError("daily prices cannot reconstruct adjustment from invalid AdjFactor")
 
-    ordered = output.sort_values(
+    factor_columns = ["symbol", "trading_date", "adjustment_factor"]
+    if "ex_rights_type" in output:
+        factor_columns.append("ex_rights_type")
+    ordered = output[factor_columns].sort_values(
         ["symbol", "trading_date"],
         ascending=(True, False),
-    ).copy()
+    )
     price_factor = ordered.groupby("symbol", sort=False)["adjustment_factor"].transform(
         lambda values: values.shift(1, fill_value=1.0).cumprod()
     )
@@ -576,7 +585,7 @@ def _reconstruct_bulk_adjusted_prices(frame: pd.DataFrame) -> pd.DataFrame:
         "raw_volume",
         "adjustment_factor",
     ]
-    lineage = output.sort_values(["symbol", "trading_date"])[lineage_columns].copy()
+    lineage = output[lineage_columns].sort_values(["symbol", "trading_date"])
     lineage["ex_rights_type"] = (
         output.loc[lineage.index, "ex_rights_type"].astype("string")
         if "ex_rights_type" in output

@@ -126,6 +126,29 @@ def test_unused_source_fields_still_change_the_complete_source_id(tmp_path):
     )
 
 
+def test_daily_text_reuses_immutable_values_without_changing_source_values_or_identity(tmp_path):
+    path = tmp_path / "source.sqlite3"
+    market.initialize(path)
+    for index, value in enumerate(observations()):
+        rows = value["datasets"]["security_master"]
+        # Each day's column is different, so whole-column codec caching cannot
+        # share the repeated company text on its own.
+        rows[0]["CoName"] = f"changed on day {index}"
+        for row in rows[1:]:
+            row["CoName"] = "合成の同じ会社名/😀"
+        market.ingest(path, value)
+    cutoff = datetime(2025, 1, 20, tzinfo=UTC)
+    kind = DatasetName.SECURITY_MASTER
+    expected = market.SQLiteSource(path).point_in_time(kind, cutoff)
+    reader = market.FeatureSource(path)
+    actual = reader.point_in_time(kind, cutoff)
+    pd.testing.assert_frame_equal(actual, expected[actual.columns], check_exact=True)
+    assert reader.source_frame_id(kind, actual) == _source_frame_id(kind, expected)
+    repeated = actual.loc[actual.company_name == "合成の同じ会社名/😀", "company_name"]
+    assert len(repeated) == 9
+    assert len({id(value) for value in repeated}) == 1
+
+
 def test_identity_rejects_modified_or_replaced_projection_and_does_not_retain_frames(tmp_path):
     path = tmp_path / "source.sqlite3"
     _, cutoff = seed(path)

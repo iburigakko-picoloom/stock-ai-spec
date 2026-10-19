@@ -447,6 +447,7 @@ class FeatureSource(SQLiteSource):
         if not as_of.tzinfo:
             raise ValueError("Aware cutoff required")
         cache, profiles, parts = OrderedDict(), [], []
+        strings = {}
         self._retained = [item for item in self._retained if item[0]() is not None]
         retained = sum(item[1] for item in self._retained)
         array_bytes = 0
@@ -479,6 +480,26 @@ class FeatureSource(SQLiteSource):
                     else self.PRICE_COLUMNS
                 )
                 projected = frame.loc[:, [name for name in frame if name in columns]].copy()
+                # Immutable text repeats across daily batches. Retain one
+                # string per value instead of a new allocation for each day;
+                # keep the exact values, nulls, dtype and full-source identity.
+                for name in projected:
+                    column = projected[name]
+                    dtype = column.dtype
+                    if not (pd.api.types.is_object_dtype(dtype) or (
+                        isinstance(dtype, pd.StringDtype) and dtype.storage == "python"
+                    )):
+                        continue
+                    pool = strings.setdefault(name, {})
+                    values = column.to_numpy(copy=True)
+                    for index, value in enumerate(values):
+                        if type(value) is str:
+                            shared = pool.get(value)
+                            if shared is not None:
+                                values[index] = shared
+                            elif len(pool) < 8192:
+                                pool[value] = value
+                    projected[name] = pd.Series(values, index=column.index, dtype=dtype)
                 array_bytes += int(projected.memory_usage(index=True, deep=False).sum())
                 if retained + array_bytes > self.MAX_ARRAY_BYTES:
                     raise ValueError("MOBILE_MEMORY_LIMIT: projected source arrays exceed budget")

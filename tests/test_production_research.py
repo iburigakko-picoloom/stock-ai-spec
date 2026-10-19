@@ -201,6 +201,7 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
         }
     )
 
+    before = frame.copy(deep=True)
     adjusted = production_module._reconstruct_bulk_adjusted_prices(frame)
 
     assert adjusted["research_close"].tolist() == pytest.approx([400.0, 384.0, 400.0, 410.0])
@@ -209,6 +210,7 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
     assert (
         adjusted["adjustment_version"].str.startswith("jquants-file-cumulative-adjfactor-v1:").all()
     )
+    pdt.assert_frame_equal(frame, before, check_exact=True)
     changed_input = frame.copy()
     changed_input.loc[0, "raw_high"] += 1
     changed = production_module._reconstruct_bulk_adjusted_prices(changed_input)
@@ -272,6 +274,7 @@ def test_canonical_daily_joins_common_issues_by_provider_code() -> None:
         }
     )
     availability = {trading_date: pd.Timestamp("2025-01-07T02:30:00Z")}
+    before_prices, before_universe = prices.copy(deep=True), universe.copy(deep=True)
 
     daily = production_module._canonical_daily(
         prices,
@@ -282,6 +285,8 @@ def test_canonical_daily_joins_common_issues_by_provider_code() -> None:
 
     assert daily["provider_code"].tolist() == ["25930"]
     assert daily["symbol"].tolist() == ["2593"]
+    pdt.assert_frame_equal(prices, before_prices, check_exact=True)
+    pdt.assert_frame_equal(universe, before_universe, check_exact=True)
 
 
 class FrameCatalog:
@@ -1369,7 +1374,11 @@ def _source_frames(periods: int = 280) -> tuple[dict[DatasetName, pd.DataFrame],
         "announced_at"
     ].astype("datetime64[us, UTC]")
     return frames, dates
-def test_source_frame_identity_keeps_the_original_hash_across_chunk_boundaries():
+@pytest.mark.parametrize("duplicate_index", [False, True])
+@pytest.mark.parametrize("missing_keys", [False, True])
+def test_source_frame_identity_keeps_the_original_hash_across_chunk_boundaries(
+    duplicate_index, missing_keys,
+):
     rows = 20037
     frame = pd.DataFrame({
         "trading_date": [pd.Timestamp("2025-01-02") + timedelta(days=i // 5000)
@@ -1382,6 +1391,11 @@ def test_source_frame_identity_keeps_the_original_hash_across_chunk_boundaries()
         "category": pd.Categorical(["A", "B", None] * (rows // 3), categories=["A", "B", "unused"]),
         "available_at": pd.date_range("2026-01-01", periods=rows, freq="1234567ns", tz="UTC"),
     }).sample(frac=1, random_state=17)
+    if duplicate_index:
+        frame.index = [7] * len(frame)
+    if missing_keys:
+        frame.iloc[::13, frame.columns.get_loc("provider_code")] = None
+        frame.iloc[::17, frame.columns.get_loc("trading_date")] = pd.NaT
     for original in (frame, frame.iloc[:0]):
         canonical = original.sort_values(["trading_date", "provider_code"]).reset_index(drop=True)
         schema = tuple((str(column), str(dtype)) for column, dtype in canonical.dtypes.items())

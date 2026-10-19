@@ -1761,3 +1761,11 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 - d150b07/同計算sourceの4GiB guest試験は591.172秒、入力生成中にAndroid lowmemorykillerがrendererを終了した。sampled app/renderer RSSやhost reserveが設定guard内でもguest OSのwatermark/swap不足は発生し得る。OS killと、設定上限の超過・600秒timeout・モデルの数値不一致を混同しない。
 - 実装の次の優先は全量入力生成の保持量/不要copyの削減と同一入力での再検証。RAM/時間上限、入力の意味、数式、元hash、採用基準を緩めて合格にしない。準備済みの追加試験を実行済みとせず、ユーザーの区切り報告では現行試験の終了後に新たな重い試験を始めない。
 - 非公開候補0.1.20/source d150b07の内容と署名は検証済みだが、全体CI/実データ全量/本人通常日次/Xiaomiの成功とは別。旧候補と失敗ログ、私有入力/weight、元152条件/HOLDを保全する。新しい有料サービス・追加fit・実注文・実台帳更新・公開配布は行わない。
+
+
+## D192（2026-10-19）：入力の意味と出所IDを保ったまま全量読取の同時保持を減らす
+
+- 全量入力のmemory修正は、既存のSQLite reader/production変換を再利用する。期間・市場母集団・特徴量・欠損・PIT/全出所検証・通常時間/RAM制約を維持し、元hashと全特徴量/実weightの一致で確認する。
+- Source IDのv1 byte streamを保ち、全幅frameのsort copyをキー順序とbounded row hashへ置き換える。分割の累積係数とlineageのsortは必要列へ絞り、入力sourceの全列コピー/index再作成を減らす。列の変換は新しい配列へ代入し、元sourceの変更を試験で拒否する。
+- mobileのprojected日次入力では、同じimmutable文字列の値/型/nullを保って列ごとに共有する。共有poolは一回の読取内・各列8,192値までとし、永久cacheや全履歴の文字列無制限保持にしない。全raw/normalized照合と既存array budgetを通す。
+- PCの段階計測/互換性成功とAndroid guestの全量成功を別に記録する。旧CI全成功、関連96件成功はそれぞれの対象sourceと範囲に限定する。新しい全量照合、通常owner/daily、Xiaomi受入と正式採用HOLDの残件を維持する。
