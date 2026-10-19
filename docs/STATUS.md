@@ -1,3 +1,13 @@
+## 2026-10-20 — 実APIで見つけたAndroid TOPIX日付指定を修正（D201）
+
+- 0.1.22の実取得でSOURCE_DATE_CHANGEDに停止。nativeの保存位置からcalendar/master/pricesの3pageが保持され、停止endpointがTOPIXであることを確認した。PCはfrom/toを使う一方、AndroidはTOPIXにもdateを送っていた。[公式TOPIX仕様](https://jpx-jquants.com/en/spec/idx-bars-daily-topix)ではfrom/to省略は全期間要求となる。指定日以外を含む応答は検査が保存前に拒否し、旧正常cacheを維持した。
+- TOPIXだけfrom=to=選択日へ修正。Calendarの21日窓・他4endpointの日付指定・opaque cursorのUTF-8 encoding、12.5秒間隔/ページ・容量・日付検査/600秒・既存RAM/CPU guardは維持する。query契約4件は同じGradleコンパイル済みclassを直接JUnit4で実行して成功。WindowsのGradle test workerはclassロード前に起動失敗し、原logを保全。製品側の設定や試験条件を緩めず、変更後の必要CIはcommit後に確認する。
+- 保存済み3page/同じ取得IDからTOPIX以降だけを再開し、Light実API6種類がHTTP200。calendar22/master4,443/価格4,443/TOPIX1/財務15/valuation4,443を実時刻のまま保存した。残り取得→owner冷間読込→暗号化保存131.408秒（native141.726秒）。受領済みpageの再取得・原本/730日履歴の初期化なし。APIキーは平文fileを作らずRSA暗号文でnativeへ渡し、Keystore保護で使用後にキー/転送aliasを消去した。
+- 暗号化保存後・ack前の中断から別processで受領確認を実行。最初のack JUnitは末尾の試験sidecar読込で停止したため成功とは扱わず、元logを保持し、補助fileに依存しない別起動のprobeで完了状態/ack冪等性を確認した。追加probeはAPIキーを使わず、provider fetchを呼べば失敗する構成で成功。ack重複適用0.058秒、実OSの11:30前はwaiting_cutoffで予測を開始しない。これはWorkManagerの実データ入り締切後配送/Xiaomi成功ではない。
+- hostで全17mobile/27operation tableと元行の型/内容を検査。元market_batches/columns/valuation全行と730日集合を保全し、新しい5batch/1valuation/1acquisition・日付19の新受領時刻・技術cursorだけを更新した。受領確認前後のcore全tableは完全一致し、operations全27tableは初期の空口座状態と不変。key/log/応答/SQLite44fileへの秘密非混入も確認。sampled app+renderer1,577,238,528bytes/VM5,054,222,336bytes/host空き最小1,847,332,864bytes、時計変更/clock shimなし、OOM/OS終了なし。
+- 0.1.22候補の実機受入を保留し、修正版0.1.23は必要CI成功後に同じ既存署名で作る。D199/200の算術・実予測590件/相談保存の証拠は旧製品58c8a2eの範囲として保全し、今回の取得修正の新CIへ流用しない。特徴量/前処理/weight・18候補/OOF/152条件/正式HOLDは変更しない。
+- 旧TOPIX要求は範囲外の市場価格を受領しており、実返却期間/行数は回収していない。運用debugによるraw価格アクセスとして記録し、「価格も一切未閲覧」とは表示しない。最終target/保存final予測/成績は読まず採点/モデル選定/追加fitなし。失敗・観測補助file/参照先の修正履歴・実応答・私有modelは.demo-artifacts以下に保全し、Gitへは集約実測だけを置く。外部AI送信/実注文/本人台帳更新/新規課金/main merge/公開配布なし。
+
 ## 2026-10-20 — 実保存予測から手動相談・回答検算・保存・再起動まで接続（D200）
 
 - 製品58c8a2e/通常署名0.1.22は変更せず、D199で保存した実730日・当日membership・研究2回帰の590予測を隔離コピーで再利用した。口座・回答だけ試験用。18候補/OOF/152条件/正式HOLD/holdoutを変更せず、再学習/予測再計算/外部ChatGPT送信/実注文なし。

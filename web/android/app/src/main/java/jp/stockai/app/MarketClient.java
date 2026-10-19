@@ -23,6 +23,19 @@ final class MarketClient {
         return saved == null ? null : LocalStateStore.decrypt(Base64.decode(saved, Base64.NO_WRAP));
     }
 
+    static String query(String endpoint, String day, String page) throws Exception {
+        String query;
+        if (endpoint.equals("/markets/calendar")) {
+            query = "?from=" + day + "&to=" + java.time.LocalDate.parse(day).plusDays(21);
+        } else if (endpoint.equals("/indices/bars/daily/topix")) {
+            query = "?from=" + day + "&to=" + day;
+        } else {
+            query = "?date=" + day;
+        }
+        if (page != null) query += "&pagination_key=" + java.net.URLEncoder.encode(page, "UTF-8");
+        return query;
+    }
+
     MarketDownload download(boolean membership) {
         return new MarketDownload(db, (endpoint, day, page) -> {
             synchronized (PROVIDER) {
@@ -30,9 +43,7 @@ final class MarketClient {
                 if (credential == null) throw new IllegalStateException("API_KEY_REQUIRED");
                 long delay = 12500 - (android.os.SystemClock.elapsedRealtime() - lastRequest);
                 if (lastRequest != 0 && delay > 0) Thread.sleep(delay);
-                String query = endpoint.equals("/markets/calendar")
-                    ? "?from=" + day + "&to=" + java.time.LocalDate.parse(day).plusDays(21) : "?date=" + day;
-                if (page != null) query += "&pagination_key=" + java.net.URLEncoder.encode(page, "UTF-8");
+                String query = query(endpoint, day, page);
                 HttpURLConnection conn = StockAIPlugin.connection("https://api.jquants.com/v2" + endpoint + query);
                 conn.setRequestProperty("x-api-key", credential);
                 try {

@@ -1816,3 +1816,9 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 
 - 全市場の出所検証・市場/業種統計は保持し、個別計算だけを候補300+全保有へ絞る。600秒内の実API差分計算と通常forecast保存が成立したため、永続共通cacheや全指標の再帰更新を今回の必須追加としない。入力構築前の履歴限定や日次数分以内を達成済みと表示しない。
 - 通常forecast/save/process再起動の締切分岐は隔離Worker時刻制御で試験し、実OS時刻・実取得時刻を改変しない。clock bootstrapを通常候補へ含めず、実時刻のOS配送/Xiaomiの合格とは分離する。研究用モデル/採否/holdoutと既存安全制約は維持する。
+
+## D201（2026-10-20）：Android TOPIXのqueryを公式契約とPCに合わせる
+
+- TOPIX四本値はfrom/to省略で全期間となり、dateは対応queryではない。日別取得はfrom=to=指定日とし、範囲外応答の日付検査は維持する。Calendarの将来営業日窓と他endpoint、CPU/RAM/時間/rate上限を変更しない。根拠は[公式仕様](https://jpx-jquants.com/en/spec/idx-bars-daily-topix)、既存PCclient、nativeの保存位置3と実API再開試験。
+- 既に保存したpage/取得IDを維持し、暗号化owner保存後だけackする。観測用sidecarの不備で停止した試験は原記録を残し、独立したDB/別起動probeで検証する。APIキーを平文file/ログ/portable stateへ出さず、試験で保存したnative credentialを使用後に除去する。通常候補は修正後CIを通して更新する。
+- 範囲外TOPIX応答のraw価格受領はdebugアクセスとして記録する。最終target/予測/成績の未採点と、raw市場価格のアクセス有無は分ける。モデル/採用条件/最終testの扱いを変更しない。

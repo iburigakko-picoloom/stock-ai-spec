@@ -1,0 +1,83 @@
+{
+  "MarketClient_sha256": "f7153afb933cb0bb75c0e5a36006abde8462905a812dfffe2d1369fd28e4c38d",
+  "actual_source_date": "2026-10-19",
+  "actual_HTTP_dataset_counts": {
+    "trading_calendar": 22,
+    "security_master": 4443,
+    "daily_prices": 4443,
+    "topix": 1,
+    "financial_summary": 15,
+    "valuations": 4443
+  },
+  "source_pages": 6,
+  "initial_native_failure_dataset": "topix",
+  "preserved_pages_before_fix": 3,
+  "previous_pages_refetched": false,
+  "phases": {
+    "resume": {
+      "metrics": {
+        "pipeline_state": "history",
+        "provider_status": 200,
+        "remaining_fetch_ingest_and_save_seconds": 131.408,
+        "actual_pages_saved": 6,
+        "encrypted_owner_commit_before_ack": true,
+        "provider_key_removed": true
+      },
+      "native_seconds": 141.726
+    },
+    "ack": {
+      "metrics": {
+        "pipeline_state": "waiting_cutoff",
+        "ack_recovery_seconds": 0.058,
+        "already_recovered_journal_verified": true,
+        "idempotent_ack_attempts": 1,
+        "provider_not_retried": true,
+        "saved_history_dates_unchanged": true,
+        "actual_OS_before_cutoff_guard": true
+      },
+      "native_seconds": 84.856
+    }
+  },
+  "all_17_mobile_and_27_operations_tables_checked": true,
+  "original_source_rows_preserved": true,
+  "all_730_history_dates_preserved": true,
+  "encrypted_owner_commit_verified": true,
+  "ack_recovered_in_new_native_process": true,
+  "original_ack_JUnit_sidecar_failure_preserved": true,
+  "additional_native_ack_idempotency_probe_passed": true,
+  "core_tables_identical_before_and_after_ack": true,
+  "provider_not_retried_after_commit": true,
+  "actual_OS_before_cutoff_wait_verified": true,
+  "provider_credential_removed": true,
+  "private_RSA_transfer_alias_removed": true,
+  "plaintext_credential_file_created": false,
+  "credential_absent_in_logs_receipts_and_SQLite": true,
+  "sampled_app_renderer_RSS_max_bytes": 1577238528,
+  "sampled_VM_RSS_max_bytes": 5054222336,
+  "sampled_host_free_min_bytes": 1847332864,
+  "clock_shim": false,
+  "OS_clock_modified": false,
+  "personal_entities_used": false,
+  "Xiaomi_verified": false,
+  "actual_after_cutoff_forecast_OS_dispatch_verified": false,
+  "real_orders": 0,
+  "external_AI_requests": 0,
+  "new_real_fits": 0,
+  "holdout_scored": false,
+  "status": "ACTUAL_NATIVE_PROVIDER_RESUME_OWNER_COMMIT_AND_ACK_RECOVERY_VERIFIED",
+  "query_contract_tests": 4,
+  "query_contract_failures": 0,
+  "local_Gradle_test_worker_startup_failed": true,
+  "same_compiled_classes_JUnit_direct_pass": true,
+  "old_candidate_0122_acceptance_withdrawn": true,
+  "next_candidate": "0.1.23-candidate",
+  "next_required_CI_success": false,
+  "formula_preprocessing_or_model_changed": false,
+  "rejected_out_of_day_TOPIX_response_admitted": false,
+  "exact_rejected_response_range_and_count_not_retained": true,
+  "unexpected_query_scope": "The old TOPIX request omitted supported from/to parameters; the official contract treats this as all available history.",
+  "raw_operational_price_access_overlap_recorded": true,
+  "holdout_targets_predictions_or_scores_read": false,
+  "model_selection_changed": false,
+  "official_contract": "https://jpx-jquants.com/en/spec/idx-bars-daily-topix"
+}
