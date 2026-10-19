@@ -1,3 +1,9 @@
+## 2026-10-19 — 実保存量に合わせた分割転送・backup容量の修正（検証中）
+
+- D183。固定した実履歴731暦日＋calendarのみ2日を既存の可逆形式で保存すると188,857,904base64文字、mobile SQLite159,989,760bytes。PCのexport/restoreで全17tableの型付き内容が一致したが、旧native128MiB転送枠を超える。全件保存446.068秒、PC準備peak672,440,320bytes。取得時刻/元値/hashを保ち、bulk cacheの型付き状態復元とREST初期取得の成功を区別する。
+- 分割経路だけ256MiB、B1のJSON/header/tag余白4096bytesへ対応。一括JSON/legacy全String/byte配列cryptoは128MiBのまま、SQLite256MiB/file、Java192MiB、app3500MiB、host予備1GiB、256KiB chunk、通常600秒は維持。新codec、履歴削減、学習やモデル採用条件変更はしない。
+- 関連Python33件26.30秒・Ruff成功。native境界/容量不足/全量復元、対象commit CI、署名候補の確認はこれからであり、以前のcc3d2d5合格を新sourceの合格として流用しない。古い価格を現在の予測へ使うfreshness拒否も維持する。最終holdout未開封、Xiaomi未確認、実注文/新規課金/外部AI送信/main merge/公開配布なし。
+
 ## 2026-10-19 — 残る価格欠損を拡張Light履歴と対象限定で照合
 
 - 既存の一つの未解決一覧30件を、後から拡張した許可済みLight履歴へ読取専用で照合。対象26個のnormalized日次objectは完成済みNAVの版と全て同一で、価格null23件・元recordなし6件・価格はあるが既知企業行動未対応1件、新規補完可能価格0件。4.909秒、DuckDB単一thread/128MiB。source manifest/各Parquetのhashを前後照合し、旧NAV入力・152結果・期間/候補・holdoutは変更していない。

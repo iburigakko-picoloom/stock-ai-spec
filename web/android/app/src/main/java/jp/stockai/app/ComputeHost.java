@@ -246,7 +246,7 @@ final class ComputeHost {
             CompletableFuture<JSONObject> response = pending;
             try {
                 if (!active(identity)) return;
-                if (payload.length() > LocalStateStore.MAX_CHARACTERS + 4 * 1024 * 1024) throw new IllegalArgumentException();
+                if (payload.length() > LocalStateStore.MAX_INLINE_CHARACTERS + 4 * 1024 * 1024) throw new IllegalArgumentException();
                 JSONObject value = new JSONObject(payload);
                 if (value.has("error")) {
                     String code = value.optString("code");

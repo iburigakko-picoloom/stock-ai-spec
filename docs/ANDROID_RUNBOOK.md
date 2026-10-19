@@ -1,3 +1,5 @@
+2026-10-19 D183（検証中）：実cacheの通常状態は188,857,904base64文字で旧128MiB枠を超えるため、分割state/streamed B1のみ256MiB＋envelope余白4096bytesとする。一括JSON/全String/byte配列暗号は128MiB、Java192MiB・app3500MiB・host予備1GiB・SQLite256MiB/file・通常600秒を維持。旧小容量backupは互換、新しい大容量backupは旧128MiB版へ復元できない。以下の128MiB記載は当時の検証履歴。新sourceの全量native/候補/Xiaomiは別途検証する。
+
 # StockAI Android APK
 
 ## 今回の一括実機受入（D177）

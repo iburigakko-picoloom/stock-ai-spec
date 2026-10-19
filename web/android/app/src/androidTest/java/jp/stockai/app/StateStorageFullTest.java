@@ -37,6 +37,46 @@ public class StateStorageFullTest {
         if (file != null) SQLiteDatabase.deleteDatabase(file);
     }
 
+    @Test public void largeStreamMetadataNeverAllocatesALegacyWholeString() throws Exception {
+        int length = LocalStateStore.MAX_INLINE_CHARACTERS + 4;
+        int chunks = (length + LocalStateStore.CHUNK_CHARACTERS - 1) / LocalStateStore.CHUNK_CHARACTERS;
+        var metadata = new org.json.JSONObject().put("length", length).put("chunks", chunks)
+            .put("sha256", "0".repeat(64));
+        var encrypt = LocalStateStore.class.getDeclaredMethod("encrypt", String.class);
+        encrypt.setAccessible(true);
+        byte[] envelope = (byte[]) encrypt.invoke(null, LocalStateStore.FORMAT + metadata);
+        store.database.execSQL("INSERT INTO state(id,generation,payload) VALUES(1,1,?)", new Object[]{envelope});
+        assertEquals(PortableBackup.MAX_PAYLOAD_CHARACTERS, LocalStateStore.MAX_CHARACTERS);
+        try {
+            store.read();
+            fail("Legacy reader accepted a state requiring streaming");
+        } catch (SecurityException expected) { }
+        assertFalse(store.database.inTransaction());
+        try (LocalStateStore.ReadLease lease = store.openReadLease()) {
+            assertEquals(length, lease.length);
+            try {
+                lease.next(0);
+                fail("Missing ciphertext accepted merely because metadata is valid");
+            } catch (IllegalStateException expected) { }
+        }
+        assertEquals(1, store.currentGeneration());
+    }
+
+    @Test public void streamQuotaIsBoundedBeforeCreatingAStagingFile() throws Exception {
+        try (LocalStateStore.PendingWrite pending = new LocalStateStore.PendingWrite(
+                context.getCacheDir(), 0, LocalStateStore.MAX_CHARACTERS)) {
+            assertEquals(LocalStateStore.MAX_CHARACTERS, pending.length);
+            assertEquals(0, pending.file.length());
+            try { pending.seal(); fail("Missing stream content accepted"); }
+            catch (SecurityException expected) { }
+        }
+        try {
+            new LocalStateStore.PendingWrite(context.getCacheDir(), 0, LocalStateStore.MAX_CHARACTERS + 1);
+            fail("Oversized stream accepted");
+        } catch (IllegalArgumentException expected) { }
+        assertEquals(0, store.currentGeneration());
+    }
+
     LocalStateStore.PendingWrite staged(String value) throws Exception {
         LocalStateStore.PendingWrite pending = new LocalStateStore.PendingWrite(
             context.getCacheDir(), 1, value.length());

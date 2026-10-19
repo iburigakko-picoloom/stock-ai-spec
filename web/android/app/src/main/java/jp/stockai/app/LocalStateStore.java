@@ -26,7 +26,9 @@ final class LocalStateStore {
     static final String DATABASE = "stockai-device.sqlite3";
     static final String KEY_ALIAS = "stockai-local-v1";
     static final int CHUNK_CHARACTERS = 256 * 1024;
-    static final int MAX_CHARACTERS = 128 * 1024 * 1024;
+    // Stream quota, independent of heap and the legacy whole-String API.
+    static final int MAX_CHARACTERS = 256 * 1024 * 1024;
+    static final int MAX_INLINE_CHARACTERS = 128 * 1024 * 1024;
     static final long MAX_GENERATION = 9007199254740991L;
     static final String FORMAT = "stockai-state-chunks-v1:";
     final SQLiteDatabase database;
@@ -92,10 +94,11 @@ final class LocalStateStore {
                     long generation = cursor.getLong(0);
                     if (generation < 0 || generation > MAX_GENERATION) throw new SecurityException();
                     String envelope = decrypt(cursor.getBlob(1)), payload = envelope;
+                    if (envelope.length() > MAX_INLINE_CHARACTERS) throw new SecurityException();
                     if (envelope.startsWith(FORMAT)) {
                         JSONObject metadata = new JSONObject(envelope.substring(FORMAT.length()));
                         int length = metadata.getInt("length"), count = metadata.getInt("chunks");
-                        if (length < 0 || length > MAX_CHARACTERS || count != (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS) throw new SecurityException();
+                        if (length < 0 || length > MAX_INLINE_CHARACTERS || count != (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS) throw new SecurityException();
                         StringBuilder content = new StringBuilder(length);
                         MessageDigest digest = MessageDigest.getInstance("SHA-256"); int index = 0;
                         try (Cursor chunks = database.rawQuery("SELECT piece,payload FROM state_chunks ORDER BY piece", null)) {
@@ -117,7 +120,7 @@ final class LocalStateStore {
     }
 
     long write(long generation, String payload) throws Exception {
-        if (generation < 0 || generation >= MAX_GENERATION || payload == null || payload.length() > MAX_CHARACTERS) throw new IllegalArgumentException();
+        if (generation < 0 || generation >= MAX_GENERATION || payload == null || payload.length() > MAX_INLINE_CHARACTERS) throw new IllegalArgumentException();
         database.beginTransaction();
         // SQLite may already roll back a full transaction. Keep that original
         // write failure and suppress any secondary endTransaction failure.
@@ -237,7 +240,7 @@ final class LocalStateStore {
                                 || !hash.matches("[a-f0-9]{64}")) throw new SecurityException();
                         result = new ReadLease(generation, length, count, hash, true, null);
                     } else {
-                        if (envelope.length() > MAX_CHARACTERS) throw new SecurityException();
+                        if (envelope.length() > MAX_INLINE_CHARACTERS) throw new SecurityException();
                         result = new ReadLease(generation, envelope.length(),
                             (envelope.length() + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS,
                             null, false, envelope);
@@ -249,7 +252,7 @@ final class LocalStateStore {
     }
 
     ReadLease stringLease(String value, long generation) throws Exception {
-        if (value == null || value.length() > MAX_CHARACTERS) throw new IllegalArgumentException();
+        if (value == null || value.length() > MAX_INLINE_CHARACTERS) throw new IllegalArgumentException();
         return new ReadLease(generation, value.length(),
             (value.length() + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS, null, false, value);
     }

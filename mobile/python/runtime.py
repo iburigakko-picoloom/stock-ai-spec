@@ -40,6 +40,7 @@ from .storage import connect
 
 STATE = Path("/stockai-state")
 MAX_DATABASE_BYTES = 256 * 1024 * 1024
+_MAX_NATIVE_STATE_CHARACTERS = 256 * 1024 * 1024
 _app = None
 
 
@@ -84,7 +85,8 @@ class StateImport:
     """Decode native fragments into one temporary ZIP without a full Python string."""
 
     def __init__(self, length: int):
-        if type(length) is not int or not 0 <= length <= 128 * 1024 * 1024 or length % 4:
+        if (type(length) is not int
+                or not 0 <= length <= _MAX_NATIVE_STATE_CHARACTERS or length % 4):
             raise ValueError("Invalid native state length")
         self.length = length
         self._received = 0
@@ -210,7 +212,6 @@ def export_state() -> str:
         return base64.b64encode(output.getvalue()).decode("ascii")
 
 
-_MAX_NATIVE_STATE_CHARACTERS = 128 * 1024 * 1024
 _STATE_CHUNK_CHARACTERS = 256 * 1024
 
 

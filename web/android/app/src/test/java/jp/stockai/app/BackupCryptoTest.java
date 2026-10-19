@@ -22,7 +22,7 @@ public class BackupCryptoTest {
         try { BackupCrypto.decrypt("a-long-backup-password", new byte[20]); fail("Truncated backup accepted"); } catch (SecurityException expected) { }
     }
     @Test public void oversizedPlaintextIsRejectedBeforeKeyDerivation() throws Exception {
-        byte[] input = new byte[BackupCrypto.MAX_ENVELOPE_BYTES - BackupCrypto.OVERHEAD_BYTES + 1];
+        byte[] input = new byte[BackupCrypto.MAX_INLINE_ENVELOPE_BYTES - BackupCrypto.OVERHEAD_BYTES + 1];
         try {
             BackupCrypto.encrypt(null, input);
             fail("Unrestorable backup accepted");

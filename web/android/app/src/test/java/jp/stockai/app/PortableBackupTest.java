@@ -93,4 +93,25 @@ public class PortableBackupTest {
             fail("oversized backup accepted");
         } catch (IllegalArgumentException expected) { assertEquals("Backup exceeds restore limit", expected.getMessage()); }
     }
+
+    @Test public void largeStreamHeaderDoesNotRequireAnInlinePayload() throws Exception {
+        for (int length : new int[]{BackupCrypto.MAX_INLINE_ENVELOPE_BYTES + 4,
+                PortableBackup.MAX_PAYLOAD_CHARACTERS}) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (PortableBackup.Writer writer = new PortableBackup.Writer(PASSWORD,
+                    PortableBackup.MAX_GENERATION, length, output)) {
+                rejected(writer::finish); // An announced length never authenticates missing content.
+            }
+            assertTrue(output.size() < 4096);
+            rejected(() -> read(output.toByteArray(), new StringBuilder()));
+        }
+        ByteArrayOutputStream untouched = new ByteArrayOutputStream();
+        try {
+            new PortableBackup.Writer(null, 0, PortableBackup.MAX_PAYLOAD_CHARACTERS + 1, untouched);
+            fail("oversized state accepted");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Backup exceeds restore limit", expected.getMessage());
+        }
+        assertEquals(0, untouched.size());
+    }
 }

@@ -118,7 +118,7 @@ final class LocalComputeOwner {
         if (!("GET".equals(method) || "POST".equals(method)) || path == null || path.length() > 4096
             || !path.startsWith("/api/v1/") || path.contains("\\") || path.contains("#")
             || path.chars().anyMatch(c -> c < 32 || c == 127)
-            || body == null || body.length() > LocalStateStore.MAX_CHARACTERS) throw new IllegalArgumentException();
+            || body == null || body.length() > LocalStateStore.MAX_INLINE_CHARACTERS) throw new IllegalArgumentException();
     }
 
     CompletableFuture<JSObject> request(String method, String path, String body) {
@@ -239,7 +239,7 @@ final class LocalComputeOwner {
     CompletableFuture<JSObject> restore(String payload, Long expectedGeneration) {
         java.util.concurrent.atomic.AtomicReference<String> incoming = new java.util.concurrent.atomic.AtomicReference<>(payload);
         return submit(() -> {
-            if (incoming.get() == null || incoming.get().length() > LocalStateStore.MAX_CHARACTERS)
+            if (incoming.get() == null || incoming.get().length() > LocalStateStore.MAX_INLINE_CHARACTERS)
                 throw new IllegalArgumentException();
             // Preserve old-state authentication without assembling its full String.
             long previous = authenticatedGeneration();

@@ -23,7 +23,9 @@ import org.bouncycastle.crypto.params.KeyParameter;
 final class BackupCrypto {
     static final byte[] MAGIC = "STOCKAIB1".getBytes(StandardCharsets.US_ASCII);
     static final int ITERATIONS = 210000;
-    static final int MAX_ENVELOPE_BYTES = 128 * 1024 * 1024;
+    static final int MAX_INLINE_ENVELOPE_BYTES = 128 * 1024 * 1024;
+    // ASCII state plus bounded JSON/header/tag overhead; not an allocation size.
+    static final int MAX_ENVELOPE_BYTES = PortableBackup.MAX_PAYLOAD_CHARACTERS + 4096;
     static final int OVERHEAD_BYTES = MAGIC.length + 60; // salt32 + IV12 + GCM tag16
     static byte[] derive(String password, byte[] salt) throws Exception {
         if (password == null || password.length() < 12 || password.length() > 1024) throw new IllegalArgumentException("Password length");
@@ -32,7 +34,7 @@ final class BackupCrypto {
         finally { spec.clearPassword(); }
     }
     static byte[] encrypt(String password, byte[] clear) throws Exception {
-        if (clear == null || clear.length > MAX_ENVELOPE_BYTES - OVERHEAD_BYTES)
+        if (clear == null || clear.length > MAX_INLINE_ENVELOPE_BYTES - OVERHEAD_BYTES)
             throw new IllegalArgumentException("Backup exceeds restore limit");
         byte[] salt = new byte[32], iv = new byte[12]; SecureRandom random = new SecureRandom(); random.nextBytes(salt); random.nextBytes(iv);
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -46,7 +48,7 @@ final class BackupCrypto {
         return output;
     }
     static byte[] decrypt(String password, byte[] data) throws Exception {
-        if (data.length < OVERHEAD_BYTES || data.length > MAX_ENVELOPE_BYTES || !Arrays.equals(MAGIC, Arrays.copyOfRange(data, 0, MAGIC.length))) throw new SecurityException("Invalid backup envelope");
+        if (data.length < OVERHEAD_BYTES || data.length > MAX_INLINE_ENVELOPE_BYTES || !Arrays.equals(MAGIC, Arrays.copyOfRange(data, 0, MAGIC.length))) throw new SecurityException("Invalid backup envelope");
         byte[] salt = Arrays.copyOfRange(data, MAGIC.length, MAGIC.length + 32), iv = Arrays.copyOfRange(data, MAGIC.length + 32, MAGIC.length + 44);
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(derive(password, salt), "AES"), new GCMParameterSpec(128, iv)); cipher.updateAAD(MAGIC);

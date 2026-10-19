@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 /** Streaming reader/writer for the existing authenticated STOCKAIB1 JSON state. */
 final class PortableBackup {
     static final int CHUNK_CHARACTERS = 256 * 1024;
+    static final int MAX_PAYLOAD_CHARACTERS = 256 * 1024 * 1024;
     static final long MAX_GENERATION = 9007199254740991L;
 
     // Decrypted fragments are untrusted until read() returns after EOF/tag
@@ -33,6 +34,7 @@ final class PortableBackup {
         private boolean finished, closed;
 
         Writer(String password, long generation, int length, OutputStream destination) throws Exception {
+            if (length > MAX_PAYLOAD_CHARACTERS) throw new IllegalArgumentException("Backup exceeds restore limit");
             if (generation < 0 || generation > MAX_GENERATION || length < 0) throw new IllegalArgumentException();
             byte[] prefix = ("{\"generation\":" + generation + ",\"payload\":\"").getBytes(StandardCharsets.US_ASCII);
             cipher = BackupCrypto.encrypting(password, (long) prefix.length + length + 2, destination);
@@ -147,7 +149,7 @@ final class PortableBackup {
             expect('"'); StringBuilder fragment = new StringBuilder(CHUNK_CHARACTERS);
             int total = 0, piece = 0, value;
             while ((value = character()) != -1) {
-                if (!base64(value) || ++total > BackupCrypto.MAX_ENVELOPE_BYTES) throw new SecurityException();
+                if (!base64(value) || ++total > MAX_PAYLOAD_CHARACTERS) throw new SecurityException();
                 fragment.append((char) value);
                 if (fragment.length() == CHUNK_CHARACTERS) {
                     sink.append(piece++, fragment.toString()); fragment.setLength(0);

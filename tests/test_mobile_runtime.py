@@ -102,10 +102,22 @@ def test_native_import_rejects_invalid_fragments_and_cleans_quarantine(device, f
     assert not list(device.STATE.glob("state-import-*"))
 
 
-@pytest.mark.parametrize("length", [-4, 3, 128 * 1024 * 1024 + 4, True])
+@pytest.mark.parametrize("length", [-4, 3, 256 * 1024 * 1024 + 4, True])
 def test_native_import_rejects_invalid_length_before_allocating(length):
     with pytest.raises(ValueError, match="length"):
         runtime.StateImport(length)
+
+
+@pytest.mark.parametrize("length", [128 * 1024 * 1024 + 4, 256 * 1024 * 1024])
+def test_native_import_can_start_large_stream_without_allocating_whole_state(length):
+    stream = runtime.StateImport(length)
+    try:
+        assert stream._archive.tell() == 0
+        with pytest.raises(ValueError, match="Incomplete"):
+            stream.finish()
+        assert stream._archive.closed
+    finally:
+        stream.close()
 
 
 @pytest.mark.parametrize("failure", [
