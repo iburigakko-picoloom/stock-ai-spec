@@ -1,0 +1,33 @@
+{
+  "status": "PARENT_CI_BUDGET_FIXED_NEW_CI_PENDING",
+  "product_source_commit": "4cde7ef4428ffc1a6f4273554b0c6399b9ac8abe",
+  "original_CI_run": 39317484153,
+  "verify_jobs": [
+    118282623650,
+    118307008401
+  ],
+  "identical_attempts": 2,
+  "verify_conclusions": [
+    "cancelled",
+    "cancelled"
+  ],
+  "confirmed_reason": "The job has exceeded the maximum execution time of 45m0s",
+  "parent_job_minutes_before": 45,
+  "parent_job_minutes_after": 60,
+  "capacity_step_minutes": 15,
+  "feature_step_minutes": 12,
+  "first_prefix_before_features_seconds": 2333,
+  "second_prefix_before_features_seconds": 2339.0,
+  "existing_full_feature_allowance_seconds": 720,
+  "first_observed_prefix_plus_feature_allowance_seconds": 3053,
+  "completed_feature_runtime_not_claimed": true,
+  "all_test_commands_inputs_and_assertions_unchanged": true,
+  "app_600_second_CPU_and_RAM_guards_unchanged": true,
+  "android_and_native_history_job_budgets_unchanged": true,
+  "model_or_data_changed": false,
+  "new_real_fits": 0,
+  "holdout_scored": false,
+  "private_candidate_0123_signed": false,
+  "public_distribution": false,
+  "Xiaomi_verified": false
+}

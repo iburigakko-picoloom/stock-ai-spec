@@ -1822,3 +1822,8 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 - TOPIX四本値はfrom/to省略で全期間となり、dateは対応queryではない。日別取得はfrom=to=指定日とし、範囲外応答の日付検査は維持する。Calendarの将来営業日窓と他endpoint、CPU/RAM/時間/rate上限を変更しない。根拠は[公式仕様](https://jpx-jquants.com/en/spec/idx-bars-daily-topix)、既存PCclient、nativeの保存位置3と実API再開試験。
 - 既に保存したpage/取得IDを維持し、暗号化owner保存後だけackする。観測用sidecarの不備で停止した試験は原記録を残し、独立したDB/別起動probeで検証する。APIキーを平文file/ログ/portable stateへ出さず、試験で保存したnative credentialを使用後に除去する。通常候補は修正後CIを通して更新する。
 - 範囲外TOPIX応答のraw価格受領はdebugアクセスとして記録する。最終target/予測/成績の未採点と、raw市場価格のアクセス有無は分ける。モデル/採用条件/最終testの扱いを変更しない。
+
+## D202（2026-10-20）：CI全体の直列実行枠と個別性能条件を分ける
+
+- 既存の容量15分/特徴量12分を与えるには、実測約39分の先行工程へ加算した親枠が必要。45分で2回中断した証拠に基づき、親verify jobだけ60分とする。個別試験の時間・データ規模・判定、アプリ600秒、CPU/RAM/worker数、Android/native history jobの制限を維持する。試験を省略せず、特徴量が実際に通ることは新CIで確認する。
+- モデル・金融計算・端末の計算コードは変更しない。旧verify中断と成功済み証拠を保全し、同一内容の自動再試行を増やさない。通常候補の署名は必要CIの全成功後とし、モデル採用HOLDとXiaomi未確認を別に扱う。

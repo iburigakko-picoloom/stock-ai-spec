@@ -86,9 +86,9 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    # Include the independently bounded 15m capacity + 12m feature probes,
-    # shared regressions, offline reference generation and browser checks.
-    timeout-minutes: 45
+    # Budget the complete serial sequence: observed pre-feature work is ~39m.
+    # Keep the independent 15m capacity/12m feature and app 600s/RAM guards.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,3 +1,10 @@
+## 2026-10-20 — CI全体の時間配分を修正（D202）
+
+- 製品4cde7efのCI39317484153は、同条件の1回再試行を含む両verify jobが全体45分上限で中断した。GitHub注記を確認し、同じ中断の自動再試行は繰り返さない。Python/画面/容量の先行工程とAndroid jobは成功、最初の全量native SQLite/17table・暗号化backup/復元も成功。特徴量試験の完了は未確認で、CI全体を合格扱いにしない。
+- 最初の特徴量開始まで2,333秒、再試行も2,339秒。既存の特徴量試験枠720秒を足すとそれぞれ50分53秒/50分59秒となり、親job45分へ収まらない。親CIの直列実行枠だけ60分へ変更する。容量15分/特徴量12分、Android40分/native history25分、アプリ600秒/CPU/RAM guard、データ規模/試験command/合否条件/並列数は変更しない。
+- 変更はworkflowと集約資料だけ。実730日/23,501特徴量数値/596予測のPC-Android差0と410.769秒、通常保存490.421秒等は製品4cde7efのscopeのまま保全する。モデル/OOF/評価152条件/正式HOLD/最終holdoutを変更せず、fit/実注文/外部AI送信なし。private差分・原ログ・両中断注記は保全し、Gitへ実市場データ/私有weight/秘密を置かない。
+- 新しい必要CIはこのcheckpoint後に実行する。0.1.23はまだ署名前で、新CI成功後に既存署名で作る。0.1.22受入取り下げ、Xiaomi/実データ入り締切後OS日次と日次数分以内の未完を維持する。
+
 ## 2026-10-20 — 実APIで見つけたAndroid TOPIX日付指定を修正（D201）
 
 - 0.1.22の実取得でSOURCE_DATE_CHANGEDに停止。nativeの保存位置からcalendar/master/pricesの3pageが保持され、停止endpointがTOPIXであることを確認した。PCはfrom/toを使う一方、AndroidはTOPIXにもdateを送っていた。[公式TOPIX仕様](https://jpx-jquants.com/en/spec/idx-bars-daily-topix)ではfrom/to省略は全期間要求となる。指定日以外を含む応答は検査が保存前に拒否し、旧正常cacheを維持した。
