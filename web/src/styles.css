@@ -29,6 +29,18 @@ a { color: inherit; text-decoration: none; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 
 .app-shell { width: min(100%, 1120px); min-height: 100vh; margin: 0 auto; background: var(--wash); }
+.app-update { position: sticky; top: 0; z-index: 20; padding: 12px 20px; color: var(--ink); background: var(--blue-soft); border-bottom: 1px solid var(--line); }
+.app-update-bar { display: flex; align-items: center; gap: 12px; }
+.app-update-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.app-update-copy strong { display: block; color: var(--blue); font-size: .85rem; }
+.app-update-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: .7rem; }
+.app-update .app-update-button { flex-shrink: 0; width: auto; min-width: 72px; }
+.app-update-details { margin-top: 12px; font-size: .75rem; }
+.app-update-details summary { display: flex; align-items: center; gap: 8px; min-height: 48px; color: var(--blue); cursor: pointer; }
+.app-update-details summary::before { content: "+"; }
+.app-update-details[open] summary::before { content: "−"; }
+.app-update-details p { max-height: 30vh; margin: 8px 0 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-update-message { margin: 12px 0 0; font-size: .8rem; overflow-wrap: anywhere; }
 .app-brand { display: flex; align-items: center; gap: 9px; padding: 18px 22px; background: white; border-bottom: 1px solid var(--line); }
 .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--blue); color: white; font-weight: 800; }
 .app-brand > strong { display: flex; align-items: center; gap: 12px; font-size: 1.05rem; letter-spacing: .02em; }
@@ -262,7 +274,6 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .status-list dd { min-width: 0; max-width: 60%; margin: 0; color: var(--ink); font-size: 0.76rem; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
 .setting-footnote { display: block; margin-top: 9px; color: var(--muted); }
 .page--settings { padding-top: 24px; }
-.settings-screen { --ink: #17201e; --muted: #777f7c; --blue: #188362; --blue-soft: #e7f4ee; }
 .settings-screen [hidden] { display: none !important; }
 .settings-page-header { margin: 0 2px 24px; }
 .settings-page-header h1 { margin: 0; color: var(--ink); font-size: 2rem; line-height: 1.35; letter-spacing: -.025em; }
@@ -272,7 +283,7 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .settings-menu-section { margin: 0 0 20px; }
 .settings-menu-section > h2 { margin: 0 10px 7px; color: var(--muted); font-size: .8rem; font-weight: 600; letter-spacing: .04em; }
 .settings-menu-list { padding: 0 12px; border-radius: 13px; background: white; }
-.settings-menu-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 12px; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 14px 0; border: 0; border-bottom: 1px solid #eff1f0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.settings-menu-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 12px; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
 .settings-menu-row:last-child { border-bottom: 0; }
 .settings-menu-row:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 5px; }
 .settings-menu-row:disabled { cursor: default; }
@@ -282,20 +293,18 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .settings-menu-copy strong { display: block; font-size: .95rem; font-weight: 650; line-height: 1.35; }
 .settings-menu-copy small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; line-height: 1.5; }
 .settings-menu-value { grid-column: 3; color: var(--ink); font-size: .92rem; font-weight: 600; line-height: 1.4; text-align: right; white-space: nowrap; }
-.settings-menu-badge { padding: 4px 8px; border-radius: 20px; background: #e8f5ee; color: #188362; font-size: .7rem; }
-.settings-menu-chevron { grid-column: 4; width: 12px; height: 20px; stroke: #929996; stroke-width: 1.6; fill: none; }
+.settings-menu-badge { padding: 4px 8px; border-radius: 20px; background: var(--blue-soft); color: var(--blue); font-size: .7rem; }
+.settings-menu-chevron { grid-column: 4; width: 12px; height: 20px; stroke: #9299a6; stroke-width: 1.6; fill: none; }
 .settings-menu-row--switch { grid-template-columns: 26px minmax(0, 1fr) 46px; }
-.settings-switch { position: relative; width: 46px; height: 28px; border-radius: 20px; background: #c2cac6; }
+.settings-switch { position: relative; width: 46px; height: 28px; border-radius: 20px; background: #c2cad6; }
 .settings-switch > span { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: white; }
-.settings-switch--on { background: #188362; }
+.settings-switch--on { background: var(--blue); }
 .settings-switch--on > span { left: 21px; }
 .settings-menu-message { margin: 12px; font-size: .8rem; overflow-wrap: anywhere; }
 .settings-edit-content { overflow-wrap: anywhere; }
 .settings-edit-content > .section, .settings-edit-content > details > .section { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .settings-edit-content > .section:first-child { margin-top: 0; }
 .settings-edit-content > .section + .section { padding-top: 20px; border-top: 1px solid var(--line); }
-.app-shell:has(.settings-screen) .brand-mark { background: #188362; }
-.app-shell:has(.settings-screen) .bottom-nav a.active { color: #188362; background: #e8f5ee; }
 @media (max-width: 359px) {
   .settings-menu-row:not(.settings-menu-row--switch) { grid-template-columns: 26px minmax(0, 1fr) 12px; column-gap: 10px; row-gap: 6px; }
   .settings-menu-row:not(.settings-menu-row--switch) .settings-menu-icon { grid-column: 1; grid-row: 1 / 3; }

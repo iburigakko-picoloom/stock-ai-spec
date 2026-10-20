@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
       CapacitorCustomPlatform: { name: "android" },
       Capacitor: {
         PluginHeaders: [
-          { name: "StockAI", methods: ["compute", "keyStatus", "checkUpdate", "dailyStatus", "saveApiKey", "clearApiKey", "stopDaily", "startDaily", "requestDailyNotifications"].map(name => ({ name, rtype: "promise" })) },
+          { name: "StockAI", methods: ["compute", "keyStatus", "checkUpdate", "installUpdate", "dailyStatus", "saveApiKey", "clearApiKey", "stopDaily", "startDaily", "requestDailyNotifications"].map(name => ({ name, rtype: "promise" })) },
           { name: "StockAIChatGPT", methods: [{ name: "getStatus", rtype: "promise" }] },
         ],
         nativePromise: async (plugin: string, method: string, options?: { method: string; path: string; body?: string }) => {
@@ -20,7 +20,11 @@ test.beforeEach(async ({ page }) => {
             method: options!.method, headers: { "Content-Type": "application/json" }, body: options!.method === "POST" ? options!.body : undefined,
           })).json() };
           if (method === "keyStatus") return { configured: localStorage.getItem("settingsTestKey") !== "missing" };
-          if (method === "checkUpdate") return { available: false };
+          if (method === "checkUpdate") return localStorage.getItem("settingsTestUpdate") === "available" ? {
+            available: true, versionName: "0.1.27-candidate", versionCode: 10027,
+            notes: "試験用の長い変更内容です。".repeat(80), sha256: "a".repeat(64), url: "https://example.invalid/StockAI.apk", size: 123,
+          } : { available: false };
+          if (method === "installUpdate") return { needsPermission: true };
           if (method === "dailyStatus") return dailyStatus;
           if (method === "requestDailyNotifications") return { granted: dailyStatus.notificationsEnabled };
           if (method === "startDaily") return (dailyStatus = { ...dailyStatus, enabled: true, state: "queued" });
@@ -67,6 +71,45 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [320, 390]) for (const font of [100, 150]) {
+  test(`blue settings and compact top update notice at ${width}px / ${font}%`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(() => localStorage.setItem("settingsTestUpdate", "available"));
+    await page.reload();
+    await expect(page.getByRole("region", { name: "アプリの更新" })).toBeVisible();
+    await page.addStyleTag({ content: `html { font-size: ${font}%; }` });
+    const banner = page.getByRole("region", { name: "アプリの更新" });
+    await expect(banner.getByText("新しいバージョンがあります")).toBeVisible();
+    await expect(banner.locator("details p")).not.toBeVisible();
+    const metrics = await page.evaluate(() => {
+      const banner = document.querySelector(".app-update")!;
+      const button = banner.querySelector("button")!.getBoundingClientRect();
+      const summary = banner.querySelector("summary")!.getBoundingClientRect();
+      return { top: banner.getBoundingClientRect().top, height: banner.getBoundingClientRect().height,
+        beforeBrand: !!(banner.compareDocumentPosition(document.querySelector(".app-brand")!) & Node.DOCUMENT_POSITION_FOLLOWING),
+        width: document.documentElement.scrollWidth, buttonHeight: button.height, summaryHeight: summary.height, gap: summary.top - button.bottom,
+        brand: getComputedStyle(document.querySelector(".brand-mark")!).backgroundColor,
+        icon: getComputedStyle(document.querySelector(".settings-menu-icon")!).stroke,
+        toggle: getComputedStyle(document.querySelector(".settings-switch--on")!).backgroundColor,
+      };
+    });
+    expect(metrics.top).toBe(0); expect(metrics.beforeBrand).toBe(true);
+    expect(metrics.height).toBeLessThan(220); expect(metrics.width).toBeLessThanOrEqual(width);
+    expect(metrics.buttonHeight).toBeGreaterThanOrEqual(48); expect(metrics.summaryHeight).toBeGreaterThanOrEqual(48);
+    expect(metrics.gap).toBeGreaterThanOrEqual(12);
+    expect(metrics.brand).toBe("rgb(36, 95, 202)"); expect(metrics.icon).toBe(metrics.brand); expect(metrics.toggle).toBe(metrics.brand);
+    const calls = await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string }[] }).__settingsCalls);
+    expect(calls.some(x => x.method === "installUpdate")).toBe(false);
+    await page.screenshot({ path: info.outputPath(`blue-update-${width}-${font}.png`), fullPage: false });
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(banner).toBeVisible();
+    expect((await banner.boundingBox())!.y).toBe(0);
+    await banner.getByText("変更内容を見る").click();
+    await expect(banner.locator("details p")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await banner.getByRole("button", { name: "更新", exact: true }).click();
+    await expect(banner.getByRole("status")).toContainText("Androidの設定で更新を許可");
+  });
+
   test(`Android settings stay compact and separated at ${width}px / ${font}%`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 844 });
     await page.addStyleTag({ content: `html { font-size: ${font}%; }` });

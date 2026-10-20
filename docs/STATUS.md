@@ -1,3 +1,10 @@
+## 2026-10-20 — 青基調と画面最上部の更新案内を実装（D212）
+
+- 設定のアイコン/保存状態/ON switchを既存の青へ変更し、brand/選択navの緑上書きを除いた。5分類・保存済み値・個別編集・保有/台帳・旧候補を維持する。[合成画面](evidence/blue-update-20261020/settings-blue.png)・[320px/文字150%](evidence/blue-update-20261020/settings-large-text.png)。
+- 更新案内を「新しいバージョンがあります」/実際の版/更新ボタンの上部sticky帯へ整理し、長い変更内容は初期折りたたみにした。本人タップを維持し、native応答待ちの重複取得を防止。許可要求/失敗時も更新完了とは表示せず再試行できる。native側の署名・サイズ・hash・applicationId・増加code検査は不変。
+- 最終差分のWeb108件/14file、lint、TypeScript/本番build、関連画面18件（新しい上部通知4・既存設定8・市場/手動相談/バックアップ各2）が成功。320/390px・文字100/150%、操作48px/間隔12px・scroll中の上部保持・横はみ出しなし・青色一致を確認。[試験記録](evidence/blue-update-20261020/checks.json)。初回buildは追加試験でPlaywright用のexact検索optionをTesting Libraryへ誤用した型エラーで停止し、正規表現へ修正した。失敗ログを保全。
+- 新commitの必須CI・0.1.27署名APK/配信はこれから。0.1.26は公開を保持し、旧CIを今回の合格へ読み替えない。Xiaomi未確認/正式HOLD/holdout未採点・実注文なしを維持。私有原本は`.demo-artifacts/blue-update-20261020/`。
+
 ## 2026-10-20 22:05 JST — 0.1.26をアプリ内更新先へ公開（D211）
 
 - 本人の公開承認「よい」を受け、検証済みの同一APKを[android-v0.1.26](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.26)へ公開し、GitHub latestを0.1.12から更新した。source `18fb6d83f3c6517007979c9ce840ee99d6294717`、code10026/実versionName `0.1.26-candidate`、SHA256=`699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603`。再build・main mergeは行っていない。

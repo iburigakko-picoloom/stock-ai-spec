@@ -13,21 +13,39 @@ import type { LocalPortfolio, SavedPortfolio } from "./personal";
 export function MobileUpdateNotice(): ReactNode {
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const installing = useRef(false);
   useEffect(() => {
-    if (isAndroid()) void StockAI.checkUpdate().then(setRelease).catch(() => {
+    let active = true;
+    if (isAndroid()) void StockAI.checkUpdate().then(value => { if (active) setRelease(value); }).catch(() => {
       // Startup/network failures never stop local use or discard existing state.
     });
+    return () => { active = false; };
   }, []);
   if (!release?.available) return null;
-  return <section className="section" aria-label="アプリの更新">
-    <h2>StockAI {release.versionName} に更新できます</h2>
-    <p style={{ whiteSpace: "pre-wrap" }}>{release.notes}</p>
-    <button className="button" onClick={() => {
-      setMessage("APKを確認しています…");
-      void StockAI.installUpdate({ versionCode: release.versionCode }).then(result =>
-        setMessage(result.needsPermission ? "Androidの設定で更新を許可してから、もう一度更新ボタンを押してください。" : "Androidの確認画面でインストールしてください。"),
-      () => setMessage("更新を取得できませんでした。現在のアプリを引き続き使用できます。"));
-    }}>確認して更新</button><p role="status">{message}</p>
+  const versionCode = release.versionCode;
+  async function install(): Promise<void> {
+    if (installing.current) return;
+    installing.current = true;
+    setBusy(true);
+    setMessage("APKを確認しています…");
+    try {
+      const result = await StockAI.installUpdate({ versionCode });
+      setMessage(result.needsPermission ? "Androidの設定で更新を許可してから、もう一度更新ボタンを押してください。" : "Androidの確認画面でインストールしてください。");
+    } catch {
+      setMessage("更新を取得できませんでした。現在のアプリを引き続き使用できます。");
+    } finally {
+      installing.current = false;
+      setBusy(false);
+    }
+  }
+  return <section className="app-update" aria-label="アプリの更新">
+    <div className="app-update-bar">
+      <div className="app-update-copy"><strong>新しいバージョンがあります</strong><span>{release.versionName}</span></div>
+      <button className="button button--primary app-update-button" disabled={busy} aria-busy={busy} onClick={() => { void install(); }}>{busy ? "確認中…" : "更新"}</button>
+    </div>
+    {release.notes && <details className="app-update-details"><summary>変更内容を見る</summary><p tabIndex={0}>{release.notes}</p></details>}
+    {message && <p className="app-update-message" role="status">{message}</p>}
   </section>;
 }
 
