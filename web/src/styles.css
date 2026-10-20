@@ -261,6 +261,21 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .status-list dt { color: var(--muted); font-size: 0.76rem; }
 .status-list dd { min-width: 0; max-width: 60%; margin: 0; color: var(--ink); font-size: 0.76rem; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
 .setting-footnote { display: block; margin-top: 9px; color: var(--muted); }
+.settings-intro { margin: -4px 2px 20px; color: var(--muted); font-size: .85rem; }
+.settings-groups { display: grid; gap: 12px; }
+.settings-group { min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+.settings-group > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 76px; padding: 16px; cursor: pointer; list-style: none; overflow-wrap: anywhere; }
+.settings-group > summary::-webkit-details-marker { display: none; }
+.settings-group > summary::after { content: "+"; color: var(--muted); font-size: 1.3rem; flex: 0 0 auto; }
+.settings-group[open] > summary::after { content: "−"; }
+.settings-group > summary span { min-width: 0; }
+.settings-group > summary strong, .settings-group > summary small { display: block; }
+.settings-group > summary small { margin-top: 4px; color: var(--muted); font-size: .75rem; }
+.settings-group > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 12px; }
+.settings-group-content { padding: 0 16px 20px; overflow-wrap: anywhere; }
+.settings-group-content > .section, .settings-group-content > details > .section { padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+.settings-group-content > .section:first-child { margin-top: 0; }
+.settings-group-content > .section + .section { padding-top: 20px; border-top: 1px solid var(--line); }
 .device-settings .button + .button { margin-top: 12px; }
 .device-settings .button-stack .button + .button { margin-top: 0; }
 .market-options > summary { min-height: 48px; padding: 12px 0; cursor: pointer; overflow-wrap: anywhere; }

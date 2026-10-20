@@ -45,7 +45,7 @@ export function MobileMarketPanel({ configured, disabled, onBusy }: {
     <h2>市場データ</h2>
     <p>保存済みの最終日：{status?.latest_data_date ?? "未取得"}</p>
     <p>{plan.first_day}〜{plan.last_day}。保存済みの日付を除いて取得し、通信中断後は取得済みページから再開します。APIの速度制限があるため、初回は数時間かかる場合があります。</p>
-    <p>現在は画面を開いて取得します。画面を閉じた後の継続と毎営業日の自動更新は準備中です。</p>
+    <p>手動では画面を開いて取得します。毎営業日の自動更新は「日次更新・通知」で設定できます。</p>
     <div className="button-stack">
       <button className="button button--primary" disabled={disabled || !configured || !loaded || running} onClick={() => void run(plan)}>履歴の取得を開始・再開</button>
       {running && <button className="button button--secondary" onClick={() => { stop.current = true; setMessage("今の日付の保存が終わったら停止します。"); }}>この日付の取得後に停止</button>}

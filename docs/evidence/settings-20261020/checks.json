@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-20",
+  "decision": "D209",
+  "source_base": "ae0c83c4aa68f4ba1ab676ce215fd698bac49a2c",
+  "source_files": [
+    {
+      "path": "web/src/mobile/MobileDevicePanel.tsx",
+      "sha256": "bdf405858cf2c7c39477a1903e97ee9c7ba2dfe1b782ca37a89e9c0823505a96"
+    },
+    {
+      "path": "web/src/mobile/MobileMarketPanel.tsx",
+      "sha256": "5c5793defa78e12ce9f10e2ca4baa1084b0bcb329c0f7566ff826448b757b583"
+    },
+    {
+      "path": "web/src/pages/SettingsPage.tsx",
+      "sha256": "a7a959b87a367fe9a313d94bc5607fe4683c8c362ae467d87676120cca26d55c"
+    },
+    {
+      "path": "web/src/styles.css",
+      "sha256": "b8d99984dcbe8e0b3d55040da893ecefb1faadb516c748e587e0ffbb40d4c2d9"
+    },
+    {
+      "path": "web/mobile-tests/settings-layout.spec.ts",
+      "sha256": "3b0209b7c9fe22525e9a667a04f2b90bdc22a5e9bad4eaf425cf6ef34eb74fff"
+    }
+  ],
+  "unit": {
+    "files": 13,
+    "failed": 0,
+    "passed": 100
+  },
+  "layout": {
+    "new_settings": 5,
+    "horizontal_overflow": false,
+    "pending_save_retained": true,
+    "save_calls": 1,
+    "existing_related": 6,
+    "widths": [
+      320,
+      390
+    ],
+    "passed": 11,
+    "minimum_button_height_px": 48,
+    "failed": 0,
+    "font_percent": [
+      100,
+      150
+    ],
+    "minimum_button_gap_px": 12,
+    "unsaved_input_preserved": true
+  },
+  "static_checks": {
+    "production_build": "passed",
+    "typescript": "passed via npm run build",
+    "lint": "passed"
+  },
+  "rendering": "Actual Android route with synthetic native bridge; Edge browser; not an emulator or Xiaomi test",
+  "screenshot": {
+    "path": "settings-overview.png",
+    "sha256": "e90d3b489bdda34c5a647a58793d66fa1872d366467a3c2182d41c7d5220c819"
+  },
+  "failures_preserved": [
+    "Initial sandbox Vitest: EPERM temp rename; no tests ran",
+    "First unsandboxed run: 99 pass, one manual-acquisition text assertion failed; accurate manual-acquisition wording retained; test unchanged",
+    "Initial sandbox browser run: interrupted during startup; not counted"
+  ],
+  "exclusions": [
+    "No new APK produced",
+    "No Xiaomi acceptance",
+    "No model or forecast calculations changed",
+    "No private data, credential or model bundled",
+    "No real order or external AI request"
+  ]
+}

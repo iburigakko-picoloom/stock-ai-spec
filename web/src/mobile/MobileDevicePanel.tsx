@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { MobileBackupPanel } from "./MobileBackupPanel";
@@ -32,43 +33,44 @@ export function MobileUpdateNotice(): ReactNode {
 
 const blank: LocalPortfolio = { schema_version: "manual-portfolio-v1", holdings_status: "unrecorded", investment_budget_yen: null, maximum_drawdown_percent: null, accounts: [], holdings: [] };
 
+function SettingsGroup({ title, description, children }: { title: string; description: string; children: ReactNode }): ReactNode {
+  return <details className="settings-group">
+    <summary><span><strong>{title}</strong><small>{description}</small></span></summary>
+    <div className="settings-group-content">{children}</div>
+  </details>;
+}
+
 export function MobileDevicePanel(): ReactNode {
   const [configured, setConfigured] = useState(false);
   const [key, setKey] = useState("");
   const [portfolio, setPortfolio] = useState<LocalPortfolio>(blank);
   const [savedPortfolio, setSavedPortfolio] = useState<SavedPortfolio | null>(null);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
+  const [messageGroup, setMessageGroup] = useState("account");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!isAndroid()) return;
-    void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setMessage("APIキーの保存状態を確認できません。再起動してください。"));
+    void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setLoadError(value => `${value}APIキーの保存状態を確認できません。再起動してください。`));
     void apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio").then(value => {
       if (value) setPortfolio(value.portfolio);
       setSavedPortfolio(value);
       setPortfolioLoaded(true);
-    }).catch(() => setMessage("保存済みの口座入力を確認できません。再起動してから編集してください。"));
+    }).catch(() => setLoadError(value => `${value}保存済みの口座入力を確認できません。再起動してから編集してください。`));
   }, []);
   if (!isAndroid()) return null;
-  async function action(task: () => Promise<unknown>, success: string): Promise<void> {
-    setBusy(true); setMessage("");
+  async function action(task: () => Promise<unknown>, success: string, group = "account"): Promise<void> {
+    setBusy(true); setMessage(""); setMessageGroup(group);
     try { await task(); setMessage(success); }
     catch (error) { setMessage(error instanceof Error ? error.message : "処理を完了できませんでした。入力・通信・保存状態を確認してください。"); }
     finally { setBusy(false); }
   }
   return <div className="device-settings">
-    <DailyPanel />
-    <ChatGPTPanel />
-    <section className="section">
-      <h2>端末内の研究環境</h2>
-      <p>保有・設定はこの端末に保存します。モデルの最終採用と推論の一致確認が完了するまで研究用表示を続けます。</p>
-      <p><a href="/python/licenses.html" target="_blank" rel="noreferrer">オープンソースの表示・ソース取得先</a></p>
-      <label>J-Quants APIキー（{configured ? "設定済み" : "未設定"}）<input type="password" value={key} autoComplete="off" onChange={event => setKey(event.target.value)} /></label>
-      <button className="button" disabled={busy || !key} onClick={() => void action(async () => {
-        await StockAI.saveApiKey({ apiKey: key }); setKey(""); setConfigured(true);
-      }, "APIキーを端末に暗号化保存しました。")}>APIキーを保存</button>
-      <button className="button button--secondary" disabled={busy || !configured} onClick={() => void action(async () => { await StockAI.clearApiKey(); setConfigured(false); }, "APIキーを削除しました。")}>APIキーを削除</button>
-    </section>
+    <p className="settings-intro">変更する項目を開いてください。</p>
+    {loadError && <p role="alert">{loadError}</p>}
+    <div className="settings-groups">
+    <SettingsGroup title="口座・保有" description="現金・保有株・投資上限">
     <section className="section">
       <h2>この端末の口座・保有</h2>
       <label><input type="checkbox" checked={portfolio.holdings_status === "none"} onChange={event => setPortfolio({ ...portfolio, holdings_status: event.target.checked ? "none" : "unrecorded", holdings: [] })} />現在は保有なし</label>
@@ -106,10 +108,48 @@ export function MobileDevicePanel(): ReactNode {
         setSavedPortfolio(value); setPortfolio(value?.portfolio ?? blank); setPortfolioLoaded(true);
       }, "保存済みの口座・保有を読み直しました。")}>保存済みの口座・保有を読み直す</button>
     </section>
-    <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
+    {messageGroup === "account" && message && <p role="status">{message}</p>}
+    <details className="settings-disclosure"><summary>税金・費用・初回台帳</summary>
+      <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
+    </details>
+    </SettingsGroup>
+    <SettingsGroup title="市場データ" description="APIキー・取得範囲・予測対象">
+    <section className="section">
+      <h2>J-Quants APIキー</h2>
+      <p>{configured ? "設定済み（値は表示しません）" : "未設定"}</p>
+      <label>J-Quants APIキー<input type="password" value={key} autoComplete="off" onChange={event => setKey(event.target.value)} /></label>
+      <div className="button-stack">
+        <button className="button" disabled={busy || !key} onClick={() => void action(async () => {
+          await StockAI.saveApiKey({ apiKey: key }); setKey(""); setConfigured(true);
+        }, "APIキーを端末に暗号化保存しました。", "data")}>APIキーを保存</button>
+        <button className="button button--secondary" disabled={busy || !configured} onClick={() => void action(async () => { await StockAI.clearApiKey(); setConfigured(false); }, "APIキーを削除しました。", "data")}>APIキーを削除</button>
+      </div>
+      {messageGroup === "data" && message && <p role="status">{message}</p>}
+    </section>
     <MobileMarketPanel configured={configured} disabled={busy} onBusy={setBusy} />
+    </SettingsGroup>
+    <SettingsGroup title="予測モデル" description="モデル取込・5日／20日の計算">
     <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} onBusy={setBusy} />
+    </SettingsGroup>
+    <SettingsGroup title="日次更新・通知" description="自動更新の開始・停止・再開">
+    <DailyPanel />
+    </SettingsGroup>
+    <SettingsGroup title="ChatGPT" description="銘柄の相談・連携設定">
+      <div className="button-stack"><Link className="button button--secondary" to="/today/chatgpt">手動でChatGPTに相談</Link></div>
+      <details className="settings-disclosure"><summary>アカウント連携の設定</summary><ChatGPTPanel /></details>
+    </SettingsGroup>
+    <SettingsGroup title="バックアップ・復元" description="保有・設定・履歴を守る">
     <MobileBackupPanel disabled={busy} onBusy={setBusy} />
-    <p role="status">{busy ? "端末内で処理しています…" : message}</p>
+    </SettingsGroup>
+    <SettingsGroup title="アプリ情報・詳細" description="保存済みの設定値・ライセンス">
+      <p>保有・設定はこの端末に保存します。モデルの最終採用と推論の一致確認が完了するまで研究用表示を続けます。</p>
+      <nav className="settings-list" aria-label="保存済み設定の詳細">
+        {[["capital", "資金"], ["broker", "証券会社"], ["accounts", "口座・税金"], ["trading", "取引コスト・制約"], ["decision", "AI判断"], ["model", "モデル"], ["data", "データ・運用状態"]].map(([id, title]) =>
+          <Link className="settings-row" to={`/settings/${id}`} key={id}><strong>{title}</strong><b aria-hidden="true">→</b></Link>)}
+      </nav>
+      <p><a href="/python/licenses.html" target="_blank" rel="noreferrer">オープンソースの表示・ソース取得先</a></p>
+    </SettingsGroup>
+    </div>
+    {busy && <p role="status">端末内で処理しています…</p>}
   </div>;
 }

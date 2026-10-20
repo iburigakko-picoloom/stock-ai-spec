@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { PageHeader, StatePanel, TabBar, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import { MobileDevicePanel } from "../mobile/MobileDevicePanel";
+import { isAndroid } from "../mobile/native";
 
 interface AccountSetting {
   bucketId: string;
@@ -87,11 +88,14 @@ export function SettingsPage(): ReactNode {
   }
 
   const currentSection = sections.find((item) => item.id === section);
+  if (!section && isAndroid()) return <div className="page">
+    <PageHeader title="設定" />
+    <MobileDevicePanel />
+  </div>;
   return (
     <div className="page">
       {section && <Link className="back-link" to="/settings">← 設定一覧へ</Link>}
       <PageHeader title={currentSection?.title || "設定"} />
-      {!section && <MobileDevicePanel />}
       {!section && <TabBar label="設定の分類" options={[["account", "口座・資金"], ["ai", "AI・データ"], ["device", "通知"]]} value={category} onChange={setCategory} panelId="settings-panel" />}
       <div {...(!section ? { id: "settings-panel", role: "tabpanel", "aria-labelledby": `settings-panel-${category}` } : {})}>
       {!section && category !== "device" && <section className="settings-list">

@@ -1,3 +1,11 @@
+## 2026-10-20 — Android設定の情報量を削減（D209）
+
+- 設定の全フォーム常時表示を7項目の一覧へ整理。税・費用・初回台帳、アカウント連携、参照用詳細は必要時に開く。Web用タブの重複表示をAndroidで除き、既存の設定値参照routeは維持する。[表示例（合成画面）](evidence/settings-20261020/settings-overview.png)。
+- 画面の開閉でcomponentを破棄せず、下書き・処理状態・復元確認を保持。APIキー・口座の読込失敗は一覧に表示する。手動取得の説明から、既に実装済みの日次更新が「準備中」と読める記述も修正した。
+- 最終差分でローカルWeb100件、lint、TypeScript/本番build、合成Android画面11件（新設定5・既存市場/手動ChatGPT/バックアップ各2）が成功。320/390px・文字100/150%、操作高48px以上・ボタン間隔12px以上、横はみ出しなし、入力保持、保存中開閉・1回だけの保存呼出を確認。[試験記録](evidence/settings-20261020/checks.json)。原本ログは非公開`.demo-artifacts/settings-20261020/`へ保全する。
+- 最初のsandbox試験は一時file renameのEPERMにより13suiteとも試験開始前に停止。専用一時領域で再実行し、手動取得文言の旧文字列に関する1件の失敗は正確な説明を保って修正した。失敗ログを成功へ読み替えない。
+- 製品変更はWeb設定画面・CSSだけ。既存モデル/評価/原DB/0.1.23・0.1.25候補とXiaomi試験は保持。今回のAndroid CI・新候補APK・Xiaomi画面確認は別途であり、791dfa5の合格を本変更の全体CIへ流用しない。実注文・AI送信・main merge・公開配布なし。
+
 ## 2026-10-20 — TOPIX500：現commit検証・0.1.25候補まで完了（D208）
 
 - 製品791dfa5の同時刻リスト訂正を修正し、現commitの必要CI39387328864はverify/android/android-history全成功。Python1256合格呼出（重複あり）/Linux上のWindows専用1skip、Web100/画面36、native89/JVM15。tested merge1c46bb6とGit tree一致。[現CI](evidence/topix500-20261020/ci-current.json)。
