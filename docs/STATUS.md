@@ -1,8 +1,11 @@
-## 2026-10-20 — 完成前の変更経路検証を継続（D208）
+## 2026-10-20 — TOPIX500：現commit検証・0.1.25候補まで完了（D208）
 
-- 同じ締切の銘柄リストを8回訂正する合成再現で、4回のprevious_list_hashが直前版を飛ばす不具合を確認。hash降順を記録順へ変更し、旧版・元受領・hashを変更しない。再表示/再open/古い締切の参照/SQLite backup復元を含む関連14件、最終追加後のリスト5件とRuffが成功。原本はsame-cutoff-list-002、revision-pytest-001〜003。
-- 特徴量/モデル/cache算術は不変。製品a9e3bfaの実730日/978予測一致・保存復元・旧必要CI/0.1.24候補を保全し、変更後全体CI・Android変更経路・次候補を進める。0.1.24の新方式受入は修正候補待ち、旧300既定と0.1.23の受入は維持する。
-- 新実営業日、実際の月次/訂正/保有追加とXiaomiの未確認を残し、合成fixtureの時刻を実受領の実績へ読み替えない。モデルHOLD/152条件/holdout未採点を維持する。
+- 製品791dfa5の同時刻リスト訂正を修正し、現commitの必要CI39387328864はverify/android/android-history全成功。Python1256合格呼出（重複あり）/Linux上のWindows専用1skip、Web100/画面36、native89/JVM15。tested merge1c46bb6とGit tree一致。[現CI](evidence/topix500-20261020/ci-current.json)。
+- 実730日/493対象/既存研究2回帰の通常Android予測→暗号化保存121.241秒、起動owner読込89.088秒は別。同日GET0.708秒、同じ保存AVD/Keystoreの別VM冷間起動102.602秒。全978予測/特徴量/出所/共通統計/上位20はPCと完全一致、再起動後20mobile/27operations tableも一致。成功区間のsampled app+renderer最大1,996,398,592bytes。元in-place再起動の5400MiB host guard停止は失敗のまま保存し、上限を緩めず同じ保存内容を別VM起動で確認した。
+- 私有観測版の実入力53.977秒/詳細特徴量16.323秒/推論0.612+0.181秒。SQLite55,306返却行/27,410,461bytes、長期価格/master frame展開0。通常APKとは別で、同日cache再利用を実新営業日の性能へ読み替えない。現在の初回全量は再測定せず、計算50file/実リスト/cache版不変の範囲だけD207初回562.541秒/B1証拠を再利用する。
+- 追加日/月次/構成入替/全保有追加/同締切8訂正/価格訂正/分割/中断rollback/再開/再起動の合成11経路、56予測と全入力・版・cacheがPCと一致。実前日再生は当時未受領の履歴に対する`next session is not authenticated`で停止。受領時刻を遡らせず、実際の次営業日・イベント・Xiaomiを残す。
+- 既存署名の非公開0.1.25-candidate/code10025を現source/成功CI43資産から作成、SHA256=774777113438c16aec4c66aca05b8e102d743107603af328d191a3eaac2c8e3c、23,976,593bytes。私有モデル/市場/認証/診断codeは非同梱。既存認証済み研究bundle（5日CatBoost/20日LightGBM）を本人取込用に別保存し、再fitなし。旧候補/PR #2/191行差分/原DBを保持する。
+- [完成状況と残件](evidence/topix500-20261020/d208-completion.md)・[結果JSON](evidence/topix500-20261020/d208-completion.json)・[候補/モデル記録](evidence/topix500-20261020/candidate-current.json)・[Xiaomi一括票](evidence/topix500-20261020/xiaomi-acceptance.md)。旧300が既定、正式HOLD/152条件/holdout未採点は不変。実注文・外部AI送信・公開配布なし。本人実機、真正な新営業日と起動込み3分は未確認。
 
 ## 2026-10-20 — TOPIX500事前選定：D207の通常Android保存・再利用を確認
 
