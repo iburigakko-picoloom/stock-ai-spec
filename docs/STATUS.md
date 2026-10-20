@@ -1,3 +1,12 @@
+## 2026-10-21 — モデル選定と最終推論の対象漏れを修正（D213）
+
+- 開始c70ab9b/PR #3を保全し、[完成範囲/基準案/実際の経路と残件](FINISHING_PLAN.md)を冒頭へ固定。元PR #2のtracked差分hash、SQLite、0.1.23APKは不変。18構成/72タスクと152結果を再照合し、私有台帳・24種類/役割の既存比較・当日付ScaleCatと全18OOFの対応を保存した。元152件56完走/96不完全、旧不足30キーの内訳も一致。市場の再取得や全面評価の再実行なし。
+- 新たに、元OOF由来の対象集合が将来の出口ラベルを持つ行に限定される問題を実データで特定。TOPIX500の不足キーは5日17/20日82、95は出口価格なし、4は元dataset行なし。現在493銘柄や後日のモデルで補完しない。既知の旧OOF対象を新規NAVへ通す入口を`LABEL_CONDITIONED_UNIVERSE`で停止。元56結果を当時の対象集合の運用成績へ昇格しない。
+- 日次回帰の選定を3seed平均MSEへ変更し固定代表17を維持。MAE/RMSE/bias/zero_returnとの同一行誤差を追加。最終予測器も未来ラベルで予測銘柄を落とさず、v2 reportへ予測/採点/欠損件数と理由を保存。labelなしの指標はnull、rank ensembleは全予測を順位化してから採点する。単回ledger/再開/旧v1読取と採用不可literalを維持し、実holdoutは開いていない。
+- 関連92件/55.50秒、Ruff全体、mypy75source通常/win32成功。合成の最終推論・保存/再読込・欠損処理であり、実最終評価ではない。新CIの成功はまだ主張しない。現行0.1.27 APKの492 entryとruntime一致/私有非混入を再検査した。今回のPC研究コードはAPKに入らず、追加配布しない。
+- 採用はHOLD。基準案は本人確認待ち。独立した当時の対象と不足OOF、権利/価格評価、候補/戦略固定、専用最終NAVと予測reportの結合、本人審査/配備証拠、選定したoptional head/ensembleのbundle接続は内部残件。Xiaomi/真正な翌営業日は別工程であり、それだけを停止理由としない。既存研究bundle2weightを再認証し、追加fit/owner_manual記録/実注文/main mergeなし。
+- 追加でML/export/registry61件16.59秒、既存workflow9件4.86秒も成功（関連92件と異なる計162件）。sandbox内の既存ASGI応答待ちは中断を保存し、同じ試験を制約外で完走して切り分けた。Starlette/httpxの既存非推奨警告1件は保留。[今回の検証記録](evidence/model-completion-20261020/checks.json)。
+
 ## 2026-10-20 — 青基調と短い上部通知を0.1.27へ配信完了（D212）
 
 - 製品source `3209604c84fb84fb82827a63a7163a3626d85c5e` の[必須CI39431174408](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39431174408)はverify/android/android-history全成功（release skip）。tested merge `878ffa24fd7bec05ad60517849d8b9af9c3293f0`とGit tree一致。ローカルWeb108/画面18・lint/TypeScript/build、現CIのnative89件/失敗error skip0を確認。[CI記録](evidence/blue-update-20261020/ci-result.json)。合成CI/画面をXiaomi成功へ読み替えない。

@@ -9,6 +9,7 @@ import os
 import shutil
 import sys
 import tempfile
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -49,7 +50,7 @@ from stock_ai.ml.selection import (
 from stock_ai.ml.validation import reserve_locked_final_holdout
 
 _LEDGER_SCHEMA = "locked-holdout-ledger-v1"
-_REPORT_SCHEMA = "locked-holdout-report-v1"
+_REPORT_SCHEMA = "locked-holdout-report-v2"
 
 
 class HoldoutComponentStatus(StrEnum):
@@ -127,11 +128,13 @@ class HoldoutComponentResult(BaseModel):
 
     component_key: str = Field(min_length=1)
     component: FrozenModelComponent
-    metrics: AdvancedModelMetrics
+    metrics: AdvancedModelMetrics | None
     prediction_sha256: str = Field(min_length=64, max_length=64)
 
     @model_validator(mode="after")
     def coherent_result(self) -> Self:
+        if self.metrics is None:
+            return self
         if self.component.horizon != self.metrics.horizon:
             raise ValueError("holdout component result horizon mismatch")
         if (
@@ -150,16 +153,16 @@ class HoldoutEnsembleResult(BaseModel):
     adopted_on_development: bool
     component_names: tuple[str, ...]
     weights: tuple[float, ...]
-    rows: int = Field(ge=1)
-    dates: int = Field(ge=1)
-    mean_squared_error_rank_space: float = Field(ge=0)
+    rows: int = Field(ge=0)
+    dates: int = Field(ge=0)
+    mean_squared_error_rank_space: float | None = Field(ge=0)
     mean_daily_rank_ic: float | None
     rank_icir: float | None
     ndcg_at_5: float | None = Field(default=None, ge=0, le=1)
     ndcg_at_10: float | None = Field(default=None, ge=0, le=1)
     ndcg_at_20: float | None = Field(default=None, ge=0, le=1)
-    empirical_coverage_80: float = Field(ge=0, le=1)
-    empirical_coverage_90: float = Field(ge=0, le=1)
+    empirical_coverage_80: float | None = Field(ge=0, le=1)
+    empirical_coverage_90: float | None = Field(ge=0, le=1)
     disagreement_error_correlation: float | None
 
     @model_validator(mode="after")
@@ -170,6 +173,46 @@ class HoldoutEnsembleResult(BaseModel):
             sum(self.weights), 1.0, abs_tol=1e-7
         ):
             raise ValueError("holdout ensemble weights must be a non-negative simplex")
+        observed = (
+            self.mean_squared_error_rank_space,
+            self.empirical_coverage_80,
+            self.empirical_coverage_90,
+        )
+        all_metrics = (
+            *observed, self.mean_daily_rank_ic, self.rank_icir,
+            self.ndcg_at_5, self.ndcg_at_10, self.ndcg_at_20, self.disagreement_error_correlation,
+        )
+        if (self.rows == 0 and (self.dates != 0 or any(x is not None for x in all_metrics))) or (
+            self.rows > 0 and (not 0 < self.dates <= self.rows or any(x is None for x in observed))
+        ):
+            raise ValueError("holdout ensemble needs null metrics when no labels are evaluable")
+        return self
+
+
+class HoldoutLabelCoverage(BaseModel):
+    """Prediction membership is determined before inspecting future labels."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    horizon: int
+    prediction_rows: int = Field(ge=1)
+    evaluated_rows: int = Field(ge=0)
+    unavailable_rows: int = Field(ge=0)
+    prediction_rule: Literal["all_feature_rows_before_label_filter"] = (
+        "all_feature_rows_before_label_filter"
+    )
+    unavailable_status_counts: tuple[tuple[str, int], ...]
+
+    @model_validator(mode="after")
+    def coherent_counts(self) -> Self:
+        if (
+            self.evaluated_rows + self.unavailable_rows != self.prediction_rows
+            or sum(count for _, count in self.unavailable_status_counts) != self.unavailable_rows
+            or any(not status or count <= 0 for status, count in self.unavailable_status_counts)
+            or len({status for status, _ in self.unavailable_status_counts})
+            != len(self.unavailable_status_counts)
+        ):
+            raise ValueError("holdout prediction/label coverage counts differ")
         return self
 
 
@@ -178,7 +221,9 @@ class LockedHoldoutReport(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
 
-    schema_version: Literal["locked-holdout-report-v1"] = "locked-holdout-report-v1"
+    schema_version: Literal["locked-holdout-report-v1", "locked-holdout-report-v2"] = (
+        "locked-holdout-report-v1"
+    )
     report_id: str = Field(min_length=64, max_length=64)
     created_at: datetime
     selection_id: str = Field(min_length=64, max_length=64)
@@ -192,6 +237,7 @@ class LockedHoldoutReport(BaseModel):
     feature_definition_hashes: Mapping[str, str]
     component_results: tuple[HoldoutComponentResult, ...]
     ensemble_results: tuple[HoldoutEnsembleResult, ...]
+    label_coverage: tuple[HoldoutLabelCoverage, ...] | None = None
     selection_was_frozen_before_access: Literal[True] = True
     model_choices_changed_after_access: Literal[False] = False
     adoption_eligible: Literal[False] = False
@@ -222,6 +268,24 @@ class LockedHoldoutReport(BaseModel):
             raise ValueError("holdout report requires ordered 5d/20d or 1d/5d/20d results")
         if not self.component_results or not self.adoption_blocking_reasons:
             raise ValueError("holdout report cannot claim live adoption")
+        if self.schema_version == "locked-holdout-report-v2":
+            if self.label_coverage is None or tuple(x.horizon for x in self.label_coverage) != (
+                tuple(x.horizon for x in self.ensemble_results)
+            ):
+                raise ValueError("v2 holdout report requires prediction/label coverage")
+            coverage = {x.horizon: x for x in self.label_coverage}
+            for item in self.component_results:
+                expected = coverage[item.component.horizon].evaluated_rows
+                if (item.metrics is None) != (expected == 0) or (
+                    item.metrics is not None and item.metrics.rows != expected
+                ):
+                    raise ValueError("holdout component metrics differ from label coverage")
+            if any(x.rows != coverage[x.horizon].evaluated_rows for x in self.ensemble_results):
+                raise ValueError("holdout ensemble metrics differ from label coverage")
+        elif self.label_coverage is not None or any(
+            x.metrics is None for x in self.component_results
+        ):
+            raise ValueError("legacy holdout reports require their original labelled cohort")
         if not self.feature_definition_hashes or any(
             not name or not value for name, value in self.feature_definition_hashes.items()
         ):
@@ -706,7 +770,9 @@ def _holdout_frames(
         training = dataset.loc[
             usable & (date_values < boundary) & (pd.to_datetime(dataset[endpoint]) < boundary)
         ].copy()
-        holdout = dataset.loc[usable & (date_values >= boundary)].copy()
+        # Future exit availability must never decide which symbols get a
+        # prediction. Metrics below use a separate, explicitly counted mask.
+        holdout = dataset.loc[date_values >= boundary].copy()
         training = training.sort_values(["trading_date", "symbol"], kind="stable").reset_index(
             drop=True
         )
@@ -717,6 +783,22 @@ def _holdout_frames(
             raise ValueError(f"locked holdout {horizon}d training or evaluation frame is empty")
         output[horizon] = (training, holdout)
     return MappingProxyType(output)
+
+
+def _evaluable_labels(frame: pd.DataFrame, horizon: int) -> pd.Series:
+    target = frame[f"target_return_{horizon}d"].to_numpy(dtype=float)
+    return frame[f"label_status_{horizon}d"].eq("AVAILABLE") & np.isfinite(target)
+
+
+def _label_coverage(frame: pd.DataFrame, horizon: int) -> HoldoutLabelCoverage:
+    usable = _evaluable_labels(frame, horizon)
+    statuses = frame.loc[~usable, f"label_status_{horizon}d"].fillna("UNKNOWN").astype(str)
+    statuses = statuses.replace("AVAILABLE", "AVAILABLE_WITHOUT_FINITE_TARGET")
+    return HoldoutLabelCoverage(
+        horizon=horizon, prediction_rows=len(frame), evaluated_rows=int(usable.sum()),
+        unavailable_rows=int((~usable).sum()),
+        unavailable_status_counts=tuple(sorted(Counter(statuses).items())),
+    )
 
 
 def _publish_prediction(
@@ -814,11 +896,12 @@ def _build_holdout_report(
         metric_frame["task"] = plan.component.task
         metric_frame["seed"] = plan.component.seed
         metric_frame["fold"] = 0
+        labelled = metric_frame.loc[_evaluable_labels(holdout, plan.component.horizon)]
         metrics = summarize_oof_predictions(
-            metric_frame,
+            labelled,
             quantile_alpha=plan.component.source_config.quantile_alpha,
             large_loss_threshold=plan.component.source_config.large_loss_threshold,
-        )
+        ) if not labelled.empty else None
         assert state.parquet_sha256 is not None
         component_results.append(
             HoldoutComponentResult(
@@ -855,6 +938,9 @@ def _build_holdout_report(
         "feature_definition_hashes": _expected_feature_definition_hashes(selection),
         "component_results": tuple(component_results),
         "ensemble_results": ensemble_results,
+        "label_coverage": tuple(
+            _label_coverage(frame[1], horizon) for horizon, frame in holdout_frames.items()
+        ),
         "selection_was_frozen_before_access": True,
         "model_choices_changed_after_access": False,
         "adoption_eligible": False,
@@ -862,6 +948,7 @@ def _build_holdout_report(
             "historical provider revision vintages remain incomplete",
             "live out-of-sample evidence and explicit approval remain required",
             "holdout result cannot be used for further tuning or reselection",
+            "prediction metrics do not authenticate a final fixed-strategy NAV evaluation",
         ),
     }
     provisional = LockedHoldoutReport.model_construct(**cast(Any, values))
@@ -937,6 +1024,22 @@ def _evaluate_holdout_ensemble(
     matrix = np.column_stack(matrix_columns)
     weights = np.asarray(horizon.ensemble.weights, dtype=float)
     ensemble_prediction = matrix @ weights
+    # Rank the full prediction population first. Removing unavailable targets
+    # before ranking would leak future label availability into ensemble scores.
+    usable = _evaluable_labels(holdout, horizon.horizon).to_numpy(dtype=bool)
+    if not usable.any():
+        return HoldoutEnsembleResult(
+            horizon=horizon.horizon, adopted_on_development=horizon.ensemble_adopted,
+            component_names=horizon.ensemble.component_names, weights=horizon.ensemble.weights,
+            rows=0, dates=0, mean_squared_error_rank_space=None,
+            mean_daily_rank_ic=None, rank_icir=None,
+            empirical_coverage_80=None, empirical_coverage_90=None,
+            disagreement_error_correlation=None,
+        )
+    dates = dates.loc[usable].reset_index(drop=True)
+    target = target.loc[usable].reset_index(drop=True)
+    ensemble_prediction = ensemble_prediction[usable]
+    matrix = matrix[usable]
     metrics = evaluate_cross_sectional_predictions(
         dates=dates,
         target=target,
@@ -1056,7 +1159,10 @@ def _ledger_identity(ledger: LockedHoldoutLedger) -> dict[str, object]:
 
 
 def _report_identity(report: LockedHoldoutReport) -> dict[str, object]:
-    return report.model_dump(mode="json", exclude={"report_id", "created_at"})
+    excluded = {"report_id", "created_at"}
+    if report.schema_version == "locked-holdout-report-v1":
+        excluded.add("label_coverage")
+    return report.model_dump(mode="json", exclude=excluded)
 
 
 def _frame_hash(frame: pd.DataFrame) -> str:

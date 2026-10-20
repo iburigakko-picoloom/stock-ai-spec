@@ -1345,7 +1345,9 @@ def _report_fixture(
     return LockedHoldoutReport.model_validate(values)
 
 
-def _production_fixture(tmp_path: Path) -> tuple[Path, str, str]:
+def _production_fixture(
+    tmp_path: Path, *, missing_exit_labels: bool = False, all_exit_labels: bool = False
+) -> tuple[Path, str, str]:
     dates = pd.date_range("2025-01-06", periods=50, freq="B")
     rows: list[dict[str, object]] = []
     feature_names = V0_MANIFEST.feature_names
@@ -1377,6 +1379,10 @@ def _production_fixture(tmp_path: Path) -> tuple[Path, str, str]:
                 row[f"label_status_topix_excess_{horizon}d"] = "AVAILABLE"
                 row[f"label_status_sector_excess_{horizon}d"] = "AVAILABLE"
                 row[f"label_status_beta_residual_{horizon}d"] = "AVAILABLE"
+            if missing_exit_labels and date_index >= 40 and (symbol == "C" or all_exit_labels):
+                for horizon in (5, 20):
+                    row[f"target_return_{horizon}d"] = float("nan")
+                    row[f"label_status_{horizon}d"] = "DELISTED_NO_EXIT_PRICE"
             rows.append(row)
     dataset = pd.DataFrame(rows)
     source_as_of = datetime(2025, 4, 1, tzinfo=UTC)

@@ -2581,6 +2581,16 @@ def _holdout_component_audit_row(
     result: HoldoutComponentResult,
 ) -> dict[str, int | float | str]:
     metrics = result.metrics
+    if metrics is None:
+        return {
+            "component_key": result.component_key,
+            "horizon": result.component.horizon,
+            "model_family": result.component.model_family,
+            "task": result.component.task,
+            "seed": result.component.seed,
+            "rows": 0,
+            "status": "NO_EVALUABLE_LABELS",
+        }
     row: dict[str, int | float | str] = {
         "component_key": result.component_key,
         "horizon": metrics.horizon,

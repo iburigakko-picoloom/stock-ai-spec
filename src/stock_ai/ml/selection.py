@@ -1103,6 +1103,8 @@ def _seed_stable_component(
         metric_name = "pinball_loss"
     elif task == "large_loss":
         metric_name = "brier_score"
+    elif task == "regression":
+        metric_name = "mean_squared_error"
     else:
         metric_name = "daily_rank_ic"
     groups: dict[tuple[ModelFamily, ModelTask], dict[int, float]] = {}
@@ -1117,6 +1119,7 @@ def _seed_stable_component(
             cast(Mapping[str, float], rank_ics).get(name) if task is None
             else item.pinball_loss if task == "quantile"
             else item.brier_score if task == "large_loss"
+            else item.mean_squared_error if task == "regression"
             else item.mean_daily_rank_ic
         )
         if value is None or not math.isfinite(value):
@@ -1129,7 +1132,7 @@ def _seed_stable_component(
         key: math.fsum(group[seed] for seed in sorted(seeds)) / len(seeds)
         for key, group in groups.items()
     }
-    minimize_metric = task in {"quantile", "large_loss"}
+    minimize_metric = task in {"regression", "quantile", "large_loss"}
     family, head = min(
         means, key=lambda key: (means[key] if minimize_metric else -means[key], *key)
     )
@@ -1137,7 +1140,10 @@ def _seed_stable_component(
         metrics,
         component_name=_component_name(family, head, min(seeds)),
         reports=reports,
-        metric_name=f"family_seed_mean_{metric_name}__fixed_min_seed_v1",
+        metric_name=(
+            f"family_seed_mean_{metric_name}__fixed_min_seed_"
+            f"{'v2' if task == 'regression' else 'v1'}"
+        ),
         metric_value=means[(family, head)],
     )
 
