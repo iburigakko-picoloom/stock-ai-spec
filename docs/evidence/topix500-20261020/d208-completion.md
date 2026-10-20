@@ -55,6 +55,8 @@ SQLite返却は55,306行/27,410,461bytesでPCと同じ。価格/masterの長期r
 
 その追加後、20日11:30の全入力frame・全特徴量・978予測・source IDが凍結PC参照と完全一致。別processの再照合29.857秒/peak672,342,016bytes、長期価格/masterのraw展開0。通常の同日generateは24.062秒で、同じ予測payload/scope/receipt/snapshotを返した。私有試験でpredictを拒否hookへ置き換えても呼ばれず、不要なモデル再推論がないことを確認した。選択履歴/操作metadata以外の既存tableは不変。[実受領とPIT/再利用の証拠](live-delta.json)。
 
+追加後の731日状態を、通常のnative向けStateExportでPC上から944分割/247,235,240文字へ書出し、既存上限268,435,456文字内を確認した。復元後の20mobile/27operationsの全47tableも型付きで完全一致し、元のstateは不変。書出しと独立検査12.406秒はPCの測定で、Android暗号化保存の再測定ではない。私有capsule/市場データ/modelは公開Gitや通常APKへ含めない。
+
 この19.391秒はPC経路の受領と反映で、Androidの日次更新時間ではない。21日当日のmaster/所属受領と、実時刻11:30以後の通常Android予測保存・通知、Xiaomiは残る。未来日の予測やholdout採点は行っていない。
 
 ## 残る完了条件

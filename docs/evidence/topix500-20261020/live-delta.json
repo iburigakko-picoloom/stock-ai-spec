@@ -120,5 +120,27 @@
   "holdout_scored": false,
   "formal_adoption": "HOLD",
   "real_orders": 0,
-  "external_AI_requests": 0
+  "external_AI_requests": 0,
+  "state_transfer_check": {
+    "status": "ACTUAL_731_DAY_STATE_NATIVE_STREAM_LIMIT_AND_ALL_TYPED_TABLES_VERIFIED",
+    "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "characters": 247235240,
+    "maximum_characters": 268435456,
+    "remaining_characters": 21200216,
+    "chunks": 944,
+    "chunk_limit": 262144,
+    "sha256": "8590b87d07766f060c3f9bd24a8683aab888843386a85f67183cd126b1067112",
+    "archive_bytes": 185426430,
+    "wall_seconds": 12.405999999959022,
+    "typed_table_counts": {
+      "mobile.sqlite3": 20,
+      "operations.sqlite3": 27
+    },
+    "all_typed_tables_exact": true,
+    "source_state_tables_unchanged": true,
+    "scope": "Existing PC bounded native serialization; not new Android encryption/phone/day21 execution",
+    "Android_measured": false,
+    "Xiaomi_verified": false,
+    "limits_unchanged": true
+  }
 }
