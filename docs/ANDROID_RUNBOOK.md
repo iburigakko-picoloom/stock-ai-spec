@@ -1,3 +1,7 @@
+2026-10-20 D210：画像に合わせた設定一覧を本人用0.1.26-candidate/code10026へ反映。source `18fb6d83f3c6517007979c9ce840ee99d6294717`、必要CI39417285273の3job全成功。既存署名・非debug・成功CI43資産/184製品file一致、秘密情報/市場/私有モデル非同梱を確認。SHA256=`699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603`、23,980,369bytes。[候補検査](evidence/settings-reference-20261020/candidate-apk.json)。私有APKは`.demo-artifacts/settings-reference-20261020/candidate-0126/StockAI-0.1.26-candidate.apk`、同じ場所に`.sha256`。
+
+設定は5分類の一覧から編集を開き、画面内の「設定一覧へ」で戻る。API35の端末戻るキーはActivityを閉じる既存動作が未解決。CI debug実画面と署名パッケージ検査を区別し、XiaomiのUI/上書き更新は[一括受入票](evidence/topix500-20261020/xiaomi-acceptance.md)で確認する。0.1.23試験中なら終了前に上書きせず、既存試験・候補・データを保持する。以下の0.1.25以前の実測は履歴として残す。
+
 実差分の準備：20日分5dataと21日calendarを実J-Quantsで受領し、隔離コピーを730→731日へ反映済み（6 HTTP 200/19.391秒、PC）。締切後の実受領時刻を保持し、20日11:30の全入力/978予測/出所の不変と同日既存予測の再利用を確認した。21日当日の所属受領と実時刻Android日次・通知/Xiaomiは未確認。時計を進めて完了扱いにしない。[実受領と時点分離](evidence/topix500-20261020/live-delta.json)。
 
 追加検証：未変更の通常署名0.1.23→0.1.25の実更新で、元44table/保存590予測/設定/保有/モデル/暗号化した試験用credentialを保持。参照JSON消失による最初の冷間停止は保全し、同じAVD/Keystoreで照合用原本だけを復元した追加読戻し83.411秒と全table一致を確認した。アプリDB・鍵・APKは再投入せず、非debug/非rootアプリ/SELinuxと既存制限を維持した。[署名更新の範囲](evidence/topix500-20261020/release-upgrade.json)。Xiaomi・真正な翌営業日は未確認。
