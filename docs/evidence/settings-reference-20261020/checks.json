@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-20",
+  "decision": "D210",
+  "source_base": "e5d11ab0b9e6e9a5661fb7334d4851691aa2be7c",
+  "source_files": [
+    {
+      "path": "web/src/mobile/MobileDevicePanel.tsx",
+      "sha256": "5e6f34f9b45fd7aca42e23888968cad79690feca769c249b476e49e7f86e95d2"
+    },
+    {
+      "path": "web/src/mobile/DailyPanel.tsx",
+      "sha256": "9fabc3900b71aa58b1ed316739aac931e9bd3ab33a2564a1be3b9834d6a6569f"
+    },
+    {
+      "path": "web/src/mobile/DailyPanel.test.tsx",
+      "sha256": "8a19f07ea48c41c36a246171ac07f0ae654bd047f4d36fcc284ae1a3e412cbb8"
+    },
+    {
+      "path": "web/src/pages/SettingsPage.tsx",
+      "sha256": "9b2c70a5ce398d797ec1d10a59314cd2acbcd2fa78f473b6c92553652d80d473"
+    },
+    {
+      "path": "web/src/styles.css",
+      "sha256": "128e682f383a1fcdd76d3b87580c4c138213a111a3a45de2226c7dd694cf32e3"
+    },
+    {
+      "path": "web/mobile-tests/settings-layout.spec.ts",
+      "sha256": "894b82b30ffd6861e9d2c639db6b6985bb17fd84e19930cc1d06d5dacf432865"
+    }
+  ],
+  "overview": "Five labeled groups, green outline icons, saved values, chevrons, individual editors",
+  "data": "Synthetic native-bridge fixtures only; displayed 500000 JPY/10 percent are not personal values or production defaults",
+  "unit": {
+    "failed": 0,
+    "passed": 101,
+    "files": 13,
+    "stale_status_after_stop": "passed"
+  },
+  "layout": {
+    "update_switch_native_ack_and_failure": "passed",
+    "failed": 0,
+    "horizontal_overflow": false,
+    "minimum_action_gap_px": 12,
+    "minimum_row_touch_height_px": 48,
+    "pending_save_retained": true,
+    "widths": [
+      320,
+      390
+    ],
+    "minimum_action_height_px": 48,
+    "unsaved_input_preserved": true,
+    "new_settings": 8,
+    "font_percent": [
+      100,
+      150
+    ],
+    "capital_save_excludes_unsaved_account_changes": true,
+    "existing_related": 6,
+    "numeric_values_split": false,
+    "browser_back_and_keyboard": "passed",
+    "save_calls": 1,
+    "passed": 14
+  },
+  "static_checks": {
+    "typescript": "passed via npm run build",
+    "lint": "passed",
+    "production_build": "passed"
+  },
+  "rendering": "Actual Android route, synthetic Capacitor bridge, Edge browser; full-content screenshots use content-height viewport then restore 844px for interaction checks",
+  "screenshots": [
+    "settings-overview.png",
+    "settings-large-text.png"
+  ],
+  "failures_preserved": [
+    "Initial enlarged render split a currency value; fixed with nowrap and narrow-layout value row, asserted on final render",
+    "Intermediate run 13 passed / 1 ERR_ABORTED on reload while source was being adjusted; fixed-source run passed all 14"
+  ],
+  "exclusions": [
+    "No new APK produced",
+    "No Xiaomi acceptance",
+    "No new native API or WorkManager changes",
+    "No model or forecast calculations changed",
+    "No private data/credential/model bundled",
+    "No real order or external AI request"
+  ]
+}

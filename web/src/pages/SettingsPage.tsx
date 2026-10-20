@@ -88,8 +88,7 @@ export function SettingsPage(): ReactNode {
   }
 
   const currentSection = sections.find((item) => item.id === section);
-  if (!section && isAndroid()) return <div className="page">
-    <PageHeader title="設定" />
+  if (!section && isAndroid()) return <div className="page page--settings">
     <MobileDevicePanel />
   </div>;
   return (

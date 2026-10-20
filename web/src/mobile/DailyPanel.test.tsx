@@ -53,3 +53,20 @@ test("stop waits for native acknowledgment and keeps a resume action", async () 
   expect(await screen.findByRole("button", { name: "続きから再開" })).toBeEnabled();
   expect(stop).toBeDisabled();
 });
+
+test("an older status read cannot overwrite an acknowledged stop", async () => {
+  let finishOldRead!: (value: typeof idle) => void;
+  const running = { ...idle, enabled: true, state: "history" };
+  vi.mocked(StockAI.dailyStatus).mockResolvedValueOnce(running)
+    .mockImplementationOnce(() => new Promise(resolve => { finishOldRead = resolve; }));
+  vi.mocked(StockAI.stopDaily).mockResolvedValue({ ...idle, state: "paused" });
+  render(<DailyPanel />);
+  const stop = await screen.findByRole("button", { name: "自動処理を停止" });
+  await waitFor(() => expect(stop).toBeEnabled());
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  fireEvent.click(stop);
+  await screen.findByRole("button", { name: "続きから再開" });
+  await act(async () => { finishOldRead(running); });
+  expect(screen.getByRole("button", { name: "続きから再開" })).toBeEnabled();
+  expect(stop).toBeDisabled();
+});

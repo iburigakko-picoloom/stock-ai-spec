@@ -1,3 +1,12 @@
+## 2026-10-20 — 提示画像のシンプル設定一覧へ変更（D210）
+
+- [表示例（合成値）](evidence/settings-reference-20261020/settings-overview.png)・[320px/文字150%](evidence/settings-reference-20261020/settings-large-text.png)。緑アイコン・白いgroupと5見出し、行末に保存済みの値/状態・右矢印を配置し、フォームは個別編集へ移した。画像の仮値は本番へ設定しない。未入力は未設定、APIキーは保存状態、期間は5日・20日を示す。
+- 戻る・履歴・再編集で下書き/保存中を保持。口座/運用資金/許容下落率は保存対象だけを既存portfolioとrevisionへ反映し、別編集の下書きは送信しない。既存のバックアップ/復元確認・ChatGPT手動/連携・データ/モデル/参照routeを維持する。
+- 自動更新のswitchと詳細は同じ制御状態を使用し、native応答待ち・失敗表示・連打抑止・古い状態応答の拒否を確認。通知は実際のAndroid許可表示と既存許可確認への行とし、偽の通知switchや新native APIは追加しない。
+- 最終の固定sourceでWeb101件/13file、lint/TypeScript/本番build、関連画面14件（設定8・既存市場/手動ChatGPT/バックアップ各2）が成功。全編集の48px以上/操作間隔12px以上、320/390px・文字100/150%、金額/期間の非分断、rootの横はみ出しなし・現在値・保存分離を確認。[試験記録](evidence/settings-reference-20261020/checks.json)。私有ログは`.demo-artifacts/settings-reference-20261020/`。
+- 途中sourceを調整した回はbrowser reloadのERR_ABORTEDで1件停止（13件成功）。中断は成功扱いせずログを保全し、製品/試験sourceを固定した別の回で全14件を確認した。最初の150%描画で金額の改行を発見し、許容誤差を変えずnowrap/狭幅の下段配置と検査を追加した。
+- 今回のAndroid CI/候補APK/Xiaomi画面は未完。過去791dfa5/e5d11abのCIを現source全体の合格へ流用しない。データ/研究/モデル/旧0.1.23・0.1.25を保持し、実注文・外部AI送信・main merge・公開配布なし。
+
 ## 2026-10-20 — Android設定の情報量を削減（D209）
 
 - 設定の全フォーム常時表示を7項目の一覧へ整理。税・費用・初回台帳、アカウント連携、参照用詳細は必要時に開く。Web用タブの重複表示をAndroidで除き、既存の設定値参照routeは維持する。[表示例（合成画面）](evidence/settings-20261020/settings-overview.png)。

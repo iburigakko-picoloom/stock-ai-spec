@@ -5,20 +5,31 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     const calls: { plugin: string; method: string; operation?: string }[] = [];
+    let dailyStatus = { enabled: true, state: "waiting_cutoff", notificationsEnabled: true };
     Object.assign(window, {
       __settingsCalls: calls,
       CapacitorCustomPlatform: { name: "android" },
       Capacitor: {
         PluginHeaders: [
-          { name: "StockAI", methods: ["compute", "keyStatus", "checkUpdate", "dailyStatus", "saveApiKey", "clearApiKey"].map(name => ({ name, rtype: "promise" })) },
+          { name: "StockAI", methods: ["compute", "keyStatus", "checkUpdate", "dailyStatus", "saveApiKey", "clearApiKey", "stopDaily", "startDaily", "requestDailyNotifications"].map(name => ({ name, rtype: "promise" })) },
           { name: "StockAIChatGPT", methods: [{ name: "getStatus", rtype: "promise" }] },
         ],
-        nativePromise: async (plugin: string, method: string, options?: { method: string; path: string }) => {
+        nativePromise: async (plugin: string, method: string, options?: { method: string; path: string; body?: string }) => {
           calls.push({ plugin, method, operation: options?.method });
-          if (method === "compute") return { status: 200, body: await (await fetch(options!.path)).json() };
-          if (method === "keyStatus") return { configured: false };
+          if (method === "compute") return { status: 200, body: await (await fetch(options!.path, {
+            method: options!.method, headers: { "Content-Type": "application/json" }, body: options!.method === "POST" ? options!.body : undefined,
+          })).json() };
+          if (method === "keyStatus") return { configured: localStorage.getItem("settingsTestKey") !== "missing" };
           if (method === "checkUpdate") return { available: false };
-          if (method === "dailyStatus") return { enabled: false, state: "idle", notificationsEnabled: false };
+          if (method === "dailyStatus") return dailyStatus;
+          if (method === "requestDailyNotifications") return { granted: dailyStatus.notificationsEnabled };
+          if (method === "startDaily") return (dailyStatus = { ...dailyStatus, enabled: true, state: "queued" });
+          if (method === "stopDaily") {
+            if ((window as unknown as { __failSettingsStop?: boolean }).__failSettingsStop) throw new Error("合成停止エラー");
+            return new Promise(resolve => Object.assign(window, { __finishSettingsStop: () => {
+              dailyStatus = { ...dailyStatus, enabled: false, state: "paused" }; resolve(dailyStatus);
+            } }));
+          }
           if (method === "getStatus") return { connected: false, planEnabled: false, selection: { model: "", effort: "medium" }, models: [] };
           if (method === "saveApiKey") return new Promise<void>(resolve => Object.assign(window, { __finishSettingsSave: resolve }));
           throw new Error(`Unexpected native operation: ${plugin}.${method}`);
@@ -27,8 +38,8 @@ test.beforeEach(async ({ page }) => {
     });
   });
   const profile = { revision_id: "a".repeat(64), saved_at: "2026-10-20T09:00:00+09:00", portfolio: {
-    schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: null,
-    maximum_drawdown_percent: null, accounts: [], holdings: [],
+    schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: "500000",
+    maximum_drawdown_percent: 10, accounts: [{ id: "synthetic-account", name: "試験用口座", account_type: "taxable_specified", withholding_mode: "withholding", available_cash_yen: "500000" }], holdings: [],
   } };
   const payloads: Record<string, unknown> = {
     "/api/v1/settings": { runtimeMode: "TEST", data: {}, runtime: {} },
@@ -46,6 +57,7 @@ test.beforeEach(async ({ page }) => {
     }, comparison: { blocking_reasons: [{ code: "FORECAST_MISSING" }], research_only: true } },
   };
   await page.route("**/api/**", route => {
+    if (route.request().method() !== "GET") throw new Error("Unexpected write in read-only settings fixture");
     const path = new URL(route.request().url()).pathname;
     if (!(path in payloads)) throw new Error(`Unexpected fixture API: ${path}`);
     return route.fulfill({ json: payloads[path] });
@@ -58,57 +70,122 @@ for (const width of [320, 390]) for (const font of [100, 150]) {
   test(`Android settings stay compact and separated at ${width}px / ${font}%`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 844 });
     await page.addStyleTag({ content: `html { font-size: ${font}%; }` });
-    const groups = page.locator(".settings-group");
-    await expect(groups).toHaveCount(7);
-    await expect(page.locator(".device-settings input:visible, .device-settings select:visible, .device-settings button:visible")).toHaveCount(0);
+    const overview = page.locator(".settings-overview");
+    await expect(overview.locator(".settings-menu-section")).toHaveCount(5);
+    await expect(page.locator(".device-settings input:visible, .device-settings select:visible")).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "口座・資金" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^J-Quants API/ })).toContainText("設定済み");
+    await expect(page.getByRole("button", { name: /^予測期間/ })).toContainText("5日・20日");
+    await expect(page.getByRole("button", { name: /^運用資金/ })).toContainText("¥500,000");
+    for (const row of await overview.locator("button").all()) expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(48);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    for (const value of await overview.locator(".settings-menu-value").all()) expect(await value.evaluate(node => node.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(node).lineHeight) + 9)).toBe(true);
+    // A full-content preview keeps the fixed navigation at the bottom; the
+    // interaction and overflow checks still use the normal 844px viewport.
+    await page.setViewportSize({ width, height: await page.evaluate(() => document.documentElement.scrollHeight) });
     await page.screenshot({ path: info.outputPath(`settings-${width}-${font}.png`), fullPage: true });
+    await page.setViewportSize({ width, height: 844 });
 
-    const account = groups.filter({ has: page.locator("summary > span > strong", { hasText: /^口座・保有$/ }) });
-    await account.locator(":scope > summary").click();
+    await page.getByRole("button", { name: /^運用資金/ }).click();
+    await expect(page.getByRole("heading", { name: "運用資金", exact: true })).toBeFocused();
     await page.getByLabel("投資上限（円・未定は空欄）").fill("1234567");
-    await account.locator(":scope > summary").focus();
-    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("許容する最大下落率（%・未定は空欄）")).not.toBeVisible();
+    await page.getByRole("button", { name: "← 設定一覧へ" }).click();
     await expect(page.getByLabel("投資上限（円・未定は空欄）")).not.toBeVisible();
+    await expect(page.getByRole("button", { name: /^運用資金/ })).toContainText("¥500,000");
+    await page.getByRole("button", { name: /^運用資金/ }).focus();
     await page.keyboard.press("Space");
     await expect(page.getByLabel("投資上限（円・未定は空欄）")).toHaveValue("1234567");
+    await page.goBack();
 
-    for (const group of await groups.all()) {
-      await group.evaluate(node => { (node as HTMLDetailsElement).open = true; });
+    for (const title of ["証券口座", "J-Quants API", "許容下落率", "予測期間", "完了通知", "バックアップ・復元", "ChatGPT", "アプリ情報・詳細"]) {
+      await page.getByRole("button", { name: new RegExp(`^${title}`) }).click();
+      for (const detail of await page.locator(".settings-edit-content:not([hidden]) details").all()) {
+        await detail.evaluate(node => { (node as HTMLDetailsElement).open = true; });
+      }
+      const controls = await page.locator(".device-settings button.button:visible, .device-settings a.button:visible").evaluateAll(nodes => nodes.map(node => {
+        const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
+      }));
+      for (let i = 0; i < controls.length; i++) {
+        expect(controls[i].height).toBeGreaterThanOrEqual(48);
+        if (i > 0) expect(controls[i].top - controls[i - 1].bottom).toBeGreaterThanOrEqual(12);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (title === "ChatGPT") await expect(page.getByRole("link", { name: "手動でChatGPTに相談" })).toHaveAttribute("href", "#/today/chatgpt");
+      if (title === "証券口座") await page.screenshot({ path: info.outputPath(`account-${width}-${font}.png`), fullPage: true });
+      await page.getByRole("button", { name: "← 設定一覧へ" }).click();
     }
-    for (const detail of await page.locator(".device-settings details:not(.settings-group)").all()) {
-      await detail.evaluate(node => { (node as HTMLDetailsElement).open = true; });
-    }
-    await expect(page.getByRole("button", { name: "APIキーを保存" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "口座・保有を保存" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "このバックアップに復元" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "手動でChatGPTに相談" })).toHaveAttribute("href", "#/today/chatgpt");
-    const controls = await page.locator(".device-settings button:visible, .device-settings a.button:visible").evaluateAll(nodes => nodes.map(node => {
-      const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
-    }));
-    for (let i = 0; i < controls.length; i++) {
-      expect(controls[i].height).toBeGreaterThanOrEqual(48);
-      if (i > 0) expect(controls[i].top - controls[i - 1].bottom).toBeGreaterThanOrEqual(12);
-    }
-    for (const summary of await groups.locator(":scope > summary").all()) expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(48);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await account.screenshot({ path: info.outputPath(`account-${width}-${font}.png`) });
     const calls = await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string; operation?: string }[] }).__settingsCalls);
     expect(calls.every(call => ["compute", "keyStatus", "checkUpdate", "dailyStatus", "getStatus"].includes(call.method) && (!call.operation || call.operation === "GET"))).toBe(true);
   });
 }
 
-test("collapsing an active API-key save preserves the pending action and its feedback", async ({ page }) => {
-  const group = page.locator(".settings-group").filter({ has: page.locator("summary > span > strong", { hasText: /^市場データ$/ }) });
-  await group.locator(":scope > summary").click();
+test("returning to the list during an API-key save preserves the pending action and feedback", async ({ page }) => {
+  await page.getByRole("button", { name: /^J-Quants API/ }).click();
   await page.getByLabel("J-Quants APIキー", { exact: true }).fill("synthetic-ui-test-key");
   await page.getByRole("button", { name: "APIキーを保存" }).click();
-  await group.locator(":scope > summary").click();
+  await page.getByRole("button", { name: "← 設定一覧へ" }).click();
   await expect(page.getByText("端末内で処理しています…", { exact: true })).toBeVisible();
-  await group.locator(":scope > summary").click();
+  await page.getByRole("button", { name: /^J-Quants API/ }).click();
   await expect(page.getByRole("button", { name: "APIキーを保存" })).toBeDisabled();
   await page.evaluate(() => (window as unknown as { __finishSettingsSave: () => void }).__finishSettingsSave());
   await expect(page.getByText("APIキーを端末に暗号化保存しました。")).toBeVisible();
   await expect(page.getByLabel("J-Quants APIキー", { exact: true })).toHaveValue("");
   expect(await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string }[] }).__settingsCalls.filter(x => x.method === "saveApiKey").length)).toBe(1);
+});
+
+test("automatic-update switch waits for native acknowledgment and does not hide failures", async ({ page }) => {
+  const toggle = page.getByRole("switch", { name: "営業日に自動更新" });
+  await expect(toggle).toBeChecked();
+  await page.evaluate(() => Object.assign(window, { __failSettingsStop: true }));
+  await toggle.click();
+  await expect(page.locator(".settings-overview [role=alert]")).toHaveText("合成停止エラー");
+  await expect(toggle).toBeChecked();
+  await page.evaluate(() => Object.assign(window, { __failSettingsStop: false }));
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await expect(toggle).toBeDisabled();
+  await page.keyboard.press("Space");
+  expect(await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string }[] }).__settingsCalls.filter(x => x.method === "stopDaily").length)).toBe(2);
+  await page.evaluate(() => (window as unknown as { __finishSettingsStop: () => void }).__finishSettingsStop());
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  expect(await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string }[] }).__settingsCalls.filter(x => x.method === "startDaily").length)).toBe(1);
+});
+
+test("unknown settings show missing values without inventing an API connection or balances", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("settingsTestKey", "missing"));
+  await page.route("**/api/v1/mobile/portfolio", route => route.fulfill({ json: null }));
+  await page.reload();
+  await expect(page.getByRole("button", { name: /^J-Quants API/ })).toContainText("未設定");
+  await expect(page.getByRole("button", { name: /^証券口座/ })).toContainText("未登録");
+  await expect(page.getByRole("button", { name: /^運用資金/ })).toContainText("未設定");
+  await expect(page.getByRole("button", { name: /^許容下落率/ })).toContainText("未設定");
+  await expect(page.getByText("接続済み", { exact: true })).toHaveCount(0);
+});
+
+test("saving capital keeps other editors' unsaved account changes out of the saved portfolio", async ({ page }) => {
+  let received: { expected_revision_id: string; portfolio: { investment_budget_yen: string; maximum_drawdown_percent: number; accounts: { name: string; available_cash_yen: string }[]; holdings: unknown[] } } | null = null;
+  await page.route("**/api/v1/mobile/portfolio", async route => {
+    if (route.request().method() === "GET") return route.fallback();
+    received = route.request().postDataJSON();
+    return route.fulfill({ json: { revision_id: "b".repeat(64), saved_at: "2026-10-20T10:00:00+09:00", portfolio: received!.portfolio } });
+  });
+  await page.getByRole("button", { name: /^証券口座/ }).click();
+  await page.getByLabel("口座の呼び名").fill("未保存の口座名");
+  await page.getByRole("button", { name: "← 設定一覧へ" }).click();
+  await page.getByRole("button", { name: /^運用資金/ }).click();
+  await page.getByLabel("投資上限（円・未定は空欄）").fill("600000");
+  await page.getByRole("button", { name: "運用資金を保存", exact: true }).click();
+  await expect(page.getByText("運用資金を端末に保存しました。")).toBeVisible();
+  expect(received!.expected_revision_id).toBe("a".repeat(64));
+  expect(received!.portfolio.investment_budget_yen).toBe("600000");
+  expect(received!.portfolio.accounts[0]).toMatchObject({ name: "試験用口座", available_cash_yen: "500000" });
+  expect(received!.portfolio.maximum_drawdown_percent).toBe(10);
+  expect(received!.portfolio.holdings).toEqual([]);
+  await page.getByRole("button", { name: "← 設定一覧へ" }).click();
+  await expect(page.getByRole("button", { name: /^運用資金/ })).toContainText("¥600,000");
+  await page.getByRole("button", { name: /^証券口座/ }).click();
+  await expect(page.getByLabel("口座の呼び名")).toHaveValue("未保存の口座名");
 });

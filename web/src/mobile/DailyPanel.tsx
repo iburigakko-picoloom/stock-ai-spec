@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAndroid, StockAI, type DailyStatus } from "./native";
 
 const labels: Record<string, string> = {
@@ -15,24 +15,29 @@ const labels: Record<string, string> = {
   research_attention: "数値判定を保存済み・ChatGPT調査の確認が必要です",
 };
 
-export function DailyPanel(): ReactNode {
+export function useDailyAutomation() {
   const [status, setStatus] = useState<DailyStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const changing = useRef(false);
+  const revision = useRef(0);
   useEffect(() => {
     if (!isAndroid()) return;
     let active = true;
     const refresh = (): void => {
-      void StockAI.dailyStatus().then(value => { if (active) setStatus(value); })
-        .catch(() => { if (active) setMessage("自動処理の状態を確認できません。アプリを再起動してください。"); });
+      if (changing.current) return;
+      const observed = revision.current;
+      void StockAI.dailyStatus().then(value => { if (active && !changing.current && observed === revision.current) setStatus(value); })
+        .catch(() => { if (active && !changing.current && observed === revision.current) setMessage("自動処理の状態を確認できません。アプリを再起動してください。"); });
     };
     refresh();
     const timer = window.setInterval(refresh, 15000);
     window.addEventListener("focus", refresh);
     return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", refresh); };
   }, []);
-  if (!isAndroid()) return null;
   async function change(start: boolean): Promise<void> {
+    if (changing.current) return;
+    changing.current = true; revision.current++;
     setBusy(true); setMessage("");
     try {
       if (start) {
@@ -40,9 +45,25 @@ export function DailyPanel(): ReactNode {
         setStatus(await StockAI.startDaily());
       } else setStatus(await StockAI.stopDaily());
     } catch (error) { setMessage(error instanceof Error ? error.message : "処理を完了できません。保存状態を確認してください。"); }
-    finally { setBusy(false); }
+    finally { changing.current = false; setBusy(false); }
   }
-  return <DailyControls status={status} busy={busy} message={message} onChange={start => void change(start)} />;
+  async function requestNotifications(): Promise<void> {
+    if (changing.current) return;
+    changing.current = true; revision.current++; setBusy(true); setMessage("");
+    try {
+      await StockAI.requestDailyNotifications();
+      const current = await StockAI.dailyStatus(); setStatus(current);
+      setMessage(current.notificationsEnabled ? "通知が許可されています。" : "通知はオフです。Androidのアプリ設定で通知を許可してください。");
+    } catch { setMessage("通知の許可状態を確認できません。Androidのアプリ設定を確認してください。"); }
+    finally { changing.current = false; setBusy(false); }
+  }
+  return { status, busy, message, change, requestNotifications };
+}
+
+export function DailyPanel(): ReactNode {
+  const daily = useDailyAutomation();
+  if (!isAndroid()) return null;
+  return <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />;
 }
 
 export function DailyControls({ status, busy, message, onChange }: {
