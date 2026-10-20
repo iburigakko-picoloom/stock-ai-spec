@@ -1,3 +1,9 @@
+## 2026-10-21 — ノッチと上部更新案内の重なりを修正（D214）
+
+- 開始85f41d0のモデル評価差分を保全し、UIの安全領域だけを修正。Capacitorの4辺inset/Web fallbackを使い、画面上左右、sticky更新通知、下部nav/固定操作、skip linkへ反映。scroll中もstatus barを背景で保護し、広幅のnavと更新案内も重ねない。native padding済みWebViewは0pxで二重余白を防ぐ。
+- 関連画面15件/28.2秒成功。縦notch、横cutout、native paddingの0px、scroll後の更新ボタン、左右・下部nav、keyboard相当のinset変更、既存320/390pxと文字150%を含む。Web108件成功。初回の横向き試験で広幅本文paddingが安全領域に追従しないことを検出し、修正後に15件を再実行した。合成bridge/安全領域であり、Xiaomi未確認。
+- 今回のAPK更新・公開はまだ行っていない。既存0.1.27/0.1.23候補と保存データ、モデル、正式HOLDを保持。進行中CIを中断せず、修正commitのCIと候補作成を別途追跡する。[検証記録](evidence/notch-safe-area-20261021/checks.json)。実注文なし。
+
 ## 2026-10-21 — モデル選定と最終推論の対象漏れを修正（D213）
 
 - 開始c70ab9b/PR #3を保全し、[完成範囲/基準案/実際の経路と残件](FINISHING_PLAN.md)を冒頭へ固定。元PR #2のtracked差分hash、SQLite、0.1.23APKは不変。18構成/72タスクと152結果を再照合し、私有台帳・24種類/役割の既存比較・当日付ScaleCatと全18OOFの対応を保存した。元152件56完走/96不完全、旧不足30キーの内訳も一致。市場の再取得や全面評価の再実行なし。

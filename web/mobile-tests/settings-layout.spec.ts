@@ -70,6 +70,58 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("heading", { name: "設定", exact: true })).toBeVisible();
 });
 
+// Synthetic inset values exercise the same CSS properties injected by
+// Capacitor SystemBars. Native cutout/keyboard behavior is checked separately.
+for (const layout of [
+  { name: "portrait notch", width: 390, height: 844, top: 48, right: 0, bottom: 24, left: 0 },
+  { name: "landscape cutout", width: 844, height: 390, top: 24, right: 20, bottom: 24, left: 48 },
+  { name: "native padded WebView", width: 390, height: 844, top: 0, right: 0, bottom: 0, left: 0 },
+]) {
+  test(`system safe area protects header, sticky update and navigation: ${layout.name}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    const setInsets = async (bottom: number) => page.evaluate(({ layout, bottom }) => {
+      for (const [side, value] of Object.entries({ ...layout, bottom })) {
+        if (["top", "right", "bottom", "left"].includes(side)) document.documentElement.style.setProperty(`--safe-area-inset-${side}`, `${value}px`);
+      }
+    }, { layout, bottom });
+    await setInsets(layout.bottom);
+    const brand = page.locator(".app-brand");
+    expect((await brand.boundingBox())!.y).toBe(layout.top);
+    expect((await brand.boundingBox())!.x).toBe(layout.left);
+    await page.evaluate(() => localStorage.setItem("settingsTestUpdate", "available"));
+    await page.reload();
+    await setInsets(layout.bottom);
+    const banner = page.getByRole("region", { name: "アプリの更新" });
+    await expect(banner).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 600));
+    expect((await banner.boundingBox())!.y).toBe(layout.top);
+    const button = (await banner.getByRole("button", { name: "更新", exact: true }).boundingBox())!;
+    expect(button.y).toBeGreaterThanOrEqual(layout.top);
+    expect(button.x + button.width).toBeLessThanOrEqual(layout.width - layout.right);
+    const links = page.getByRole("navigation", { name: "メインナビゲーション" }).getByRole("link");
+    const first = (await links.first().boundingBox())!;
+    const last = (await links.last().boundingBox())!;
+    expect(first.x).toBeGreaterThanOrEqual(layout.left);
+    expect(last.x + last.width).toBeLessThanOrEqual(layout.width - layout.right);
+    expect(last.y + last.height).toBeLessThanOrEqual(layout.height - layout.bottom);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(layout.width);
+    const cover = await page.locator(".app-shell").evaluate(node => {
+      const style = getComputedStyle(node, "::before");
+      return { height: Number.parseFloat(style.height), position: style.position, pointerEvents: style.pointerEvents };
+    });
+    expect(cover).toEqual({ height: layout.top, position: "fixed", pointerEvents: "none" });
+    await page.screenshot({ path: info.outputPath(`safe-area-${layout.name}.png`) });
+    // SystemBars changes the bottom value when the keyboard becomes visible.
+    // Reuse the updated value immediately, without adding a second inset.
+    await setInsets(0);
+    const mainPadding = await page.locator(".app-main").evaluate(node => getComputedStyle(node).paddingBottom);
+    const basePadding = layout.width >= 760 ? 34 : 80;
+    expect(mainPadding).toBe(`${basePadding}px`);
+    await setInsets(layout.bottom);
+    expect(await page.locator(".app-main").evaluate(node => getComputedStyle(node).paddingBottom)).toBe(`${basePadding + layout.bottom}px`);
+  });
+}
+
 for (const width of [320, 390]) for (const font of [100, 150]) {
   test(`blue settings and compact top update notice at ${width}px / ${font}%`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 844 });

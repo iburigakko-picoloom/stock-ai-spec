@@ -1,0 +1,44 @@
+{
+  "status": "SOURCE_FIX_LOCAL_CHECKS_PASS_APK_PENDING_CI",
+  "base_commit": "85f41d01420daef92a453ce3aa9d3a451caeea13",
+  "product_css_sha256": "54a550d3ffbb6bb7f695ecd2a31625313a37a616a4b3172a03b5521bdd37d74f",
+  "settings_test_sha256": "b5a779f81a77322137f77fcdee6617de1c393bbdccb01b5948b2a0e9b6c6f4b2",
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS",
+  "web_unit_tests": {
+    "passed": 108,
+    "failed": 0
+  },
+  "settings_layout": {
+    "passed": 15,
+    "failed": 0,
+    "seconds": 28.2
+  },
+  "manual_chatgpt_layout": {
+    "passed": 2,
+    "failed": 0,
+    "seconds": 5.1
+  },
+  "inset_cases": [
+    "portrait_notch",
+    "landscape_cutout",
+    "native_padded_zero_insets"
+  ],
+  "checks": [
+    "header_without_update",
+    "sticky_update_after_scroll",
+    "nav_side_and_bottom_bounds",
+    "status_bar_background",
+    "keyboard_equivalent_bottom_change",
+    "320_390px_font_150_percent"
+  ],
+  "evidence_scope": "synthetic native bridge and CSS insets in desktop browser",
+  "actual_android_cutout_test": false,
+  "xiaomi_test": false,
+  "new_apk_created": false,
+  "publicly_distributed": false,
+  "old_0127_preserved": true,
+  "model_or_data_changed": false,
+  "real_orders": false
+}
