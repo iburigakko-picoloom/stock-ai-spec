@@ -1,3 +1,10 @@
+## 2026-10-20 — 青基調と短い上部通知を0.1.27へ配信完了（D212）
+
+- 製品source `3209604c84fb84fb82827a63a7163a3626d85c5e` の[必須CI39431174408](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39431174408)はverify/android/android-history全成功（release skip）。tested merge `878ffa24fd7bec05ad60517849d8b9af9c3293f0`とGit tree一致。ローカルWeb108/画面18・lint/TypeScript/build、現CIのnative89件/失敗error skip0を確認。[CI記録](evidence/blue-update-20261020/ci-result.json)。合成CI/画面をXiaomi成功へ読み替えない。
+- 既存署名の0.1.27-candidate/code10027を作成。SHA256=`e88b4e610e6186095c759afef36b31be4ab39a1e72bb3c298269771ed55bc88e`、23,980,521bytes、署名build 161.291秒。185製品file/成功CI43資産・同証明書/非debug・秘密/市場/私有モデル/診断code非同梱を検査。[候補記録](evidence/blue-update-20261020/candidate-apk.json)。旧0.1.23/0.1.25/0.1.26を保持。
+- 承認済み更新経路の[android-v0.1.27](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.27)へ公開しlatestを更新。draftの全4assetを読み戻して照合した後、公開URLを認証なしで取得して全HTTP 200・元byte/hash一致を確認。[配信検証](evidence/blue-update-20261020/published-update.json)。旧版が長文を展開する場合にも備え、アプリ向けの変更説明は短くし、詳しい内容はRelease本文へ残す。起動時の新版案内→本人の更新タップ→Android確認で進む。
+- 計算/モデルpolicyの51 Python file・native/packagerは791dfa5と同一。数値性能の再測定・追加fit・holdout採点・実注文・外部AI送信・main mergeなし。正式HOLD、旧300既定、XiaomiのUI/実更新未確認と端末戻るキーの既存問題は維持。[一括受入](evidence/topix500-20261020/xiaomi-acceptance.md)。以下はAPK作成前の記録。
+
 ## 2026-10-20 — 青基調と画面最上部の更新案内を実装（D212）
 
 - 設定のアイコン/保存状態/ON switchを既存の青へ変更し、brand/選択navの緑上書きを除いた。5分類・保存済み値・個別編集・保有/台帳・旧候補を維持する。[合成画面](evidence/blue-update-20261020/settings-blue.png)・[320px/文字150%](evidence/blue-update-20261020/settings-large-text.png)。

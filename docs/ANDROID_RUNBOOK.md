@@ -1,3 +1,7 @@
+2026-10-20 D212：青基調の設定と短い上部更新案内を[0.1.27](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.27)として公開済み。[APK](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.27/StockAI.apk)。source `3209604c84fb84fb82827a63a7163a3626d85c5e`、必要CI39431174408全成功、code10027/既存署名/非debug、SHA256=`e88b4e610e6186095c759afef36b31be4ab39a1e72bb3c298269771ed55bc88e`、23,980,521bytes。元候補/成功CI43資産と、公開後の全4assetを認証なしで読み戻して照合。[配信検証](evidence/blue-update-20261020/published-update.json)。
+
+アプリを起動し直して更新案内から進み、Androidの確認を承認する。0.1.27以降の案内は「新しいバージョンがあります」/実際の版/「更新」で、変更内容は必要時に開く。最新版・取得不可なら通知帯を出さず、通常利用を続ける。Xiaomi実更新は未確認。設定内は「設定一覧へ」で戻る。以下は過去の版の記録。
+
 2026-10-20 D211：[StockAI 0.1.26（研究用候補）](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.26)を本人承認で公開し、既存アプリの更新先latestへ反映済み。[公開APK](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.26/StockAI.apk)。元候補と同一code10026/署名/hashで、再build・main mergeなし。認証なしのlatest API/更新JSON/APKと全4assetのHTTP 200・byte hash一致を確認した。[配信検証](evidence/settings-reference-20261020/published-update.json)。
 
 アプリを起動し直し、更新案内の「確認して更新」を押す。提供元許可を求められた場合は許可して戻り、再度更新を押してAndroidの確認画面で承認する。Xiaomiの実操作は未確認。モデル・市場・APIキー等は配布せず本人端末に保持し、正式HOLDも維持する。以下は候補作成時の記録。

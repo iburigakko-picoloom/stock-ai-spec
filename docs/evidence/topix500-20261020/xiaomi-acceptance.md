@@ -1,14 +1,14 @@
 # TOPIX500方式のXiaomi一括受入
 
-0.1.26は[既存アプリの更新先](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.26)へ公開済み。アプリを起動し直して「確認して更新」からAndroidの確認へ進める。[同一APKの直接取得](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.26/StockAI.apk)も可能。公開先のhash/署名は下記の同じ候補で、研究用モデルbundleは引き続き別の本人用非公開file。端末更新の成功は本人がこの票へ記録する。
+0.1.27は[既存アプリの更新先](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.27)へ公開済み。アプリを起動し直して「確認して更新」からAndroidの確認へ進める。[同一APKの直接取得](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.27/StockAI.apk)も可能。公開先のhash/署名は下記の同じ候補で、研究用モデルbundleは引き続き別の本人用非公開file。端末更新の成功は本人がこの票へ記録する。
 
 この票は新方式の候補APKについて使う。既存0.1.23の受入票・APKを置き換えず、CIと候補の版/署名/hashが確定してから実施する。現時点で本人端末の成功は未確認。正式モデル採用はHOLD。
 
-0.1.23の受入を実施中なら元の試験と記録を先に続ける。同じapplicationIdの新候補は、その試験を終えた後の切り替え用であり、途中で上書きして結果を混ぜない。0.1.23の受入がまだ未着手なら、この0.1.26候補から始められる。旧票/候補は保管する。この作業から本人端末へ自動installは行わない。
+0.1.23の受入を実施中なら元の試験と記録を先に続ける。同じapplicationIdの新候補は、その試験を終えた後の切り替え用であり、途中で上書きして結果を混ぜない。0.1.23の受入がまだ未着手なら、この0.1.27候補から始められる。旧票/候補は保管する。この作業から本人端末へ自動installは行わない。
 
 | 記録項目 | 本人の記録 |
 | --- | --- |
-| APK版・code・hash | 0.1.26-candidate / 10026 / `699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603` |
+| APK版・code・hash | 0.1.27-candidate / 10027 / `e88b4e610e6186095c759afef36b31be4ab39a1e72bb3c298269771ed55bc88e` |
 | Xiaomi機種・Android・HyperOS | 未確認 |
 | 試験日・モデル版・データ最終日 | 未確認 |
 | 端末のScaleCat対象数・全保有数 | 未確認（500へ合わせない） |
@@ -28,6 +28,6 @@ APIキー・パスワード・口座番号・私有モデル・実データ入�
 
 通常署名0.1.23→0.1.25の更新と追加の冷間読戻しは、隔離emulatorで元44table/保存590予測/設定/保有/モデル/試験用credentialの保持を確認済み。照合用参照JSONの消失と補助読戻しの条件は[署名更新記録](release-upgrade.json)へ残す。この結果を本人Xiaomiの更新・数値一致・通知成功へ読み替えず、上の1〜8を同じ票で確認する。
 
-候補source：`18fb6d83f3c6517007979c9ce840ee99d6294717`、[必要CI成功](../settings-reference-20261020/ci-result.json)。applicationIdは`jp.stockai.app`、既存と同じ署名証明書SHA256は`97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979`。公開APKと同一のローカル保管先は`.demo-artifacts/settings-reference-20261020/candidate-0126/StockAI-0.1.26-candidate.apk`、同じ場所に`.sha256`がある。APIキー・市場データ・私有モデル・診断codeは候補へ同梱していない。[0.1.26候補の検査](../settings-reference-20261020/candidate-apk.json)・[以前の数値実測と未完範囲](d208-completion.md)。
+候補source：`3209604c84fb84fb82827a63a7163a3626d85c5e`、[必要CI成功](../blue-update-20261020/ci-result.json)。applicationIdは`jp.stockai.app`、既存と同じ署名証明書SHA256は`97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979`。公開APKと同一のローカル保管先は`.demo-artifacts/blue-update-20261020/candidate-0127/StockAI-0.1.27-candidate.apk`、同じ場所に`.sha256`がある。APIキー・市場データ・私有モデル・診断codeは候補へ同梱していない。[0.1.27候補の検査](../blue-update-20261020/candidate-apk.json)・[以前の数値実測と未完範囲](d208-completion.md)。
 
-設定内では画面上部の「設定一覧へ」を使う。API35 emulatorでは端末の戻るキーがActivityを閉じる既存動作を確認しており、一覧へ戻れると扱わない。0.1.26署名版の本人Xiaomi操作・上書き更新は未確認。上の0.1.23→0.1.25更新証拠と区別して、この票へ記録する。
+設定内では画面上部の「設定一覧へ」を使う。API35 emulatorでは端末の戻るキーがActivityを閉じる既存動作を確認しており、一覧へ戻れると扱わない。0.1.27署名版の本人Xiaomi操作・上書き更新は未確認。上の0.1.23→0.1.25更新証拠と区別して、この票へ記録する。

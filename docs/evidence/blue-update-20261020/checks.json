@@ -1,5 +1,5 @@
 {
-  "status": "LOCAL_UI_CHECKS_PASSED_APK_AND_CURRENT_CI_PENDING",
+  "status": "LOCAL_UI_CHECKS_PASSED",
   "Web_tests": 108,
   "Web_test_files": 14,
   "related_browser_layout_tests": 18,
@@ -30,5 +30,7 @@
     "web/src/styles.css": "da478859ceaea21470edd7588b45fb896838e07f086caceab616bb0175586f0d",
     "web/src/mobile/MobileUpdateNotice.test.tsx": "1814fe47198a0df75c1a317380047a745048f1475fdb46d4facb6ca82c0f38a3",
     "web/mobile-tests/settings-layout.spec.ts": "3301e50b4fdade559fcf47c471ac8e960ad406ddf9951a48728112b31fca0a63"
-  }
+  },
+  "current_CI_evidence": "ci-result.json",
+  "delivery_evidence": "published-update.json"
 }
