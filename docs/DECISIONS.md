@@ -5,6 +5,12 @@
 
 ## 確定事項
 
+### D206 — 初回600秒停止を不合格として保全し、全量コピーと反復走査を除く（2026-10-20）
+
+- D205/source203f42bの必要CI39367905793は全成功だが、実730日/493銘柄の初回Android予測要求が600秒で停止した。cache再利用128.941秒・978予測完全一致・B1/再起動後47table一致の成功と分離し、このCI成功だけで通常候補を完成扱いにしない。旧0.1.23は不変。停止前のsampled app+renderer最大3,328,581,632bytesで、background processのlow-memory killも記録する。計算renderer自体はJUnit終了まで存在し、直接の失敗はcompute timeoutである。
+- 初回の選定済み履歴を銘柄ごとに全行文字列比較する代わりに、symbol位置indexを一度作る。履歴0行の対象にも同じ空schemaのcacheを残す。分割調整は、元sourceから分離済みのprivate merge結果を使う新context経路だけで重複deep copyを除く。既定/単独helperは元入力を保護するcopyを維持する。
+- 数値式・調整係数の累積順・全市場lineage hash・全市場/業種母集団・財務時点・feature定義は変えない。v1 cache証拠と停止ログを保持し、新しいコードfingerprintで安全に再構築する。新sourceでPC全値一致とAndroid初回/再利用を測り直し、必要CI成功後だけ別候補を作る。600秒/RAM/CPU/export上限・holdout・正式HOLDは維持する。
+
 ### D205 — TOPIX500事前選定を独立した試験方式として実装する（2026-10-20）
 
 - 本人の最新指示を優先し、9fe568eから独立worktree/`feature/topix500-preselection`で進める。0.1.23/c2fa278、PR #2、元の未commit差分、市場原本、152条件、最終holdout、Xiaomi一括受入は保全する。D197/D199の共通cache追加保留を今回の試験範囲で変更する。

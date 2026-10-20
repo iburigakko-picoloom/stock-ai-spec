@@ -1,5 +1,5 @@
 {
-  "status": "PC_EXACT_ANDROID_NOT_YET_MEASURED",
+  "status": "D206_INITIAL_COPY_FIX_EXACT_NATIVE_RECHECK_PENDING",
   "scope": "Operational feature/inference equivalence and performance; not investment return evaluation or model adoption",
   "product_checkpoint": "08a8f0c",
   "calculation_code_sha256": "6e81e77eed4b0c3ba8519554e1e808a011e215fd6de8d342410cd110019fda0c",
@@ -45,6 +45,24 @@
       "sqlite_returned_rows": 55306,
       "sqlite_returned_value_bytes": 27410461,
       "broad_price_master_history_decoded_rows": 0
+    },
+    "D206_cold": {
+      "input_seconds": 215.6302599000046,
+      "feature_seconds": 5.39596240001265,
+      "inference_seconds": 0.48634750000201166,
+      "total_seconds": 221.97571509995032,
+      "peak_bytes": 2117304320,
+      "sqlite_returned_rows": 141882,
+      "sqlite_returned_value_bytes": 405171234
+    },
+    "D206_warm": {
+      "input_seconds": 20.320492599974386,
+      "feature_seconds": 6.920537899946794,
+      "inference_seconds": 0.5780807000119239,
+      "total_seconds": 28.206630100030452,
+      "peak_bytes": 669847552,
+      "sqlite_returned_rows": 55306,
+      "sqlite_returned_value_bytes": 27410461
     }
   },
   "equivalence": {
@@ -65,15 +83,15 @@
     "archive_seconds": 6.442741999984719,
     "original_17_mobile_and_27_operations_tables_exact": true,
     "mobile_tables_with_new_derived_tables": 20,
-    "native_encryption_tested": false
+    "native_encryption_tested_in_this_PC_run": false
   },
   "limits": [
-    "Initial/correction rebuild still expands broad price history and has not improved peak memory or time.",
+    "Initial/rebuild still decodes broad source history. D206 reduces working-frame copies/peak and repeated selected-history scans; its native initial run must be rechecked.",
     "Warm reuse is not a measurement of a new real business-day update.",
     "SQLite bytes count returned BLOB/UTF8/scalar values, not physical disk page IO.",
     "PC RSS cannot be compared directly with Android app plus renderer RSS.",
     "Android 399-second input baseline has not yet been remeasured for this implementation.",
-    "Android encrypted save, new-day/month/holding/correction/recovery and Xiaomi acceptance remain."
+    "See android-comparison.json for source203f42b warm-save/backup/reboot success and initial compute timeout. These are not D206 native acceptance."
   ],
   "legacy300_remains_default": true,
   "original_candidate_0123_preserved": true,
@@ -83,5 +101,6 @@
   "final_holdout_scored": false,
   "real_orders": 0,
   "external_AI_transmissions": 0,
-  "private_originals": ".demo-artifacts/topix500-20261020/pc-001/"
+  "private_originals": ".demo-artifacts/topix500-20261020/pc-001/",
+  "current_calculation_code_sha256": "ac27a913dc7bc118889a3087df2a49dc0293624e71886f90ddfb64c198fca11a"
 }

@@ -326,11 +326,14 @@ def inputs(path, cutoff, selected):
                 identities[kind] = digest.hexdigest()
             _put(db, "market", _pack(market))
             _put(db, "sector", _pack(sector))
+            # Index the selected history once. Repeated string comparisons over
+            # the entire history for every member are particularly slow in WASM.
+            positions = daily.groupby("symbol", sort=False).indices
             for symbol in selected:
                 _put(
                     db,
                     "symbol:" + symbol,
-                    _pack(daily.loc[daily.symbol == symbol].reset_index(drop=True)),
+                    _pack(daily.iloc[positions.get(symbol, [])].reset_index(drop=True)),
                 )
             metadata = {
                 "code_version": version,

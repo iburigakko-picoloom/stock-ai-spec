@@ -1,0 +1,75 @@
+{
+  "status": "V1_WARM_EXACT_INITIAL_COMPUTE_TIMEOUT_FIXED_SOURCE_RECHECK_PENDING",
+  "product_commit": "203f42b41f265b5c6818f7a483da5da6abfd70b7",
+  "scope": "Actual 730-calendar-day market data and private research regression heads; pre-cutoff synthetic account; manually requested normal owner API on isolated Android 35 emulator",
+  "members": 493,
+  "forecastable_members": 489,
+  "excluded_for_insufficient_history": 4,
+  "exact_5d_and_20d_prediction_values": 978,
+  "warm": {
+    "owner_load_seconds": 113.495,
+    "forecast_and_encrypted_save_seconds": 128.941,
+    "same_day_GET_seconds": 0.942,
+    "sampled_app_and_renderer_peak_bytes": 2016321536,
+    "sampled_VM_peak_bytes": 5356269568,
+    "sampled_host_free_min_bytes": 1850560512,
+    "portable_export_seconds": 40.191,
+    "portable_preview_seconds": 92.244,
+    "portable_restore_seconds": 128.673,
+    "portable_encrypted_bytes": 246982234,
+    "kernel_reboot_and_cold_GET_seconds": 113.839
+  },
+  "independent_host_checks": {
+    "all_feature_values_and_source_ids_exact": true,
+    "same_scope_data_proof_hash_exact": true,
+    "target_set_order_and_both_top20_exact": true,
+    "full_market_and_sector_context_existing_serialization_exact": true,
+    "protected_original_typed_tables_unchanged": true,
+    "all_20_mobile_and_27_operations_tables_exact_after_backup_and_reboot": true,
+    "only_forecast_receipts_and_publication_metadata_updated": true,
+    "warm_cache_payloads_unchanged": true
+  },
+  "legacy_reference": {
+    "source": "c2fa278 (D203/D204); preserved 0.1.23 and original evidence",
+    "individual_arithmetic_input_construction_seconds": 398.903,
+    "separate_actual_clock_WorkManager_forecast_save_state_seconds": 544.795,
+    "separate_actual_clock_run_sampled_app_renderer_peak_bytes": 3165564928,
+    "scope_caveat": "Legacy target300 versus new493; old OS state interval versus new manual owner call. These are historical references, not a new paired Android benchmark. New128.941s includes input/features/inference/save; its input-only stage has not been timed separately."
+  },
+  "limits_unchanged": {
+    "normal_request_seconds": 600,
+    "guest_RAM_MiB": 4096,
+    "guest_cores": 2,
+    "Java_heap_MiB": 192,
+    "app_renderer_guard_MiB": 3500,
+    "VM_guard_MiB": 5400,
+    "host_free_reserve_GiB": 1,
+    "clock_modified": false
+  },
+  "pending": [
+    "D206 removes repeated selected-history scans and redundant private working-frame copies. Native initial and warm paths must be rechecked at its new code fingerprint.",
+    "New actual business-day append/update, monthly change, additional held security and correction on Android.",
+    "Three-minute daily goal including process startup and new data receipt has not been demonstrated.",
+    "D205 source203f42b whole required CI succeeded (39367905793), but its actual initial run failed. D206 needs its own required CI and normal candidate.",
+    "Xiaomi acceptance and default-policy change."
+  ],
+  "legacy_default_retained": true,
+  "Xiaomi_verified": false,
+  "formal_adoption": "HOLD",
+  "new_fits": 0,
+  "holdout_scored": false,
+  "real_orders": 0,
+  "external_AI_requests": 0,
+  "private_evidence": ".demo-artifacts/topix500-20261020/native-warm-002/verified-result.json",
+  "initial_v1_failure": {
+    "source_commit": "203f42b41f265b5c6818f7a483da5da6abfd70b7",
+    "normal_compute_timeout_seconds": 600,
+    "sampled_app_renderer_peak_bytes": 3328581632,
+    "sampled_VM_peak_bytes": 5122539520,
+    "sampled_host_free_min_bytes": 2033336320,
+    "background_low_memory_kills_observed": true,
+    "compute_renderer_present_until_instrumentation_shutdown": true,
+    "forecast_published": false,
+    "failure_record": ".demo-artifacts/topix500-20261020/native-cold-001/"
+  }
+}

@@ -211,6 +211,13 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
         adjusted["adjustment_version"].str.startswith("jquants-file-cumulative-adjfactor-v1:").all()
     )
     pdt.assert_frame_equal(frame, before, check_exact=True)
+    owned = frame.copy(deep=True)
+    pdt.assert_frame_equal(
+        production_module._reconstruct_bulk_adjusted_prices(owned, owned_input=True),
+        adjusted,
+        check_exact=True,
+    )
+    pdt.assert_frame_equal(frame, before, check_exact=True)
     changed_input = frame.copy()
     changed_input.loc[0, "raw_high"] += 1
     changed = production_module._reconstruct_bulk_adjusted_prices(changed_input)
@@ -285,6 +292,14 @@ def test_canonical_daily_joins_common_issues_by_provider_code() -> None:
 
     assert daily["provider_code"].tolist() == ["25930"]
     assert daily["symbol"].tolist() == ["2593"]
+    reused = production_module._canonical_daily(
+        prices,
+        universe=universe,
+        availability=availability,
+        revision_policy=HistoricalRevisionPolicy.SINGLE_VINTAGE_AS_REVISED,
+        reuse_working_frame=True,
+    )
+    pdt.assert_frame_equal(reused, daily, check_exact=True)
     pdt.assert_frame_equal(prices, before_prices, check_exact=True)
     pdt.assert_frame_equal(universe, before_universe, check_exact=True)
 

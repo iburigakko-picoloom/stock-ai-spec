@@ -42,7 +42,9 @@ def test_cache_codec_preserves_bits_null_masks_and_timezones():
 def test_cold_warm_restart_and_append_equal_full_market_calculation(tmp_path, monkeypatch):
     path = tmp_path / "mobile.sqlite3"
     cutoff = timely_history(path, sessions=12)
-    selected = ["1000", "1003"]
+    # Missing history must remain an explicit empty cached member, including
+    # after the index avoids a full-history scan for every symbol.
+    selected = ["1000", "1003", "9999"]
     expected = market.feature_inputs(path, cutoff, True, decision_symbols=selected)
     first = market.feature_inputs(path, cutoff, True, decision_symbols=selected, preselected=True)
     assert_same(first, expected)

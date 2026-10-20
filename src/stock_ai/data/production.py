@@ -141,6 +141,7 @@ def build_production_data(
         universe=universe,
         availability=availability,
         revision_policy=revision_policy,
+        reuse_working_frame=price_context_only,
     )
     del prices
     financials = pd.DataFrame()
@@ -431,6 +432,7 @@ def _canonical_daily(
     universe: pd.DataFrame,
     availability: dict[pd.Timestamp, pd.Timestamp],
     revision_policy: HistoricalRevisionPolicy,
+    reuse_working_frame: bool = False,
 ) -> pd.DataFrame:
     required = {
         "trading_date",
@@ -488,13 +490,15 @@ def _canonical_daily(
         & frame.reindex(columns=["raw_volume", "trading_value"]).isna().all(axis=1)
     )
     del raw_ohlc, adjusted_ohlcv
-    frame = _reconstruct_bulk_adjusted_prices(frame)
-    frame = frame.loc[~no_trade].copy()
+    frame = _reconstruct_bulk_adjusted_prices(frame, owned_input=reuse_working_frame)
+    if not reuse_working_frame or no_trade.any():
+        frame = frame.loc[~no_trade].copy(deep=not reuse_working_frame)
     frame["revision_available_at"] = pd.to_datetime(frame["available_at"], utc=True)
     frame["available_at"] = frame["trading_date"].map(availability)
     session_position = {day: index for index, day in enumerate(sorted(availability))}
     frame["trading_session_index"] = frame["trading_date"].map(session_position)
-    frame = frame.loc[frame["available_at"].notna()].copy()
+    if not reuse_working_frame or frame["available_at"].isna().any():
+        frame = frame.loc[frame["available_at"].notna()].copy(deep=not reuse_working_frame)
     if revision_policy is HistoricalRevisionPolicy.STRICT_AS_KNOWN:
         frame["available_at"] = frame[["available_at", "revision_available_at"]].max(axis=1)
 
@@ -544,10 +548,15 @@ def _canonical_daily(
     return frame.sort_values(["trading_date", "symbol"], ignore_index=True)
 
 
-def _reconstruct_bulk_adjusted_prices(frame: pd.DataFrame) -> pd.DataFrame:
+def _reconstruct_bulk_adjusted_prices(
+    frame: pd.DataFrame, *, owned_input: bool = False,
+) -> pd.DataFrame:
     """Apply the official file-download AdjFactor formula when adjusted fields are absent."""
 
-    output = frame.copy()
+    # The opt-in mobile context path supplies a private merge result. It is no
+    # longer shared with the original source, so another full deep copy only
+    # increases WASM heap pressure. Standalone/default callers keep copy safety.
+    output = frame if owned_input else frame.copy()
     adjusted = (
         "research_open",
         "research_high",

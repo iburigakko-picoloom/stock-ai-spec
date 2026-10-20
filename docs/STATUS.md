@@ -1,16 +1,21 @@
 ## 2026-10-20 — TOPIX500事前選定の独立実装中（D205）
 
+- D206のcopy/走査修正後、Ruff全体/mypy75file、127関連試験と最終filter修正後10件が成功（重複あり）。実730日/同493対象のPCで全入力・共通統計・全特徴量/978予測/source IDが旧基準と再一致。初回入力215.630秒/全体221.976秒/peak2,117,304,320bytes、別process再利用20.320秒/28.207秒/669,847,552bytes。旧初回の2,393,624,576bytesから減少したが、新Android初回/再利用と必要CIはこの変更後に再確認する。原本はpc-002、工程profileは入力計測まで有効で最終比較は補助file不足により未完のまま保存した。
+- 初回Android/source203f42bは600秒のcompute timeoutで不合格。停止前のsampled app+renderer最大3,328,581,632bytes、background processのlow-memory killあり、計算rendererはJUnit終了まで動作。再利用成功と分け、通常新候補の作成を待つ。D206としてprivate mergeの余分な全量copyと銘柄ごとの全履歴文字列走査だけを除き、関連試験→実730日PC→同制限のAndroid初回を再確認する。既存0.1.23と原本は不変。
+- 製品203f42bの隔離Android35で、実730日/既存2回帰/締切前の試験口座を使った通常owner予測→暗号化保存128.941秒、同日GET0.942秒を確認。起動時の暗号化状態読込113.495秒は別。sampled app+renderer最大2,016,321,536bytes。600秒/Java192MiB/4GiB guest/2cores/既存RAM guardを維持し、978予測・全特徴量hash・source ID・同scope proof・上位20はPCと一致した。
+- 同じAndroidのB1書出40.191秒/検査92.244秒/復元128.673秒と、kernel再起動後のcold GET113.839秒が成功。VM停止後の独立host検査で保存直後/B1復元後/再起動後の20mobile/27operations tableが型付きで完全一致し、元の口座/現金/実台帳/市場/modelは不変。これは新実営業日やXiaomiの検証ではない。[Android比較と未確認範囲](evidence/topix500-20261020/android-comparison.json)。初回cacheなしの全量Androidは別AVDで直列測定中。
+- D205の必要CI39367905793/source203f42bはverify/android/android-history全成功、release skip。tested merge68e7de7と同じGit treeを確認。新報告89端末/15 JVM試験は失敗・error・skip0、復旧/配送・同署名更新と合成全量B1復元234.206秒が成功。ただし実データ初回は上記600秒停止。D206の必要CI/候補はこの変更後に別確認し、旧成功を流用しない。
 - backend checkpoint08a8f0cを固定し、同じ実730日/493銘柄/既存2headでPC比較が成功。旧入力207.981秒・全体216.170秒・peak2,355,056,640bytes、新初回222.470秒・228.682秒・2,393,624,576bytes、別processの再利用17.863秒・23.888秒・668,450,816bytes。初回の負荷は改善しておらず、再利用の効果と分ける。
 - 対象の全入力/特徴量/978予測・市場485行/業種16,490行・source IDが一致。保存済みの旧300 PC参照と共通260銘柄×2 horizonも特徴量/予測の差0。母集団変更で上位20が変わることを計算誤差と混同しない。
 - SQLite返却値は旧358.8MB→新初回405.2MB→再利用27.4MB。再利用は価格/所属の長期batchを0行decode、財務等の小さな全体sourceは引き続き読む。物理disk page IOではない。DB219,598,848bytes、通常archive185,022,803bytes/base64 246,697,072文字で既存上限内。原17/27tableの型付き内容が不変、追加後20mobile table。PC容量だけの確認でnative暗号化の成功ではない。
-- [PC比較と限界](evidence/topix500-20261020/pc-comparison.json)。新しい実1営業日の日次時間、Androidの旧入力399秒との同条件比較、初回/日次の暗号化保存・再開、必要CI、新候補/Xiaomiは未確認。再利用23.9秒を日次やAndroidの達成値へ読み替えない。
+- [PC比較と限界](evidence/topix500-20261020/pc-comparison.json)。新しい実1営業日の日次時間、Androidの旧入力399秒との同条件比較、初回cache構築の暗号化保存、必要CI全体、新候補/Xiaomiは未確認。PC再利用23.9秒やAndroid同一入力再計算128.9秒を新営業日・起動込み3分以内の達成値へ読み替えない。
 - 対象方式は既存の折りたたみ詳細へ1項目だけ追加し、初期値従来300、保存失敗時の旧設定保持、非対応理由、予測自身の方式を表示。Web typecheck/lint、100 unit、320/390px・文字150%の2 layoutが成功。48px/12px条件と横はみ出しなしを確認。初回layoutのlabel locator失敗を残し、実際のaccessible comboboxで同じ値/間隔を検証した。UIの合成成功をAndroidの実データ確認へ読み替えない。
 
 - 独立worktree `stock-ai-topix500` / branch `feature/topix500-preselection`、開始9fe568e。元の3file/191行の私有差分・PR #2・通常0.1.23・実時刻試験・Xiaomi一括票を保持する。旧300方式が既定。
 - ScaleCatの3区分/国内普通株による対象リスト、全保有の追加、月次/構成変更時の不変版・差分・受領/cutoff・hashを実装。現行の実受領がなければ理由付き停止。売買代金は選定の足切りではなく既存の費用/株数検算用に保持する。
 - 共通統計を全市場で作った後、財務日次結合は対象だけで実施する再利用口を追加。銘柄別価格履歴、共通統計、v1 source hash列のcacheを追加し、warm/通常追加日で全市場長期frameを再構築しない。初回/訂正等の再構築はまだ全市場価格を使う。
 - 関連139件、cache境界/方式設定/保存復旧79件、最後の版証拠/同一予測再利用9件が成功（重複を含む）。先行の特徴量/全source ID54件も成功。Ruff全体・mypy src全75file成功。Windows sandboxでの復元先置換拒否と最初の中断実行は別記録を保持し、専用host試験領域で同じ復元が成功した。過去/部分試験を現source全体CIの証拠にしない。
-- 保存実データから対応国内普通株493銘柄のリストと検算用20営業日参照を生成済み。730日/実headのPC比較、Android全量/保存、容量、実データの日次/月次/再開、必要CI、別候補/Xiaomiは未完。この途中の結果で通常方式を切り替えない。
+- 保存実データから対応国内普通株493銘柄のリストと検算用20営業日参照を生成済み。730日/実headのPC比較とAndroid cache再利用/保存/復元/再起動は上記の範囲で成功。初回Android、実データの日次/月次/変更再計算、必要CI全体、別候補/Xiaomiは未完。この途中の結果で通常方式を切り替えない。
 - 私有原本/作業開始記録と計測準備は`.demo-artifacts/topix500-20261020/pc-001/`。sourceは実730日/485営業日の保存版で、本人の口座操作ではない。正式採用HOLD、152条件とholdout採点なしを維持。実注文・外部AI送信・公開配布なし。
 
 ## 2026-10-20 — 実時刻のOS日次・通知・保存・再起動照合（D204）
