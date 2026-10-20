@@ -1,3 +1,9 @@
+## 2026-10-20 — 既存アプリ内更新経路を確認、0.1.26配信準備
+
+- 起動時の`MobileUpdateNotice`→native `checkUpdate`→本人タップ→`installUpdate`→Android確認は既にある。公開latestは0.1.12/code10012で、0.1.26候補を未配信のため新版表示が出ない。無操作のsilent更新とは区別する。
+- 検査済み0.1.26 APKを再buildせず、`StockAI.apk`/`update.json`/`SHA256SUMS`/公開署名情報/変更内容を私有`.demo-artifacts/settings-reference-20261020/update-distribution/`へ準備。元APK hash、旧公開版と現在のnative URL/tag制約、増加code10026を照合。更新tagは既存検査に合う`android-v0.1.26`、APKの実versionNameは`0.1.26-candidate`のまま。既存clientはprereleaseを検出しないため、配信時にも研究用候補・正式HOLD/Xiaomi未確認を変更内容へ明記する。
+- 配信先は公開GitHubのため公開承認待ち。Release作成/公開・main merge・端末更新は未実施。既存の必要CI・署名パッケージ検査を使い、製品source変更や重い再試験は追加しない。
+
 ## 2026-10-20 — 設定画面を0.1.26候補APKへ反映（D210）
 
 - 製品source `18fb6d83f3c6517007979c9ce840ee99d6294717`、必要CI [39417285273](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39417285273) のverify/android/android-historyが全成功（release skip）。tested merge `e33b7eb8054ee28c4eb731f5fb98a4741bdb76f4`とGit treeが一致。[CI結果](evidence/settings-reference-20261020/ci-result.json)。
