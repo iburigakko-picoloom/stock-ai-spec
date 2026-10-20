@@ -10,7 +10,7 @@ interface ModelStatus {
 }
 interface ForecastRun {
   run_id: string; phase: string; outcome: string; checked_at: string;
-  scope: { as_of: string; universe?: { latest_source_date?: string | null } };
+  scope: { as_of: string; universe?: { latest_source_date?: string | null; policy?: string } };
   snapshot: { generated_at: string; data_as_of: string; predictions: { symbol: string;
     expected_return_5d: number; expected_return_20d: number }[];
     candidate_symbols?: string[]; holding_symbols?: string[] } | null;
@@ -30,6 +30,9 @@ function reason(code: string): string {
     LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF: "締切後に確認した台帳は次の営業日の計算対象になります。",
     HOLDINGS_NEED_RECONCILIATION: "入力した保有と約定台帳を照合してください。",
     UNIVERSE_CURRENT_MEMBERSHIP_MISSING: "11:30までに受領した当日の銘柄一覧がありません。",
+    UNIVERSE_CURRENT_MEMBERSHIP_MISSING_NO_VERIFIED_FALLBACK: "11:30までに受領した当日の銘柄一覧がありません。構成を確認できる一覧が必要です。",
+    UNIVERSE_TOPIX500_SCALE_CATEGORIES_UNAVAILABLE: "TOPIX500の規模区分を確認できません。銘柄一覧の受領内容を確認してください。",
+    UNIVERSE_HELD_INSTRUMENT_UNSUPPORTED_OR_NOT_LISTED: "対応する国内普通株として確認できない保有があります。銘柄と上場状況を確認してください。",
     UNIVERSE_NON_BUSINESS_DAY: "当日は休場日です。",
     CALIBRATED_MODEL_BUNDLE_UNAVAILABLE: "締切までに取り込まれた、利用条件を確認済みのモデル一式が必要です。",
     FORECAST_RISK_UNAVAILABLE: "下振れ・下落確率・確信度は未提供です。株数の自動判定を行わず、ChatGPTへの相談と回答の検算を利用できます。",
@@ -113,7 +116,8 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
       {run.blocking_reasons.length > 0 && <ul>{run.blocking_reasons.map(code => <li key={code}>{reason(code)}</li>)}</ul>}
       <details><summary>計算時刻・参照情報</summary>
         <p>確認：{timestamp(run.checked_at)}</p>
-        <p>株価・時価総額：{run.scope.universe?.latest_source_date ?? "未確認"}</p>
+        <p>この予測の対象方式：{run.scope.universe?.policy === "jquants-scalecat-topix500-v1" ? "TOPIX500" : run.scope.universe?.policy?.startsWith("cap30bn-adv20-top300-") ? "従来300" : "記録を確認してください"}</p>
+        <p>最終株価日：{run.scope.universe?.latest_source_date ?? "未確認"}</p>
         {run.snapshot && <><p>数値生成：{timestamp(run.snapshot.generated_at)}</p><p>参照情報の受領：{timestamp(run.snapshot.data_as_of)}</p></>}
         {decision && <p>株数判定の生成：{timestamp(decision.checked_at)}</p>}
       </details>

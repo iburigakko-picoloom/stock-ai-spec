@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGet, apiPost } from "../api";
-import { acquireMembership, acquireRange, defaultPlan, type AcquisitionMode, type MarketPlan, type MarketStatus, type MembershipStatus, type UniversePreview } from "./market";
+import { acquireMembership, acquireRange, defaultPlan, type AcquisitionMode, type MarketPlan, type MarketStatus, type MembershipStatus, type UniversePolicy, type UniversePreview } from "./market";
 
 export function MobileMarketPanel({ configured, disabled, onBusy }: {
   configured: boolean; disabled: boolean; onBusy: (value: boolean) => void;
@@ -13,10 +13,12 @@ export function MobileMarketPanel({ configured, disabled, onBusy }: {
   const [refreshDay, setRefreshDay] = useState("");
   const [selection, setSelection] = useState<UniversePreview | null>(null);
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
+  const [policy, setPolicy] = useState<UniversePolicy | null>(null);
+  const [changingPolicy, setChangingPolicy] = useState(false);
   const stop = useRef(false);
   useEffect(() => {
-    void Promise.all([apiGet<MarketStatus>("/api/v1/mobile/market"), apiGet<MarketPlan | null>("/api/v1/mobile/market/plan"), apiGet<MembershipStatus>("/api/v1/mobile/market/membership")])
-      .then(([saved, range, member]) => { setStatus(saved); if (range) setPlan(range); setMembership(member); setLoaded(true); })
+    void Promise.all([apiGet<MarketStatus>("/api/v1/mobile/market"), apiGet<MarketPlan | null>("/api/v1/mobile/market/plan"), apiGet<MembershipStatus>("/api/v1/mobile/market/membership"), apiGet<UniversePolicy>("/api/v1/mobile/market/universe-policy")])
+      .then(([saved, range, member, mode]) => { setStatus(saved); if (range) setPlan(range); setMembership(member); setPolicy(mode); setLoaded(true); })
       .catch(() => setMessage("取得範囲と保存データを確認できません。アプリを再起動してください。"));
     return () => { stop.current = true; };
   }, []);
@@ -50,6 +52,17 @@ export function MobileMarketPanel({ configured, disabled, onBusy }: {
     </div>
     <p role="status" aria-live="polite">{message}</p>
     <details className="market-options"><summary>取得範囲・訂正データ・計算の確認</summary>
+      <label>予測対象<select value={policy?.mode ?? "legacy300"} disabled={disabled || running || changingPolicy || !policy} onChange={e => {
+        const mode = e.target.value;
+        setChangingPolicy(true);
+        void inspect(async () => {
+          try {
+            setPolicy(await apiPost<UniversePolicy>("/api/v1/mobile/market/universe-policy", { mode }));
+            setSelection(null); setMessage("次に作成する数値予測から対象方式を適用します。");
+          } finally { setChangingPolicy(false); }
+        });
+      }}><option value="legacy300">従来300</option><option value="topix500-preview">TOPIX500</option></select></label>
+      <p>{policy?.mode === "topix500-preview" ? "TOPIX500の規模3区分の全銘柄と全保有を対象にします。研究用で、実機確認中です。" : "時価総額300億円以上・売買代金上位300銘柄と全保有を対象にします。"}</p>
       <p>当日の銘柄一覧・直近受領：{membership?.latest_received_at ?? "未取得"}。11:30までに受領した利用対象：{membership?.eligible_received_at ?? "未確認"}</p>
       <label>開始日<input type="date" disabled={disabled || running} value={plan.first_day} onChange={e => setPlan({ ...plan, first_day: e.target.value })} /></label>
       <label>終了日<input type="date" disabled={disabled || running} value={plan.last_day} onChange={e => setPlan({ ...plan, last_day: e.target.value })} /></label>
@@ -74,12 +87,15 @@ export function MobileMarketPanel({ configured, disabled, onBusy }: {
         })}>保存データで特徴量を確認</button>
       </div>
       <p>検証に失敗し続ける場合は「最初から再取得」で取り直せます。</p>
-      {selection && <div><p>抽出時点：{selection.as_of}／当日の銘柄一覧：{selection.membership_source_date ?? "未確認"}／終値・時価総額：{selection.latest_source_date ?? "不足"}</p>
+      {selection && <div><p>抽出時点：{selection.as_of}／当日の銘柄一覧：{selection.membership_source_date ?? "未確認"}／最終株価日：{selection.latest_source_date ?? "不足"}</p>
         {selection.holdings_recorded === false && <p>保有の入力が未確認です。対象の保有銘柄を確定するには、口座・保有の入力が必要です。</p>}
-        <p>条件内の上位{selection.new_candidates.length}社＋条件外の保有{selection.held_only.length}社＝評価対象{selection.decision_symbols.length}社</p>
-        {selection.blocking_reasons.includes("current_membership_missing") ? <p>11:30までに受領した当日の銘柄一覧がありません。全保有を対象に残しています。</p>
+        <p>{selection.membership_mode === "preselected" ? "TOPIX500区分の" : "条件内の上位"}{selection.new_candidates.length}社＋対象外の保有{selection.held_only.length}社＝評価対象{selection.decision_symbols.length}社</p>
+        {selection.blocking_reasons.some(x => x.startsWith("current_membership_missing")) ? <p>11:30までに受領した当日の銘柄一覧がありません。全保有を対象に残しています。</p>
           : selection.blocking_reasons.includes("non_business_day") ? <p>当日は休場日です。新しい数値予測は作成しません。</p>
+          : selection.blocking_reasons.includes("held_instrument_unsupported_or_not_listed") ? <p>対応する国内普通株として確認できない保有があります。銘柄と上場状況の確認が必要です。</p>
+          : selection.membership_mode === "preselected" && selection.blocking_reasons.length > 0 ? <p>規模区分の受領記録を確認できません。</p>
           : selection.blocking_reasons.length > 0 && <p>必要な20営業日のカレンダー・株価・時価総額がそろっていません。全保有を対象に残しています。</p>}
+        {selection.membership_mode === "preselected" && (selection.excluded?.length ?? 0) > 0 && <ul>{selection.excluded?.map((item, index) => <li key={`${item.symbol}-${index}`}>{item.symbol}：対応する国内普通株として確認できません。</li>)}</ul>}
         <p>全保有のうち条件外：{selection.held_only.join("、") || "なし"}。市場・業種の特徴量は全体の母集団から計算します。</p>
       </div>}
     </details>

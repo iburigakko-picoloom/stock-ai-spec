@@ -2,8 +2,17 @@ import { expect, test } from "@playwright/test";
 
 for (const width of [320, 390]) test(`market acquisition controls remain separated at ${width}px with enlarged text`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 844 });
-  await page.route("**/api/v1/mobile/market", route => route.fulfill({ json: { latest_data_date: null, completed_dates: [] } }));
+  await page.route("**/api/v1/mobile/market", route => route.fulfill({ json: { latest_data_date: "2026-10-16", completed_dates: [] } }));
   await page.route("**/api/v1/mobile/market/plan", route => route.fulfill({ json: { first_day: "2025-08-01", last_day: "2026-10-16" } }));
+  await page.route("**/api/v1/mobile/market/universe-policy", route => route.fulfill({ json: { mode: "topix500-preview", experimental: true } }));
+  await page.route("**/api/v1/mobile/market/current-universe", route => route.fulfill({ json: {
+    as_of: "2026-10-17T11:30:00+09:00", latest_source_date: "2026-10-16", window_dates: [],
+    membership_mode: "preselected", membership_source_date: "2026-10-17", holdings_recorded: true,
+    new_candidates: Array.from({ length: 493 }, (_, i) => ({ symbol: String(1000 + i), company_name: "Synthetic" })),
+    decision_symbols: [...Array.from({ length: 493 }, (_, i) => String(1000 + i)), "ZZZZ"],
+    held_only: ["ZZZZ"], blocking_reasons: ["held_instrument_unsupported_or_not_listed"],
+    excluded: [{ symbol: "ZZZZ", reason: "HELD_INSTRUMENT_UNSUPPORTED_OR_NOT_LISTED" }],
+  } }));
   await page.route("**/api/v1/mobile/market/membership", route => route.fulfill({ json: {
     date: "2026-10-17", cutoff: "2026-10-17T11:30:00+09:00", latest_received_at: null,
     available_at_cutoff: false, is_business_day: null, acquisitionId: null,
@@ -42,6 +51,10 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
   await page.addStyleTag({ content: "html { font-size: 150%; }" });
   await page.getByText("取得範囲・訂正データ・計算の確認", { exact: true }).click();
   await expect(page.getByLabel("開始日", { exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "予測対象", exact: true })).toHaveValue("topix500-preview");
+  await page.getByRole("button", { name: "候補と全保有の対象を確認" }).click();
+  await expect(page.getByText("TOPIX500区分の493社＋対象外の保有1社＝評価対象494社")).toBeVisible();
+  await expect(page.getByText("ZZZZ：対応する国内普通株として確認できません。")).toBeVisible();
   await page.getByText("算出できた予測を見る 1社", { exact: true }).click();
   await expect(page.getByRole("cell", { name: "4%" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "株数の探索方法" })).toHaveValue("daily-decision-engine-v3-bounded");

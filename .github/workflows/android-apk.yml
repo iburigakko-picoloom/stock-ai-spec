@@ -116,6 +116,7 @@ jobs:
           uv run ruff check .
           uv run mypy src
           uv run mypy src --platform win32
+          uv run python -m pytest tests/test_mobile_preselection.py tests/test_mobile_input_cache.py -q --basetemp=.demo-artifacts/pytest-preselection-ci
           uv run python -m pytest tests/test_chatgpt_manual.py tests/test_mobile_manual_chatgpt.py tests/test_mobile_research_bundle.py tests/test_candidate_registry.py tests/test_fixed_rule.py tests/test_production_research.py::test_daily_label_metadata_matches_actual_production_next_session_target -q --basetemp=.demo-artifacts/pytest-daily-integration-ci
           uv run python -m pytest tests/test_research_selection.py tests/test_seed_stable_selection.py -q --basetemp=.demo-artifacts/pytest-seed-selection-ci
           uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py tests/test_android_upgrade.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
