@@ -4,6 +4,7 @@ import copy
 import sqlite3
 import zlib
 from datetime import datetime, timedelta
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 from mobile.python import market, membership, preselection, universe
@@ -104,3 +105,43 @@ def test_monthly_review_preserves_prior_list_without_fabricating_membership(tmp_
     assert reviewed["preselection"]["list_hash"] != first["preselection"]["list_hash"]
     assert reviewed["preselection"]["diff"] == {"added": [], "removed": [], "changed": []}
     assert preselection.select(path, CUTOFF) == first
+
+
+def test_same_cutoff_corrections_link_to_last_recorded_revision_after_reopen(tmp_path):
+    path = tmp_path / "mobile.sqlite3"
+    market.initialize(path)
+    membership.initialize(path)
+    previous_hash = None
+    previous_member = None
+    frozen_hashes = []
+    for revision in range(8):
+        value = master_observation(4)
+        value["acquisitionId"] = str(uuid5(NAMESPACE_URL, f"synthetic-version-{revision}"))
+        value["received_at"] = (CUTOFF - timedelta(minutes=30 - revision)).isoformat()
+        value["datasets"]["security_master"][0]["CoName"] = f"synthetic-revision-{revision}"
+        for page in value["source_pages"]:
+            page["received_at"] = value["received_at"]
+        membership.ingest(path, value, CUTOFF)
+        result = preselection.select(path, CUTOFF)
+        frozen = result["preselection"]
+        assert frozen["previous_list_hash"] == previous_hash
+        assert frozen["members"][0]["company_name"] == f"synthetic-revision-{revision}"
+        assert frozen["diff"]["changed"] == (
+            [] if revision == 0 else [{"before": previous_member, "after": frozen["members"][0]}]
+        )
+        frozen_hashes.append(frozen["list_hash"])
+        previous_hash = frozen["list_hash"]
+        previous_member = frozen["members"][0]
+        preselection.initialize(path)
+        assert preselection.select(path, CUTOFF) == result
+    with sqlite3.connect(path) as db:
+        assert {row[0] for row in db.execute(
+            "SELECT list_hash FROM mobile_preselection_lists"
+        )} == set(frozen_hashes)
+    # A later-inserted historical lookup cannot displace the latest cutoff.
+    preselection.select(path, CUTOFF - timedelta(minutes=15))
+    assert preselection.select(path, CUTOFF) == result
+    restored = tmp_path / "restored.sqlite3"
+    with sqlite3.connect(path) as source, sqlite3.connect(restored) as destination:
+        source.backup(destination)
+    assert preselection.select(restored, CUTOFF) == result

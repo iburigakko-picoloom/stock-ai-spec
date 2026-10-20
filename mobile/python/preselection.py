@@ -117,7 +117,9 @@ def select(path, as_of: datetime, holding_symbols=()):
     with connect(path) as db:
         row = db.execute(
             "SELECT list_hash,effective_at,payload FROM mobile_preselection_lists "
-            "WHERE effective_at<=? ORDER BY effective_at DESC,list_hash DESC LIMIT 1",
+            # Several received corrections may share one frozen cutoff. Hash
+            # order cannot identify the last immutable revision we recorded.
+            "WHERE effective_at<=? ORDER BY effective_at DESC,rowid DESC LIMIT 1",
             (stamp,),
         ).fetchone()
     previous = None if row is None else _checked(row)

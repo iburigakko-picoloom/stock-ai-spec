@@ -1,5 +1,7 @@
 {
   "status": "PRIVATE_CANDIDATE_PACKAGE_VERIFIED_REQUIRED_CI_SUCCESS",
+  "topix500_preview_acceptance": "HOLD_PENDING_D208_SAME_CUTOFF_PROVENANCE_FIX",
+  "preserved_for_legacy_comparison": true,
   "sha256": "be6a09be7009c9d7c137ac89f31bebdccb59e32053ba0365b90571de0f3c8a28",
   "bytes": 23976505,
   "source_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
