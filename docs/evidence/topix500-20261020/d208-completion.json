@@ -292,9 +292,9 @@
   ],
   "remaining": [
     {
-      "status": "実データ待ち",
+      "status": "実時刻・当日所属・端末確認待ち",
       "item": "真正な翌営業日入力による差分受領・計算・暗号化保存・OS通知の実測",
-      "condition": "現在の有効な状態から次営業日の実受領へ進む。保存済み時刻を遡らせない。3分目標は未判定"
+      "condition": "20日分の5dataと21日calendarを実受領し、隔離DBへ反映済み。21日当日のmaster/所属受領→11:30以後の通常Android差分予測・保存・通知を実測する。時計/受領時刻は変更しない。3分目標は未判定"
     },
     {
       "status": "本人確認待ち",
@@ -324,5 +324,6 @@
     "external_AI_requests": 0
   },
   "private_evidence_root": ".demo-artifacts/topix500-20261020/",
-  "normal_release_signature_upgrade": "release-upgrade.json"
+  "normal_release_signature_upgrade": "release-upgrade.json",
+  "actual_next_day_input_preparation": "live-delta.json"
 }

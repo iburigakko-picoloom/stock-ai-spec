@@ -18,6 +18,8 @@
 
 - 通常署名0.1.23→0.1.25の更新では元44table/590保存予測/設定/保有/モデル/試験用credentialの保持を独立照合した。私有試験がreleaseのcloseForTestを呼んだ失敗は試験側だけで修正し、製品の拒否を維持する。冷間試験の参照JSON消失も失敗のまま残し、同じ保存AVDで参照原本だけを復元した追加読戻しを別証拠にする。保存capsuleの世代/hashと全tableは再投入せず比較し、hostの搬送権限と通常アプリの権限、emulatorとXiaomiを分ける。[署名更新記録](evidence/topix500-20261020/release-upgrade.json)。
 
+- 20日18:42 JSTに新たに受領した20日分5data/21日calendarは、元を保持した私有コピーへ反映する。20日11:30の全入力/978予測/出所が変わらず既存予測を再推論せず返すことを、実受領後に厳密比較した。受領時刻を遡らせず、21日の予測は実行しない。PCでの受領・反映19.391秒をAndroid日次性能へ読み替えない。当日の所属受領、実営業日のAndroid/通知、Xiaomiを残す。[実差分の準備と時点分離](evidence/topix500-20261020/live-delta.json)。
+
 ### D207 — 共通計算で使わない履歴metadataとv1正規化の反復だけを減らす（2026-10-20）
 
 - D206/source5b07f3eのPC全値一致は成功したが、Android初回は再び600秒で停止。sampled app+rendererは3,049,295,872bytesへ減少したものの未合格。既存stageログではrequest後のexport-archive→export-chunksへ到達してからtimeoutしており、予測の暗号化commit成功とは扱わない。必要CI39374367653は追加修正が必要なため自分のrunだけ停止し、元0.1.23/PR #2の試験は触らない。
