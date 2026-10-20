@@ -4,7 +4,7 @@
 
 本人用の非公開StockAI-0.1.23-candidate.apk、versionCode10023、製品sourcec2fa278。SHA256 d3a382fb9cd415f8f29220ff12ffb03714497b62f86b0a3c9dab43894bfad7a5、23,966,385bytes。既存版と同じ署名・非debug。必要CI39330817573はverify/android/android-history全成功、release skip。追加query4件・端末89件と同梱51計算fileの一致を確認した。市場データ/APIキー/私有model/試験clock/instrumentationは通常APKへ含まない。
 
-親CI枠は全直列試験を収めるため60分に修正し、個別試験・アプリ600秒・メモリ制限は維持している。0.1.22は実APIのTOPIX日付指定不具合により受入を取り下げた。旧APK・入力・失敗原本は保全し、今回の候補だけで確認する。0.1.23は保存済みpageからの実HTTPS再開/暗号化保存/別起動ackを追加確認済み。OS時計の変更はしていないが、実データ入り締切後OS日次/通知とXiaomiは未確認。
+親CI枠は全直列試験を収めるため60分に修正し、個別試験・アプリ600秒・メモリ制限は維持している。0.1.22は実APIのTOPIX日付指定不具合により受入を取り下げた。旧APK・入力・失敗原本は保全し、今回の候補だけで確認する。0.1.23は保存済みpageからの実HTTPS再開/暗号化保存/別起動ackを追加確認済み。D204でOS/Worker時計を変えず、実730日cacheからWorkManager通常配送・予測/保存・通知投稿・別起動読戻しまで追加確認した。instrumentation下のemulatorで、Xiaomiは未確認。新HTTP取得を今回の試験で行ったとは扱わない。
 
 本人用StockAI-private-research-5d20d.json（7,066,264bytes、SHA256 5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5）は同じ研究用2回帰bundle。正式採用HOLD、risk/校正はnull。算術の実行source4cde7efと今回c2fa278の製品182file/計算51fileのbyte一致を確認し、実730日を使うPC/Androidの特徴量・予測一致、上位300外の保有3銘柄を含む算術410.769秒/596予測の差0を確認した。本人の保有更新や通常owner保存をこの追加算術だけで確認済みとはしない。
 

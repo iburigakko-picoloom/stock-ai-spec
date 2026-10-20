@@ -1832,3 +1832,9 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 
 - 通常0.1.23候補は製品c2fa278/必要CI39330817573成功と同梱source/hashへ固定する。0.1.22は実API不具合による受入取り下げを維持する。追加保有範囲の算術照合は同じ特徴量/前処理/研究2回帰・730日で行い、本人台帳の変更やXiaomiの証拠へ読み替えない。
 - 全市場共通指標と候補条件を保ち、既存の日次/保存/手動相談を同じ一括票で確認する。入力構築が主な残存コストであり、日次数分以内と実機のメモリ余裕は未達/未確認として維持する。未測定の改善やモデル採用を完成扱いにしない。
+
+### D204 — actual-clock daily acceptance reuses the unchanged candidate (2026-10-20)
+
+Use unchanged product c2fa278 and its successful required CI/normal private 0.1.23 candidate. Real-clock API35 instrumentation now covers the existing WorkManager path, pre-cutoff refusal, OS dispatch, foreground calculation/encrypted commit, actual daily notification, and a separate read-only process/AVD reopen. Preserve original native receipt times; this run does not claim new HTTP acquisition or unattended Xiaomi delivery.
+
+The observed forecast/save state interval is544.795s under the existing600s bound. All feature-value hashes and590 predictions match PC; all17/27 typed tables are checked, and market/model/personal ledger inputs remain immutable. Keep incomplete diagnostic observations and the interrupted original reopen separate from the passed additional probe. Tolerate only unavailable/partial intermediate sidecars; final proof and DB checks remain strict. Preserve boot/wait/probe-setup failures, all resource guards, and the unmodified signed APK. No new model fit, final scoring, automatic external AI send, real order, merge or public distribution. Xiaomi and daily performance improvements remain open.

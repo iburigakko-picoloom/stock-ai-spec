@@ -1,3 +1,12 @@
+## 2026-10-20 — 実時刻のOS日次・通知・保存・再起動照合（D204）
+
+- 製品c2fa278と同じ通常43資産の私有instrumentation APKで、実730日/実native HTTPS受領履歴/研究2回帰と試験口座を使用。OS/Worker時計を変更せず、11:22の予約・締切前拒否→11:37ごろの通常WorkManager配送→11:47の相談準備完了/通知投稿まで確認した。scheduler強制配送・画面wake・power policy変更は行わない。新たなHTTP取得はこの試験では行わず、既検証のnative実受領時刻を維持したcacheを使った。
+- 計算・暗号化保存はstate観測上544.795秒、同日GET0.694秒。600秒/Java192MiB/2cores/既存RAM guardを維持し、OOM/OS終了なし。sampled app+renderer最大3,165,564,928bytes、VM最大5,149,843,456bytes、host空き最小2,058,723,328bytes。十分な時間余裕や日次数分以内・大幅なメモリ削減の達成とは扱わない。
+- nativeで590予測のPC差0とAndroid通知6101の実投稿を確認。独立host検査で全特徴量hash、候補集合/順序、全17mobile/27operation tableを照合し、市場/モデル/本人入力・保有/現金/実約定台帳を保持した。予測/decision receiptと対応metadata/statusだけが更新され、実約定0。
+- 元の再open観測は未生成/不完全な診断sidecar応答のJSON読取で停止し、当該JUnitを成功とはしない。未生成fileのcat診断を追加probeで保全し、中間観測だけ再試行・完了proofはstrict検査を維持した。同じAVD/Keystore/暗号化stateを再起動し、APIキー/再計算なしの読戻しだけを追加確認。初回92.361秒/590予測の差0、全core tableが保存時と完全一致。追加probe起動のNameErrorも保全し修正した。
+- 待機controller消失（起動前・原因未確定）とADB一時offlineを停止扱いした旧attemptも保全。後者は既存240秒boot枠内で接続完了を待つ私有制御の修正で解消し、アプリは変更しない。キー/RSA alias削除・41file秘密非混入・観測した所有VM関連process全終了を確認した。
+- 通常0.1.23候補/hash/製品c2fa278・必要CI39330817573成功は不変。資料だけをcheckpointし重い同一CIは繰り返さない。Xiaomi、本人の実操作、訂正/候補入替/保有/モデル変更の実データ端末確認は未完。研究152条件56完走/96不完全・正式HOLDを維持し、新fit/最終採点/実注文/外部AI送信/main merge/公開配布なし。集約はactual-clock-daily.json、私有原本はdaily-os-owner-v12へ保存する。
+
 ## 2026-10-20 — 修正版0.1.23候補と保有範囲の端末照合（D203）
 
 - 製品sourcec2fa278の必要CI39330817573はverify/android/android-historyすべてsuccess、release skip。追加TOPIX queryの通常Gradle/JVM4件、端末89件は失敗/error/skip0。OS復旧/配送、同署名の旧版更新、全量owner保存の原本を照合し、CI webと同梱51計算fileの内容一致を確認した。以前のCIを新修正の合格証拠へ流用していない。
