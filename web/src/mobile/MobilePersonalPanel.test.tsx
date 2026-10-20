@@ -72,6 +72,21 @@ test("a changed portfolio requires the settings to be reviewed and saved again",
   expect(save).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "最新の口座・保有に合わせて見直す" }));
   expect(save).toBeEnabled();
-  expect(screen.getByRole("checkbox", { name: "研究用の比較条件を確認しました" })).not.toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "探索方法を含む研究用の比較条件を確認しました" })).not.toBeChecked();
   expect(screen.getByRole("button", { name: "初回残高の確認内容を作る" })).toBeDisabled();
+});
+
+test("saved exact policy stays selected and changing search requires renewed review", async () => {
+  const draft = { ...emptySettings(profile), research_decision_policy: "daily-decision-engine-v2" as const,
+    research_conditions_reviewed: true };
+  const saved: SavedSettings = { revision_id: "b".repeat(64), saved_at: profile.saved_at, settings: draft };
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("readiness") ? ready : { saved, current_portfolio: profile });
+  render(<MobilePersonalPanel profile={profile} disabled={false} />);
+  const select = await screen.findByRole("combobox", { name: "株数の探索方法" });
+  expect(select).toHaveValue("daily-decision-engine-v2");
+  const review = screen.getByRole("checkbox", { name: "探索方法を含む研究用の比較条件を確認しました" });
+  expect(review).toBeChecked();
+  fireEvent.change(select, { target: { value: "daily-decision-engine-v3-bounded" } });
+  expect(review).not.toBeChecked();
+  expect(screen.getByText(/最良の組合せは保証しません/)).toBeInTheDocument();
 });

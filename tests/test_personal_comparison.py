@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 from stock_ai.cli import app
 from stock_ai.domain import ExecutionRecord, MarketSnapshot, Position, Security
 from stock_ai.operations.api import create_app
-from stock_ai.operations.daily import PredictionSnapshot
+from stock_ai.operations.daily import QUOTE_SESSION_LABEL, PredictionSnapshot
 from stock_ai.operations.manual_portfolio import ImportedManualPortfolio
 from stock_ai.operations.personal import (
     AccountBinding,
@@ -26,6 +26,19 @@ from stock_ai.operations.personal import (
 from stock_ai.operations.store import OperationalConflictError, OperationalStore
 from tests.conftest import AS_OF, candidate, decision_engine, portfolio, prediction
 from tests.test_manual_portfolio import ACCOUNT, EMPTY, envelope
+
+
+def test_legacy_label_blocks_new_proposal_without_rewriting_original():
+    request, inputs = scenario()
+    source = inputs["forecast"]
+    legacy = PredictionSnapshot.create(
+        **{**source.model_dump(exclude={"snapshot_id"}), "label_definition": QUOTE_SESSION_LABEL}
+    )
+    original = legacy.model_dump_json()
+    result = compare_personal(request, **{**inputs, "forecast": legacy})
+    assert result.proposal is None
+    assert "FORECAST_LABEL_DEFINITION_UNVERIFIED" in {b.code for b in result.blocking_reasons}
+    assert legacy.model_dump_json() == original
 
 
 def scenario(*, budget="100000", nisa=False, held=True):

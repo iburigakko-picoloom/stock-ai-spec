@@ -1835,6 +1835,117 @@ def evaluate_nav_command(
     )
 
 
+@research_app.command("evaluate-fixed-rule")
+def evaluate_fixed_rule_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/fixed-rule"),
+) -> None:
+    """Replay explicit research accounting inputs with a common top-N rule."""
+    from stock_ai.ml.fixed_rule import FixedRuleRequest, write_fixed_rule
+
+    try:
+        request = FixedRuleRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_fixed_rule(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"fixed-rule evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"evaluation_path": str(path), "research_only": True,
+                           "market_evidence_certified": False}))
+
+
+@research_app.command("evaluate-assumed-market")
+def evaluate_assumed_market_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path("artifacts/assumed-market"),
+) -> None:
+    """Replay explicitly assumed daily execution without relaxing strict evaluation."""
+    from stock_ai.ml.assumed_market import AssumedMarketRequest, write_assumed_market
+
+    try:
+        request = AssumedMarketRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_assumed_market(request, output_root)
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+        typer.echo(f"assumption research blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"status":result["status"], "evaluation_path":str(path),
+                           "elapsed_seconds":result["elapsed_seconds"],
+                           "adoption_eligible":False}))
+    if result["status"] != "COMPLETE_ASSUMPTION_RESEARCH":
+        raise typer.Exit(2)
+
+
+@research_app.command("register-daily-candidates")
+def register_daily_candidates_command(
+    features: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    campaigns: Annotated[list[Path], typer.Option("--campaign", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/candidate-registry"
+    ),
+) -> None:
+    """Authenticate saved daily artifacts without training or reading final labels."""
+    from stock_ai.ml.candidate_registry import build_candidate_registry
+    from stock_ai.ml.evaluation_audit import write_audit_receipt
+
+    try:
+        receipt = build_candidate_registry(features, campaigns)
+        path = write_audit_receipt(receipt, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"candidate registry blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"registry_path": str(path), "status": receipt["status"]}))
+    if receipt["status"] != "AUTHENTICATED_OOF":
+        raise typer.Exit(2)
+
+
+@research_app.command("evaluate-market-strategy")
+def evaluate_market_strategy_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/market-nav"
+    ),
+) -> None:
+    """Connect pinned raw market receipts to pre-tax strategy/HOLD accounting."""
+    from stock_ai.ml.market_nav import MarketStrategyRequest, write_market_strategy
+
+    try:
+        request = MarketStrategyRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_market_strategy(request, output_root)
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+        typer.echo(f"market NAV evaluation blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"status": result["status"], "evaluation_path": str(path),
+                           "evaluation_tier": result["evaluation_tier"],
+                           "dividend_treatment": result["dividend_treatment"],
+                           "elapsed_seconds": result["elapsed_seconds"]}))
+    if result["status"] != "COMPLETE":
+        raise typer.Exit(2)
+
+
+@research_app.command("project-dividends")
+def project_dividends_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/dividend-projections"
+    ),
+) -> None:
+    """Audit pinned J-Quants V2 notices; never infer missing availability or cash timing."""
+    from stock_ai.ml.dividends import DividendRequest, write_dividend_projection
+
+    try:
+        request = DividendRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_dividend_projection(request, output_root)
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, RuntimeError, KeyError) as exc:
+        typer.echo(f"dividend projection blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"status": result["status"], "projection_path": str(path),
+                           "actions": len(result["actions"])}))
+    if result["status"] != "COMPLETE":
+        raise typer.Exit(2)
+
+
 @research_app.command("evaluate-daily-strategy")
 def evaluate_daily_strategy_command(
     input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
@@ -1941,6 +2052,44 @@ def project_daily_market_command(
         path = write_daily_market(request, output_root)
     except (ValueError, OSError, RuntimeError) as exc:
         typer.echo(f"daily market projection blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
+@research_app.command("project-daily-instruments")
+def project_daily_instruments_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/daily-instruments"),
+) -> None:
+    """Derive dated domestic lot/tick rules without certifying trade execution."""
+    from stock_ai.ml.daily_instruments import write_daily_instruments
+    from stock_ai.ml.daily_market import DailyMarketRequest
+
+    try:
+        request = DailyMarketRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_daily_instruments(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"daily instrument projection blocked: {exc}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
+
+
+@research_app.command("project-research-funding")
+def project_research_funding_command(
+    input_path: Annotated[Path, typer.Option("--input", exists=True, dir_okay=False)],
+    output_root: Annotated[Path, typer.Option(file_okay=False)] = Path(
+        "artifacts/research-funding"),
+) -> None:
+    """Pin an explicit conservative research funding schedule from a fixed calendar."""
+    from stock_ai.ml.daily_market import DailyMarketRequest
+    from stock_ai.ml.research_funding import write_research_funding
+
+    try:
+        request = DailyMarketRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
+        path = write_research_funding(request, output_root)
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"research funding projection blocked: {exc}", err=True)
         raise typer.Exit(2) from None
     typer.echo(json.dumps({"research_only": True, "receipt": str(path)}))
 

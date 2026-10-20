@@ -32,8 +32,8 @@ from stock_ai.domain import (
     Security,
     TaxState,
 )
-from stock_ai.domain.models import DailyDecisionAudit
-from stock_ai.operations.daily import PredictionSnapshot, content_id
+from stock_ai.domain.models import DailyDecisionAudit, PersonalPublicationGuard, Prediction
+from stock_ai.operations.daily import DAILY_NEXT_SESSION_CLOSE_LABEL, PredictionSnapshot, content_id
 from stock_ai.operations.manual_portfolio import (
     Digest,
     Identifier,
@@ -145,6 +145,7 @@ class PersonalComparison(InputModel):
     research_only: Literal[True] = True
     adoption_eligible: Literal[False] = False
     applied_to_ledger: Literal[False] = False
+    manual_context_sha256: Digest | None = Field(default=None, exclude_if=lambda v: v is None)
     warnings: tuple[str, ...] = (
         "RISK_PREFERENCE_RECORDED_NOT_A_DRAWDOWN_BOUND",
         "RESEARCH_PRICE_COST_TAX_ASSUMPTIONS_NOT_LIVE_EXECUTION_EVIDENCE",
@@ -166,6 +167,36 @@ class PersonalComparison(InputModel):
         return self
 
 
+def manual_context_digest(
+    portfolio: PortfolioState, forecast: PredictionSnapshot, request: PersonalComparisonRequest,
+) -> str:
+    """Bind a research consultation to the same price-marked ledger and inputs."""
+    if request.market is None or request.settings is None:
+        raise ValueError("Complete market and personal settings required")
+    marked = portfolio.model_copy(update={
+        "as_of": forecast.as_of,
+        "positions": tuple(
+            p.model_copy(update={"market_price": request.market.market.prices[p.symbol]})
+            for p in portfolio.positions if p.shares > 0
+        ),
+    })
+    return content_id({"forecast": forecast.model_dump(mode="json"),
+                       "portfolio": marked.model_dump(mode="json"),
+                       "request": request.model_dump(mode="json")})
+
+
+def implementation_hashes(settings: PersonalSettings | None) -> tuple[tuple[str, str], ...]:
+    names: tuple[str, ...] = (
+        "operations/personal.py", "operations/manual_portfolio.py", "operations/daily.py",
+        "domain/models.py", "decision/engine.py", "decision/costs.py", "decision/tax.py",
+    )
+    if (settings is not None
+            and settings.decision_policy.version == "daily-decision-engine-v3-bounded"):
+        names += ("decision/bounded.py",)
+    root = Path(__file__).resolve().parents[1]
+    return tuple((name, hashlib.sha256((root / name).read_bytes()).hexdigest()) for name in names)
+
+
 def compare_personal(
     request: PersonalComparisonRequest,
     *,
@@ -173,6 +204,7 @@ def compare_personal(
     ledger: PortfolioState | None,
     forecast: PredictionSnapshot | None,
     executions: tuple[ExecutionRecord, ...],
+    publication_guard: PersonalPublicationGuard | None = None,
 ) -> PersonalComparison:
     """Reconcile every account/holding and run the existing cost/tax/HOLD engine."""
     # Revalidate even constructed/model_copy values before using them in a proposal.
@@ -236,6 +268,8 @@ def compare_personal(
     as_of = request.checked_at if forecast is None else forecast.as_of
     age = timedelta(hours=request.maximum_input_age_hours)
     if forecast is not None:
+        if forecast.label_definition != DAILY_NEXT_SESSION_CLOSE_LABEL:
+            block("FORECAST_LABEL_DEFINITION_UNVERIFIED")
         cutoff = as_of.astimezone(JST)
         if (cutoff.hour, cutoff.minute, cutoff.second, cutoff.microsecond) != (11, 30, 0, 0):
             block("FORECAST_NOT_1130_FREEZE")
@@ -303,6 +337,12 @@ def compare_personal(
                     or symbol not in adv
                 ):
                     block("MARKET_EVIDENCE_MISSING", symbol=symbol)
+    manual_context = None
+    if forecast is not None and not forecast.risk_available:
+        if not blocks:
+            assert ledger is not None
+            manual_context = manual_context_digest(ledger, forecast, request)
+        block("FORECAST_RISK_UNAVAILABLE")
     proposal = None
     selected_value = None
     if not blocks:
@@ -331,6 +371,7 @@ def compare_personal(
             )
             for b in current.account_buckets
             for p in forecast.predictions
+            if isinstance(p, Prediction)
         )
         engine = DailyPortfolioDecisionEngine(
             config=settings.decision_policy,
@@ -377,6 +418,7 @@ def compare_personal(
                     "proposal_id": result.proposal_id + "-personal-" + inputs_hash[:16],
                     "daily_audit": audit,
                     "is_research_only": True,
+                    "personal_guard": publication_guard,
                 }
             )
             selected_value = sum(
@@ -387,23 +429,7 @@ def compare_personal(
         checked_at=request.checked_at,
         inputs_sha256=inputs_hash,
         request=request,
-        implementation_sha256=tuple(
-            (
-                name,
-                hashlib.sha256(
-                    (Path(__file__).resolve().parents[1] / name).read_bytes()
-                ).hexdigest(),
-            )
-            for name in (
-                "operations/personal.py",
-                "operations/manual_portfolio.py",
-                "operations/daily.py",
-                "domain/models.py",
-                "decision/engine.py",
-                "decision/costs.py",
-                "decision/tax.py",
-            )
-        ),
+        implementation_sha256=implementation_hashes(request.settings),
         manual_revision_id=None if manual is None else manual.export.revision_id,
         owner_scope_hash=None if manual is None else manual.owner_scope_hash,
         ledger_portfolio_id=None if ledger is None else ledger.portfolio_id,
@@ -411,6 +437,7 @@ def compare_personal(
         holding_symbols=holdings,
         blocking_reasons=tuple(blocks),
         proposal=proposal,
+        manual_context_sha256=manual_context,
         investment_budget_yen=budget,
         selected_equity_value_yen=selected_value,
         budget_exceeded_by_existing_holdings=selected_value is not None
@@ -497,6 +524,8 @@ def compare_stored_personal(
     request: PersonalComparisonRequest,
     *,
     now: datetime | None = None,
+    forecast_snapshot_id: str | None = None,
+    publication_guard: PersonalPublicationGuard | None = None,
 ) -> PersonalComparison:
     """Read authoritative records twice; concurrent input changes invalidate the result."""
 
@@ -509,14 +538,16 @@ def compare_stored_personal(
         return (
             store.latest_manual_portfolio(),
             store.latest_portfolio(),
-            store.latest_prediction_snapshot(),
+            (store.latest_prediction_snapshot() if forecast_snapshot_id is None
+             else store.prediction_snapshot(forecast_snapshot_id)),
             store.executions(),
         )
 
     request = request.model_copy(update={"checked_at": now or datetime.now(UTC)})
     before = read_inputs()
     result = compare_personal(
-        request, manual=before[0], ledger=before[1], forecast=before[2], executions=before[3]
+        request, manual=before[0], ledger=before[1], forecast=before[2], executions=before[3],
+        publication_guard=publication_guard,
     )
     if read_inputs() != before:
         from stock_ai.operations.store import OperationalConflictError

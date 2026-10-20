@@ -26,12 +26,18 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from stock_ai.domain import (
     ExecutionRecord,
-    ExecutionStatus,
     PortfolioProposal,
     UserDecision,
     UserDecisionLine,
 )
+from stock_ai.operations.chatgpt_manual import (
+    ExternalAiPermission,
+    permission_record,
+    read_permission_record,
+)
+from stock_ai.operations.chatgpt_research import ResearchConfiguration
 from stock_ai.operations.daily import (
+    DAILY_NEXT_SESSION_CLOSE_LABEL,
     CompanyResearchRecord,
     OwnerAdoptionReview,
     PredictionSnapshot,
@@ -121,6 +127,23 @@ class ApplyExecutionsInput(ApiModel):
     next_portfolio_id: str = Field(min_length=1)
 
 
+class ResearchStartInput(ApiModel):
+    configuration: ResearchConfiguration
+    rerun_previous_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class ResearchClaimInput(ApiModel):
+    retry: bool = Field(default=False, strict=True)
+
+
+class ResearchReceiptInput(ApiModel):
+    response: dict[str, Any] | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error_code: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_]{1,100}$")
+    interrupted: bool = Field(default=False, strict=True)
+
+
 class CsvPreviewInput(ApiModel):
     csv_text: str = Field(min_length=1)
     preview_id: str = Field(default_factory=lambda: f"import-{uuid4()}")
@@ -186,6 +209,7 @@ def _line_view(line: Any) -> dict[str, object]:
         "proposedExpectedValue": str(line.proposed_expected_value),
         "estimatedTransactionCost": str(line.transaction_cost.total),
         "estimatedTaxEffect": str(line.estimated_tax_effect),
+        "estimatedTaxCashWithholding": str(line.estimated_tax_cash_withholding),
         "netExpectedImprovement": str(line.net_expected_improvement),
         "downsideLevel": line.downside_risk,
         "uncertaintyLevel": line.uncertainty,
@@ -231,6 +255,9 @@ def _proposal_view(proposal: PortfolioProposal) -> dict[str, object]:
         "estimatedTaxEffect": str(
             sum((line.estimated_tax_effect for line in proposal.lines), Decimal("0"))
         ),
+        "estimatedTaxCashWithholding": str(
+            sum((line.estimated_tax_cash_withholding for line in proposal.lines), Decimal("0"))
+        ),
         "estimatedCashAfter": {
             key: str(value) for key, value in proposal.estimated_cash_after.items()
         },
@@ -259,6 +286,8 @@ def _active_proposal(
         raise OperationalIntegrityError("daily status references a missing proposal") from exc
     if proposal.as_of.astimezone(JST).date() != business_date:
         raise OperationalIntegrityError("daily status proposal belongs to another business date")
+    if not store.proposal_inputs_current(proposal):
+        return None
     return proposal
 
 
@@ -287,6 +316,12 @@ def _today(store: OperationalStore, business_date: date) -> dict[str, object]:
         state = status.pipeline_state
         blocking_reason = status.blocking_reason
         is_stale = status.is_stale
+        if (not is_stale and proposal is None and status.pipeline_state in PROPOSAL_DISPLAY_STATES):
+            state, is_stale = PipelineState.STALE_DATA, True
+            blocking_reason = "PERSONAL_INPUTS_CHANGED"
+        if state is PipelineState.CASH_ONLY and not store.cash_only_inputs_current(business_date):
+            state, is_stale = PipelineState.STALE_DATA, True
+            blocking_reason = "PERSONAL_INPUTS_CHANGED"
     return {
         "businessDate": business_date.isoformat(),
         "pipelineState": state.value,
@@ -411,7 +446,7 @@ def create_app(
     def daily_latest() -> dict[str, object]:
         snapshot = store.latest_prediction_snapshot()
         if snapshot is None:
-            return {"snapshot": None, "research": [], "is_stale": True}
+            return {"snapshot": None, "research": [], "chatgpt_research": [], "is_stale": True}
         return {
             "snapshot": snapshot.model_dump(mode="json"),
             "research": [
@@ -420,7 +455,112 @@ def create_app(
             ],
             "is_stale": snapshot.as_of.astimezone(JST).date() != current_time().date(),
             "research_symbols": snapshot.research_symbols(),
+            "chatgpt_research": [
+                item.model_dump(mode="json")
+                for item in store.chatgpt_research(snapshot.snapshot_id)
+            ],
         }
+
+    @app.get("/api/v1/research/{snapshot_id}")
+    def research_runs(snapshot_id: str) -> object:
+        try:
+            snapshot = store.prediction_snapshot(snapshot_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="snapshot not found") from exc
+        return {"runs": store.research_runs(snapshot.snapshot_id)}
+
+    @app.post("/api/v1/research/{snapshot_id}/{symbol}/start")
+    def research_start(
+        snapshot_id: str, symbol: str, body: ResearchStartInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        try:
+            snapshot = store.prediction_snapshot(snapshot_id)
+            # A source-backed company name may not yet be available. Preserve
+            # the verified symbol instead of accepting a caller's invented name.
+            proposal = _active_proposal(store, snapshot.as_of.astimezone(JST).date())
+            company_name = next((
+                item.company_name for item in (() if proposal is None else proposal.lines)
+                if item.symbol == symbol
+            ), f"証券コード {symbol}")
+            return store.begin_research(
+                snapshot_id, symbol, body.configuration, company_name=company_name,
+                now=current_time(), rerun_previous_id=body.rerun_previous_id,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="snapshot not found") from exc
+        except OperationalConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/research/permission")
+    def research_permission(
+        body: ExternalAiPermission,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        try:
+            body.require(current_time(), "account_codex")
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        # This is an owner's dated attestation, not provider verification.
+        store.set_metadata("external-ai-permission:account_codex", permission_record(body))
+        return {
+            "service": body.service,
+            "checked_at": body.checked_at,
+            "basis": "owner_attestation",
+            "expires_after_hours": 24,
+        }
+
+    @app.post("/api/v1/research/{run_id}/claim")
+    def research_claim(
+        run_id: str, body: ResearchClaimInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        try:
+            saved = store.research_run(run_id)
+            if saved["record"] is not None:
+                # Reading a completed receipt does not send a provider request.
+                return {"state": "completed", **saved}
+            permission = store.metadata("external-ai-permission:account_codex")
+            if permission is None:
+                raise ValueError(
+                    "EXTERNAL_AI_PERMISSION_UNCONFIRMED: 外部送信の利用条件を確認してください"
+                )
+            try:
+                read_permission_record(permission).require(current_time(), "account_codex")
+            except (ValueError, KeyError, TypeError) as exc:
+                raise HTTPException(status_code=422, detail=(
+                    "EXTERNAL_AI_PERMISSION_UNCONFIRMED: "
+                    "連携先の利用条件・契約・設定を確認してください"
+                )) from exc
+            return store.claim_research(run_id, now=current_time(), retry=body.retry)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="research run not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/research/{attempt_id}/receipt")
+    def research_receipt(
+        attempt_id: str, body: ResearchReceiptInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> object:
+        if (body.error_code is not None and any(item is not None for item in (
+            body.response, body.started_at, body.completed_at,
+        ))) or (body.error_code is None and body.interrupted):
+            raise HTTPException(status_code=422, detail="use one research outcome only")
+        try:
+            return store.finish_research(
+                attempt_id, now=current_time(), response=body.response,
+                started_at=body.started_at, completed_at=body.completed_at,
+                error_code=body.error_code, interrupted=body.interrupted,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="research attempt not found") from exc
+        except OperationalConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/v1/personal/readiness")
     def personal_readiness() -> object:
@@ -600,35 +740,25 @@ def create_app(
         body: ExecutionInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        execution = ExecutionRecord.model_validate(
-            {
-                **body.model_dump(exclude={"confirm_difference"}),
-                "decision_id": decision_id,
-                "source": "manual",
-            }
-        )
-        store.append_execution(execution, confirm_difference=body.confirm_difference)
-        proposal = store.proposal(store.decision(decision_id).proposal_id)
-        execution_state = (
-            PipelineState.EXECUTION_PENDING
-            if execution.status
-            in {
-                ExecutionStatus.NOT_ORDERED,
-                ExecutionStatus.OPEN,
-                ExecutionStatus.PARTIALLY_FILLED,
-            }
-            else PipelineState.EXECUTION_RECORDED
-        )
-        previous = store.daily_status(proposal.as_of.astimezone(JST).date())
-        store.set_daily_status(
-            DailyOperationStatus(
-                business_date=proposal.as_of.astimezone(JST).date(),
-                pipeline_state=execution_state,
-                updated_at=execution.executed_at,
-                data_as_of=None if previous is None else previous.data_as_of,
-                morning_data_as_of=None if previous is None else previous.morning_data_as_of,
-                proposal_id=proposal.proposal_id,
+        if body.executed_at.utcoffset() is None or body.executed_at > current_time():
+            raise HTTPException(
+                status_code=422,
+                detail="約定日時はタイムゾーンを含む現在以前の日時を指定してください。",
             )
+        try:
+            execution = ExecutionRecord.model_validate(
+                {
+                    **body.model_dump(exclude={"confirm_difference"}),
+                    "decision_id": decision_id,
+                    "source": "manual",
+                }
+            )
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422, detail="実約定の状態・数量・金額を確認してください。",
+            ) from exc
+        store.append_execution(
+            execution, confirm_difference=body.confirm_difference, update_daily_status=True,
         )
         return jsonable_encoder(execution, by_alias=True)
 
@@ -641,11 +771,28 @@ def create_app(
         body: ApplyExecutionsInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        state = store.apply_unapplied_executions(
-            next_as_of=body.next_as_of,
-            next_portfolio_id=body.next_portfolio_id,
-            created_at=current_time(),
-        )
+        now = current_time()
+        if body.next_as_of.utcoffset() is None or body.next_as_of > now:
+            raise HTTPException(
+                status_code=422,
+                detail="反映日時はタイムゾーンを含む現在以前の日時を指定してください。",
+            )
+        try:
+            state = store.apply_unapplied_executions(
+                next_as_of=body.next_as_of,
+                next_portfolio_id=body.next_portfolio_id,
+                created_at=now,
+            )
+        except OperationalConflictError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="保存済みの実保有と競合しています。保存内容を確認し、現在の実保有より後の反映日時を指定してください。",
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="約定の日時・数量・金額と反映日時を確認してください。記録済みの約定をすべて含む日時が必要です。",
+            ) from exc
         return jsonable_encoder(state, by_alias=True)
 
     @app.post("/api/v1/imports/executions/preview")
@@ -733,13 +880,42 @@ def create_app(
             if today_proposal is None
             else [_line_view(item) for item in today_proposal.lines if item.symbol == symbol]
         )
-        if not positions and not lines:
+        snapshot = store.latest_prediction_snapshot()
+        if snapshot is not None and snapshot.as_of.astimezone(JST).date() > proposal_date:
+            snapshot = None
+        prediction = next((
+            item for item in (() if snapshot is None else snapshot.predictions)
+            if item.symbol == symbol
+        ), None)
+        if not positions and not lines and prediction is None:
             raise HTTPException(status_code=404, detail="symbol not found")
         return {
             "symbol": symbol,
             "positions": positions,
             "proposalLines": lines,
             "proposal": None if today_proposal is None else _proposal_view(today_proposal),
+            "forecast": None if prediction is None or snapshot is None else {
+                "snapshotId": snapshot.snapshot_id, "asOf": snapshot.as_of,
+                "generatedAt": snapshot.generated_at,
+                "isStale": snapshot.as_of.astimezone(JST).date() != proposal_date,
+                "mode": snapshot.mode, "blockingReasons": snapshot.blocking_reasons,
+                "labelDefinition": snapshot.label_definition,
+                "labelDefinitionSupported": (
+                    snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL
+                ),
+                "prediction": prediction.model_dump(mode="json"),
+                "researchEligible": (symbol in snapshot.research_symbols()
+                                     and snapshot.label_definition
+                                     == DAILY_NEXT_SESSION_CLOSE_LABEL),
+            },
+            "researchRuns": [] if snapshot is None else store.research_runs(
+                snapshot.snapshot_id, symbol,
+            ),
+            "chatgptResearch": [] if snapshot is None else [
+                item.model_dump(mode="json")
+                for item in store.chatgpt_research(snapshot.snapshot_id)
+                if item.context.symbol == symbol
+            ],
         }
 
     @app.get("/api/v1/validation")

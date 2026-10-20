@@ -1,0 +1,123 @@
+{
+  "product_source_commit": "58c8a2ee6b672a2fa7a894ebf6dc011a10672741",
+  "ci": 39296287728,
+  "tested_merge": "fca36506700547be563708386f034d4cce0cd253",
+  "required_CI_success": true,
+  "native_tests": 89,
+  "private_real_data": true,
+  "calendar_days": 730,
+  "business_days": 485,
+  "candidates": 300,
+  "forecast_cohort": 295,
+  "raw_source_preserved": true,
+  "common_population_reduced": false,
+  "all_candidate_features_exact": true,
+  "numeric_feature_cells": 23276,
+  "real_prediction_checks": 590,
+  "maximum_prediction_error": 0,
+  "initial_focused_arithmetic": {
+    "source_commit": "e75ba844d0c5fe47e372be16c17555dcf64e4e5d",
+    "request_seconds": 452.3358999999999,
+    "inputs_seconds": 440.5677,
+    "features_seconds": 7.468899999999962,
+    "prediction_seconds": 0.9869999999999663
+  },
+  "actual_API_one_session_replay": {
+    "source_rows": {
+      "daily": 143249,
+      "market": 485,
+      "sector": 16490,
+      "financials": 143249
+    },
+    "feature_rows": {
+      "5": 295,
+      "20": 295
+    },
+    "numeric_cells_compared": 23276,
+    "maximum_feature_absolute_error": 0,
+    "all_serialized_features_exact": true,
+    "prediction_checks": [
+      {
+        "horizon": 5,
+        "rows": 295,
+        "maximum_absolute_error": 0
+      },
+      {
+        "horizon": 20,
+        "rows": 295,
+        "maximum_absolute_error": 0
+      }
+    ],
+    "preview_candidates": 300,
+    "forecast_cohort": 295,
+    "ingest_seconds": 3.083199999999998,
+    "duplicate_ingest_seconds": 2.1632,
+    "source_day_update_applied": true,
+    "duplicate_typed_tables_exact": 17,
+    "setup_seconds": 2.561600000000002,
+    "inputs_seconds": 411.639,
+    "features_seconds": 6.606800000000021,
+    "prediction_seconds": 1.0813999999999737,
+    "request_seconds": 424.972,
+    "request_budget_seconds": 600,
+    "common_context_exact": true
+  },
+  "daily_memory": {
+    "sampled_app_and_renderer_RSS_max_bytes": 3009716224,
+    "sampled_VM_RSS_max_bytes": 5183455232,
+    "sampled_host_free_min_bytes": 1939488768,
+    "samples": 21,
+    "scope": "actual API one-session ingest+duplicate+full-source common+focused5d20d inference; native owner forecast save excluded",
+    "Xiaomi_verified": false
+  },
+  "owner_clock_controlled_test": {
+    "generate": {
+      "pre_cutoff_blocked": true,
+      "forecast_owner_seconds": 490.421,
+      "prediction_values_exact": 590,
+      "same_day_read_seconds": 0.352,
+      "same_day_read_generation_unchanged": true
+    },
+    "reopen": {
+      "cold_owner_read_seconds": 66.784,
+      "prediction_values_exact": 590,
+      "snapshot_survived_process_stop": true,
+      "warm_read_seconds": 0.615,
+      "warm_read_generation_unchanged": true,
+      "late_holding_change_refused": true,
+      "old_forecast_retained": true,
+      "status": "process-reopened-and-late-change-refused"
+    },
+    "memory_app_renderer_RSS": 3283562496,
+    "provider_receipt_times_unchanged": true,
+    "OS_clock_modified": false,
+    "process_reopen_verified": true,
+    "ledger_unchanged": true,
+    "execution_rows": 0
+  },
+  "candidate": {
+    "version_code": 10022,
+    "version_name": "0.1.22-candidate",
+    "sha256": "419b556e91c2a979baf208a92ce66efe84bfb927d45e53f852fa55686482d210",
+    "bytes": 23966401,
+    "source_commit": "58c8a2ee6b672a2fa7a894ebf6dc011a10672741",
+    "certificate_sha256": "97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979"
+  },
+  "private_test_clock_packaged_in_candidate": false,
+  "new_real_fits": 0,
+  "holdout_scored": false,
+  "original_owner_controller_PID_failure_preserved": true,
+  "process_recreation_independently_verified_from_live_samples": true,
+  "actual_owner_profile_used": false,
+  "Xiaomi_verified": false,
+  "normal_OS_schedule_verified": false,
+  "daily_few_minutes_target_achieved": false,
+  "persistent_common_cache_added": false,
+  "limitations": [
+    "Input construction still loads full source history and dominates time.",
+    "Real API replay is distinct from Android downloader acknowledgement.",
+    "Controlled Worker clock verifies forecast/save guards, not actual OS scheduling.",
+    "Correction/replacement/holding/model changes have unit coverage; full real-data Xiaomi cycles remain.",
+    "Research models remain unadopted; final holdout was not scored."
+  ]
+}

@@ -6,6 +6,7 @@ import { DecisionReviewPage } from "./pages/DecisionReviewPage";
 import { DecisionSavedPage } from "./pages/DecisionSavedPage";
 import { ExecutionPage } from "./pages/ExecutionPage";
 import { HomePage } from "./pages/HomePage";
+import { ManualChatGPTPage } from "./pages/ManualChatGPTPage";
 import { RankingPage } from "./pages/RankingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { StockDetailPage } from "./pages/StockDetailPage";
@@ -21,6 +22,7 @@ export function App(): ReactNode {
         <Route path="today/review" element={<DecisionReviewPage />} />
         <Route path="today/decision" element={<DecisionSavedPage />} />
         <Route path="today/executions" element={<ExecutionPage />} />
+        <Route path="today/chatgpt" element={<ManualChatGPTPage />} />
         <Route path="ranking" element={<RankingPage />} />
         <Route path="validation" element={<ValidationPage />} />
         <Route path="validation/details" element={<ValidationPage />} />

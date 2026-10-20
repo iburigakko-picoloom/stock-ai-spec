@@ -1,5 +1,9 @@
 # Machine Learning and Research Specification
 
+2026-10-18追記（D162）：今回の範囲は日次5日/20日の既存18候補。認証済みcampaign/report/OOFを再利用し、追加の高度最適化・大規模探索/無制限の再学習・1日/前場拡張は行わない。モデル比較は同一horizon内の全seedに共通の固定売買/配分ルールを使い、ChatGPT判断は混ぜない。予測精度・配当なし費用控除後・配当込み・個人税引後を別区分にする。[接続契約](DAILY_INTEGRATION_CONTRACT.md)が今回の優先仕様であり、以下の旧拡張計画を今回の完了条件にしない。purge、複数seed、前処理分離、選定固定後の未使用finalと採用gateは維持する。
+
+2026-10-18追記（D165）：新しい5日/20日の開発OOF選定では全seedの平均でモデル種類/taskを比較し、単一の推論用seedを成績に依存せず最小の宣言seedへ固定する（既存集合では17）。欠けたseedや非有限の成績は省略せず拒否する。保存指標は個別seedの成績と区別できる`family_seed_mean_*__fixed_min_seed_v1`。ensembleは従来どおり最強の個別meta-evaluation ICを上回る必要がある。各seedの安定性、費用込み開発比較、規則/合否基準の固定、未使用finalと採用gateは引き続き必須。実データの候補固定・最終評価は未実行。
+
 更新日: 2026-08-22  
 状態: v0.2
 

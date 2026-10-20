@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -15,7 +15,7 @@ from stock_ai.domain import (
     UserDecision,
     UserDecisionLine,
 )
-from tests.conftest import AS_OF, portfolio
+from tests.conftest import AS_OF, account_components, portfolio
 
 
 def test_proposal_decision_and_execution_state_are_separate() -> None:
@@ -205,3 +205,118 @@ def test_tax_ytd_resets_at_execution_year_boundary_in_timestamp_order() -> None:
     tax_state = updated.tax_state_map()["bucket"]
     assert tax_state.tax_year == 2027
     assert tax_state.realized_gain_ytd == Decimal("19900")
+
+
+@pytest.mark.parametrize(("annual", "lifetime", "expected_annual", "expected_lifetime"), [
+    ("150000", "250000", "50000", "150000"),
+    ("50000", "80000", "0", "0"),
+    (None, "250000", None, "150000"),
+    ("150000", None, "50000", None),
+    (None, None, None, None),
+])
+def test_nisa_actual_partial_buy_consumes_remaining_notional_only(
+    annual, lifetime, expected_annual, expected_lifetime,
+) -> None:
+    account, bucket, cash, tax = account_components(nisa=True)
+    def amount(value):
+        return None if value is None else Decimal(value)
+    state = portfolio().model_copy(update={
+        "accounts": (account,), "account_buckets": (bucket,), "cash": (cash,),
+        "tax_states": (tax.model_copy(update={
+            "nisa_annual_capacity_user_input": amount(annual),
+            "nisa_lifetime_capacity_user_input": amount(lifetime),
+        }),),
+    })
+    execution = ExecutionRecord(
+        execution_id="nisa-buy", decision_id="decision", executed_at=AS_OF,
+        symbol="A", account_bucket_id="bucket", status=ExecutionStatus.PARTIALLY_FILLED,
+        side=TradeSide.BUY, ordered_shares=200, filled_shares=100,
+        average_fill_price=Decimal("1000"), actual_commission=Decimal("100"),
+        actual_other_cost=Decimal("50"), source="manual",
+    )
+    updated = apply_executions(
+        state, (execution,), next_as_of=AS_OF + timedelta(days=1), next_portfolio_id="next",
+    )
+    actual = updated.tax_state_map()["bucket"]
+    assert actual.nisa_annual_capacity_user_input == amount(expected_annual)
+    assert actual.nisa_lifetime_capacity_user_input == amount(expected_lifetime)
+    assert updated.cash_map()["bucket"].available_cash == Decimal("99850")
+    assert updated.position_map()[("A", "bucket")].average_acquisition_price == Decimal("1001.5")
+    assert state.tax_states[0].nisa_annual_capacity_user_input == amount(annual)
+    assert state.tax_states[0].nisa_lifetime_capacity_user_input == amount(lifetime)
+
+
+@pytest.mark.parametrize("nisa", [False, True])
+def test_sell_never_restores_nisa_purchase_capacity(nisa) -> None:
+    account, bucket, cash, tax = account_components(nisa=nisa)
+    held = Position(symbol="A", account_bucket_id="bucket", shares=100,
+                    average_acquisition_price=Decimal("800"), market_price=Decimal("1000"))
+    state = portfolio((held,)).model_copy(update={
+        "accounts": (account,), "account_buckets": (bucket,), "cash": (cash,),
+        "tax_states": (tax.model_copy(update={
+            "nisa_annual_capacity_user_input": Decimal("10000"),
+            "nisa_lifetime_capacity_user_input": Decimal("20000"),
+        }),),
+    })
+    execution = ExecutionRecord(
+        execution_id="sell", decision_id="decision", executed_at=AS_OF,
+        symbol="A", account_bucket_id="bucket", status=ExecutionStatus.FILLED,
+        side=TradeSide.SELL, ordered_shares=100, filled_shares=100,
+        average_fill_price=Decimal("1000"), source="manual",
+    )
+    updated = apply_executions(
+        state, (execution,), next_as_of=AS_OF + timedelta(days=1), next_portfolio_id="next",
+    )
+    assert updated.tax_states[0].nisa_annual_capacity_user_input == Decimal("10000")
+    assert updated.tax_states[0].nisa_lifetime_capacity_user_input == Decimal("20000")
+
+
+def test_taxable_buy_does_not_consume_nisa_fields() -> None:
+    base = portfolio()
+    state = base.model_copy(update={"tax_states": (base.tax_states[0].model_copy(update={
+        "nisa_annual_capacity_user_input": Decimal("150000"),
+        "nisa_lifetime_capacity_user_input": Decimal("250000"),
+    }),)})
+    execution = ExecutionRecord(
+        execution_id="buy", decision_id="decision", executed_at=AS_OF,
+        symbol="A", account_bucket_id="bucket", status=ExecutionStatus.FILLED,
+        side=TradeSide.BUY, ordered_shares=100, filled_shares=100,
+        average_fill_price=Decimal("1000"), source="manual",
+    )
+    updated = apply_executions(
+        state, (execution,), next_as_of=AS_OF + timedelta(days=1), next_portfolio_id="next",
+    )
+    assert updated.tax_states == state.tax_states
+
+
+@pytest.mark.parametrize("with_execution", [False, True])
+def test_tax_year_is_jst_for_equivalent_utc_timestamps(with_execution) -> None:
+    jst = ZoneInfo("Asia/Tokyo")
+    base = portfolio((Position(
+        symbol="A", account_bucket_id="bucket", shares=100,
+        average_acquisition_price=Decimal("800"), market_price=Decimal("1000"),
+    ),))
+    state = base.model_copy(update={
+        "as_of": datetime(2026, 12, 31, 11, 30, tzinfo=jst),
+        "tax_states": (base.tax_states[0].model_copy(update={
+            "tax_year": 2026, "realized_gain_ytd": Decimal("5000"),
+        }),),
+    })
+    at = datetime(2027, 1, 1, 0, 30, tzinfo=jst)
+    outcomes = []
+    for timestamp in (at, at.astimezone(UTC)):
+        executions = () if not with_execution else (ExecutionRecord(
+            execution_id="sell", decision_id="decision", executed_at=timestamp,
+            symbol="A", account_bucket_id="bucket", status=ExecutionStatus.FILLED,
+            side=TradeSide.SELL, ordered_shares=100, filled_shares=100,
+            average_fill_price=Decimal("1000"), source="manual",
+        ),)
+        updated = apply_executions(
+            state, executions,
+            next_as_of=(at + timedelta(hours=1)) if with_execution else timestamp,
+            next_portfolio_id="next",
+        )
+        outcomes.append(updated.tax_states[0])
+    assert outcomes[0] == outcomes[1]
+    assert outcomes[0].tax_year == 2027
+    assert outcomes[0].realized_gain_ytd == Decimal("20000" if with_execution else "0")

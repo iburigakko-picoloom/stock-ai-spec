@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>市場データ・画面試験</title></head>
+<body><div id="market-test" class="device-settings page"></div><script type="module">
+// Browser-only layout fixture. This entry is excluded from the application build.
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
+import { MobileMarketPanel } from "/src/mobile/MobileMarketPanel.tsx";
+import { MobileModelPanel } from "/src/mobile/MobileModelPanel.tsx";
+import { MobilePersonalPanel } from "/src/mobile/MobilePersonalPanel.tsx";
+import { DailyControls } from "/src/mobile/DailyPanel.tsx";
+import "/src/styles.css";
+const dailyState = new URLSearchParams(location.search).get("dailyState") || "idle";
+createRoot(document.getElementById("market-test")).render(React.createElement(MemoryRouter, null,
+  React.createElement(DailyControls, { status: { enabled: dailyState !== "idle", state: dailyState, notificationsEnabled: false }, busy: false, message: "", onChange() {} }),
+  React.createElement(MobileMarketPanel, { configured: true, disabled: false, onBusy() {} }),
+  React.createElement(MobileModelPanel, { disabled: false, inputsSaved: true, onBusy() {} }),
+  React.createElement(MobilePersonalPanel, { disabled: false, profile: {
+    revision_id: "a".repeat(64), saved_at: "2026-10-17T09:00:00+09:00", portfolio: {
+      schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: null,
+      maximum_drawdown_percent: null, accounts: [], holdings: [] } } })));
+</script></body></html>

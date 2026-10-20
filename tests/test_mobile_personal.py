@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -82,6 +83,25 @@ def setup(device, *, held=False, nisa=False, complete=True):
     return store, extra
 
 
+def test_explicit_bounded_policy_compiles_without_changing_legacy_cost_tax_or_ledger(device):
+    store, old = setup(device)
+    legacy = personal.input_state(store, NOW)[3]
+    assert legacy.decision_policy.version == "daily-decision-engine-v2"
+    before_ledger = store.latest_portfolio()
+    before_saved = personal.read_settings(store)
+    selected = old.model_copy(update={
+        "research_decision_policy": "daily-decision-engine-v3-bounded",
+    })
+    personal.save_settings(store, selected, before_saved["revision_id"], NOW + timedelta(minutes=1))
+    compiled = personal.input_state(store, NOW + timedelta(minutes=1))[3]
+    assert compiled.decision_policy.version == "daily-decision-engine-v3-bounded"
+    assert compiled.cost_policy == legacy.cost_policy and compiled.tax_policy == legacy.tax_policy
+    assert store.latest_portfolio() == before_ledger
+    device.initialize(device.export_state())
+    restored = personal.input_state(device._app.state.store, NOW + timedelta(minutes=1))[3]
+    assert restored == compiled
+
+
 def preview(device, store):
     return personal.preview_initial(store, device.STATE / "mobile.sqlite3", NOW, persist=True)
 
@@ -89,7 +109,9 @@ def preview(device, store):
 def test_legacy_saved_input_migrates_without_changing_payload_or_creating_ledger(device):
     path = device.STATE / "mobile.sqlite3"
     original = json.dumps(EMPTY)
-    with sqlite3.connect(path) as db:
+    # A connection context commits a transaction but does not close the handle.
+    # Release test-owned handles before replacing the validated SQLite files.
+    with closing(sqlite3.connect(path)) as db, db:
         db.execute("INSERT INTO manual_inputs(saved_at,payload) VALUES(?,?)",
                    (NOW.isoformat(), original))
     device.initialize(device.export_state())
@@ -98,7 +120,7 @@ def test_legacy_saved_input_migrates_without_changing_payload_or_creating_ledger
     assert migrated["portfolio"] == EMPTY
     assert store.latest_manual_portfolio().portfolio.model_dump(mode="json") == EMPTY
     assert store.latest_portfolio() is None
-    with sqlite3.connect(path) as db:
+    with closing(sqlite3.connect(path)) as db:
         assert db.execute("SELECT payload FROM manual_inputs").fetchone()[0] == original
     device.initialize(device.export_state())
     assert personal.portfolio_view(device._app.state.store) == migrated
@@ -329,3 +351,22 @@ def test_reserved_cash_decimal_boundary_and_non_nisa_capacity_validation():
     value["accounts"][0]["nisa_annual_capacity_user_input"] = "0"
     with pytest.raises(ValueError, match="NISA"):
         ManualPersonalSettings.model_validate(value).validate_portfolio("a" * 64, profile())
+
+
+def test_confirmed_ledger_readiness_does_not_rescan_historical_initial_prices(device, monkeypatch):
+    store, _ = setup(device, held=True)
+    path = device.STATE / 'mobile.sqlite3'
+    market.ingest(path, market_payload())
+    value = preview(device, store)
+    personal.confirm_initial(store, path, value['preview_id'], True, NOW)
+    before = store.latest_portfolio().model_dump_json()
+
+    def forbidden(*_args):
+        raise AssertionError('An existing ledger must not reprice a new initial ledger')
+
+    monkeypatch.setattr(personal, 'reference_prices', forbidden)
+    result = personal.readiness(store, path, NOW + timedelta(days=4))
+    assert 'ledger_already_initialized' in result['initial_ledger']['blocking_reasons']
+    assert result['initial_ledger']['portfolio'] is None
+    assert result['initial_ledger']['prices'] == {'date': None, 'prices': {}, 'source_hash': None}
+    assert store.latest_portfolio().model_dump_json() == before

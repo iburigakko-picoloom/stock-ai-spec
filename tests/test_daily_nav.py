@@ -514,3 +514,54 @@ def test_cli_rejects_bad_input_without_publishing_receipt(tmp_path: Path) -> Non
     )
     assert result.exit_code == 2
     assert not (tmp_path / "out").exists()
+
+
+def test_pending_cash_conversion_preserves_claim_without_spendable_cash_or_confirmed_nav():
+    event = action("cash_conversion_pending_payment", cash_per_share=D(90))
+    data = request(
+        prices=tuple((quote(),) for _ in range(3)),
+        positions=(position(),),
+        cash=(NavCash(bucket="cash", amount=D(0)),),
+        actions=(event,),
+        orders=(order(1),),
+    )
+    result = evaluate_daily_nav(data)
+    assert result.initial_nav == D(10000)
+    for day in result.days:
+        assert not day.positions
+        assert day.cash[0].amount == 0
+        assert len(day.receivables) == 1
+        assert day.receivables[0].amount == D(9000)
+        assert day.receivables[0].payment_at is None
+        assert day.unresolved_cash_payments == (event.event_id,)
+        assert day.nav is None
+        assert day.missing_mark_haircut_0_nav == D(9000)  # Nominal-claim assumption only.
+    assert result.days[1].fills[0].reason == "CASH_CONVERSION_COMPLETE"
+    assert result.total_return is None and result.maximum_drawdown is None
+    assert result.total_trading_cost == 0 and not result.valuation_complete
+
+
+def test_pending_claim_cannot_fund_another_security_and_respects_separate_accounts():
+    event = action("cash_conversion_pending_payment", cash_per_share=D(100))
+    data = request(
+        prices=((quote(), quote(symbol="B")),) * 2,
+        cash=(NavCash(bucket="cash", amount=D(0)), NavCash(bucket="other", amount=D(0))),
+        positions=(position(), position(bucket="other", shares=200)),
+        actions=(event,),
+        orders=(order(1, symbol="B"),),
+    )
+    result = evaluate_daily_nav(data)
+    last = result.days[-1]
+    assert last.fills[0].reason == "INSUFFICIENT_CASH"
+    assert {r.bucket: r.amount for r in last.receivables} == {"cash": D(10000), "other": D(20000)}
+    assert all(c.amount == 0 for c in last.cash) and not last.positions
+    assert last.missing_mark_haircut_0_nav == result.initial_nav == D(30000)
+
+
+def test_unknown_payment_requires_explicit_pending_kind_and_never_invents_a_date():
+    with pytest.raises(ValueError, match="amount/payment"):
+        action("cash_conversion", cash_per_share=D(100))
+    with pytest.raises(ValueError, match="unknown payment time"):
+        action("cash_conversion_pending_payment", cash_per_share=D(100), payment_at=at(1))
+    with pytest.raises(ValueError, match="unknown payment time"):
+        action("cash_conversion_pending_payment")

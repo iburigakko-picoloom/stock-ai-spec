@@ -1,5 +1,7 @@
 # Implementation Plan
 
+2026-10-18追記（D162/D165）：現在の追加開発は[日次版の接続契約](DAILY_INTEGRATION_CONTRACT.md)を優先する。5日/20日・既存18候補の評価品質、Android保存復旧、手動ChatGPT接続が対象。以下の前場/1日/高度最適化の旧計画を今回の追加作業へ含めない。最新の実装・試験・実機/データ待ちは[完成条件](FINISHING_PLAN.md)と[STATUS](STATUS.md)を参照する。
+
 更新日: 2026-08-22  
 状態: v0.2
 

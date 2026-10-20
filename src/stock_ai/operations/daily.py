@@ -7,11 +7,11 @@ import hashlib
 import io
 import json
 from datetime import datetime
-from typing import Any, Literal, Self
+from typing import Any, Final, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
-from stock_ai.domain.models import DomainModel, Prediction, _require_aware
+from stock_ai.domain.models import DomainModel, Prediction, ReturnOnlyPrediction, _require_aware
 
 RESEARCH_CRITERIA = (
     "earnings_quality",
@@ -22,6 +22,31 @@ RESEARCH_CRITERIA = (
     "liquidity_portfolio_risk",
     "contrary_facts",
 )
+
+DAILY_NEXT_SESSION_CLOSE_LABEL: Final = "next_session_adjusted_close_to_h_sessions_later"
+QUOTE_SESSION_LABEL: Final = "quote_session_adjusted_close_to_h_sessions_later"
+DailyLabelDefinition = Literal[
+    "quote_session_adjusted_close_to_h_sessions_later",
+    "next_session_adjusted_close_to_h_sessions_later",
+]
+
+
+def require_daily_close_label(definition: str) -> None:
+    """Archives stay readable; new inputs must match the actual production target."""
+    if definition != DAILY_NEXT_SESSION_CLOSE_LABEL:
+        raise ValueError("FORECAST_LABEL_DEFINITION_UNVERIFIED")
+
+
+def daily_close_forecast_basis() -> dict[str, str | bool]:
+    return {
+        "T": "input quote session",
+        "entry": "next trading session close, after the 11:30 prediction cutoff",
+        "formula": "adjusted_close[T+1+h] / adjusted_close[T+1] - 1",
+        "horizon_unit": "trading_sessions",
+        "is_execution_return": False,
+        "fees_taxes_dividend_cashflows_included": False,
+        "dividends_zero_confirmed": False,
+    }
 
 
 def canonical_json(value: object) -> str:
@@ -49,17 +74,15 @@ class PredictionSnapshot(DomainModel):
     feature_version: str = Field(min_length=1)
     data_snapshot_id: str = Field(min_length=1)
     active_horizons: tuple[Literal[5, 20], ...] = (5, 20)
-    risk_horizon: Literal[20] = 20
+    risk_horizon: Literal[20] | None = 20
     unit: Literal["fractional_return"] = "fractional_return"
-    label_definition: Literal["next_session_adjusted_close_to_h_sessions_later"] = (
-        "next_session_adjusted_close_to_h_sessions_later"
-    )
+    label_definition: DailyLabelDefinition = DAILY_NEXT_SESSION_CLOSE_LABEL
     price_semantics: Literal["daily_close_research_proxy"] = "daily_close_research_proxy"
-    large_loss_threshold: float = Field(gt=-1, lt=0)
-    downside_quantile_alpha: float = Field(gt=0, lt=0.5)
+    large_loss_threshold: float | None = Field(gt=-1, lt=0)
+    downside_quantile_alpha: float | None = Field(gt=0, lt=0.5)
     candidate_symbols: tuple[str, ...]
     holding_symbols: tuple[str, ...]
-    predictions: tuple[Prediction, ...]
+    predictions: tuple[Prediction | ReturnOnlyPrediction, ...]
     blocking_reasons: tuple[str, ...] = ()
 
     _aware = field_validator("as_of", "generated_at", "data_as_of")(_require_aware)
@@ -82,13 +105,24 @@ class PredictionSnapshot(DomainModel):
             raise ValueError("predictions must exactly cover candidates and all holdings")
         for prediction in self.predictions:
             if (
-                prediction.schema_version != 2
+                prediction.schema_version not in (2, 3)
                 or prediction.as_of != self.as_of
                 or prediction.model_version != self.model_version
                 or prediction.feature_version != self.feature_version
                 or prediction.data_snapshot_id != self.data_snapshot_id
             ):
                 raise ValueError("prediction does not match snapshot provenance")
+        returns_only = all(isinstance(p, ReturnOnlyPrediction) for p in self.predictions)
+        if returns_only:
+            if (self.mode != "research" or self.adoption_review_id is not None
+                    or any(x is not None for x in (
+                        self.risk_horizon, self.large_loss_threshold, self.downside_quantile_alpha,
+                    ))):
+                raise ValueError("return-only snapshot is unadopted research with unavailable risk")
+        elif (any(isinstance(p, ReturnOnlyPrediction) for p in self.predictions)
+              or self.risk_horizon != 20 or self.large_loss_threshold is None
+              or self.downside_quantile_alpha is None):
+            raise ValueError("daily risk snapshot requires consistent complete risk outputs")
         if self.mode == "owner_approved" and self.blocking_reasons:
             raise ValueError("blocked snapshot cannot claim owner-approved operation")
         if (self.mode == "owner_approved") != (self.adoption_review_id is not None):
@@ -96,6 +130,10 @@ class PredictionSnapshot(DomainModel):
         if self.snapshot_id != content_id(self.model_dump(mode="json", exclude={"snapshot_id"})):
             raise ValueError("prediction snapshot identity mismatch")
         return self
+
+    @property
+    def risk_available(self) -> bool:
+        return all(isinstance(p, Prediction) for p in self.predictions)
 
     @classmethod
     def create(cls, **values: Any) -> PredictionSnapshot:
@@ -275,15 +313,21 @@ def export_prediction_snapshot(snapshot: PredictionSnapshot, *, format: str = "j
             f"Snapshot: {snapshot.snapshot_id}",
             f"Data: {snapshot.data_as_of.isoformat()} / Model: {snapshot.model_version}",
             f"Unit: {snapshot.unit} / Label: {snapshot.label_definition} / Mode: {snapshot.mode}",
+            ("入力株価日Tの翌営業日終値からh営業日後までの研究ラベル。実約定後損益ではありません。"
+             if snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL else
+             "入力株価日終値を起点とする別ラベルです。原本を保持し、新しい判断入力には使用できません。"),
             "",
             "| 銘柄 | 1日 | 5日 | 20日 | 20日下振れ | 20日下落確率 |",
             "|---|---|---:|---:|---:|---:|",
         ]
         for item in snapshot.predictions:
+            downside = ("未提供" if item.downside_quantile is None
+                        else f"{item.downside_quantile:.6g}")
+            probability = ("未提供" if item.large_loss_probability is None
+                           else f"{item.large_loss_probability:.6g}")
             lines.append(
                 f"| {item.symbol} | 未提供 | {item.expected_return_5d:.6g} | "
-                f"{item.expected_return_20d:.6g} | {item.downside_quantile:.6g} | "
-                f"{item.large_loss_probability:.6g} |"
+                f"{item.expected_return_20d:.6g} | {downside} | {probability} |"
             )
         return "\n".join(lines) + "\n"
     raise ValueError("snapshot export format must be json, csv or markdown")

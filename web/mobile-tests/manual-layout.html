@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>合成ChatGPT画面試験</title></head>
+<body><div id="test"></div><script type="module">
+// Synthetic browser-only layout harness. Never included in the APK.
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
+import { ManualChatGPTPage } from "/src/pages/ManualChatGPTPage.tsx";
+import "/src/styles.css";
+createRoot(document.getElementById("test")).render(React.createElement(MemoryRouter, null,
+  React.createElement(ManualChatGPTPage)));
+</script></body></html>

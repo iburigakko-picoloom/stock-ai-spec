@@ -3,13 +3,10 @@ package jp.stockai.app;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import androidx.core.content.FileProvider;
 import androidx.activity.result.ActivityResult;
@@ -17,6 +14,9 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.ActivityCallback;
 import java.io.*;
@@ -26,83 +26,30 @@ import java.security.*;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
 import org.json.*;
 
-@CapacitorPlugin(name = "StockAI")
+@CapacitorPlugin(name = "StockAI", permissions = {@Permission(alias = "dailyNotifications", strings = {android.Manifest.permission.POST_NOTIFICATIONS})})
 public class StockAIPlugin extends Plugin {
     static final String REPO = "iburigakko-picoloom/stock-ai-spec";
-    static final String KEY_ALIAS = "stockai-local-v1";
     final ExecutorService executor = Executors.newSingleThreadExecutor();
     final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     SQLiteDatabase db;
     volatile JSONObject pendingUpdate;
-    static final int STATE_CHUNK_CHARACTERS = 256 * 1024;
-    static final int MAX_STATE_CHARACTERS = 128 * 1024 * 1024;
-    static final String STATE_FORMAT = "stockai-state-chunks-v1:";
-
     static String hex(byte[] bytes) {
         StringBuilder result = new StringBuilder();
         for (byte value : bytes) result.append(String.format("%02x", value & 255));
         return result.toString();
     }
 
-    byte[] encryptChunk(String text, long generation, int index) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, key());
-        cipher.updateAAD(("state:" + generation + ":" + index).getBytes(StandardCharsets.US_ASCII));
-        ByteArrayOutputStream output = new ByteArrayOutputStream(); output.write(cipher.getIV());
-        output.write(cipher.doFinal(text.getBytes(StandardCharsets.UTF_8))); return output.toByteArray();
-    }
-
-    String decryptChunk(byte[] data, long generation, int index) throws Exception {
-        if (data.length < 28 || data.length > STATE_CHUNK_CHARACTERS * 4 + 28) throw new SecurityException();
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(128, Arrays.copyOfRange(data, 0, 12)));
-        cipher.updateAAD(("state:" + generation + ":" + index).getBytes(StandardCharsets.US_ASCII));
-        return new String(cipher.doFinal(data, 12, data.length - 12), StandardCharsets.UTF_8);
-    }
-
-    JSObject readStateData() throws Exception {
-        JSObject result = new JSObject().put("generation", 0).put("payload", "");
-        try (Cursor cursor = db.rawQuery("SELECT generation,payload FROM state WHERE id=1", null)) {
-            if (cursor.moveToFirst()) {
-                long generation = cursor.getLong(0);
-                String envelope = decrypt(cursor.getBlob(1));
-                String payload = envelope;
-                if (envelope.startsWith(STATE_FORMAT)) {
-                    JSONObject metadata = new JSONObject(envelope.substring(STATE_FORMAT.length()));
-                    int length = metadata.getInt("length"), count = metadata.getInt("chunks");
-                    if (length < 0 || length > MAX_STATE_CHARACTERS || count != (length + STATE_CHUNK_CHARACTERS - 1) / STATE_CHUNK_CHARACTERS) throw new SecurityException();
-                    StringBuilder content = new StringBuilder(length); MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                    int index = 0;
-                    try (Cursor chunks = db.rawQuery("SELECT piece,payload FROM state_chunks ORDER BY piece", null)) {
-                        while (chunks.moveToNext()) {
-                            if (chunks.getInt(0) != index || index >= count) throw new SecurityException();
-                            String fragment = decryptChunk(chunks.getBlob(1), generation, index++);
-                            if (fragment.length() > STATE_CHUNK_CHARACTERS) throw new SecurityException();
-                            digest.update(fragment.getBytes(StandardCharsets.UTF_8)); content.append(fragment);
-                        }
-                    }
-                    if (index != count || content.length() != length || !hex(digest.digest()).equals(metadata.getString("sha256"))) throw new SecurityException();
-                    payload = content.toString();
-                }
-                result.put("generation", generation); result.put("payload", payload);
-            }
-        }
-        return result;
-    }
+    LocalComputeOwner owner() throws Exception { return LocalComputeOwner.get(getContext()); }
+    LocalStateStore stateStore() { return new LocalStateStore(db); }
+    JSObject readStateData() throws Exception { return stateStore().read(); }
+    long writeStateData(long generation, String payload) throws Exception { return stateStore().write(generation, payload); }
+    void initializeStateTables() { stateStore(); }
 
     @Override public void load() {
-        db = getContext().openOrCreateDatabase("stockai-device.sqlite3", 0, null);
-        initializeStateTables();
-    }
-
-    void initializeStateTables() {
-        db.execSQL("CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK(id=1), generation INTEGER NOT NULL, payload BLOB NOT NULL)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS state_chunks (piece INTEGER PRIMARY KEY, payload BLOB NOT NULL)");
+        try { db = owner().state.database; }
+        catch (Exception ignored) { throw new IllegalStateException("LOCAL_STATE_UNAVAILABLE"); }
     }
 
     interface Work { void run() throws Exception; }
@@ -119,65 +66,63 @@ public class StockAIPlugin extends Plugin {
         }});
     }
 
-    synchronized SecretKey key() throws Exception {
-        KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
-        if (!store.containsAlias(KEY_ALIAS)) {
-            KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-            generator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setKeySize(256).build());
-            generator.generateKey();
-        }
-        return (SecretKey) store.getKey(KEY_ALIAS, null);
+    byte[] encrypt(String text) throws Exception { return LocalStateStore.encrypt(text); }
+    String decrypt(byte[] data) throws Exception { return LocalStateStore.decrypt(data); }
+
+    void completeLocal(PluginCall call, java.util.concurrent.CompletableFuture<JSObject> result) {
+        result.whenComplete((value, error) -> {
+            if (error != null) call.reject("端末の計算・保存を完了できませんでした。保存済みの状態から再試行してください。", "STOCKAI_COMPUTE_FAILED");
+            else call.resolve(value);
+        });
     }
 
-    byte[] encrypt(String text) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, key());
-        byte[] encrypted = cipher.doFinal(text.getBytes(StandardCharsets.UTF_8));
-        ByteArrayOutputStream output = new ByteArrayOutputStream(); output.write(cipher.getIV()); output.write(encrypted); return output.toByteArray();
-    }
-    String decrypt(byte[] data) throws Exception {
-        if (data.length < 28) throw new SecurityException();
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(128, Arrays.copyOfRange(data, 0, 12)));
-        return new String(cipher.doFinal(data, 12, data.length - 12), StandardCharsets.UTF_8);
+    void completeBackup(PluginCall call, java.util.concurrent.CompletableFuture<JSObject> result) {
+        result.whenComplete((value, error) -> {
+            if (error != null) call.reject("バックアップを確認できませんでした。パスワード・ファイル・保存領域を確認してください。", "STOCKAI_BACKUP_FAILED");
+            else call.resolve(value);
+        });
     }
 
+    @PluginMethod public void compute(PluginCall call) { background(call, () -> {
+        completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
+    }); }
     @PluginMethod public void readState(PluginCall call) { background(call, () -> {
-        call.resolve(readStateData());
+        completeLocal(call, owner().readState());
     }); }
-
-    long writeStateData(long generation, String payload) throws Exception {
-        if (generation < 0 || payload == null || payload.length() > MAX_STATE_CHARACTERS) throw new IllegalArgumentException();
-        db.beginTransaction();
-        try {
-            long current = 0;
-            try (Cursor cursor = db.rawQuery("SELECT generation FROM state WHERE id=1", null)) { if (cursor.moveToFirst()) current = cursor.getLong(0); }
-            if (current != generation) throw new IllegalStateException("state conflict");
-            db.execSQL("DELETE FROM state_chunks");
-            MessageDigest digest = MessageDigest.getInstance("SHA-256"); int index = 0;
-            for (int offset = 0; offset < payload.length(); offset += STATE_CHUNK_CHARACTERS) {
-                String fragment = payload.substring(offset, Math.min(offset + STATE_CHUNK_CHARACTERS, payload.length()));
-                digest.update(fragment.getBytes(StandardCharsets.UTF_8));
-                db.execSQL("INSERT INTO state_chunks(piece,payload) VALUES(?,?)", new Object[]{index, encryptChunk(fragment, current + 1, index)});
-                index++;
-            }
-            JSONObject metadata = new JSONObject().put("length", payload.length()).put("chunks", index).put("sha256", hex(digest.digest()));
-            db.execSQL("INSERT OR REPLACE INTO state(id,generation,payload) VALUES(1,?,?)", new Object[]{current + 1, encrypt(STATE_FORMAT + metadata.toString())});
-            db.setTransactionSuccessful();
-        } finally { db.endTransaction(); }
-        return generation + 1;
-    }
-
+    @PluginMethod public void restoreState(PluginCall call) { background(call, () -> {
+        automation().stop();
+        completeLocal(call, owner().restore(call.getString("payload"), null));
+    }); }
     @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
-        Integer generation = call.getInt("generation");
-        if (generation == null) throw new IllegalArgumentException();
-        long saved = writeStateData(generation, call.getString("payload"));
-        call.resolve(new JSObject().put("generation", saved));
+        Object raw = call.getData().opt("generation");
+        if (!(raw instanceof Number)) throw new IllegalArgumentException();
+        double value = ((Number) raw).doubleValue();
+        if (!Double.isFinite(value) || value < 0 || value > LocalStateStore.MAX_GENERATION || value != Math.rint(value)) throw new IllegalArgumentException();
+        automation().stop();
+        completeLocal(call, owner().restore(call.getString("payload"), (long) value));
     }); }
+
+    DailyAutomation automation() throws Exception { return new DailyAutomation(getContext(), owner().state.database); }
+    @PluginMethod public void dailyStatus(PluginCall call) { background(call, () -> call.resolve(new JSObject(automation().status().toString()))); }
+    @PluginMethod public void startDaily(PluginCall call) { background(call, () -> {
+        if (apiKey() == null) { call.reject("設定でJ-Quants APIキーを保存してから開始してください。", "API_KEY_REQUIRED"); return; }
+        automation().start(); call.resolve(new JSObject(automation().status().toString()));
+    }); }
+    @PluginMethod public void stopDaily(PluginCall call) { background(call, () -> {
+        automation().stop(); call.resolve(new JSObject(automation().status().toString()));
+    }); }
+    @PluginMethod public void requestDailyNotifications(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 33 || getPermissionState("dailyNotifications") == PermissionState.GRANTED) {
+            dailyNotificationPermission(call); return;
+        }
+        requestPermissionForAlias("dailyNotifications", call, "dailyNotificationPermission");
+    }
+    @PermissionCallback private void dailyNotificationPermission(PluginCall call) {
+        call.resolve(new JSObject().put("granted", androidx.core.app.NotificationManagerCompat.from(getContext()).areNotificationsEnabled()));
+    }
 
     String apiKey() throws Exception {
-        String value = getContext().getSharedPreferences("stockai-secrets", 0).getString("jquants", null);
-        return value == null ? null : decrypt(Base64.decode(value, Base64.NO_WRAP));
+        return MarketClient.apiKey(getContext());
     }
     @PluginMethod public void keyStatus(PluginCall call) { background(call, () -> call.resolve(new JSObject().put("configured", apiKey() != null))); }
     @PluginMethod public void saveApiKey(PluginCall call) { background(call, () -> {
@@ -187,6 +132,7 @@ public class StockAIPlugin extends Plugin {
         call.resolve();
     }); }
     @PluginMethod public void clearApiKey(PluginCall call) { background(call, () -> {
+        automation().stop();
         if (!getContext().getSharedPreferences("stockai-secrets", 0).edit().remove("jquants").commit()) throw new IOException();
         call.resolve();
     }); }
@@ -200,9 +146,8 @@ public class StockAIPlugin extends Plugin {
         if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("バックアップ保存を取り消しました。"); return; }
         Uri uri = result.getData().getData();
         background(call, () -> {
-            byte[] bytes = BackupCrypto.encrypt(call.getString("password"), readStateData().toString().getBytes(StandardCharsets.UTF_8));
-            try (OutputStream stream = getContext().getContentResolver().openOutputStream(uri, "wt")) { if (stream == null) throw new IOException(); stream.write(bytes); stream.flush(); }
-            call.resolve();
+            completeBackup(call, owner().exportBackup(call.getString("password"),
+                () -> getContext().getContentResolver().openOutputStream(uri, "wt")));
         });
     }
     @PluginMethod public void importBackup(PluginCall call) {
@@ -227,14 +172,21 @@ public class StockAIPlugin extends Plugin {
         if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("復元を取り消しました。"); return; }
         Uri uri = result.getData().getData();
         background(call, () -> {
-            byte[] content = read(getContext().getContentResolver().openInputStream(uri), 128 * 1024 * 1024);
-            JSONObject value = new JSONObject(new String(BackupCrypto.decrypt(call.getString("password"), content), StandardCharsets.UTF_8));
-            if (!value.has("payload") || value.length() != 2 || !value.has("generation")) throw new SecurityException();
-            // Return a preview only. Restoring requires Python integrity checks
-            // and an explicit later confirmation before a CAS durable write.
-            call.resolve(new JSObject(value.toString()));
+            // The UI receives an opaque, generation-bound preview, never the
+            // complete capsule. SQLite validation still precedes durable commit.
+            completeBackup(call, owner().previewBackup(call.getString("password"),
+                () -> getContext().getContentResolver().openInputStream(uri)));
         });
     }
+
+    @PluginMethod public void discardBackup(PluginCall call) { background(call, () -> {
+        completeBackup(call, owner().discardBackup(call.getString("token")));
+    }); }
+
+    @PluginMethod public void restoreBackup(PluginCall call) { background(call, () -> {
+        if (!Boolean.TRUE.equals(call.getBoolean("confirmed"))) throw new IllegalArgumentException();
+        completeBackup(call, owner().restoreBackup(call.getString("token")));
+    }); }
 
     static HttpURLConnection connection(String url) throws Exception {
         URL target = new URL(url);
@@ -244,39 +196,26 @@ public class StockAIPlugin extends Plugin {
         conn.setRequestProperty("User-Agent", "StockAI-Android"); return conn;
     }
 
-    long lastProviderRequest = 0;
+    MarketDownload marketDownload() { return marketDownload(false); }
+    MarketDownload marketDownload(boolean membership) { return new MarketClient(getContext(), db).download(membership); }
     @PluginMethod public void fetchMarket(PluginCall call) { network(call, () -> {
-        String day = call.getString("date"), credential = apiKey();
-        if (day == null || !day.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}") || credential == null) throw new IllegalArgumentException();
-        String[][] endpoints = {{"security_master", "/equities/master"}, {"daily_prices", "/equities/bars/daily"},
-            {"trading_calendar", "/markets/calendar"}, {"topix", "/indices/bars/daily/topix"}, {"financial_summary", "/fins/summary"}};
-        JSONObject datasets = new JSONObject();
-        for (String[] endpoint : endpoints) {
-            JSONArray records = new JSONArray(); String page = null;
-            java.util.HashSet<String> seen = new java.util.HashSet<>();
-            do {
-                long delay = 12500 - (android.os.SystemClock.elapsedRealtime() - lastProviderRequest);
-                if (lastProviderRequest != 0 && delay > 0) Thread.sleep(delay);
-                String query = endpoint[0].equals("trading_calendar") ? "?from=" + day + "&to=" + java.time.LocalDate.parse(day).plusDays(21) : "?date=" + day;
-                if (page != null) query += "&pagination_key=" + java.net.URLEncoder.encode(page, "UTF-8");
-                HttpURLConnection conn = connection("https://api.jquants.com/v2" + endpoint[1] + query);
-                conn.setRequestProperty("x-api-key", credential);
-                try {
-                    lastProviderRequest = android.os.SystemClock.elapsedRealtime(); int status = conn.getResponseCode();
-                    if (status != 200) { call.resolve(new JSObject().put("date", day).put("status", status).put("failedDataset", endpoint[0])); return; }
-                    JSONObject response = new JSONObject(new String(read(conn.getInputStream(), 20 * 1024 * 1024), StandardCharsets.UTF_8));
-                    JSONArray values = response.getJSONArray("data");
-                    for (int i = 0; i < values.length(); i++) records.put(values.getJSONObject(i));
-                    page = response.optString("pagination_key", "");
-                    if (page.isEmpty()) page = null;
-                    if (page != null && (!seen.add(page) || seen.size() > 100)) throw new SecurityException();
-                } finally { conn.disconnect(); }
-            } while (page != null);
-            datasets.put(endpoint[0], records);
-        }
-        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
-        format.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        call.resolve(new JSObject().put("date", day).put("received_at", format.format(new java.util.Date())).put("status", 200).put("datasets", datasets));
+        call.resolve(new JSObject(marketDownload().fetch(call.getString("date")).toString()));
+    }); }
+    @PluginMethod public void acknowledgeMarket(PluginCall call) { network(call, () -> {
+        marketDownload().acknowledge(call.getString("date"), call.getString("acquisitionId"));
+        call.resolve();
+    }); }
+    @PluginMethod public void restartMarket(PluginCall call) { network(call, () -> {
+        marketDownload().restart(call.getString("date")); call.resolve();
+    }); }
+    @PluginMethod public void fetchMembership(PluginCall call) { network(call, () -> {
+        call.resolve(new JSObject(marketDownload(true).fetch(call.getString("date")).toString()));
+    }); }
+    @PluginMethod public void acknowledgeMembership(PluginCall call) { network(call, () -> {
+        marketDownload(true).acknowledge(call.getString("date"), call.getString("acquisitionId")); call.resolve();
+    }); }
+    @PluginMethod public void restartMembership(PluginCall call) { network(call, () -> {
+        marketDownload(true).restart(call.getString("date")); call.resolve();
     }); }
     static byte[] read(InputStream stream, long limit) throws Exception {
         try (InputStream input = stream; ByteArrayOutputStream output = new ByteArrayOutputStream()) {

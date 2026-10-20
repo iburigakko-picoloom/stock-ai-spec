@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Final
+from typing import Final, cast
 
 import numpy as np
 import pandas as pd
@@ -78,37 +79,63 @@ def _require_finite_numeric(
             raise ValueError(f"{label} column {column} must contain finite numeric values")
 
 
-def _compute_symbol(group: pd.DataFrame) -> pd.DataFrame:
+def _compute_symbol(group: pd.DataFrame, *, latest_only: bool = False) -> pd.DataFrame:
     group = group.sort_values("trading_date").copy()
     if "trading_session_index" not in group:
-        return _compute_contiguous_symbol(group)
+        return _compute_contiguous_symbol(group, latest_only=latest_only)
     session_index = pd.to_numeric(group["trading_session_index"], errors="coerce")
     if session_index.isna().any():
         raise ValueError("trading_session_index must be present for every production row")
     segment = session_index.diff().ne(1).cumsum()
     return pd.concat(
-        [_compute_contiguous_symbol(part) for _, part in group.groupby(segment, sort=False)],
+        [
+            _compute_contiguous_symbol(part, latest_only=latest_only)
+            for _, part in group.groupby(segment, sort=False)
+        ],
         ignore_index=True,
     )
 
 
-def _compute_contiguous_symbol(group: pd.DataFrame) -> pd.DataFrame:
+def _compute_contiguous_symbol(group: pd.DataFrame, *, latest_only: bool = False) -> pd.DataFrame:
     group = group.sort_values("trading_date").copy()
-    close = group["adjusted_close"].astype(float)
-    adjusted_open = (
+    columns = {
+        name: group[name].astype(float)
+        for name in (
+            "adjusted_close",
+            "adjusted_high",
+            "adjusted_low",
+            "adjusted_volume",
+            "trading_value",
+            "close",
+        )
+    }
+    columns["adjusted_open"] = (
         group["adjusted_open"].astype(float)
         if "adjusted_open" in group
         else pd.Series(np.nan, index=group.index, dtype=float)
     )
-    high = group["adjusted_high"].astype(float)
-    low = group["adjusted_low"].astype(float)
-    volume = group["adjusted_volume"].astype(float)
-    trading_value = group["trading_value"].astype(float)
+    columns["shares_outstanding"] = (
+        pd.to_numeric(group["shares_outstanding"], errors="coerce")
+        if "shares_outstanding" in group
+        else pd.Series(np.nan, index=group.index, dtype="float64")
+    )
+    output = {name: group[name] for name in ("symbol", "sector", "trading_date", "available_at")}
+    output.update(_indicator_values(columns, latest_only=latest_only))
+    result = pd.DataFrame(output, index=group.index)
+    result.attrs = group.attrs
+    return result.set_flags(allows_duplicate_labels=group.flags["allows_duplicate_labels"])
 
-    output = group[["symbol", "sector", "trading_date", "available_at"]].copy()
-    output["close"] = group["close"].astype(float)
-    output["adjusted_close"] = close
-    output["adjusted_open"] = adjusted_open
+
+def _indicator_values[FrameLike: (pd.Series, pd.DataFrame)](
+    columns: Mapping[str, FrameLike],
+    *,
+    latest_only: bool = False,
+) -> dict[str, FrameLike]:
+    close, adjusted_open = columns["adjusted_close"], columns["adjusted_open"]
+    high, low = columns["adjusted_high"], columns["adjusted_low"]
+    volume, trading_value = columns["adjusted_volume"], columns["trading_value"]
+    shares = columns["shares_outstanding"]
+    output = {"close": columns["close"], "adjusted_close": close, "adjusted_open": adjusted_open}
     one_day_return = close.pct_change(fill_method=None)
     output["__return_1d"] = one_day_return
     for window in (1, 5, 20, 60, 120):
@@ -165,10 +192,6 @@ def _compute_contiguous_symbol(group: pd.DataFrame) -> pd.DataFrame:
     output["volume.ratio_5_60"] = (
         volume.rolling(5, min_periods=5).mean() / volume.rolling(60, min_periods=60).mean()
     )
-    if "shares_outstanding" in group:
-        shares = pd.to_numeric(group["shares_outstanding"], errors="coerce")
-    else:
-        shares = pd.Series(np.nan, index=group.index, dtype="float64")
     turnover = volume / shares
     output["liquidity.turnover_20d"] = turnover.rolling(20, min_periods=20).mean()
     on_balance_volume = obv(close, volume)
@@ -183,9 +206,24 @@ def _compute_contiguous_symbol(group: pd.DataFrame) -> pd.DataFrame:
         0.5
     ) * np.sqrt(252)
     for window in (60, 120):
-        output[f"risk.max_drawdown_{window}d"] = close.rolling(window, min_periods=window).apply(
-            _maximum_drawdown, raw=True
-        )
+        if latest_only:
+            # Only the final row leaves a latest snapshot. Evaluate its exact
+            # complete trailing window; recurrent indicators still see history.
+            trailing = close.iloc[-window:].to_numpy()
+            if isinstance(close, pd.DataFrame):
+                drawdown = pd.DataFrame(np.nan, index=close.index, columns=close.columns)
+                if len(trailing) == window:
+                    valid = np.isfinite(trailing).all(axis=0)
+                    bounded = trailing[:, valid]
+                    values = np.min(bounded / np.maximum.accumulate(bounded, axis=0) - 1.0, axis=0)
+                    drawdown.iloc[-1, np.flatnonzero(valid)] = values
+            else:
+                drawdown = pd.Series(np.nan, index=close.index, dtype=float)
+                if len(trailing) == window and np.isfinite(trailing).all():
+                    drawdown.iloc[-1] = _maximum_drawdown(trailing)
+        else:
+            drawdown = close.rolling(window, min_periods=window).apply(_maximum_drawdown, raw=True)
+        output[f"risk.max_drawdown_{window}d"] = drawdown
     output["risk.return_skew_60d"] = one_day_return.rolling(60, min_periods=60).skew()
     output["risk.return_quantile_10_60d"] = one_day_return.rolling(60, min_periods=60).quantile(
         0.10
@@ -208,24 +246,24 @@ def _compute_contiguous_symbol(group: pd.DataFrame) -> pd.DataFrame:
     ).sum() / cmf_denominator.mask(cmf_denominator == 0)
     output["candle.body_pct_close"] = (close - adjusted_open) / close
     nonzero_range = price_range.mask(price_range == 0)
-    output["candle.body_to_range"] = (
-        (close - adjusted_open).abs() / nonzero_range
-    ).mask(price_range == 0, 0.0)
-    output["candle.upper_wick_ratio"] = (
-        high - pd.concat([adjusted_open, close], axis=1).max(axis=1)
-    ) / nonzero_range
+    output["candle.body_to_range"] = ((close - adjusted_open).abs() / nonzero_range).mask(
+        price_range == 0, 0.0
+    )
+    if isinstance(close, pd.DataFrame):
+        body_high = cast(pd.DataFrame, np.fmax(adjusted_open, close))
+        body_low = cast(pd.DataFrame, np.fmin(adjusted_open, close))
+    else:
+        body_high = pd.concat([adjusted_open, close], axis=1).max(axis=1)
+        body_low = pd.concat([adjusted_open, close], axis=1).min(axis=1)
+    output["candle.upper_wick_ratio"] = (high - body_high) / nonzero_range
     output["candle.upper_wick_ratio"] = output["candle.upper_wick_ratio"].mask(
         price_range == 0, 0.0
     )
-    output["candle.lower_wick_ratio"] = (
-        pd.concat([adjusted_open, close], axis=1).min(axis=1) - low
-    ) / nonzero_range
+    output["candle.lower_wick_ratio"] = (body_low - low) / nonzero_range
     output["candle.lower_wick_ratio"] = output["candle.lower_wick_ratio"].mask(
         price_range == 0, 0.0
     )
-    output["candle.close_location"] = ((close - low) / nonzero_range).mask(
-        price_range == 0, 0.5
-    )
+    output["candle.close_location"] = ((close - low) / nonzero_range).mask(price_range == 0, 0.5)
     output["candle.gap_pct"] = adjusted_open / close.shift(1) - 1
     for window in (20, 60):
         prior_high = high.shift(1).rolling(window, min_periods=window).max()
@@ -238,6 +276,92 @@ def _compute_contiguous_symbol(group: pd.DataFrame) -> pd.DataFrame:
 def _maximum_drawdown(values: np.ndarray) -> float:
     peaks = np.maximum.accumulate(values)
     return float(np.min(values / peaks - 1.0))
+
+
+def _compute_symbol_batch(groups: list[pd.DataFrame]) -> pd.DataFrame:
+    """Apply positional column math to equally long contiguous stock histories."""
+    columns: dict[str, pd.DataFrame] = {}
+    for name in (
+        "close",
+        "adjusted_close",
+        "adjusted_open",
+        "adjusted_high",
+        "adjusted_low",
+        "adjusted_volume",
+        "trading_value",
+        "shares_outstanding",
+    ):
+        arrays = []
+        for group in groups:
+            if name not in group:
+                values = np.full(len(group), np.nan, dtype=float)
+            elif name == "shares_outstanding":
+                values = pd.to_numeric(group[name], errors="coerce").to_numpy(
+                    dtype=float,
+                    na_value=np.nan,
+                )
+            else:
+                values = group[name].astype(float).to_numpy()
+            arrays.append(values)
+        columns[name] = pd.DataFrame(np.column_stack(arrays))
+    metadata_names = ["symbol", "sector", "trading_date", "available_at"]
+    metadata = pd.concat(
+        [group[metadata_names].tail(1).copy() for group in groups],
+        ignore_index=True,
+    )
+    output = {name: metadata[name] for name in metadata_names}
+    for name, frame in _indicator_values(columns, latest_only=True).items():
+        output[name] = pd.Series(
+            frame.iloc[-1].to_numpy(),
+            index=metadata.index,
+            dtype=frame.dtypes.iloc[0],
+        )
+    result = pd.DataFrame(output, index=metadata.index)
+    result.attrs = metadata.attrs
+    return result.set_flags(allows_duplicate_labels=metadata.flags["allows_duplicate_labels"])
+
+
+def _latest_symbol_batches(daily: pd.DataFrame) -> pd.DataFrame:
+    # Only the final contiguous segment can affect each stock's final row.
+    # Indicators use observation offsets, while metadata keeps each stock's
+    # own dates. Equal lengths can share column math without aligning dates.
+    # One cap still covers all pending lengths, including one-stock IPOs.
+    limit = 128
+    pending: dict[int, list[pd.DataFrame]] = {}
+    pending_count = 0
+    outputs: list[pd.DataFrame] = []
+
+    def flush(key: int) -> None:
+        nonlocal pending_count
+        groups = pending.pop(key)
+        pending_count -= len(groups)
+        if len(groups) == 1:
+            outputs.append(_compute_contiguous_symbol(groups[0], latest_only=True).tail(1).copy())
+        else:
+            outputs.append(_compute_symbol_batch(groups))
+
+    for _, group in daily.groupby("symbol", sort=True):
+        group = group.sort_values("trading_date").copy()
+        eligible = not group.empty and str(group["trading_date"].dtype) == "datetime64[ns]"
+        if eligible and "trading_session_index" in group:
+            sessions = pd.to_numeric(group["trading_session_index"], errors="coerce")
+            if sessions.isna().any():
+                raise ValueError("trading_session_index must be present for every production row")
+            final_start = np.flatnonzero(sessions.diff().ne(1).to_numpy())[-1]
+            group = group.iloc[final_start:].copy()
+        if not eligible:
+            outputs.append(_compute_symbol(group, latest_only=True).tail(1).copy())
+            continue
+        key = len(group)
+        pending.setdefault(key, []).append(group)
+        pending_count += 1
+        if len(pending[key]) == limit:
+            flush(key)
+        elif pending_count >= limit:
+            flush(max(pending, key=lambda value: len(pending[value])))
+    for key in list(pending):
+        flush(key)
+    return pd.concat(outputs, ignore_index=True)
 
 
 def _merge_financials(features: pd.DataFrame, financials: pd.DataFrame | None) -> pd.DataFrame:
@@ -253,16 +377,17 @@ def _merge_financials(features: pd.DataFrame, financials: pd.DataFrame | None) -
         "financial data",
         allow_missing=True,
     )
-    right = financials.copy()
+    right = financials[["symbol", "available_at", *FINANCIAL_COLUMNS]].copy()
     right["available_at"] = pd.to_datetime(right["available_at"], utc=True)
+    right_groups = right.groupby("symbol", sort=False, observed=True)
     for symbol, left_group in features.groupby("symbol", sort=False):
-        right_group = right.loc[right["symbol"] == symbol, ["available_at", *FINANCIAL_COLUMNS]]
         left_group = left_group.sort_values("available_at")
-        if right_group.empty:
+        if symbol not in right_groups.indices:
             merged = left_group.copy()
             for column in FINANCIAL_COLUMNS:
                 merged[column] = np.nan
         else:
+            right_group = right_groups.get_group(symbol)[["available_at", *FINANCIAL_COLUMNS]]
             merged = pd.merge_asof(
                 left_group,
                 right_group.sort_values("available_at"),
@@ -289,6 +414,25 @@ class FeatureEngine:
         *,
         financials: pd.DataFrame | None = None,
         as_of: datetime | pd.Timestamp | None = None,
+    ) -> pd.DataFrame:
+        return self._transform(
+            daily,
+            market_context,
+            sector_context,
+            financials=financials,
+            as_of=as_of,
+            latest_only=False,
+        )
+
+    def _transform(
+        self,
+        daily: pd.DataFrame,
+        market_context: pd.DataFrame,
+        sector_context: pd.DataFrame,
+        *,
+        financials: pd.DataFrame | None,
+        as_of: datetime | pd.Timestamp | None,
+        latest_only: bool,
     ) -> pd.DataFrame:
         _require_columns(daily, DAILY_REQUIRED, "daily market data")
         _require_columns(market_context, MARKET_REQUIRED, "market context data")
@@ -402,8 +546,12 @@ class FeatureEngine:
         if daily_sector_keys - sector_keys:
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: sector context coverage is incomplete")
 
-        parts = [_compute_symbol(group) for _, group in safe_daily.groupby("symbol", sort=True)]
-        computed = pd.concat(parts, ignore_index=True)
+        if latest_only:
+            computed = _latest_symbol_batches(safe_daily)
+        else:
+            parts = [_compute_symbol(group) for _, group in safe_daily.groupby("symbol", sort=True)]
+            computed = pd.concat(parts, ignore_index=True)
+            parts.clear()
 
         sector_daily = safe_sector.sort_values(["sector", "trading_date"]).copy()
         for window in (5, 20, 60):
@@ -507,11 +655,12 @@ class FeatureEngine:
         as_of: datetime | pd.Timestamp,
         financials: pd.DataFrame | None = None,
     ) -> pd.DataFrame:
-        history = self.transform(
+        history = self._transform(
             daily,
             market_context,
             sector_context,
             financials=financials,
             as_of=as_of,
+            latest_only=True,
         )
         return history.groupby("symbol", as_index=False, sort=True).tail(1).reset_index(drop=True)

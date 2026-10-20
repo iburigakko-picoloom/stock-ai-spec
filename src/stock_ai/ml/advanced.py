@@ -9,7 +9,7 @@ import math
 import os
 import shutil
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -933,7 +933,18 @@ def _fit_predict(
     seed: int,
     parameters: Mapping[str, int | float],
     config: AdvancedResearchConfig,
+    fitted_model_sink: Callable[[Any], None] | None = None,
 ) -> np.ndarray:
+    def predict_fitted(model: Any, *, probability: bool = False) -> np.ndarray:
+        # The optional export consumer sees the very estimator used below.
+        # OOF and existing holdout callers retain their default no-export path.
+        if fitted_model_sink is not None:
+            fitted_model_sink(model)
+        values = model.predict_proba(validation_x)[:, 1] if probability else model.predict(
+            validation_x
+        )
+        return np.asarray(values, dtype=float)
+
     if task == "ranking":
         relevance = cross_sectional_relevance(train_target, train_dates)
         group_sizes = tuple(
@@ -955,7 +966,7 @@ def _fit_predict(
                 }
             )
             model.fit(train_x, relevance, group=list(group_sizes))
-            return np.asarray(model.predict(validation_x), dtype=float)
+            return predict_fitted(model)
         if family == "xgboost":
             qid = pd.factorize(pd.to_datetime(train_dates), sort=True)[0]
             model = xgb.XGBRanker(
@@ -967,7 +978,7 @@ def _fit_predict(
                 **_model_parameters(family, parameters),
             )
             model.fit(train_x, relevance, qid=qid, verbose=False)
-            return np.asarray(model.predict(validation_x), dtype=float)
+            return predict_fitted(model)
         group_id = pd.factorize(pd.to_datetime(train_dates), sort=True)[0]
         model = CatBoostRanker(
             loss_function="YetiRank",
@@ -979,7 +990,7 @@ def _fit_predict(
             **_model_parameters(family, parameters),
         )
         model.fit(train_x, relevance, group_id=group_id)
-        return np.asarray(model.predict(validation_x), dtype=float)
+        return predict_fitted(model)
 
     if task == "large_loss":
         binary_target = (train_target <= config.large_loss_threshold).astype(int)
@@ -987,12 +998,11 @@ def _fit_predict(
             return np.full(len(validation_x), float(binary_target.iloc[0]), dtype=float)
         model = _classifier(family, seed=seed, parameters=parameters, config=config)
         model.fit(train_x, binary_target)
-        probability = model.predict_proba(validation_x)
-        return np.asarray(probability[:, 1], dtype=float)
+        return predict_fitted(model, probability=True)
 
     model = _regressor(family, task=task, seed=seed, parameters=parameters, config=config)
     model.fit(train_x, train_target)
-    return np.asarray(model.predict(validation_x), dtype=float)
+    return predict_fitted(model)
 
 
 def fit_predict_frozen_model(
@@ -1007,8 +1017,15 @@ def fit_predict_frozen_model(
     seed: int,
     parameters: Mapping[str, int | float],
     config: AdvancedResearchConfig,
+    fitted_model_sink: Callable[[Any, FoldPreprocessor], None] | None = None,
 ) -> np.ndarray:
-    """Refit one already-selected component without inspecting evaluation outcomes."""
+    """Refit one selected component, optionally retaining its exact fitted state.
+
+    The sink is synchronous and receives the same estimator and train-only
+    processor used for predictions; exporting must not trigger a second fit.
+    A one-class probability shortcut has no fitted estimator and emits no sink
+    event. This function does not authorize selection, holdout access or adoption.
+    """
 
     if (
         config.horizons != (horizon,)
@@ -1034,6 +1051,11 @@ def fit_predict_frozen_model(
         upper_quantile=config.clip_upper_quantile,
         correlation_threshold=config.correlation_threshold,
     ).fit(train)
+
+    def retain(estimator: Any) -> None:
+        if fitted_model_sink is not None:
+            fitted_model_sink(estimator, preprocessor)
+
     prediction = _fit_predict(
         family=family,
         task=task,
@@ -1044,6 +1066,7 @@ def fit_predict_frozen_model(
         seed=seed,
         parameters=parameters,
         config=config,
+        fitted_model_sink=None if fitted_model_sink is None else retain,
     )
     values = np.asarray(prediction, dtype=float)
     if values.ndim != 1 or len(values) != len(prediction_frame):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -55,6 +56,128 @@ from stock_ai.research import run_research_decision_e2e
 JST = ZoneInfo("Asia/Tokyo")
 
 
+@pytest.mark.parametrize("symbol_dtype", ["object", "string", "category"])
+@pytest.mark.parametrize("duplicate_index", [False, True])
+@pytest.mark.parametrize("timezone", [None, "Asia/Tokyo"])
+def test_universe_intervals_preserve_gaps_and_exclude_invalid_symbol_history(
+    symbol_dtype: str, duplicate_index: bool, timezone: str | None,
+) -> None:
+    dates = pd.bdate_range("2026-01-05", periods=7, tz=timezone)
+    rows = []
+    for symbol, sessions in [("A", [0, 1, 3, 4, 6]), ("B", list(range(7))),
+                             ("outside", [1, 2, 7]), (None, [0])]:
+        for session in sessions:
+            rows.append({
+                "effective_date": dates[session] if session < 7 else dates[-1] + timedelta(days=1),
+                "provider_code": "10000", "symbol": symbol, "company_name": "Example",
+                "sector_33_code": "10", "sector_33_name": "Sector", "market_code": "0111",
+                "market_name": "Prime", "available_at": "2026-02-01T00:00:00Z",
+            })
+    master = pd.DataFrame(rows).sample(frac=1, random_state=19)
+    if symbol_dtype == "category":
+        master["symbol"] = pd.Categorical(master.symbol, categories=["B", "A", "outside", "unused"])
+    else:
+        master["symbol"] = master.symbol.astype(symbol_dtype)
+    if duplicate_index:
+        master.index = [0] * len(master)
+    before = master.copy(deep=True)
+
+    actual = production_module.build_point_in_time_universe(master, business_dates=dates)
+
+    assert set(actual.symbol) == {"A", "B"}
+    a = actual.loc[actual.symbol == "A"]
+    assert list(a.effective_date) == [dates[i] for i in [0, 1, 3, 4, 6]]
+    assert list(a.valid_from) == [dates[i] for i in [0, 0, 3, 3, 6]]
+    assert list(a.valid_to.iloc[:-1]) == [dates[i] for i in [2, 2, 5, 5]]
+    assert pd.isna(a.valid_to.iloc[-1])
+    b = actual.loc[actual.symbol == "B"]
+    assert list(b.effective_date) == list(dates)
+    assert (b.valid_from == dates[0]).all()
+    assert b.valid_to.isna().all()
+    pdt.assert_series_equal(actual.listing_date, actual.valid_from, check_names=False)
+    pdt.assert_series_equal(actual.delisting_date, actual.valid_to, check_names=False)
+    assert actual.is_member.all()
+    pdt.assert_frame_equal(master, before)
+
+
+@pytest.mark.parametrize("integer_close", [False, True])
+@pytest.mark.parametrize("utc_cutoffs", [False, True])
+@pytest.mark.parametrize("categorical", [False, True])
+@pytest.mark.parametrize("duplicate_index", [False, True])
+@pytest.mark.parametrize("policy", list(HistoricalRevisionPolicy))
+def test_financial_expansion_is_symbol_independent_and_preserves_inputs(
+    integer_close: bool,
+    utc_cutoffs: bool,
+    categorical: bool,
+    duplicate_index: bool,
+    policy: HistoricalRevisionPolicy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frames, dates = _source_frames(periods=30)
+    disclosures = frames[DatasetName.FINANCIAL_SUMMARY].copy()
+    disclosures["available_at"] = disclosures["announced_at"]
+    correction = disclosures.loc[disclosures.symbol == "A"].copy()
+    correction["disclosure_number"] = "disc-A-z-correction"
+    correction["forecast_eps"] = 121.0
+    correction["available_at"] = correction["available_at"] + pd.Timedelta(days=2)
+    disclosures = pd.concat([disclosures, correction], ignore_index=True).iloc[[2, 3, 0, 1]]
+    if categorical:
+        disclosures["symbol"] = pd.Categorical(
+            disclosures.symbol, categories=["C", "A", "B", "unused"]
+        )
+    if duplicate_index:
+        disclosures.index = [7] * len(disclosures)
+    daily = pd.DataFrame(
+        [
+            {
+                "symbol": symbol,
+                "trading_date": day,
+                "available_at": pd.Timestamp(day)
+                .tz_localize("Asia/Tokyo")
+                .replace(hour=11, minute=30),
+                "close": 1100.0 + index,
+            }
+            for symbol in ("B", "A", "missing", "C")
+            for index, day in enumerate(dates[:4])
+        ]
+    ).iloc[::-1]
+    if integer_close:
+        daily["close"] = daily["close"].astype("int64")
+    if utc_cutoffs:
+        daily["available_at"] = pd.to_datetime(daily["available_at"], utc=True).astype(
+            "datetime64[ns, UTC]"
+        )
+    batch_calls = []
+    original_batch = production_module._batch_daily_financials
+
+    def observed_batch(*args, **kwargs):
+        batch_calls.append(1)
+        return original_batch(*args, **kwargs)
+
+    monkeypatch.setattr(production_module, "_batch_daily_financials", observed_batch)
+    before_daily, before_disclosures = daily.copy(deep=True), disclosures.copy(deep=True)
+    actual = production_module._daily_financial_features(
+        disclosures, daily=daily, revision_policy=policy
+    )
+    independent = [
+        production_module._daily_financial_features(
+            disclosures.loc[disclosures.symbol == symbol].copy(),
+            # Object timestamps use the unchanged per-symbol compatibility path.
+            daily=group.assign(available_at=group["available_at"].astype(object)),
+            revision_policy=policy,
+        )
+        for symbol, group in daily.groupby("symbol", sort=True)
+    ]
+    for index in (0, 1):
+        expected = pd.concat([part[index] for part in independent], ignore_index=True)
+        pdt.assert_frame_equal(actual[index], expected, check_exact=True)
+    missing = actual[0].loc[actual[0].symbol == "missing"]
+    assert missing["financial_available_at"].isna().all() and missing["per"].isna().all()
+    pdt.assert_frame_equal(daily, before_daily, check_exact=True)
+    pdt.assert_frame_equal(disclosures, before_disclosures, check_exact=True)
+    assert len(batch_calls) == int(utc_cutoffs)
+
+
 def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> None:
     dates = pd.to_datetime(["2024-01-10", "2024-01-11", "2024-01-12", "2024-01-13"])
     frame = pd.DataFrame(
@@ -78,6 +201,7 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
         }
     )
 
+    before = frame.copy(deep=True)
     adjusted = production_module._reconstruct_bulk_adjusted_prices(frame)
 
     assert adjusted["research_close"].tolist() == pytest.approx([400.0, 384.0, 400.0, 410.0])
@@ -86,6 +210,7 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
     assert (
         adjusted["adjustment_version"].str.startswith("jquants-file-cumulative-adjfactor-v1:").all()
     )
+    pdt.assert_frame_equal(frame, before, check_exact=True)
     changed_input = frame.copy()
     changed_input.loc[0, "raw_high"] += 1
     changed = production_module._reconstruct_bulk_adjusted_prices(changed_input)
@@ -149,6 +274,7 @@ def test_canonical_daily_joins_common_issues_by_provider_code() -> None:
         }
     )
     availability = {trading_date: pd.Timestamp("2025-01-07T02:30:00Z")}
+    before_prices, before_universe = prices.copy(deep=True), universe.copy(deep=True)
 
     daily = production_module._canonical_daily(
         prices,
@@ -159,6 +285,8 @@ def test_canonical_daily_joins_common_issues_by_provider_code() -> None:
 
     assert daily["provider_code"].tolist() == ["25930"]
     assert daily["symbol"].tolist() == ["2593"]
+    pdt.assert_frame_equal(prices, before_prices, check_exact=True)
+    pdt.assert_frame_equal(universe, before_universe, check_exact=True)
 
 
 class FrameCatalog:
@@ -209,6 +337,47 @@ def test_mobile_latest_features_require_authenticated_next_session_and_closed_cu
     with pytest.raises(ValueError, match="not authenticated"):
         build_production_data(
             catalog, source_snapshot_as_of=received, proposal_as_of=cutoff + timedelta(days=1)
+        )
+
+
+def test_daily_label_metadata_matches_actual_production_next_session_target() -> None:
+    from mobile.python.model_bundle import ModelBundle
+
+    from stock_ai.ml import build_supervised_dataset
+    from stock_ai.operations.daily import PredictionSnapshot
+
+    frames, _ = _source_frames()
+    bundle = build_production_data(  # type: ignore[arg-type]
+        FrameCatalog(frames), source_snapshot_as_of=datetime(2026, 8, 24, tzinfo=UTC),
+        minimum_market_coverage=0.60,
+    )
+    dates = pd.DatetimeIndex(bundle.universe.effective_date.unique()).sort_values()
+    origin = 100
+    daily = bundle.daily.copy()
+    for offset, price in ((0, 100.0), (1, 200.0), (5, 150.0), (6, 170.0),
+                          (20, 250.0), (21, 300.0)):
+        daily.loc[(daily.symbol == "B") & (daily.trading_date == dates[origin + offset]),
+                  "adjusted_close"] = price
+    bundle = replace(bundle, daily=daily)
+    features = build_production_feature_sets(bundle).v2_extended
+    assert features is not None
+    production, _ = build_production_supervised_dataset(
+        features, bundle, plan=SubscriptionPlan.LIGHT,
+    )
+    row = production.loc[(production.symbol == "B") &
+                         (production.trading_date == dates[origin])].iloc[0]
+    assert row.label_entry_date == dates[origin + 1]
+    assert row.as_of.tz_convert(JST).date() == row.label_entry_date.date()
+    for h, value in ((5, 170 / 200 - 1), (20, 300 / 200 - 1)):
+        assert row[f"target_return_{h}d"] == pytest.approx(value)
+        assert row[f"label_end_date_{h}d"] == dates[origin + 1 + h]
+    generic = build_supervised_dataset(features.loc[features.symbol == "B"])
+    generic_row = generic.loc[generic.trading_date == dates[origin]].iloc[0]
+    assert generic_row.target_return_5d == pytest.approx(150 / 100 - 1)
+    assert generic_row.target_return_20d == pytest.approx(250 / 100 - 1)
+    for cls in (ModelBundle, PredictionSnapshot):
+        assert cls.model_fields["label_definition"].default == (
+            "next_session_adjusted_close_to_h_sessions_later"
         )
 
 
@@ -1205,3 +1374,66 @@ def _source_frames(periods: int = 280) -> tuple[dict[DatasetName, pd.DataFrame],
         "announced_at"
     ].astype("datetime64[us, UTC]")
     return frames, dates
+@pytest.mark.parametrize("duplicate_index", [False, True])
+@pytest.mark.parametrize("missing_keys", [False, True])
+def test_source_frame_identity_keeps_the_original_hash_across_chunk_boundaries(
+    duplicate_index, missing_keys,
+):
+    rows = 20037
+    frame = pd.DataFrame({
+        "trading_date": [pd.Timestamp("2025-01-02") + timedelta(days=i // 5000)
+                         for i in range(rows)],
+        "provider_code": [f"{i % 5000:04d}0" for i in range(rows)],
+        "source_record_hash": [hashlib.sha256(str(i).encode()).hexdigest() for i in range(rows)],
+        "label": ["合成/😀", None, "0123"] * (rows // 3),
+        "number": pd.Series([None, -0.0, 1.23e17] * (rows // 3), dtype="Float64"),
+        "flag": pd.Series([True, None, False] * (rows // 3), dtype="boolean"),
+        "category": pd.Categorical(["A", "B", None] * (rows // 3), categories=["A", "B", "unused"]),
+        "available_at": pd.date_range("2026-01-01", periods=rows, freq="1234567ns", tz="UTC"),
+    }).sample(frac=1, random_state=17)
+    if duplicate_index:
+        frame.index = [7] * len(frame)
+    if missing_keys:
+        frame.iloc[::13, frame.columns.get_loc("provider_code")] = None
+        frame.iloc[::17, frame.columns.get_loc("trading_date")] = pd.NaT
+    for original in (frame, frame.iloc[:0]):
+        canonical = original.sort_values(["trading_date", "provider_code"]).reset_index(drop=True)
+        schema = tuple((str(column), str(dtype)) for column, dtype in canonical.dtypes.items())
+        metadata = json.dumps(
+            {"dataset": "daily_prices", "schema": schema}, sort_keys=True
+        ).encode()
+        # Frozen v1 identity definition, computed in one allocation as before.
+        row_bytes = pd.util.hash_pandas_object(canonical, index=False).to_numpy().tobytes()
+        expected = hashlib.sha256(metadata + row_bytes).hexdigest()
+        assert production_module._source_frame_id(DatasetName.DAILY_PRICES, original) == expected
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_source_identity_keeps_v1_with_32_bit_nullable_missing_hashes(empty, monkeypatch):
+    frame = pd.DataFrame({
+        "trading_date": pd.to_datetime(["2025-01-06"] * 3),
+        "provider_code": ["00010", "00020", "00030"],
+        "nullable_int": pd.Series([1, None, -2], dtype="Int64"),
+        "nullable_float": pd.Series([None, -0.0, 1.25], dtype="Float64"),
+        "nullable_bool": pd.Series([True, None, False], dtype="boolean"),
+        "text": pd.Series(["合成/😀", None, "0123"], dtype="string"),
+        "float": [np.nan, 1.0, -0.0],
+    })
+    if empty:
+        frame = frame.iloc[:0]
+    before = frame.copy(deep=True)
+    expected = production_module._source_frame_id(DatasetName.DAILY_PRICES, frame)
+    original_hash = pd.util.hash_pandas_object
+    masked_types = (pd.arrays.IntegerArray, pd.arrays.FloatingArray, pd.arrays.BooleanArray)
+
+    def wasm_hash(value, *args, **kwargs):
+        result = original_hash(value, *args, **kwargs)
+        if isinstance(value, pd.Series) and isinstance(value.array, masked_types):
+            result = result.copy()
+            result.loc[value.isna()] = np.uint64(2147483647)
+        return result
+
+    monkeypatch.setattr(production_module, "hash", lambda _: 2147483647, raising=False)
+    monkeypatch.setattr(pd.util, "hash_pandas_object", wasm_hash)
+    assert production_module._source_frame_id(DatasetName.DAILY_PRICES, frame) == expected
+    pdt.assert_frame_equal(frame, before, check_exact=True)

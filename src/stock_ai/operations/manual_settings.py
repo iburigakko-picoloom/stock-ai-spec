@@ -82,7 +82,9 @@ class ManualPersonalSettings(InputModel):
     accounts: Annotated[tuple[AccountSettings, ...], Field(max_length=30)]
     cost_assumptions: CostAssumptions
     tax_assumptions: TaxAssumptions
-    research_decision_policy: Literal["daily-decision-engine-v2"]
+    research_decision_policy: Literal[
+        "daily-decision-engine-v2", "daily-decision-engine-v3-bounded"
+    ]
     research_conditions_reviewed: StrictBool
 
     @model_validator(mode="after")
@@ -212,5 +214,7 @@ class ManualPersonalSettings(InputModel):
                 taxable_rate=amount(taxes.taxable_rate_percent) / 100,
                 nisa_opportunity_cost_rate=amount(taxes.nisa_opportunity_cost_percent) / 100,
             ),
-            decision_policy=DecisionEngineConfig.daily(),
+            decision_policy=(DecisionEngineConfig.daily_bounded()
+                             if self.research_decision_policy == "daily-decision-engine-v3-bounded"
+                             else DecisionEngineConfig.daily()),
         )

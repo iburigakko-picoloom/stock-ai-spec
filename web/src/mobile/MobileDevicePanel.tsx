@@ -1,8 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
-import { restoreMobileState } from "./runtime";
+import { MobileBackupPanel } from "./MobileBackupPanel";
 import { MobilePersonalPanel } from "./MobilePersonalPanel";
+import { ChatGPTPanel } from "./ChatGPTPanel";
+import { MobileMarketPanel } from "./MobileMarketPanel";
+import { MobileModelPanel } from "./MobileModelPanel";
+import { DailyPanel } from "./DailyPanel";
 import type { LocalPortfolio, SavedPortfolio } from "./personal";
 
 export function MobileUpdateNotice(): ReactNode {
@@ -31,17 +35,11 @@ const blank: LocalPortfolio = { schema_version: "manual-portfolio-v1", holdings_
 export function MobileDevicePanel(): ReactNode {
   const [configured, setConfigured] = useState(false);
   const [key, setKey] = useState("");
-  const [password, setPassword] = useState("");
   const [portfolio, setPortfolio] = useState<LocalPortfolio>(blank);
   const [savedPortfolio, setSavedPortfolio] = useState<SavedPortfolio | null>(null);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [restorePayload, setRestorePayload] = useState<string | null>(null);
-  const [confirmRestore, setConfirmRestore] = useState(false);
-  const [marketDate, setMarketDate] = useState("");
-  const [marketStatus, setMarketStatus] = useState<{ latest_data_date: string | null; completed_dates: string[] } | null>(null);
-  const [modelStatus, setModelStatus] = useState<{ approved_count: number; imported_count: number } | null>(null);
   useEffect(() => {
     if (!isAndroid()) return;
     void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setMessage("APIキーの保存状態を確認できません。再起動してください。"));
@@ -50,8 +48,6 @@ export function MobileDevicePanel(): ReactNode {
       setSavedPortfolio(value);
       setPortfolioLoaded(true);
     }).catch(() => setMessage("保存済みの口座入力を確認できません。再起動してから編集してください。"));
-    void apiGet<{ latest_data_date: string | null; completed_dates: string[] }>("/api/v1/mobile/market").then(setMarketStatus).catch(() => setMessage("保存済みの市場データを確認できません。再起動してください。"));
-    void apiGet<{ approved_count: number; imported_count: number }>("/api/v1/mobile/models").then(setModelStatus).catch(() => setMessage("モデルの保存状態を確認できません。再起動してください。"));
   }, []);
   if (!isAndroid()) return null;
   async function action(task: () => Promise<unknown>, success: string): Promise<void> {
@@ -60,7 +56,9 @@ export function MobileDevicePanel(): ReactNode {
     catch (error) { setMessage(error instanceof Error ? error.message : "処理を完了できませんでした。入力・通信・保存状態を確認してください。"); }
     finally { setBusy(false); }
   }
-  return <>
+  return <div className="device-settings">
+    <DailyPanel />
+    <ChatGPTPanel />
     <section className="section">
       <h2>端末内の研究環境</h2>
       <p>保有・設定はこの端末に保存します。モデルの最終採用と推論の一致確認が完了するまで研究用表示を続けます。</p>
@@ -109,39 +107,9 @@ export function MobileDevicePanel(): ReactNode {
       }, "保存済みの口座・保有を読み直しました。")}>保存済みの口座・保有を読み直す</button>
     </section>
     <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
-    <section className="section"><h2>市場データの差分取得</h2>
-      <p>保存済みの最終日：{marketStatus?.latest_data_date ?? "未取得"}。予測の更新日時とは別に表示しています。</p>
-      <p>1日分ずつ取得し、保存済みの日付は再取得しません。初回は特徴量の計算に必要な履歴を用意する必要があります。</p>
-      <label>取得する日付<input type="date" value={marketDate} onChange={event => setMarketDate(event.target.value)} /></label>
-      <button className="button" disabled={busy || !configured || !marketDate || marketStatus?.completed_dates.includes(marketDate)} onClick={() => void action(async () => {
-        const result = await StockAI.fetchMarket({ date: marketDate });
-        if (result.status !== 200) {
-          throw new Error(result.status === 403 ? "API 403：契約プラン・APIキー・対象期間を確認してください。" : `データ取得に失敗しました（HTTP ${result.status}）。`);
-        }
-        const saved = await apiPost<{ latest_data_date: string | null; completed_dates: string[] }>("/api/v1/mobile/market/ingest", result);
-        setMarketStatus(saved);
-      }, "データを検証して端末に保存しました。モデル未採用のため最新の推奨は表示しません。")}>この日付の差分を取得</button>
-      <button className="button button--secondary" disabled={busy || !marketStatus?.latest_data_date} onClick={() => void action(() => apiPost("/api/v1/mobile/features/latest", {}), "端末内で41・51特徴量を計算しました。モデル採用・推論一致確認は別途必要です。")}>保存データで特徴量を確認</button>
-    </section>
-    <section className="section"><h2>端末で使うモデル</h2>
-      <p>採用・取込条件を確認済み：{modelStatus?.approved_count ?? 0}件／端末へ取込済み：{modelStatus?.imported_count ?? 0}件</p>
-      <p>最終採用、モデルの配布条件、PCと実機の一致確認が完了したモデルだけを取り込みます。</p>
-      <button className="button" disabled={busy || !modelStatus?.approved_count} onClick={() => void action(async () => {
-        const value = await StockAI.importModel(); await apiPost("/api/v1/mobile/models/import", value);
-        setModelStatus(await apiGet("/api/v1/mobile/models"));
-      }, "採用情報とハッシュが一致するモデルを端末に保存しました。")}>確認済みモデルを取り込む</button>
-      <button className="button button--secondary" disabled={busy || !modelStatus?.imported_count} onClick={() => void action(() => apiPost("/api/v1/mobile/models/infer", {}), "端末内で研究用のモデル出力を計算しました。")}>端末内で推論を確認</button>
-    </section>
-    <section className="section"><h2>データのバックアップ</h2>
-      <p>保有・設定・履歴をパスワード付きで保存します。APIキーは含めません。</p>
-      <label>バックアップのパスワード（12文字以上）<input type="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-      <button className="button" disabled={busy || password.length < 12} onClick={() => void action(() => StockAI.exportBackup({ password }), "バックアップを保存しました。パスワードを別の安全な場所に保管してください。")}>バックアップを書き出す</button>
-      <button className="button button--secondary" disabled={busy || password.length < 12} onClick={() => void action(async () => {
-        const value = await StockAI.importBackup({ password }); setRestorePayload(value.payload); setConfirmRestore(false);
-      }, "復元ファイルを読み込みました。内容を復元すると現在の保有・設定・履歴を置き換えます。")}>復元ファイルを選ぶ</button>
-      {restorePayload && <div><label><input type="checkbox" checked={confirmRestore} onChange={event => setConfirmRestore(event.target.checked)} />現在の保有・設定・履歴を、このバックアップへ置き換えることを確認しました。</label>
-        <button className="button" disabled={busy || !confirmRestore} onClick={() => void action(() => restoreMobileState(restorePayload), "復元しました。")}>このバックアップから復元</button></div>}
-    </section>
+    <MobileMarketPanel configured={configured} disabled={busy} onBusy={setBusy} />
+    <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} onBusy={setBusy} />
+    <MobileBackupPanel disabled={busy} onBusy={setBusy} />
     <p role="status">{busy ? "端末内で処理しています…" : message}</p>
-  </>;
+  </div>;
 }

@@ -1,5 +1,9 @@
 # Data Contract
 
+2026-10-18追記（D162）：今回のデータ/予測/モデル/口座snapshot/評価結果の接続と評価区分は[DAILY_INTEGRATION_CONTRACT.md](DAILY_INTEGRATION_CONTRACT.md)で固定する。研究価格と実取引価格、当時の公開情報と後日訂正、配当の権利と入金を分ける。外部ChatGPT用射影は上位20と全保有に必要なfieldだけとし、口座番号・認証情報を含めない。原予測・ChatGPT目標株数案・本人の実約定は別保存し、回答取込で実台帳を更新しない。
+
+2026-10-18追記（D174）：日足市場射影はrawの`ExRT`を`ex_rights_type`へ引き継ぎ、`ex_rights_type_source_present`で元列の不存在と報告済みnullを区別する。1=分割、2=併合、3=ライツ。CSVの空文字はnullと扱い、未知codeは保存して未対応とする。正規化列が存在すればrawとの値/欠損の一致も認証し、古い列なしpartitionは認証済みrawから補完する。非単位/不明の調整係数、または非nullの種類は企業行動の根拠確認対象。nullや係数1から全期間の企業行動なしを推定しない。[公式日足仕様](https://jpx-jquants.com/ja/spec/eq-bars-daily)。
+
 更新日: 2026-08-22  
 状態: v0.2
 
@@ -524,3 +528,8 @@ live_delay
 - 将来の取引履歴・残高CSV取込を前提にデータ層を設計する
 - 特徴量候補・計算規則は `docs/FEATURE_CATALOG.md` を正本にする
 - TA-Lib等のライブラリは実装手段であり、Feature Definitionと数値fixtureを仕様の正本にする
+
+
+## D188：returnのみの研究用原予測
+
+`PredictionSnapshot.predictions` の内側schema3は `ReturnOnlyPrediction`。5日/20日returnは有限の小数比率で、1日値、下振れquantile、下落確率、uncertainty、risk horizonと校正metadataはnull。snapshot全体がresearchであることと全行同じ提供範囲を要求し、正式adoption/mixed riskを拒否する。旧schema1/2の必須risk契約は変更しない。新しい派生propertyを旧原本のserialized hashへ加えない。手動相談の口座/原予測/設定結合digestは新しい相談だけへ付け、旧比較原本のnull fieldはserializeしない。

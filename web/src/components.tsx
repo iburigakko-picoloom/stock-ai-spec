@@ -16,12 +16,13 @@ export function pct(value: number | null | undefined): string {
   return `${sign}${(value * 100).toFixed(2)}%`;
 }
 
-export function dateTime(value: string | null | undefined): string {
+export function dateTime(value: string | null | undefined, showYear = false): string {
   if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) return "—";
   return new Intl.DateTimeFormat("ja-JP", {
     timeZone: "Asia/Tokyo",
+    year: showYear ? "numeric" : undefined,
     month: "numeric",
     day: "numeric",
     hour: "2-digit",

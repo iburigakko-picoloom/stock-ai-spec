@@ -3,7 +3,9 @@ import { join } from "node:path";
 import process from "node:process";
 
 export default async function globalSetup(): Promise<() => void> {
-  const python = join(process.cwd(), "..", ".venv", "Scripts", "python.exe");
+  const python = process.platform === "win32"
+    ? join(process.cwd(), "..", ".venv", "Scripts", "python.exe")
+    : join(process.cwd(), "..", ".venv", "bin", "python");
   const server = spawn(python, ["e2e/server.py"], {
     cwd: process.cwd(),
     stdio: "inherit",

@@ -12,15 +12,17 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from zoneinfo import ZoneInfo
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    SerializerFunctionWrapHandler,
     field_serializer,
     field_validator,
+    model_serializer,
     model_validator,
 )
 
@@ -285,6 +287,36 @@ class Prediction(DomainModel):
         return self
 
 
+class ReturnOnlyPrediction(DomainModel):
+    """Unadopted daily returns with explicitly unavailable risk, never zero risk."""
+
+    schema_version: Literal[3] = 3
+    active_horizons: tuple[Literal[5, 20], ...] = (5, 20)
+    risk_horizon: None = None
+    symbol: str = Field(min_length=1)
+    as_of: datetime
+    expected_return_1d: None = None
+    expected_return_5d: float
+    expected_return_20d: float
+    downside_quantile: None = None
+    large_loss_probability: None = None
+    uncertainty: None = None
+    morning_revision: None = None
+    model_version: str = Field(min_length=1)
+    feature_version: str = Field(min_length=1)
+    data_snapshot_id: str = Field(min_length=1)
+
+    _aware = field_validator("as_of")(_require_aware)
+
+    @model_validator(mode="after")
+    def daily_returns_only(self) -> Self:
+        if self.active_horizons != (5, 20) or not all(math.isfinite(value) for value in (
+            self.expected_return_5d, self.expected_return_20d,
+        )):
+            raise ValueError("return-only research requires finite 5d/20d returns")
+        return self
+
+
 class TransactionCostEstimate(DomainModel):
     commission: Money = Decimal("0")
     spread: Money = Decimal("0")
@@ -498,6 +530,37 @@ class DailyDecisionAudit(DomainModel):
     _aware = field_validator("as_of")(_require_aware)
 
 
+class BoundedSearchAudit(DomainModel):
+    method: Literal["coordinate-exchange-v1"] = "coordinate-exchange-v1"
+    candidate_key_count: int = Field(ge=0)
+    considered_key_count: int = Field(ge=0)
+    evaluation_budget: int = Field(gt=0)
+    evaluations: int = Field(ge=0)
+    cache_hits: int = Field(ge=0)
+    passes: int = Field(ge=0)
+    budget_exhausted: bool
+    cash_baseline: Literal["feasible", "infeasible", "not_regular_lot"]
+    global_optimum_proven: Literal[False] = False
+
+    @model_validator(mode="after")
+    def covered_within_budget(self) -> Self:
+        if (self.evaluations > self.evaluation_budget
+                or self.considered_key_count != self.candidate_key_count):
+            raise ValueError("bounded search must consider every key within its budget")
+        return self
+
+
+class PersonalInputReferences(DomainModel):
+    manual_revision_id: str = Field(pattern="^[0-9a-f]{64}$")
+    ledger_portfolio_id: str = Field(min_length=1)
+    settings_revision_id: str = Field(pattern="^[0-9a-f]{64}$")
+    executions_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+
+
+class PersonalPublicationGuard(PersonalInputReferences):
+    forecast_snapshot_id: str = Field(pattern="^[0-9a-f]{64}$")
+
+
 class PortfolioProposal(DomainModel):
     proposal_id: str = Field(min_length=1)
     as_of: datetime
@@ -517,11 +580,22 @@ class PortfolioProposal(DomainModel):
     tax_policy_version: str = Field(min_length=1)
     morning_audit: MorningDecisionAudit | None = None
     daily_audit: DailyDecisionAudit | None = None
+    search_audit: BoundedSearchAudit | None = None
+    personal_guard: PersonalPublicationGuard | None = None
     is_research_only: bool = False
     no_trade_reason: str | None = None
     is_order_instruction: bool = False
 
     _validate_times = field_validator("as_of", "generated_at")(_require_aware)
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if self.search_audit is None:
+            value.pop("search_audit", None)
+        if self.personal_guard is None:
+            value.pop("personal_guard", None)
+        return value
 
     @field_validator("estimated_cash_after", mode="after")
     @classmethod
@@ -534,6 +608,10 @@ class PortfolioProposal(DomainModel):
 
     @model_validator(mode="after")
     def decision_support_only(self) -> Self:
+        if (self.decision_engine_version == "daily-decision-engine-v3-bounded") != (
+            self.search_audit is not None
+        ):
+            raise ValueError("bounded policy requires its explicit search audit")
         if self.is_order_instruction:
             raise ValueError("portfolio proposals can never be order instructions")
         if self.generated_at < self.as_of:
@@ -547,10 +625,18 @@ class PortfolioProposal(DomainModel):
         if self.daily_audit is not None:
             if not self.is_research_only or self.daily_audit.as_of != self.as_of:
                 raise ValueError("daily proposal research lineage must match proposal as_of")
+        if self.personal_guard is not None and (
+            self.daily_audit is None or not self.is_research_only
+            or self.current_portfolio_id != self.personal_guard.ledger_portfolio_id
+        ):
+            raise ValueError("personal publication guard requires matching research lineage")
         if self.morning_audit is not None:
             if not self.is_research_only or self.morning_audit.as_of != self.as_of:
                 raise ValueError("morning proposal research lineage must match proposal as_of")
         target_keys = [target.key for target in self.targets]
+        if (self.search_audit is not None
+                and self.search_audit.candidate_key_count != len(target_keys)):
+            raise ValueError("bounded audit must cover the exact proposal keys")
         line_keys = [(line.symbol, line.account_bucket_id) for line in self.lines]
         line_ids = [line.line_id for line in self.lines]
         if len(target_keys) != len(set(target_keys)):

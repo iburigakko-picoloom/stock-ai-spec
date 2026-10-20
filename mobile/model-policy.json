@@ -1,5 +1,18 @@
 {
-  "schema_version": "mobile-model-policy-v1",
+  "schema_version": "mobile-model-policy-v2",
   "approved_models": [],
-  "reason": "Final model adoption, distribution review and physical-device inference parity are pending."
+  "approved_bundles": [],
+  "reason": "Formal adoption remains HOLD. The separately reviewed private two-head research bundle provides returns only; risk and calibration are unavailable. Xiaomi and whole-owner acceptance remain pending.",
+  "research_bundles": [
+    {
+      "bundle_id": "fcfca56783dfa5cec2e36e3ccd2563645c9c63090a564b128be2d0e634e926e6",
+      "device_evidence_scope": "same-head-arithmetic-emulator-not-Xiaomi-or-whole-owner-path",
+      "device_parity_evidence_sha256": "753a826bd4c39e82ebdf640fee2180f1e5ba47eb8bc0d67ec11f5c527eb2d517",
+      "distribution_review": "private-research-import-approved",
+      "pc_parity_evidence_sha256": "8002baae9873ab916f49236d31faae69694f234e6626e9c7adb24aed443acbc6",
+      "sha256": "5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5",
+      "source_evidence_sha256": "dc78d8723c35af1dec94f12738c01046b1b6560a82397c9b2383d0ada47e2138",
+      "use": "return-only-research"
+    }
+  ]
 }

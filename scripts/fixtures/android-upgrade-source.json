@@ -1,0 +1,16 @@
+{
+  "schema_version": "legacy-android-upgrade-source-v1",
+  "source_commit": "ab2d5ca9ecd7ec107e187f7c0697e053c3288316",
+  "published_version_code": 10012,
+  "source_sha256": {
+    "mobile/python/runtime.py": "8a354a4c47a6908092def0e09711087415a1144cce90fddee7d1f9e3e269f22c",
+    "mobile/python/personal.py": "ab6622a337b541346e123735e1ec0aa43f6cd4ff62dd87b257a284643693a331",
+    "src/stock_ai/operations/store.py": "0cd9a3acd98bc2ac7d7ffb84f1520b9c57efe9a032dc70101cbe8df654967ad5",
+    "src/stock_ai/domain/models.py": "5cf39880c8264cd0b68629e8e5bbfc10b51aa9c6b0d393f1110257bf9c4c33f3",
+    "src/stock_ai/operations/fixture.py": "0ddf8aaf3a6b587994202b36aead2d64bbe10352bb709b2a6974552a4814230b",
+    "src/stock_ai/operations/manual_portfolio.py": "47249a884ad31b1c3ebc2dc95744965816bf0b22fc8f1a6f1a8fa3aac7cdc9ea",
+    "src/stock_ai/operations/manual_settings.py": "c8c22baf26df91734e2a1389845976c08748b9538dde2c5ce8ac766bf831061d",
+    "web/android/app/src/main/java/jp/stockai/app/StockAIPlugin.java": "6a61590eb24827c5d7f7af5293e1b977ee39779a87eff2dea27636e14f5d72aa"
+  },
+  "fixture_sha256": "3983d4c8d24ffe1a01aa0c5fe070877111d0311cdea8c4d136d49c202ae7da4c"
+}

@@ -6,7 +6,7 @@ import hashlib
 import itertools
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 
@@ -29,19 +29,29 @@ from stock_ai.domain import (
     TransactionCostEstimate,
     WithholdingMode,
 )
+from stock_ai.domain.models import BoundedSearchAudit
 
 
 class SearchSpaceTooLarge(RuntimeError):
     """Fail-closed signal rather than silently using a different optimizer."""
 
 
-class DecisionCandidate(BaseModel):
+class TradeConstraintCandidate(BaseModel):
+    """Prices and instruments needed to validate a fixed human/ChatGPT target."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     security: Security
     account_bucket_id: str = Field(min_length=1)
     price: Decimal = Field(gt=0)
     average_daily_trading_value: Decimal | None = Field(default=None, gt=0)
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.security.symbol, self.account_bucket_id)
+
+
+class DecisionCandidate(TradeConstraintCandidate):
     prediction: Prediction
 
     @model_validator(mode="after")
@@ -98,6 +108,11 @@ class DecisionEngineConfig(BaseModel):
             horizon_weights=(Decimal("0"), Decimal("0"), Decimal("1")),
         )
 
+    @classmethod
+    def daily_bounded(cls) -> DecisionEngineConfig:
+        return cls(version="daily-decision-engine-v3-bounded",
+                   horizon_weights=(Decimal("0"), Decimal("0"), Decimal("1")))
+
 
 @dataclass(frozen=True)
 class _Evaluation:
@@ -125,10 +140,10 @@ def classify_action(current_shares: int, target_shares: int, band: int = 0) -> P
 
 
 class DailyPortfolioDecisionEngine:
-    """Exact discrete search for a bounded candidate universe.
+    """Whole-portfolio scoring with an explicitly selected, versioned search.
 
-    The explicit search cap is intentional.  This Goal does not silently swap in
-    an unreviewed heuristic when the configured production universe is too large.
+    Legacy policies retain exhaustive search and its hard cap. The separate v3
+    daily policy records bounded-search evidence and never claims optimality.
     """
 
     def __init__(
@@ -282,6 +297,58 @@ class DailyPortfolioDecisionEngine:
         if hold is None:
             raise RuntimeError("the unchanged HOLD scenario must always be evaluable")
 
+        search_audit = None
+        if self.config.version == "daily-decision-engine-v3-bounded":
+            if self.config.horizon_weights != (Decimal(0), Decimal(0), Decimal(1)):
+                raise ValueError("bounded daily policy requires 20d decision weights")
+            from stock_ai.decision.bounded import search
+
+            best, search_audit = search(
+                self, portfolio, candidate_map, bucket_map, total_wealth, hold,
+                maximum_invested_value, purchase_limits,
+            )
+            best = replace(best, targets={key: best.targets.get(key, 0) for key in candidate_map})
+            checked = self._evaluate(
+                targets=best.targets, portfolio=portfolio, candidates=candidate_map,
+                buckets=bucket_map, total_wealth=total_wealth,
+                enforce_trade_constraints=best.targets != current_targets,
+                maximum_invested_value=maximum_invested_value, purchase_limits=purchase_limits,
+            )
+            if checked is None or (checked.utility, checked.cash_after) != (
+                best.utility, best.cash_after
+            ):
+                raise ValueError("bounded result failed full portfolio verification")
+            best = checked
+        else:
+            best = self._exact_search(portfolio, candidate_map, bucket_map, total_wealth, hold,
+                                      maximum_invested_value, purchase_limits)
+
+        threshold = (
+            self.config.minimum_improvement_yen
+            + self.config.uncertainty_buffer_yen
+            + self.config.implementation_buffer_yen
+        )
+        raw_improvement = best.utility - hold.utility
+        no_trade_reason: str | None = None
+        if raw_improvement <= threshold:
+            best = hold
+            no_trade_reason = (
+                f"best net improvement {raw_improvement:.2f} JPY did not exceed "
+                f"the no-trade threshold {threshold:.2f} JPY"
+            )
+        return self._proposal(
+            portfolio=portfolio, candidates=candidate_map, hold=hold, selected=best,
+            generated_at=generated_at, model_bundle_version=model_bundle_version,
+            morning_audit=morning_audit, no_trade_reason=no_trade_reason, search_audit=search_audit,
+        )
+
+    def _exact_search(
+        self, portfolio: PortfolioState,
+        candidate_map: dict[tuple[str, str], DecisionCandidate],
+        bucket_map: dict[str, AccountBucket], total_wealth: Decimal, hold: _Evaluation,
+        maximum_invested_value: Decimal | None, purchase_limits: Mapping[str, Decimal] | None,
+    ) -> _Evaluation:
+        current = portfolio.position_map()
         option_sets = [
             self._share_options(candidate, current.get(key), total_wealth, maximum_invested_value)
             for key, candidate in candidate_map.items()
@@ -309,29 +376,7 @@ class DailyPortfolioDecisionEngine:
             if evaluation is not None and evaluation.utility > best.utility:
                 best = evaluation
 
-        threshold = (
-            self.config.minimum_improvement_yen
-            + self.config.uncertainty_buffer_yen
-            + self.config.implementation_buffer_yen
-        )
-        raw_improvement = best.utility - hold.utility
-        no_trade_reason: str | None = None
-        if raw_improvement <= threshold:
-            best = hold
-            no_trade_reason = (
-                f"best net improvement {raw_improvement:.2f} JPY did not exceed "
-                f"the no-trade threshold {threshold:.2f} JPY"
-            )
-        return self._proposal(
-            portfolio=portfolio,
-            candidates=candidate_map,
-            hold=hold,
-            selected=best,
-            generated_at=generated_at,
-            model_bundle_version=model_bundle_version,
-            morning_audit=morning_audit,
-            no_trade_reason=no_trade_reason,
-        )
+        return best
 
     def _share_options(
         self,
@@ -385,13 +430,19 @@ class DailyPortfolioDecisionEngine:
         *,
         targets: dict[tuple[str, str], int],
         portfolio: PortfolioState,
-        candidates: dict[tuple[str, str], DecisionCandidate],
+        candidates: Mapping[tuple[str, str], TradeConstraintCandidate],
         buckets: dict[str, AccountBucket],
         total_wealth: Decimal,
         enforce_trade_constraints: bool,
         maximum_invested_value: Decimal | None = None,
         purchase_limits: Mapping[str, Decimal] | None = None,
+        constraint_violations: list[str] | None = None,
+        constraints_only: bool = False,
     ) -> _Evaluation | None:
+        def reject(code: str) -> None:
+            if constraint_violations is not None:
+                constraint_violations.append(code)
+
         current = portfolio.position_map()
         cash_after = {key: item.deployable_cash for key, item in portfolio.cash_map().items()}
         costs: dict[tuple[str, str], TransactionCostEstimate] = {}
@@ -413,9 +464,13 @@ class DailyPortfolioDecisionEngine:
             current_shares = position.shares if position else 0
             target_shares = targets[key]
             if target_shares < 0:
+                reject("NEGATIVE_TARGET_SHARES")
                 return None
             difference = target_shares - current_shares
-            gross_signal_utility += self._signal_utility(candidate, target_shares)
+            if not constraints_only:
+                if not isinstance(candidate, DecisionCandidate):
+                    raise ValueError("Risk-complete predictions required for signal utility")
+                gross_signal_utility += self._signal_utility(candidate, target_shares)
             target_value = candidate.price * target_shares
             current_value = candidate.price * current_shares
             target_symbol_values[candidate.security.symbol] = (
@@ -446,11 +501,13 @@ class DailyPortfolioDecisionEngine:
             turnover += notional
             if enforce_trade_constraints:
                 if candidate.average_daily_trading_value is None:
+                    reject("LIQUIDITY_UNKNOWN")
                     return None
                 if (
                     notional
                     > candidate.average_daily_trading_value * self.config.maximum_trade_adv_ratio
                 ):
+                    reject("ADV_LIMIT")
                     return None
             if difference > 0:
                 purchases[candidate.account_bucket_id] = (
@@ -459,6 +516,7 @@ class DailyPortfolioDecisionEngine:
                 cash_after[candidate.account_bucket_id] -= notional + trade_cost.total
             else:
                 if position is None:
+                    reject("SELL_WITHOUT_HOLDING")
                     return None
                 sales_by_bucket.setdefault(candidate.account_bucket_id, []).append(
                     SaleTaxInput(
@@ -483,12 +541,14 @@ class DailyPortfolioDecisionEngine:
                 cash_after[bucket_id] -= tax.estimated_cash_withholding
 
         if any(value < 0 for value in cash_after.values()):
+            reject("INSUFFICIENT_CASH_AFTER_COST_TAX")
             return None
         if enforce_trade_constraints:
             if purchase_limits is not None and any(
                 purchases.get(bucket, Decimal("0")) > limit
                 for bucket, limit in purchase_limits.items()
             ):
+                reject("ACCOUNT_PURCHASE_LIMIT")
                 return None
             if maximum_invested_value is not None:
                 target_invested = sum(target_symbol_values.values(), Decimal("0"))
@@ -496,28 +556,34 @@ class DailyPortfolioDecisionEngine:
                 # Preserve HOLD as the counterfactual and allow only strict reductions
                 # while existing holdings exceed a newly supplied budget.
                 if target_invested > maximum_invested_value and target_invested >= current_invested:
+                    reject("INVESTMENT_BUDGET")
                     return None
             if len(target_symbols) > self.config.maximum_positions:
                 moves_toward_limit = target_symbols < current_symbols
                 if not moves_toward_limit:
+                    reject("POSITION_LIMIT")
                     return None
             symbol_cap = total_wealth * self.config.maximum_symbol_weight
             for symbol, target_value in target_symbol_values.items():
                 if target_value > symbol_cap and target_value > current_symbol_values.get(
                     symbol, Decimal("0")
                 ):
+                    reject("SYMBOL_WEIGHT_LIMIT")
                     return None
             sector_cap = total_wealth * self.config.maximum_sector_weight
             for sector, target_value in target_sector_values.items():
                 if target_value > sector_cap and target_value > current_sector_values.get(
                     sector, Decimal("0")
                 ):
+                    reject("SECTOR_WEIGHT_LIMIT")
                     return None
             minimum_cash = total_wealth * self.config.minimum_cash_ratio
             target_cash = sum(cash_after.values(), Decimal("0"))
             if target_cash < minimum_cash:
+                reject("CASH_RESERVE_LIMIT")
                 return None
             if turnover > total_wealth * self.config.maximum_turnover_ratio:
+                reject("TURNOVER_LIMIT")
                 return None
 
         if total_wealth > 0:
@@ -556,6 +622,7 @@ class DailyPortfolioDecisionEngine:
         model_bundle_version: str,
         morning_audit: MorningDecisionAudit | None,
         no_trade_reason: str | None,
+        search_audit: BoundedSearchAudit | None = None,
     ) -> PortfolioProposal:
         current = portfolio.position_map()
         lines: list[ProposalLine] = []
@@ -594,7 +661,9 @@ class DailyPortfolioDecisionEngine:
                 reasons.append("NO_TRADE_ZONE")
                 human_reasons.append("純改善がノートレード基準を超えないため株数変更なし")
             elif action is ProposalAction.HOLD:
-                human_reasons.append("全体最適化後もこの口座バケットの保有株数を維持")
+                human_reasons.append("全体比較後もこの口座バケットの保有株数を維持"
+                                     if search_audit is not None else
+                                     "全体最適化後もこの口座バケットの保有株数を維持")
             elif action is ProposalAction.SKIP:
                 human_reasons.append("現金・リスク・税・コスト考慮後の目標株数は0株")
             else:
@@ -675,6 +744,7 @@ class DailyPortfolioDecisionEngine:
             tax_policy_id=self.tax_engine.policy.policy_id,
             tax_policy_version=self.tax_engine.policy.version,
             morning_audit=morning_audit,
+            search_audit=search_audit,
             is_research_only=morning_audit is not None,
             no_trade_reason=no_trade_reason,
         )

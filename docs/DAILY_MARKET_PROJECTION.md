@@ -22,6 +22,22 @@ UL/LLをrawから回収するが終値の約定可否へ変換しない。非単
 
 根拠は[J-Quants V2日足仕様](https://jpx-jquants.com/ja/spec/eq-bars-daily)（2026-10-15確認）。特にULは高値の到達判定であり、引けの買付不能の証拠ではない。
 
+## 日付別の単元・呼値の補完（D168）
+
+`research project-daily-instruments`は同じ`DailyMarketRequest`を受け、既存価格認証と同じ期間・取得時点のmaster raw/normalizedを別途認証する。catalog/manifest/hash/行metadataとキー、規模/市場区分を照合し、旧normalizedで保持していない`ProdCat`はrawから取り出す。凍結済みParquet・学習dataset・従来の市場receiptを更新しない。
+
+```powershell
+.venv/Scripts/python.exe -m stock_ai research project-daily-instruments --input <市場と同じ入力JSON> --output-root <私有保存先>
+```
+
+`ProdCat=011`かつ普通株codeを確認できた行に限り、2018-10-01以降の国内株100株の規則を適用する。呼値は当該日付の`ScaleCat`と未調整価格から厳密なDecimalで算定し、TOPIX500とその他の表を分ける。対応期間は2023-06-05〜2027-02-28。制度変更後の日付、未収録の商品区分、外国株・優先出資/ETF/REIT、特殊な株式code、不明な規模区分や価格は未確認のまま残す。価格を呼値へ丸めず、別種類の証券を普通株へ結合しない。
+
+masterは日付ごとの完全snapshotとして版を選び、新しい版から削除された行を古い版で補完しない。空の新しいsnapshotも古い所属を置換する。価格側だけ/master側だけの行を外部結合で保持し、欠損数を記録する。
+
+出力`daily-instrument-rules-v1`は規則版・公式出典・元source object/record hashと取得時刻、行別の単元/呼値または不明理由を保存する。これは現在訂正後のmasterへの規則適用であり、当時の既知情報や約定の認証ではない。`historical_as_known=false`、`evaluation_ready=false`、`adoption_eligible=false`を維持し、企業行動、方向別売買可否、約定容量、資金解放、過去時点入力の不足を残す。NAVの市場receiptの代用品にしない。
+
+2026-10-18に確認した根拠：[J-Quants商品区分](https://jpx-jquants.com/ja/spec/eq-master/product-category)、[日付別規模区分](https://jpx-jquants.com/ja/spec/eq-master/scalecategory)、[国内株の単元統一](https://www.jpx.co.jp/equities/improvements/unit/index.html)、[2023-06-05のMid400変更](https://www.jpx.co.jp/news/1030/20230602-01.html)、[呼値表と2027年の変更予告](https://www.jpx.co.jp/equities/trading/domestic/07.html)。原文5件の取得時刻/byte hashは私有保存し、最新の規模区分を過去へ適用しない。
+
 ## 実行と限界
 
 ```powershell
@@ -38,4 +54,4 @@ UL/LLをrawから回収するが終値の約定可否へ変換しない。非単
 
 ここで確認したのは固定vintageにおける当日銘柄一覧と価格の網羅であり、訂正前の情報を復元したことではない。訂正前vintage、上場廃止・企業行動、約定能力、実用費用、個人設定の接続は残る。実市場戦略成績、全候補のNAV比較、最終selection/holdout、最新推論、実用採用は未完。実注文なし。
 
-2026-10-15の[接続確認](evidence/live-data-access-20261015/README.md)では、株価Bulk一覧と銘柄一覧の2要求がHTTP403。原因や本人の契約プランは未確定、配当APIは未要求。最新データ取得成功の証拠が得られるまで、2026-08-29時点の保存データを今日のデータとは表示しない。保存済みデータによる検証は継続する。
+2026-10-15の[接続確認](evidence/live-data-access-20261015/README.md)では、株価Bulk一覧と銘柄一覧の2要求がHTTP403。これは当時の履歴として残す。2026-10-18に本人がLight契約済みと連絡し、TOPIX HTTP200、基本5種類の開発期間取得に成功した（D167）。旧保存先とは別版で固定し、2024-10月の22営業日・96,671行・raw/normalized44objectを本projectionで再認証。4,276行の無約定、85行の特殊code、7行の企業行動要確認を保持し、`evaluation_ready=false`と不足能力を維持した。現在取得した訂正後vintageは当時の既知情報ではなく、取得対象は最終期間前の開発用であって今日の相場更新ではない。私有明細とhashは`.demo-artifacts/light-resume-20261018/`に保持し公開しない。

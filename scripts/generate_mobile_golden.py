@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import io
 import json
+import tempfile
+import zipfile
+from copy import deepcopy
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import numpy as np
@@ -10,11 +18,41 @@ import pandas as pd
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from mobile.pc.export_model import export_model
+from mobile.python.model_bundle import ModelBundle, encoded
+from pandas.core.util.hashing import combine_hash_arrays
+from pytest import MonkeyPatch
+from tests.conftest import AS_OF, candidate, decision_engine, portfolio
+from tests.test_bounded_decision import large_scenario, propose
+from tests.test_mobile_bundles import SELECTION
+from tests.test_mobile_decisions import NOW
+from tests.test_mobile_decisions import ready as decision_ready
+from tests.test_mobile_features import timely_history
+from tests.test_mobile_forecasts import received_history_ready
+from tests.test_operations_store import _nisa_execution_store
 from xgboost import XGBClassifier, XGBRegressor
 
+from stock_ai.data.contracts import DatasetName
+from stock_ai.domain import Position
 from stock_ai.features import V2_EXTENDED_MANIFEST, FeatureEngine
 from stock_ai.fixtures import market_fixture
 from stock_ai.ml.advanced import FoldPreprocessor
+from stock_ai.operations.api import _proposal_view
+from stock_ai.operations.daily import OwnerAdoptionReview, canonical_json, content_id
+
+WASM_NA_HASH = 2**31 - 1
+
+
+def legacy_wasm_master_source_id(master):
+    """Retain the historical wasm32 identity as an independent compatibility oracle."""
+    master = master.sort_values(["effective_date", "provider_code"]).reset_index(drop=True)
+    assert str(master.round_lot_size.dtype) == "Int64" and master.round_lot_size.isna().all()
+    hashes = [pd.util.hash_pandas_object(master[name], index=False).to_numpy() for name in master]
+    hashes[list(master).index("round_lot_size")][:] = WASM_NA_HASH
+    schema = tuple((str(name), str(dtype)) for name, dtype in master.dtypes.items())
+    metadata = json.dumps({"dataset": "security_master", "schema": schema}, sort_keys=True).encode()
+    return hashlib.sha256(
+        metadata + combine_hash_arrays(iter(hashes), len(hashes)).tobytes()
+    ).hexdigest()
 
 root = Path(__file__).resolve().parents[1]
 daily, market, sector, financials = market_fixture(270)
@@ -53,18 +91,22 @@ processor = FoldPreprocessor(
 transformed = processor.transform(model_frame)
 regression = np.sin(index / 5) + index / 100
 vectors = []
-for task in ("regression", "large_loss"):
+for task in ("regression", "large_loss", "quantile"):
     classification = task == "large_loss"
+    quantile = task == "quantile"
     target = (regression > np.median(regression)).astype(int) if classification else regression
     estimators = {
         "lightgbm": (LGBMClassifier if classification else LGBMRegressor)(
-            n_estimators=5, num_leaves=4, min_child_samples=2, n_jobs=1, verbosity=-1
+            n_estimators=5, num_leaves=4, min_child_samples=2, n_jobs=1, verbosity=-1,
+            **({"objective": "quantile", "alpha": .1} if quantile else {})
         ),
         "xgboost": (XGBClassifier if classification else XGBRegressor)(
-            n_estimators=5, max_depth=2, n_jobs=1
+            n_estimators=5, max_depth=2, n_jobs=1,
+            **({"objective": "reg:quantileerror", "quantile_alpha": .1} if quantile else {})
         ),
         "catboost": (CatBoostClassifier if classification else CatBoostRegressor)(
-            iterations=5, depth=2, thread_count=1, verbose=False, allow_writing_files=False
+            iterations=5, depth=2, thread_count=1, verbose=False, allow_writing_files=False,
+            **({"loss_function": "Quantile:alpha=0.1"} if quantile else {})
         ),
     }
     for family, estimator in estimators.items():
@@ -83,9 +125,246 @@ for task in ("regression", "large_loss"):
                 "expected": reference.tolist(),
             }
         )
+# Rebind only synthetic test features to the actual frozen selection. This
+# fixture is never an approval pin or an APK asset.
+heads, bundle_rows, bundle_expected = [], {}, []
+for horizon, task in ((5, "regression"), (20, "regression"), (20, "quantile"),
+                      (20, "large_loss")):
+    vector = next(x for x in vectors if x["family"] == "lightgbm" and x["task"] == task)
+    names = next(x["feature_names"][:2] for x in selection["horizons"]
+                 if x["horizon"] == horizon)
+    rename = dict(zip(("a", "b"), names, strict=True))
+    model = deepcopy(vector["model"])
+    processor_value = model["preprocessor"]
+    processor_value["retained"] = [rename[x] for x in processor_value["retained"]]
+    for field in ("lower", "upper", "median"):
+        processor_value[field] = {rename[k]: v for k, v in processor_value[field].items()}
+    content = canonical_json(model)
+    heads.append({"horizon": horizon, "task": task, "model_id": f"synthetic-{horizon}-{task}",
+                  "sha256": hashlib.sha256(content.encode()).hexdigest(), "content": content})
+    bundle_rows[str(horizon)] = [{rename[k]: v for k, v in row.items()}
+                                 for row in vector["rows"]]
+    bundle_expected.append({"horizon": horizon, "task": task, "values": vector["expected"]})
+review = OwnerAdoptionReview.create(
+    selection_id="c" * 64, holdout_report_id="d" * 64, evaluator_receipt_id="e" * 64,
+    decision_policy_hash="f" * 64, reviewed_at=datetime.fromisoformat("2026-02-02T07:00:00Z"),
+    decision="continue_paper", unresolved_gates=("synthetic-test-only",),
+    acknowledged_limitations=("Never use fixture values as market data",),
+    note="Synthetic offline parity fixture",
+)
+bundle = ModelBundle.create(
+    created_at="2026-02-02T08:00:00Z", trained_at="2026-02-01T00:00:00Z",
+    training_data_cutoff="2026-01-30T00:00:00Z",
+    feature_selection_id=selection["feature_selection_id"],
+    feature_manifest_hash=selection["feature_manifest_hash"], selection_id="c" * 64,
+    adoption_review=review, calibration={"method": "received_past_only_20d_residual_rmse",
+    "residual_rmse": .02, "rows": 40, "dates": 20,
+    "latest_label_available_at": "2026-02-01T00:00:00Z", "fitted_at": "2026-02-01T01:00:00Z",
+    "source_evidence_sha256": "1" * 64},
+    large_loss_threshold=-.08, downside_quantile_alpha=.1, heads=heads,
+)
+bundle_content = encoded(bundle)
+bounded_state, bounded_candidates, _, bounded_engine = large_scenario(with_costs=True)
+bounded_expected = propose(bounded_engine, bounded_state, bounded_candidates)
+bounded_fixture = {
+    "synthetic_only": True, "portfolio": bounded_state.model_dump(mode="json"),
+    "candidates": [x.model_dump(mode="json") for x in bounded_candidates],
+    "config": bounded_engine.config.model_dump(mode="json"),
+    "cost_policy": bounded_engine.cost_engine.policy.model_dump(mode="json"),
+    "tax_policy": bounded_engine.tax_engine.policy.model_dump(mode="json"),
+    "generated_at": bounded_expected.generated_at.isoformat(),
+    "model_bundle_version": bounded_expected.model_bundle_version,
+    "expected": bounded_expected.model_dump(mode="json"),
+}
+withholding_fixtures = []
+for version, mixed in (("decision-engine-v1", False),
+                       ("daily-decision-engine-v3-bounded", False),
+                       ("daily-decision-engine-v3-bounded", True)):
+    held = Position(symbol="A", account_bucket_id="bucket", shares=100,
+                    average_acquisition_price=Decimal(900), market_price=Decimal(1000))
+    positions = tuple(Position(
+        symbol=symbol, account_bucket_id="bucket", shares=100,
+        average_acquisition_price=Decimal(basis), market_price=Decimal(1000),
+    ) for symbol, basis in (("A", 900), ("B", 900), ("C", 900), ("z-loss", 1200)))
+    tax_state = portfolio(positions if mixed else (held,), cash=Decimal(0))
+    tax_state = tax_state.model_copy(update={"tax_states": (
+        tax_state.tax_states[0].model_copy(update={"loss_carryforward_user_input": Decimal(10000)}),
+    )})
+    tax_engine = decision_engine(tax_rate=Decimal(".20"))
+    tax_engine.config = tax_engine.config.model_copy(update={
+        "version": version, "horizon_weights": (Decimal(0), Decimal(0), Decimal(1)),
+    })
+    tax_candidates = (tuple(candidate(p.symbol, -.10) for p in positions) if mixed
+                      else (candidate("A", -.10), candidate("B", .50)))
+    expected_tax = tax_engine.propose(portfolio=tax_state, candidates=tax_candidates,
+                                      generated_at=AS_OF, model_bundle_version="test-model-v1")
+    assert expected_tax.estimated_cash_after["bucket"] == (398000 if mixed else 98000)
+    assert next(x for x in expected_tax.lines if x.symbol == "B").recommended_shares == 0
+    api_proposal = _proposal_view(expected_tax)
+    api_proposal["isResearchOnly"] = True  # Explicit browser fixture, never a published proposal.
+    withholding_fixtures.append({
+        "synthetic_only": True, "portfolio": tax_state.model_dump(mode="json"),
+        "candidates": [x.model_dump(mode="json") for x in tax_candidates],
+        "config": tax_engine.config.model_dump(mode="json"),
+        "cost_policy": tax_engine.cost_engine.policy.model_dump(mode="json"),
+        "tax_policy": tax_engine.tax_engine.policy.model_dump(mode="json"),
+        "generated_at": AS_OF.isoformat(), "model_bundle_version": "test-model-v1",
+        "expected": expected_tax.model_dump(mode="json"),
+        "today": {"businessDate": AS_OF.date().isoformat(), "pipelineState": "PROPOSAL_READY",
+                  "isStale": False, "blockingReason": None, "runtimeMode": "fixture",
+                  "proposal": api_proposal},
+    })
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    with MonkeyPatch.context() as patch:
+        device, path, store, _, policy = decision_ready.__wrapped__(Path(temporary), patch)
+        decision_state = device.export_state()
+        from mobile.python import decisions
+
+        decision_fixture = {
+            "synthetic_only": True, "state": decision_state, "policy": policy,
+            "selection": SELECTION, "now": NOW.isoformat(),
+            "expected": decisions.generate(path, store, NOW),
+        }
+        from mobile.python import manual_chatgpt
+
+        from stock_ai.operations.chatgpt_manual import ExternalAiPermission
+
+        permission = ExternalAiPermission(
+            service="manual_chatgpt", checked_at=NOW.astimezone(UTC), personal_analysis_only=True,
+            training_disabled=True, private_input=True, private_output=True,
+            data_entitlement_confirmed=True,
+        ).model_dump(mode="json")
+        exported = manual_chatgpt.export(path, store, permission, NOW)
+        package = json.loads(exported["prompt"].split("\n入力:\n")[1])
+        answer = {"schema_version": "chatgpt-target-shares-v1",
+                  "input_snapshot_id": package["input_snapshot_id"],
+                  "evidence_as_of": NOW.isoformat(), "unknowns": ["合成試験です"],
+                  "targets": [{"symbol": x["symbol"], "account": x["account"],
+                               "target_shares": x["current_shares"],
+                               "reason": "合成試験の保有維持", "sources": []}
+                              for x in package["required_targets"]]}
+        answer_json = json.dumps(answer, ensure_ascii=False)
+        decision_fixture["manual_exchange"] = {
+            "permission": permission, "exported": exported, "answer_json": answer_json,
+            "expected": manual_chatgpt.import_answer(path, store, {
+                "input_record_id": exported["input_record_id"], "answer_json": answer_json,
+            }, NOW),
+        }
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    from mobile.python import runtime
+
+    store, execution = _nisa_execution_store(Path(temporary))
+    with MonkeyPatch.context() as patch:
+        patch.setattr(runtime, "STATE", Path(temporary))
+        runtime.initialize()
+        state = runtime.export_state()
+        store.append_execution(execution)
+        next_as_of = AS_OF + timedelta(days=1)
+        applied = store.apply_unapplied_executions(
+            next_as_of=next_as_of, next_portfolio_id="nisa-next", created_at=next_as_of,
+        )
+        manual_execution_fixture = {
+            "synthetic_only": True, "state": state, "decision_id": execution.decision_id,
+            "execution": execution.model_dump(mode="json", exclude={"decision_id", "source"}),
+            "apply": {"next_as_of": next_as_of.isoformat(), "next_portfolio_id": "nisa-next"},
+            "expected": applied.model_dump(mode="json"),
+        }
+
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    from mobile.python import features, market
+
+    path = Path(temporary) / "mobile.sqlite3"
+    cutoff = timely_history(path)
+    records = market.feature_inputs(path, cutoff)
+    frames = market.feature_inputs(path, cutoff, True)
+    feature_expected = features.calculate(records, selection)
+    assert features.calculate(frames, selection) == feature_expected
+    # Keep the old platform-specific identity as historical evidence, while
+    # current production input identities must equal the original64-bit PC ID.
+    master = market.SQLiteSource(path).point_in_time(DatasetName.SECURITY_MASTER, cutoff)
+    wasm_master_id = legacy_wasm_master_source_id(master)
+    legacy_wasm_source_ids = [
+        [name, wasm_master_id if name == "security_master" else digest]
+        for name, digest in records["source_snapshot_ids"]
+    ]
+    archive_bytes = io.BytesIO()
+    with zipfile.ZipFile(archive_bytes, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.write(path, "mobile.sqlite3")
+    feature_input_fixture = {
+        "synthetic_only": True, "state": base64.b64encode(archive_bytes.getvalue()).decode(),
+        "cutoff": cutoff.isoformat(), "selection": selection, "expected": feature_expected,
+        "source_ids": records["source_snapshot_ids"], "daily_rows": len(frames["daily"]),
+        "legacy_wasm_source_ids": legacy_wasm_source_ids, "wasm_na_hash": WASM_NA_HASH,
+    }
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    with MonkeyPatch.context() as patch:
+        device, path, store, cutoff, now, received_selection, policy = received_history_ready(
+            Path(temporary), patch, funded=True,
+        )
+        now = now.astimezone(UTC)  # runtime.request uses datetime.now(UTC).
+        from mobile.python import forecasts
+
+        # Save before numerical publication: WASM must actually calculate the
+        # features and forecasts; it cannot reuse PC-published predictions.
+        assert store.latest_prediction_snapshot() is None
+        initial_state = device.export_state()
+        numerical = forecasts.generate(path, store, now)
+        comparison = decisions.generate(path, store, now)
+        assert numerical["phase"] == comparison["phase"] == "published"
+        wasm_proof = deepcopy(numerical["data_proof"])
+        received_fixture = {
+            "synthetic_only": True, "state": initial_state, "policy": policy,
+            "selection": received_selection, "now": now.isoformat(),
+            "cutoff": cutoff.isoformat(), "predictions": numerical["snapshot"]["predictions"],
+            "proposal": comparison["comparison"]["proposal"],
+            "wasm_data_proof": wasm_proof, "wasm_data_snapshot_id": content_id(wasm_proof),
+            "permission": {**permission, "checked_at": now.isoformat()},
+            "sqlite_evidence_source": (root / "scripts/sqlite_evidence.py").read_text(
+                encoding="utf-8",
+            ),
+        }
+
+with tempfile.TemporaryDirectory(dir=root / ".demo-artifacts") as temporary:
+    from mobile.python import models
+    from tests.test_mobile_research_bundle import research_bundle, research_pin
+
+    with MonkeyPatch.context() as patch:
+        patch.setattr(runtime, "STATE", Path(temporary))
+        research_policy = deepcopy(received_fixture["policy"])
+        patch.setattr(models, "policy", lambda: research_policy)
+        patch.setattr(models, "bundled_selection", lambda: received_fixture["selection"])
+        patch.setattr(forecasts, "bundled_selection", lambda: received_fixture["selection"])
+        runtime.initialize(received_fixture["state"])
+        path, store = runtime.STATE / "mobile.sqlite3", runtime._app.state.store
+        now = datetime.fromisoformat(received_fixture["now"])
+        cutoff = datetime.fromisoformat(received_fixture["cutoff"])
+        two_heads = research_bundle(models.load_bundle(path, cutoff)[0])
+        research_policy["research_bundles"] = [research_pin(two_heads)]
+        models.import_bundle(path, encoded(two_heads), cutoff)
+        research_state = runtime.export_state()
+        numerical = forecasts.generate(path, store, now)
+        comparison = decisions.generate(path, store, now)
+        assert comparison["blocking_reasons"] == ["FORECAST_RISK_UNAVAILABLE"]
+        assert comparison["comparison"]["manual_context_sha256"]
+        target_shares = {x["symbol"]: x["recommended_shares"]
+                         for x in received_fixture["proposal"]["lines"]}
+        research_received_fixture = {
+            **received_fixture, "state": research_state, "policy": research_policy,
+            "predictions": numerical["snapshot"]["predictions"], "proposal": None,
+            "return_only_research": True, "target_shares": target_shares,
+        }
+
 destination.write_text(
     json.dumps(
-        {"inputs": inputs, "expected": expected, "models": vectors},
+        {"inputs": inputs, "expected": expected, "models": vectors,
+         "bundle": {"content": bundle_content, "rows": bundle_rows,
+                    "bundle_id": bundle.bundle_id,
+                    "sha256": hashlib.sha256(bundle_content.encode()).hexdigest(),
+                    "expected": bundle_expected}, "bounded": bounded_fixture,
+         "decision": decision_fixture, "feature_inputs": feature_input_fixture,
+         "withholding": withholding_fixtures, "manual_execution": manual_execution_fixture,
+         "received_forecast": received_fixture,
+         "received_return_only": research_received_fixture},
         ensure_ascii=False,
         allow_nan=False,
     ),

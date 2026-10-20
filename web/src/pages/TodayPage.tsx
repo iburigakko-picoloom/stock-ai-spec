@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ActionBadge, DecisionSteps, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, TodayResponse } from "../types";
+import { DailyPanel } from "../mobile/DailyPanel";
 
 const priority = new Map([
   ["SELL", 0],
@@ -44,7 +45,11 @@ export function TodayPage(): ReactNode {
     <div className={`page${proposal ? " page--with-sticky" : ""}`}>
       <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} />
       <RuntimeBanner mode={data.runtimeMode} />
-      {!proposal ? (
+      <DailyPanel />
+      <Link className="button button--secondary" to="/today/chatgpt">ChatGPTと相談</Link>
+      {!data.isStale && data.pipelineState === "CASH_ONLY" ? (
+        <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
+      ) : !proposal ? (
         <><StatePanel
           tone={data.isStale ? "warning" : "neutral"}
           title={data.isStale ? "今日は提案を表示できません" : "次回の分析を待っています"}
@@ -81,8 +86,10 @@ export function TodayPage(): ReactNode {
             <details className="metadata-details"><summary>口座別の現金・推定改善を確認</summary>
               <dl className="summary-list">
                 {Object.entries(proposal.estimatedCashAfter).map(([bucket, cash]) => <div key={bucket}><dt>{bucket}</dt><dd>{yen(cash)}</dd></div>)}
+                <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(proposal.estimatedTaxCashWithholding)}</dd></div>
                 <div><dt>何もしない場合に対する推定純改善</dt><dd className={Number(proposal.netImprovement) < 0 ? "text-negative" : undefined}>{yen(proposal.netImprovement)}</dd></div>
               </dl>
+              <p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p>
               <p className="explain">推定値です。将来の利益や実際の約定価格を保証しません。</p>
             </details>
           </section>
