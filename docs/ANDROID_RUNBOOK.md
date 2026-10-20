@@ -1,3 +1,7 @@
+2026-10-20 D211：[StockAI 0.1.26（研究用候補）](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.26)を本人承認で公開し、既存アプリの更新先latestへ反映済み。[公開APK](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.26/StockAI.apk)。元候補と同一code10026/署名/hashで、再build・main mergeなし。認証なしのlatest API/更新JSON/APKと全4assetのHTTP 200・byte hash一致を確認した。[配信検証](evidence/settings-reference-20261020/published-update.json)。
+
+アプリを起動し直し、更新案内の「確認して更新」を押す。提供元許可を求められた場合は許可して戻り、再度更新を押してAndroidの確認画面で承認する。Xiaomiの実操作は未確認。モデル・市場・APIキー等は配布せず本人端末に保持し、正式HOLDも維持する。以下は候補作成時の記録。
+
 2026-10-20 D210：画像に合わせた設定一覧を本人用0.1.26-candidate/code10026へ反映。source `18fb6d83f3c6517007979c9ce840ee99d6294717`、必要CI39417285273の3job全成功。既存署名・非debug・成功CI43資産/184製品file一致、秘密情報/市場/私有モデル非同梱を確認。SHA256=`699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603`、23,980,369bytes。[候補検査](evidence/settings-reference-20261020/candidate-apk.json)。私有APKは`.demo-artifacts/settings-reference-20261020/candidate-0126/StockAI-0.1.26-candidate.apk`、同じ場所に`.sha256`。
 
 設定は5分類の一覧から編集を開き、画面内の「設定一覧へ」で戻る。API35の端末戻るキーはActivityを閉じる既存動作が未解決。CI debug実画面と署名パッケージ検査を区別し、XiaomiのUI/上書き更新は[一括受入票](evidence/topix500-20261020/xiaomi-acceptance.md)で確認する。0.1.23試験中なら終了前に上書きせず、既存試験・候補・データを保持する。以下の0.1.25以前の実測は履歴として残す。

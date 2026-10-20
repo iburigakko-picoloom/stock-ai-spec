@@ -1,3 +1,9 @@
+## 2026-10-20 22:05 JST — 0.1.26をアプリ内更新先へ公開（D211）
+
+- 本人の公開承認「よい」を受け、検証済みの同一APKを[android-v0.1.26](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.26)へ公開し、GitHub latestを0.1.12から更新した。source `18fb6d83f3c6517007979c9ce840ee99d6294717`、code10026/実versionName `0.1.26-candidate`、SHA256=`699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603`。再build・main mergeは行っていない。
+- draftへAPK/更新JSON/ハッシュ/公開署名情報の4fileを揃え、取得し直した全byte hashを照合してから公開。公開後はアプリと同じ認証なしHTTPSのlatest API・update.json・APK等がすべてHTTP 200、23,980,369bytesとhashが元候補に一致した。[配信確認](evidence/settings-reference-20261020/published-update.json)。秘密情報・市場・私有モデルは非同梱、旧Release/候補/本人データは保持。
+- 既存アプリは起動時に新版を確認し、本人が「確認して更新」→必要な提供元許可→Androidインストール確認へ進む。完全無操作の更新ではない。研究用候補/正式HOLD・Xiaomi未確認・画面内「設定一覧へ」を変更内容に明記した。端末での更新成功は未確認、実注文・外部AI送信なし。以下の承認待ちは公開前の記録。
+
 ## 2026-10-20 — 既存アプリ内更新経路を確認、0.1.26配信準備
 
 - 起動時の`MobileUpdateNotice`→native `checkUpdate`→本人タップ→`installUpdate`→Android確認は既にある。公開latestは0.1.12/code10012で、0.1.26候補を未配信のため新版表示が出ない。無操作のsilent更新とは区別する。
