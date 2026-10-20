@@ -1,3 +1,10 @@
+## 2026-10-21 — ノッチ修正版0.1.28のCI・署名APK・実Android確認完了、公開承認待ち（D214）
+
+- source `3f5dc8b3a87f4c2ecd4751778937ce4525d9b421` の[CI39448906494](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39448906494)は必要3job全成功（release skip）。tested merge `a237e3eb9422e6c93871277ac69451563fbc981b`とGit tree一致。native89件は失敗/error/skip0、Web mobile34/compute11/E2E6件成功。[CI記録](evidence/notch-safe-area-20261021/ci-result.json)。
+- 既存署名の0.1.28-candidate/code10028を作成（73.286秒）。SHA256=`026221c40c767d9509065bd317cf8ee8ea9c7e827da6706bc6070a5ae590fd71`、23,980,737bytes。185製品file/成功CI43資産、非debug・秘密/市場/私有モデル非同梱を照合。[APK検査](evidence/notch-safe-area-20261021/candidate-apk.json)。私有APKは`.demo-artifacts/notch-safe-area-20261021/candidate-0128/StockAI-0.1.28-candidate.apk`。計算用51 Python/model policy/nativeは0.1.27とbyte一致。PC研究変更はAPK対象外。
+- 同じ署名APKのAPI35/WebView124隔離emulatorで、tall cutoutの縦→横→縦と設定/資金/モデル編集・画面内戻るを確認。回転設定/help終了値/AVD容量不足/横向き副題selectorの試験側失敗を保全。005は今回作成した未設定AVDのみを再利用し、APK再build/データ削除なしで完走。[実Android記録](evidence/notch-safe-area-20261021/android-cutout.json)。CSS安全領域の合成試験とnative paddingの実Androidを区別。Xiaomi未確認。
+- 更新用draftへ全4assetを置き、読戻しbyte/hash一致まで確認。公開切替は自動承認審査が「今回の版の新規公開配布には明示承認が必要」と拒否したため未実行。本人へ確認中。最新公開は0.1.27のままで、本人端末にはノッチ修正未反映。拒否の迂回/main merge/自動install/実注文/holdout採点なし。元PR #2差分hash・実SQLite・0.1.23 APKは不変。以下は作成前の記録。
+
 ## 2026-10-21 — ノッチと上部更新案内の重なりを修正（D214）
 
 - 開始85f41d0のモデル評価差分を保全し、UIの安全領域だけを修正。Capacitorの4辺inset/Web fallbackを使い、画面上左右、sticky更新通知、下部nav/固定操作、skip linkへ反映。scroll中もstatus barを背景で保護し、広幅のnavと更新案内も重ねない。native padding済みWebViewは0pxで二重余白を防ぐ。

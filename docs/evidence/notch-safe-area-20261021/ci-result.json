@@ -1,0 +1,30 @@
+{
+  "status": "REQUIRED_CI_PASSED",
+  "run_id": 39448906494,
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39448906494",
+  "source_commit": "3f5dc8b3a87f4c2ecd4751778937ce4525d9b421",
+  "tree": {
+    "source_commit": "3f5dc8b3a87f4c2ecd4751778937ce4525d9b421",
+    "tested_merge": "a237e3eb9422e6c93871277ac69451563fbc981b",
+    "source_tree": "a4aa1a4ee37cbbf2bbebf0cf4253ff88392f7db4",
+    "tested_merge_tree": "a4aa1a4ee37cbbf2bbebf0cf4253ff88392f7db4",
+    "exact": true,
+    "public_asset_files": 43,
+    "debug_APK_sha256": "de0be07aecea3245907caeb89f6773283eafc854bc22152c12be143c04243310"
+  },
+  "jobs": {
+    "verify": "success",
+    "android": "success",
+    "android-history": "success",
+    "release": "skipped"
+  },
+  "native_tests": {
+    "passed": 89,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "web_mobile_suite_passed": 34,
+  "web_compute_suite_passed": 11,
+  "web_e2e_subset_passed": 6
+}

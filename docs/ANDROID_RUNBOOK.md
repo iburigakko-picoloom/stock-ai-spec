@@ -1,3 +1,7 @@
+2026-10-21 D214：ノッチ修正版0.1.28-candidate/code10028を非公開作成済み。必要CI39448906494全成功、source `3f5dc8b3a87f4c2ecd4751778937ce4525d9b421`、既存署名/非debug、SHA256=`026221c40c767d9509065bd317cf8ee8ea9c7e827da6706bc6070a5ae590fd71`。私有APKは`.demo-artifacts/notch-safe-area-20261021/candidate-0128/StockAI-0.1.28-candidate.apk`。署名済み実Androidの縦横cutout/設定遷移を確認。[候補検査](evidence/notch-safe-area-20261021/candidate-apk.json)。
+
+公開切替は自動承認審査の拒否により本人の明示承認待ち。現在公開の0.1.27には今回のノッチ修正は未反映。Xiaomi未確認。以下は公開済み旧版の記録。
+
 2026-10-20 D212：青基調の設定と短い上部更新案内を[0.1.27](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.27)として公開済み。[APK](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/download/android-v0.1.27/StockAI.apk)。source `3209604c84fb84fb82827a63a7163a3626d85c5e`、必要CI39431174408全成功、code10027/既存署名/非debug、SHA256=`e88b4e610e6186095c759afef36b31be4ab39a1e72bb3c298269771ed55bc88e`、23,980,521bytes。元候補/成功CI43資産と、公開後の全4assetを認証なしで読み戻して照合。[配信検証](evidence/blue-update-20261020/published-update.json)。
 
 アプリを起動し直して更新案内から進み、Androidの確認を承認する。0.1.27以降の案内は「新しいバージョンがあります」/実際の版/「更新」で、変更内容は必要時に開く。最新版・取得不可なら通知帯を出さず、通常利用を続ける。Xiaomi実更新は未確認。設定内は「設定一覧へ」で戻る。以下は過去の版の記録。

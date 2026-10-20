@@ -1,5 +1,5 @@
 {
-  "status": "SOURCE_FIX_LOCAL_CHECKS_PASS_APK_PENDING_CI",
+  "status": "CI_CANDIDATE_NATIVE_CUTOUT_VERIFIED_PUBLICATION_APPROVAL_REQUIRED",
   "base_commit": "85f41d01420daef92a453ce3aa9d3a451caeea13",
   "product_css_sha256": "54a550d3ffbb6bb7f695ecd2a31625313a37a616a4b3172a03b5521bdd37d74f",
   "settings_test_sha256": "b5a779f81a77322137f77fcdee6617de1c393bbdccb01b5948b2a0e9b6c6f4b2",
@@ -34,11 +34,15 @@
     "320_390px_font_150_percent"
   ],
   "evidence_scope": "synthetic native bridge and CSS insets in desktop browser",
-  "actual_android_cutout_test": false,
+  "actual_android_cutout_test": true,
   "xiaomi_test": false,
-  "new_apk_created": false,
+  "new_apk_created": true,
   "publicly_distributed": false,
   "old_0127_preserved": true,
   "model_or_data_changed": false,
-  "real_orders": false
+  "real_orders": false,
+  "source_commit": "3f5dc8b3a87f4c2ecd4751778937ce4525d9b421",
+  "current_CI_evidence": "ci-result.json",
+  "native_evidence": "android-cutout.json",
+  "candidate_evidence": "candidate-apk.json"
 }
