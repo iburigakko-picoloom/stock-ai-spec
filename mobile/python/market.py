@@ -302,14 +302,15 @@ def compact_legacy(path: Path, budget: int = 5) -> int:
     return len(rows) + len(valuations)
 
 
-def _daily_snapshots(db, dataset, as_of, *, descending=False):
+def _daily_snapshots(db, dataset, as_of, *, descending=False, first_day=None):
     return db.execute(
         "WITH versions AS (SELECT sequence,day,raw,normalized,normalized_hash,"
         "ROW_NUMBER() OVER(PARTITION BY day ORDER BY received_at DESC,sequence DESC) n "
-        "FROM market_batches WHERE dataset=? AND received_at<=?) "
+        "FROM market_batches WHERE dataset=? AND received_at<=? AND (? IS NULL OR day>=?)) "
         "SELECT sequence,day,raw,normalized,normalized_hash FROM versions WHERE n=1 "
         + ("ORDER BY day DESC" if descending else "ORDER BY day"),
-        (dataset.value, as_of.astimezone(UTC).isoformat(timespec="microseconds")),
+        (dataset.value, as_of.astimezone(UTC).isoformat(timespec="microseconds"),
+         first_day, first_day),
     )
 
 
@@ -466,10 +467,13 @@ class FeatureSource(SQLiteSource):
         DatasetName.DAILY_PRICES: ["trading_date", "provider_code"],
     }
 
-    def __init__(self, path):
+    def __init__(self, path, *, first_day=None, verified_day=None, common_schemas=None):
         super().__init__(path)
         self._identities = {}
         self._retained = []
+        self.first_day = first_day
+        self.verified_day = verified_day
+        self.common_schemas = common_schemas or {}
 
     def point_in_time(self, dataset, as_of):
         if dataset not in self.KEYS:
@@ -486,7 +490,9 @@ class FeatureSource(SQLiteSource):
             # Both passes must observe the same immutable selection, even if a
             # separate connection receives a correction during the read.
             db.execute("BEGIN")
-            for _, _, raw, normalized, expected in _daily_snapshots(db, dataset, as_of):
+            for _, _, raw, normalized, expected in _daily_snapshots(
+                db, dataset, as_of, first_day=self.first_day
+            ):
                 profile = market_codec.dtype_profile(db, normalized, raw, expected, cache)
                 if not profile.empty:
                     profiles.append(profile)
@@ -497,16 +503,41 @@ class FeatureSource(SQLiteSource):
             for name, dtype in _mixed_datetime_casts(profiles).items():
                 common[name] = dtype
             profiles.clear()
+            if dataset.value in self.common_schemas:
+                expected = pd.Series({name: pd.api.types.pandas_dtype(dtype)
+                                      for name, dtype in self.common_schemas[dataset.value]})
+                # A new schema can change old row hashes/dtypes. The caller must
+                # rebuild its derived cache instead of mixing source identities.
+                if set(common.index) != set(expected.index):
+                    raise ValueError("INPUT_CACHE_SCHEMA_CHANGED")
+                for name, dtype in common.items():
+                    if dtype == expected[name]:
+                        continue
+                    dates = (name in {"effective_date", "trading_date"}
+                             and pd.api.types.is_datetime64_dtype(expected[name]))
+                    zones = (isinstance(dtype, pd.DatetimeTZDtype)
+                             and isinstance(expected[name], pd.DatetimeTZDtype)
+                             and str(expected[name].tz) == "UTC")
+                    if not (dates or zones):
+                        raise ValueError("INPUT_CACHE_SCHEMA_CHANGED")
+                common = expected
             schema = tuple((str(name), str(dtype)) for name, dtype in common.items())
             metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True)
             identity = hashlib.sha256(metadata.encode())
             keys = self.KEYS[dataset]
-            for sequence, day, raw, normalized, expected in _daily_snapshots(db, dataset, as_of):
+            for sequence, day, raw, normalized, expected in _daily_snapshots(
+                db, dataset, as_of, first_day=self.first_day
+            ):
                 frame = market_codec.frame(db, normalized, raw, expected, cache)
                 if frame.empty:
+                    if self.verified_day is not None:
+                        self.verified_day(dataset.value, day, schema, b"")
                     continue
                 frame = _canonical_daily_part(frame, common, keys, sequence, day)
-                identity.update(_source_row_hashes(frame).tobytes())
+                row_hashes = _source_row_hashes(frame).tobytes()
+                identity.update(row_hashes)
+                if self.verified_day is not None:
+                    self.verified_day(dataset.value, day, schema, row_hashes)
                 columns = (
                     self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
                     else self.PRICE_COLUMNS
@@ -583,7 +614,8 @@ def master_references(path: Path, cutoff: datetime) -> list[dict]:
 
 
 def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
-                   decision_symbols: list[str] | tuple[str, ...] | None = None) -> dict:
+                   decision_symbols: list[str] | tuple[str, ...] | None = None,
+                   preselected: bool = False) -> dict:
     # Keep full-market verification/context construction. Only the individual
     # model frames are projected before copying/JSON precision conversion.
     selected = None
@@ -598,6 +630,12 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
     )
     if as_of < cutoff:
         raise ValueError("11:30 input cutoff is not closed")
+    if preselected:
+        if selected is None or not as_frames:
+            raise ValueError("Preselection requires explicit frame calculation scope")
+        from .input_cache import inputs
+
+        return inputs(path, cutoff, selected)
     bundle = build_production_data(
         FeatureSource(path) if as_frames else SQLiteSource(path),
         source_snapshot_as_of=cutoff, proposal_as_of=cutoff

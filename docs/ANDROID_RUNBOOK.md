@@ -30,6 +30,14 @@ D198（2026-10-20）：bulk履歴+実APIの1日追加で見つけた日付型混
 
 # StockAI Android APK
 
+## TOPIX500事前選定の試験境界（D205）
+
+既存0.1.23/source c2fa278とXiaomi受入票は変更しない。独立branchの新方式は初期値`legacy300`を維持し、ローカル`/api/v1/mobile/market/universe-policy`へ明示POSTした`topix500-preview`だけで有効化する。本人用候補の通常切替や公開配布はまだ行わない。現時点では試験用APIであり、本人の既存APKへ手入力を依頼しない。
+
+実マスタのScaleCatと実受領時刻に基づく月次/臨時リスト、対象+全保有の銘柄別履歴、全市場共通統計を別tableへ保持する。元の圧縮batchを置換しない。cache再構築後のDB/暗号化exportが既存256MiB/file・256Mi文字上限へ収まることも測る。原本版/コード版/内容hashの不一致を無視して古いcacheを使わない。cache異常で止まった場合は原本を保全し、再生成の根拠を確認してから回復する。
+
+PC計測は`python -m scripts.preselection_check --database <専用copy> --as-of <実受領を満たす11:30> --output <.demo-artifacts内の私有folder> --mode baseline/cold/warm`を別processで順に行う。出力には私有データ由来の特徴量/予測を含むのでGitへ追加しない。SQLiteのbyte数は返却BLOB/UTF8/scalar値の合計であり、物理disk page IO量とは区別する。Android/初回/月次/1日差分の性能をPC値から推定して合格扱いにしない。
+
 ## 今回の一括実機受入（D177）
 
 2026-10-19 D182：製品source cc3d2d5/CI39164164508はverify/android/android-history全成功、release skip。実データ489営業日/1,854,462行から各3820銘柄・296507数値・全JSONがAndroid35/WebView124とPCで完全一致し、同じ4GiB guestの全体375.870秒/特徴量285.055秒（従来717.019/608.963秒）。Java heap192MiB、app3500MiB上限/host予備1GiBと通常600秒制限を維持。native84件、OS3段階/旧source debug更新、17table全量復元220.366秒も成功。本人署名通常0.1.15-candidate/code10015（23,957,697bytes、SHA256=1312c1c521e21121f55c1a84535429c14d0e0098ce8ddd4c171ce2fda3b52aa4）を172.615秒で私有作成、43資産/署名/秘密非混入を認証した。旧候補も保全。Cの通常bundle・本人DBの日次一連・Xiaomiは未完で、下記の一括票の前提は未達。現在の4head契約へ未選定risk/架空reviewを入れず、return-only選択時の未提供risk対応を条件として明示する。正式HOLD/holdout未開封を維持し、過去の不完全96条件や失敗ログを成功へ読み替えない。この追記は製品sourceを変更しない。

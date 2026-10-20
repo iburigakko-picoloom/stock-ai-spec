@@ -70,6 +70,8 @@ def build_production_data(
     minimum_market_coverage: float = 0.95,
     revision_policy: HistoricalRevisionPolicy = HistoricalRevisionPolicy.SINGLE_VINTAGE_AS_REVISED,
     proposal_as_of: datetime | None = None,
+    detail_symbols: frozenset[str] | None = None,
+    price_context_only: bool = False,
 ) -> ProductionDataBundle:
     """Build causally timestamped research inputs from one immutable source vintage."""
 
@@ -141,19 +143,10 @@ def build_production_data(
         revision_policy=revision_policy,
     )
     del prices
-    financials, shares = _daily_financial_features(
-        disclosures,
-        daily=daily,
-        revision_policy=revision_policy,
-    )
-    del disclosures
-    daily = daily.merge(
-        shares,
-        on=["symbol", "trading_date", "available_at"],
-        how="left",
-        validate="one_to_one",
-    )
-    del shares
+    financials = pd.DataFrame()
+    if detail_symbols is None and not price_context_only:
+        # Keep the original research/default validation and merge order.
+        daily, financials = complete_daily_financials(daily, disclosures, revision_policy)
     market_context, sector_context = _aggregate_context(
         daily,
         universe=universe,
@@ -163,6 +156,16 @@ def build_production_data(
         revision_policy=revision_policy,
     )
     del topix
+    # Common contexts always use the full historical market. Individual daily
+    # financial expansion need not run for securities outside the decision set.
+    if detail_symbols is not None:
+        if not detail_symbols:
+            raise ValueError("Empty individual calculation scope")
+        daily = daily.loc[daily.symbol.isin(detail_symbols)].reset_index(drop=True)
+        disclosures = disclosures.loc[disclosures.symbol.isin(detail_symbols)]
+    if detail_symbols is not None and not price_context_only:
+        daily, financials = complete_daily_financials(daily, disclosures, revision_policy)
+    del disclosures
     corporate_actions = _corporate_actions(daily)
     return ProductionDataBundle(
         source_snapshot_as_of=source_snapshot_as_of,
@@ -176,6 +179,21 @@ def build_production_data(
         financials=financials,
         corporate_actions=corporate_actions,
     )
+
+
+def complete_daily_financials(
+    daily: pd.DataFrame,
+    disclosures: pd.DataFrame,
+    revision_policy: HistoricalRevisionPolicy,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Use the same PIT financial formulas for either original or cached prices."""
+    financials, shares = _daily_financial_features(
+        disclosures, daily=daily, revision_policy=revision_policy,
+    )
+    return daily.merge(
+        shares, on=["symbol", "trading_date", "available_at"],
+        how="left", validate="one_to_one",
+    ), financials
 
 
 def _source_row_hashes(frame: pd.DataFrame) -> NDArray[np.uint64]:

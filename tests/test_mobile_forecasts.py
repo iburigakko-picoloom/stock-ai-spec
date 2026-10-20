@@ -93,6 +93,25 @@ def test_identical_freeze_reuses_original_numbers_and_generation_time(ready, mon
         assert db.execute("SELECT COUNT(*) FROM mobile_forecast_runs").fetchone()[0] == 1
 
 
+def test_preselection_dispatch_and_proof_ignore_nonsemantic_cache_hit_metrics(ready, monkeypatch):
+    _, store, path, selected, _, _ = ready
+    selected["policy"] = "jquants-scalecat-topix500-v1"
+    original = forecasts.market.feature_inputs
+    calls = []
+    def prepared(*args, decision_symbols, preselected):
+        assert preselected is True
+        result = original(*args, decision_symbols=decision_symbols)
+        calls.append(True)
+        result["input_cache"] = {"mode": "cold" if len(calls) == 1 else "warm",
+                                 "code_version": "a" * 64, "cache_schema_version": "test",
+                                 "common_population": "full_historical_eligible_market"}
+        return result
+    monkeypatch.setattr(forecasts.market, "feature_inputs", prepared)
+    first = forecasts.generate(path, store, NOW)
+    assert first["data_proof"]["input_preparation"]["code_version"] == "a" * 64
+    assert forecasts.generate(path, store, NOW + timedelta(seconds=1)) == first
+
+
 @pytest.mark.parametrize("omit_holding", [False, True])
 def test_forecast_authenticates_the_calculation_domain_including_holdings(
     ready, monkeypatch, omit_holding,

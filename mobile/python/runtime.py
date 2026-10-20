@@ -334,6 +334,15 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             return {"status": 422, "body": {
                 "detail": "取得範囲は昨日までの最大2年分で指定してください。"
             }}
+    if path == "/api/v1/mobile/market/universe-policy" and method in ("GET", "POST"):
+        from .preselection import policy
+
+        try:
+            return {"status": 200, "body": policy(
+                STATE / "mobile.sqlite3", json.loads(body)["mode"] if method == "POST" else None,
+            )}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {"detail": "対象銘柄方式を確認してください。"}}
     if method == "GET" and path in (
         "/api/v1/mobile/market/universe", "/api/v1/mobile/market/current-universe"
     ):

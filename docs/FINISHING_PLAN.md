@@ -53,6 +53,8 @@ D185（2026-10-19）：D184の起点判断を撤回。実際の保存OOFと2実w
 
 # Android版の完成条件
 
+D205：本人の最新指示により、TOPIX500事前選定と個別履歴/common統計cacheの試験を独立worktreeで追加する。既存0.1.23の受入は継続し、新方式の通常切替はPCの同一数値→Android全量/保存/差分/再開→必要CI→Xiaomi確認の後とする。新方式は現時点で未完成、旧300が既定。最終採用HOLDと152条件は不変。途中の結果はSTATUSのD205へ記録する。
+
 2026-10-19 D182：製品source cc3d2d5/CI39164164508はverify/android/android-history全成功、release skip。実データ489営業日/1,854,462行から各3820銘柄・296507数値・全JSONがAndroid35/WebView124とPCで完全一致し、同じ4GiB guestの全体375.870秒/特徴量285.055秒（従来717.019/608.963秒）。Java heap192MiB、app3500MiB上限/host予備1GiBと通常600秒制限を維持。native84件、OS3段階/旧source debug更新、17table全量復元220.366秒も成功。本人署名通常0.1.15-candidate/code10015（23,957,697bytes、SHA256=1312c1c521e21121f55c1a84535429c14d0e0098ce8ddd4c171ce2fda3b52aa4）を172.615秒で私有作成、43資産/署名/秘密非混入を認証した。旧候補も保全。Cの通常bundle・本人DBの日次一連・Xiaomiは未完で、下記の一括票の前提は未達。現在の4head契約へ未選定risk/架空reviewを入れず、return-only選択時の未提供risk対応を条件として明示する。正式HOLD/holdout未開封を維持し、過去の不完全96条件や失敗ログを成功へ読み替えない。この追記は製品sourceを変更しない。
 
 2026-10-19 D181：本人署名の0.1.14-candidate（source682ec49/code10014/非debug、SHA256=89a53573a443c18836b486107bc82fe7ebfd91ac83c1d213a0bde6458cb22385）を90.063秒で私有作成、秘密/私有市場データ/モデルの非混入を検証。旧候補も保全。682ec49のCI39158693769はverify/android-history成功、androidのOS再起動配送failureで全体未合格、旧APK更新工程skip。実データ必要量の特徴量はAndroid35/WebView124とPCで全296507値・各3820銘柄が完全一致したが、608.963秒で通常600秒制限を超えた。latest-onlyの連続区間batch最適化は全履歴検証と計算式を維持し、固定実データ全値一致・PC特徴量133.312秒を確認。変更後の同梱native実測/CI、通常owner/daily経路とXiaomi受入は未完。Java heap192MiB、4GiB guestでの成功は本人端末の成功を意味しない。通常bundleの前提未達と正式HOLD/holdout保護は維持し、下記の同じ一括票を使う。

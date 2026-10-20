@@ -23,6 +23,17 @@ def run(device, method, path, body=None):
     return asyncio.run(device.request(method, path, json.dumps(body)))
 
 
+def test_preselection_is_opt_in_and_policy_survives_archive_restore(device):
+    path = "/api/v1/mobile/market/universe-policy"
+    assert run(device, "GET", path)["body"]["mode"] == "legacy300"
+    assert run(device, "POST", path, {"mode": "topix500-preview"})["status"] == 200
+    device.initialize(device.export_state())
+    assert run(device, "GET", path)["body"]["mode"] == "topix500-preview"
+    assert run(device, "POST", path, {"mode": "unknown"})["status"] == 422
+    assert run(device, "GET", path)["body"]["mode"] == "topix500-preview"
+    assert run(device, "POST", path, {"mode": "legacy300"})["body"]["experimental"] is False
+
+
 def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):
     response = run(device, "GET", "/api/v1/health")
     assert response["status"] == 200

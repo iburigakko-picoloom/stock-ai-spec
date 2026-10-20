@@ -240,8 +240,10 @@ def generate(path: Path, store, now: datetime) -> dict:
                               bundle.calibration.model_dump(mode="json")))
     if not selection["decision_symbols"]:
         return _save(path, store, scope, now, outcome="cash_only")
+    options = ({"preselected": True}
+               if selection.get("policy") == "jquants-scalecat-topix500-v1" else {})
     inputs = market.feature_inputs(path, now, True,
-                                   decision_symbols=selection["decision_symbols"])
+                                   decision_symbols=selection["decision_symbols"], **options)
     features = calculate(inputs, bundled_selection())
     if inputs["as_of"] != cutoff.isoformat() or features["as_of"] != cutoff.isoformat():
         raise ValueError("Feature cutoff mismatch")
@@ -266,6 +268,11 @@ def generate(path: Path, store, now: datetime) -> dict:
              "revision_policy": inputs["revision_policy"],
              "feature_values_sha256": content_id(features["features"]),
              "membership_and_universe": selection}
+    if "input_cache" in inputs:
+        proof["input_preparation"] = {
+            key: inputs["input_cache"][key]
+            for key in ("code_version", "cache_schema_version", "common_population")
+        }
     if "decision_symbols" in inputs:
         if inputs["decision_symbols"] != sorted(decision_symbols):
             raise ValueError("Feature calculation domain mismatch")
