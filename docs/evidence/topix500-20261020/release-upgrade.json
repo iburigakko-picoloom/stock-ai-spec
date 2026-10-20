@@ -1,0 +1,59 @@
+{
+  "status": "NORMAL_RELEASE_0123_TO_0125_UPGRADE_ALL_ORIGINAL_TYPED_TABLES_AND_COLD_REOPEN_VERIFIED",
+  "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+  "old_source_commit": "c2fa278bdf92778cd2fa77160068a260ef0fba0a",
+  "APK_sha256": {
+    "0.1.23": "d3a382fb9cd415f8f29220ff12ffb03714497b62f86b0a3c9dab43894bfad7a5",
+    "0.1.25": "774777113438c16aec4c66aca05b8e102d743107603af328d191a3eaac2c8e3c"
+  },
+  "normal_main_APKs_unmodified": true,
+  "same_release_signature_and_app_UID": true,
+  "debuggable": false,
+  "application_root_UID": false,
+  "SELinux": "Enforcing",
+  "host_ADB_root_used_only_for_private_fixture_and_evidence_transport": true,
+  "input_table_counts": {
+    "mobile.sqlite3": 17,
+    "operations.sqlite3": 27
+  },
+  "all_original_typed_tables_exact_before_and_after_upgrade": true,
+  "new_empty_universe_tables": [],
+  "all_post_upgrade_tables_exact_after_cold_kernel_reopen": true,
+  "personal_settings_portfolio_model_and_saved_forecast_responses_exact": true,
+  "encrypted_dummy_credential_retained": true,
+  "original_cold_trial_missing_private_reference_failure_preserved": true,
+  "supplementary_same_AVD_read_restored_only_exact_host_test_reference": true,
+  "supplementary_read_application_state_or_keystore_rewritten": false,
+  "preserved_prediction_values": 590,
+  "inference_reexecuted": false,
+  "owner_load_seconds": {
+    "old": 78.206,
+    "current": 72.273,
+    "reopen": 83.411
+  },
+  "stage_seconds": {
+    "old": 103.612,
+    "current": 96.143,
+    "reopen": 122.075
+  },
+  "sampled_app_renderer_peak_bytes": 1480318976,
+  "scope": "API35 userdebug emulator, actual saved 730-day market/models and synthetic personal account; not Xiaomi, real new-day performance or proof of phone file access",
+  "new_fits": 0,
+  "holdout_scored": false,
+  "real_orders": 0,
+  "external_AI_requests": 0,
+  "production_limits_unchanged": true,
+  "formal_adoption": "HOLD",
+  "Xiaomi_verified": false,
+  "private_evidence": {
+    "upgrade": ".demo-artifacts/topix500-20261020/signed-upgrade-native-004/",
+    "supplementary_cold_read": ".demo-artifacts/topix500-20261020/signed-upgrade-reopen-001/"
+  },
+  "prior_harness_failures_retained": [
+    "Android-incompatible Java file helper at private test compile",
+    "Scoped external test fixture access denied before application-state seeding",
+    "Host parser expected an obsolete package UID field before application-state seeding",
+    "Release correctly rejected closeForTest; fixed private harness without changing product guard",
+    "First cold read lacked an un-fsynced private reference; restored only exact host reference for supplementary read"
+  ]
+}

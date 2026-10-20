@@ -16,6 +16,8 @@
 - in-place VM再起動が既存5400MiB host guardで停止した事実は残す。同じAVD/Keystoreを別の新VMプロセスで冷間起動し、再install/seed/再計算なしに全47tableの読戻しを確認した。guardや時計を変更して合格させない。
 - 実前日再生では、当時締切までに未受領の途中履歴によりnext session認証で停止。完全な現在版の利用と、当時版の再現を区別する。受領時刻/guardを変更せず、真正な次営業日の測定を残す。合成変更経路を実日次/実イベント/Xiaomiの成功へ読み替えない。[結果と残件](evidence/topix500-20261020/d208-completion.md)。
 
+- 通常署名0.1.23→0.1.25の更新では元44table/590保存予測/設定/保有/モデル/試験用credentialの保持を独立照合した。私有試験がreleaseのcloseForTestを呼んだ失敗は試験側だけで修正し、製品の拒否を維持する。冷間試験の参照JSON消失も失敗のまま残し、同じ保存AVDで参照原本だけを復元した追加読戻しを別証拠にする。保存capsuleの世代/hashと全tableは再投入せず比較し、hostの搬送権限と通常アプリの権限、emulatorとXiaomiを分ける。[署名更新記録](evidence/topix500-20261020/release-upgrade.json)。
+
 ### D207 — 共通計算で使わない履歴metadataとv1正規化の反復だけを減らす（2026-10-20）
 
 - D206/source5b07f3eのPC全値一致は成功したが、Android初回は再び600秒で停止。sampled app+rendererは3,049,295,872bytesへ減少したものの未合格。既存stageログではrequest後のexport-archive→export-chunksへ到達してからtimeoutしており、予測の暗号化commit成功とは扱わない。必要CI39374367653は追加修正が必要なため自分のrunだけ停止し、元0.1.23/PR #2の試験は触らない。

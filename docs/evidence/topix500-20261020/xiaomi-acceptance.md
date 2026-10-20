@@ -24,4 +24,6 @@
 
 APIキー・パスワード・口座番号・私有モデル・実データ入りbackupを公開PR/チャットへ貼らない。結果は上の記録項目と手順1〜8を一度にまとめ、未確認を成功へ読み替えない。新方式の通常運用への既定切替は、この受入と必要な端末/CI検証の後に判断する。
 
+通常署名0.1.23→0.1.25の更新と追加の冷間読戻しは、隔離emulatorで元44table/保存590予測/設定/保有/モデル/試験用credentialの保持を確認済み。照合用参照JSONの消失と補助読戻しの条件は[署名更新記録](release-upgrade.json)へ残す。この結果を本人Xiaomiの更新・数値一致・通知成功へ読み替えず、上の1〜8を同じ票で確認する。
+
 候補source：`791dfa516859c5fa6b6d5d57a32b904ab8618411`、[必要CI成功](ci-current.json)。applicationIdは`jp.stockai.app`、既存と同じ署名証明書SHA256は`97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979`。非公開ファイルは`.demo-artifacts/topix500-20261020/candidate-0125/StockAI-0.1.25-candidate.apk`、同じ場所に`.sha256`がある。APIキー・市場データ・私有モデル・診断codeは候補へ同梱していない。[候補とモデルの検査](candidate-current.json)・[emulator実測と未完範囲](d208-completion.md)。

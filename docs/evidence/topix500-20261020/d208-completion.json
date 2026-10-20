@@ -323,5 +323,6 @@
     "real_orders": 0,
     "external_AI_requests": 0
   },
-  "private_evidence_root": ".demo-artifacts/topix500-20261020/"
+  "private_evidence_root": ".demo-artifacts/topix500-20261020/",
+  "normal_release_signature_upgrade": "release-upgrade.json"
 }

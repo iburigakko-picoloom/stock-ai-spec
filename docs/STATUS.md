@@ -5,6 +5,7 @@
 - 私有観測版の実入力53.977秒/詳細特徴量16.323秒/推論0.612+0.181秒。SQLite55,306返却行/27,410,461bytes、長期価格/master frame展開0。通常APKとは別で、同日cache再利用を実新営業日の性能へ読み替えない。現在の初回全量は再測定せず、計算50file/実リスト/cache版不変の範囲だけD207初回562.541秒/B1証拠を再利用する。
 - 追加日/月次/構成入替/全保有追加/同締切8訂正/価格訂正/分割/中断rollback/再開/再起動の合成11経路、56予測と全入力・版・cacheがPCと一致。実前日再生は当時未受領の履歴に対する`next session is not authenticated`で停止。受領時刻を遡らせず、実際の次営業日・イベント・Xiaomiを残す。
 - 既存署名の非公開0.1.25-candidate/code10025を現source/成功CI43資産から作成、SHA256=774777113438c16aec4c66aca05b8e102d743107603af328d191a3eaac2c8e3c、23,976,593bytes。私有モデル/市場/認証/診断codeは非同梱。既存認証済み研究bundle（5日CatBoost/20日LightGBM）を本人取込用に別保存し、再fitなし。旧候補/PR #2/191行差分/原DBを保持する。
+- 通常署名の未変更0.1.23→0.1.25を隔離API35 emulatorで実更新。同署名/同UID、元44table・保存済み590予測/設定/保有/モデル/試験用credentialを更新前後と追加の冷間読戻しで厳密照合した。起動読込78.206→72.273秒、冷間83.411秒。元の冷間試験は私有参照JSON消失で停止し、取得済み参照だけを復元した別読戻しで保存capsule全量の世代/hashも検証。DB/Keystore/APKの再投入なし。host ADB rootは私有AVDの搬送のみ、アプリは非debug/非root、SELinuxと制限不変。[署名更新の証拠と途中失敗](evidence/topix500-20261020/release-upgrade.json)。Xiaomi/新営業日の成功とはしない。
 - [完成状況と残件](evidence/topix500-20261020/d208-completion.md)・[結果JSON](evidence/topix500-20261020/d208-completion.json)・[候補/モデル記録](evidence/topix500-20261020/candidate-current.json)・[Xiaomi一括票](evidence/topix500-20261020/xiaomi-acceptance.md)。旧300が既定、正式HOLD/152条件/holdout未採点は不変。実注文・外部AI送信・公開配布なし。本人実機、真正な新営業日と起動込み3分は未確認。
 
 ## 2026-10-20 — TOPIX500事前選定：D207の通常Android保存・再利用を確認

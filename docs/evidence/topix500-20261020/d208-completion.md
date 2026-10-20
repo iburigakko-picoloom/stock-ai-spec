@@ -41,6 +41,14 @@ SQLite返却は55,306行/27,410,461bytesでPCと同じ。価格/masterの長期r
 
 通常候補と本人用研究bundleのhash/版/保管場所は[候補記録](candidate-current.json)。候補APKとbundleは別ファイルで、公開Git/公開配布へ入れない。旧0.1.23・0.1.24、PR #2、未commit差分、原データを保持する。PR #3はdraftで、mainへmergeしていない。
 
+## 通常署名APKの更新と追加の冷間読戻し
+
+製品コードや通常APKを変更せず、既存署名の通常0.1.23/code10023から0.1.25/code10025へ実際に上書き更新した。API35の隔離emulator・実730日保存版と研究モデル・試験口座を使い、同じ署名/アプリUID、非debug、通常の非rootアプリUID、SELinux Enforcingと既存600秒/Java192MiB/RAM/CPU制限を維持した。host側ADBのrootは、この私有AVDの試験ファイル搬送と証拠取得にだけ使用した。本人端末のファイルアクセスや更新成功の証拠ではない。
+
+独立PC照合で、元の17mobile/27operationsの全44tableの型付き内容、本人設定/保有/モデル/保存済み予測のAPI応答、暗号化した試験用credentialが更新前後と追加の冷間起動後で一致した。旧300方式の保存済み590予測の保持試験であり、新TOPIX500予測の再計算や実日次性能の測定ではない。起動読込は更新前78.206秒、更新後72.273秒、追加冷間読戻し83.411秒。sampled app+renderer最大1,480,318,976bytes。
+
+最初の冷間確認は私有の参照JSON消失で停止した。追加読戻しでは取得済み原本とhash一致の照合用JSONだけを戻し、暗号化capsule/DB/Keystore/credential/通常APKは戻していない。API読込前の保存capsule全量の世代/hashも確認した。元の失敗と、私有試験の搬送・UID解析・debug専用終了APIの誤用による途中失敗を保全する。通常版のcloseForTest拒否を解除しない。[通常署名更新の結果JSON](release-upgrade.json)。Xiaomiと真正な翌営業日の残件は変わらない。
+
 ## 残る完了条件
 
 | 区分 | 残件と進め方 |

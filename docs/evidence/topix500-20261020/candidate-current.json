@@ -51,5 +51,6 @@
     "retrained": false,
     "original_database_opened_read_only": true,
     "APK_or_public_Git_inclusion": false
-  }
+  },
+  "normal_release_signature_upgrade": "release-upgrade.json"
 }
