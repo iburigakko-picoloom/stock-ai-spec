@@ -115,6 +115,27 @@ def test_corrupted_cache_fails_before_returning_forecasts(tmp_path):
         market.feature_inputs(path, cutoff, True, decision_symbols=["1000"], preselected=True)
 
 
+def test_initial_context_does_not_reload_validated_shared_sources(tmp_path, monkeypatch):
+    path = tmp_path / "mobile.sqlite3"
+    cutoff = timely_history(path, sessions=5)
+    expected = market.feature_inputs(path, cutoff, True, decision_symbols=["1000"])
+    original = market.SQLiteSource.point_in_time
+    reads = []
+
+    def observed(self, kind, as_of):
+        reads.append(kind)
+        return original(self, kind, as_of)
+
+    monkeypatch.setattr(market.SQLiteSource, "point_in_time", observed)
+    actual = market.feature_inputs(
+        path, cutoff, True, decision_symbols=["1000"], preselected=True,
+    )
+    assert_same(actual, expected)
+    for kind in (market.DatasetName.FINANCIAL_SUMMARY, market.DatasetName.TRADING_CALENDAR,
+                 market.DatasetName.TOPIX):
+        assert reads.count(kind) == 1
+
+
 def test_interrupted_cache_rebuild_keeps_previous_cache_and_all_raw_data(tmp_path, monkeypatch):
     path = tmp_path / "mobile.sqlite3"
     cutoff = timely_history(path, sessions=5)

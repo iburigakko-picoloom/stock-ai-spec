@@ -1,5 +1,5 @@
 {
-  "status": "V1_WARM_EXACT_INITIAL_COMPUTE_TIMEOUT_FIXED_SOURCE_RECHECK_PENDING",
+  "status": "D205_WARM_EXACT_D205_D206_INITIAL_TIMEOUT_D207_NATIVE_PENDING",
   "product_commit": "203f42b41f265b5c6818f7a483da5da6abfd70b7",
   "scope": "Actual 730-calendar-day market data and private research regression heads; pre-cutoff synthetic account; manually requested normal owner API on isolated Android 35 emulator",
   "members": 493,
@@ -47,10 +47,10 @@
     "clock_modified": false
   },
   "pending": [
-    "D206 removes repeated selected-history scans and redundant private working-frame copies. Native initial and warm paths must be rechecked at its new code fingerprint.",
+    "D207 must pass a normal unmodified-runtime APK initial computation/save, backup, reboot and warm run at its new source fingerprint.",
     "New actual business-day append/update, monthly change, additional held security and correction on Android.",
     "Three-minute daily goal including process startup and new data receipt has not been demonstrated.",
-    "D205 source203f42b whole required CI succeeded (39367905793), but its actual initial run failed. D206 needs its own required CI and normal candidate.",
+    "D206 CI was cancelled for known initial performance failure; D207 needs its own complete required CI and a separate signed candidate.",
     "Xiaomi acceptance and default-policy change."
   ],
   "legacy_default_retained": true,
@@ -71,5 +71,17 @@
     "compute_renderer_present_until_instrumentation_shutdown": true,
     "forecast_published": false,
     "failure_record": ".demo-artifacts/topix500-20261020/native-cold-001/"
+  },
+  "initial_D206_failure": {
+    "source_commit": "5b07f3e983aa3c6c4def9c2154e91f8d133473f5",
+    "normal_compute_timeout_seconds": 600,
+    "sampled_app_renderer_peak_bytes": 3049295872,
+    "forecast_encrypted_commit_verified": false,
+    "private_timing_observer_used_only_for_diagnosis": true,
+    "input_seconds_with_observer": 563.7446,
+    "source_read_seconds_inclusive": 478.0414999999999,
+    "raw_v1_hash_seconds_inclusive": 129.61989999999716,
+    "feature_seconds_with_observer": 11.789700000000039,
+    "timings_not_additive": true
   }
 }

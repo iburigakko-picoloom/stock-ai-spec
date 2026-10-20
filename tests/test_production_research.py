@@ -97,6 +97,13 @@ def test_universe_intervals_preserve_gaps_and_exclude_invalid_symbol_history(
     pdt.assert_series_equal(actual.listing_date, actual.valid_from, check_names=False)
     pdt.assert_series_equal(actual.delisting_date, actual.valid_to, check_names=False)
     assert actual.is_member.all()
+    context = production_module.build_point_in_time_universe(
+        master, business_dates=dates, context_only=True,
+    )
+    context_columns = [
+        "effective_date", "provider_code", "symbol", "sector_33_code", "sector_33_name",
+    ]
+    pdt.assert_frame_equal(context, actual[context_columns], check_exact=True)
     pdt.assert_frame_equal(master, before)
 
 

@@ -37,6 +37,7 @@ def code_version():
     files = [
         Path(__file__),
         Path(__file__).with_name("market.py"),
+        Path(__file__).with_name("market_codec.py"),
         Path(__file__).with_name("features.py"),
     ]
     import stock_ai.data.production as production
@@ -178,7 +179,7 @@ def inputs(path, cutoff, selected):
         exists = db.execute("SELECT 1 FROM mobile_input_cache WHERE name='metadata'").fetchone()
         metadata_bytes = _get(db, "metadata", metrics) if exists else None
         metadata = json.loads(metadata_bytes) if metadata_bytes is not None else None
-    schemas, hashes = {}, {}
+    schemas, hashes, shared_frames = {}, {}, {}
 
     def verified(kind, day, schema, values):
         metrics["raw_snapshot_days"] += 1
@@ -223,7 +224,8 @@ def inputs(path, cutoff, selected):
         else:
             try:
                 source = FeatureSource(
-                    path, first_day=old_end, verified_day=verified, common_schemas=schemas
+                    path, first_day=old_end, verified_day=verified, common_schemas=schemas,
+                    context_only=True,
                 )
                 tail = build_production_data(
                     source,
@@ -272,9 +274,10 @@ def inputs(path, cutoff, selected):
                         ignore_index=True,
                     )
                     metrics["mode"] = "append"
+                    shared_frames = source.shared_frames
     if not reusable:
         schemas, hashes = {}, {}
-        source = FeatureSource(path, verified_day=verified)
+        source = FeatureSource(path, verified_day=verified, context_only=True)
         bundle = build_production_data(
             source,
             source_snapshot_as_of=cutoff,
@@ -284,19 +287,20 @@ def inputs(path, cutoff, selected):
         )
         daily, market, sector = bundle.daily, bundle.market_context, bundle.sector_context
         identities = dict(bundle.source_snapshot_ids)
+        shared_frames = source.shared_frames
         del bundle, source
         metrics["mode"] = "cold" if metadata is None else "rebuild"
     daily = daily.sort_values(["trading_date", "symbol"], ignore_index=True)
     # Read only small shared datasets here. Long price/master source frames are
     # served from the selected-symbol index, never reconstructed on a warm day.
     small = SQLiteSource(path)
-    disclosures = small.point_in_time(DatasetName.FINANCIAL_SUMMARY, cutoff)
+    disclosures = shared_frames.get(DatasetName.FINANCIAL_SUMMARY)
+    if disclosures is None:
+        disclosures = small.point_in_time(DatasetName.FINANCIAL_SUMMARY, cutoff)
     for kind in (DatasetName.FINANCIAL_SUMMARY, DatasetName.TOPIX, DatasetName.TRADING_CALENDAR):
-        frame = (
-            disclosures
-            if kind is DatasetName.FINANCIAL_SUMMARY
-            else small.point_in_time(kind, cutoff)
-        )
+        frame = disclosures if kind is DatasetName.FINANCIAL_SUMMARY else shared_frames.get(kind)
+        if frame is None:
+            frame = small.point_in_time(kind, cutoff)
         if frame.empty:
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: empty cached input source")
         _assert_source_vintage(frame, cutoff, kind.value)

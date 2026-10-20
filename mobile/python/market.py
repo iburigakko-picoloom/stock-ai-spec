@@ -467,17 +467,25 @@ class FeatureSource(SQLiteSource):
         DatasetName.DAILY_PRICES: ["trading_date", "provider_code"],
     }
 
-    def __init__(self, path, *, first_day=None, verified_day=None, common_schemas=None):
+    def __init__(self, path, *, first_day=None, verified_day=None, common_schemas=None,
+                 context_only=False):
         super().__init__(path)
         self._identities = {}
         self._retained = []
         self.first_day = first_day
         self.verified_day = verified_day
         self.common_schemas = common_schemas or {}
+        self.context_only = context_only
+        self.shared_frames = {}
 
     def point_in_time(self, dataset, as_of):
         if dataset not in self.KEYS:
-            return super().point_in_time(dataset, as_of)
+            frame = super().point_in_time(dataset, as_of)
+            if self.context_only:
+                # Only small shared sources, for reuse within this one build.
+                # No large master/price frame is retained by the reader.
+                self.shared_frames[dataset] = frame
+            return frame
         if not as_of.tzinfo:
             raise ValueError("Aware cutoff required")
         cache, profiles, parts = OrderedDict(), [], []
@@ -542,6 +550,11 @@ class FeatureSource(SQLiteSource):
                     self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
                     else self.PRICE_COLUMNS
                 )
+                if self.context_only and dataset is DatasetName.SECURITY_MASTER:
+                    # Current display names come from the received master list.
+                    # Historical names still participate in the full source
+                    # identity above, but not in price/sector calculations.
+                    columns = columns - {"company_name"}
                 projected = frame.loc[:, [name for name in frame if name in columns]].copy()
                 # Immutable text repeats across daily batches. Retain one
                 # string per value instead of a new allocation for each day;

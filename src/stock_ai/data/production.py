@@ -134,7 +134,9 @@ def build_production_data(
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: next session is not authenticated")
         availability[business_dates[-1]] = pd.Timestamp(proposal_as_of).tz_convert("UTC")
     del calendar
-    universe = build_point_in_time_universe(master, business_dates=business_dates)
+    universe = build_point_in_time_universe(
+        master, business_dates=business_dates, context_only=price_context_only,
+    )
     del master
     daily = _canonical_daily(
         prices,
@@ -249,6 +251,7 @@ def build_point_in_time_universe(
     master: pd.DataFrame,
     *,
     business_dates: pd.DatetimeIndex,
+    context_only: bool = False,
 ) -> pd.DataFrame:
     """Retain exact historical master membership and derive non-backfilled intervals."""
 
@@ -297,7 +300,7 @@ def build_point_in_time_universe(
     outside_symbols = frame.loc[positions.isna(), "symbol"]
     member = frame.loc[
         frame["symbol"].notna() & ~frame["symbol"].isin(outside_symbols)
-    ].sort_values(["symbol", "effective_date"])
+    ]
     # Preserve the previous empty result for unused categorical groups.
     if member.empty and not (
         isinstance(frame["symbol"].dtype, pd.CategoricalDtype)
@@ -305,6 +308,13 @@ def build_point_in_time_universe(
     ):
         raise ValueError("BLOCKED_BY_DATA_CAPABILITY: universe interval construction is empty")
     del frame, outside_symbols
+    if context_only:
+        # Coverage and the canonical price join need the same historical rows,
+        # but never consume listing intervals or repeated company descriptions.
+        # Keep all eligibility/date-gap checks before this projection.
+        columns = ["effective_date", "provider_code", "symbol", "sector_33_code", "sector_33_name"]
+        return member[columns].sort_values(["effective_date", "symbol"], ignore_index=True)
+    member = member.sort_values(["symbol", "effective_date"])
     member = member.reset_index(drop=True)
     positions = member["effective_date"].map(date_position).astype(int)
     same_symbol = member["symbol"].eq(member["symbol"].shift()).fillna(False)

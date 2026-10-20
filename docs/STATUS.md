@@ -1,5 +1,7 @@
 ## 2026-10-20 — TOPIX500事前選定の独立実装中（D205）
 
+- D207：共通計算に不要な過去会社名/interval列を新context経路だけで省き、原v1 hashのUTF-8 tokenを既存128件LRU内で再利用。同じ初回内で検証済みの財務/暦/TOPIXを二度読み込まない。Ruff/mypy75file・97関連試験が成功。実730日/493対象で旧基準の全入力/特徴量・978予測・全source IDが完全一致。初回入力192.956秒/全体200.238秒/peak1,981,194,240bytes、別process再利用19.308秒/25.419秒/672,968,704bytes。coldのSQLite返却は92,417行/394,212,861bytesへ減少。新fingerprint c9ce9104で通常Android初回/保存・再利用と必要CIを続ける。
+- D206/source5b07f3eのAndroid初回も600秒停止で不合格。sampled app+renderer3,049,295,872bytes。初回input563.745秒/うち全source読込478.041秒・raw v1行hash129.620秒、詳細特徴量11.790秒を私有の時間観測版で確認した（包含時間であり単純合算しない）。診断版は通常候補にしない。原本はnative-profile-cold-001/timing-summary.json、PC新比較はpc-003。自分のCI39374367653だけ追加修正前に停止し、旧0.1.23/PR #2の試験は不変。
 - D206のcopy/走査修正後、Ruff全体/mypy75file、127関連試験と最終filter修正後10件が成功（重複あり）。実730日/同493対象のPCで全入力・共通統計・全特徴量/978予測/source IDが旧基準と再一致。初回入力215.630秒/全体221.976秒/peak2,117,304,320bytes、別process再利用20.320秒/28.207秒/669,847,552bytes。旧初回の2,393,624,576bytesから減少したが、新Android初回/再利用と必要CIはこの変更後に再確認する。原本はpc-002、工程profileは入力計測まで有効で最終比較は補助file不足により未完のまま保存した。
 - 初回Android/source203f42bは600秒のcompute timeoutで不合格。停止前のsampled app+renderer最大3,328,581,632bytes、background processのlow-memory killあり、計算rendererはJUnit終了まで動作。再利用成功と分け、通常新候補の作成を待つ。D206としてprivate mergeの余分な全量copyと銘柄ごとの全履歴文字列走査だけを除き、関連試験→実730日PC→同制限のAndroid初回を再確認する。既存0.1.23と原本は不変。
 - 製品203f42bの隔離Android35で、実730日/既存2回帰/締切前の試験口座を使った通常owner予測→暗号化保存128.941秒、同日GET0.942秒を確認。起動時の暗号化状態読込113.495秒は別。sampled app+renderer最大2,016,321,536bytes。600秒/Java192MiB/4GiB guest/2cores/既存RAM guardを維持し、978予測・全特徴量hash・source ID・同scope proof・上位20はPCと一致した。

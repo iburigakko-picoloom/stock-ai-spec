@@ -1,5 +1,5 @@
 {
-  "status": "D206_INITIAL_COPY_FIX_EXACT_NATIVE_RECHECK_PENDING",
+  "status": "D207_INITIAL_SOURCE_REUSE_EXACT_NATIVE_RECHECK_PENDING",
   "scope": "Operational feature/inference equivalence and performance; not investment return evaluation or model adoption",
   "product_checkpoint": "08a8f0c",
   "calculation_code_sha256": "6e81e77eed4b0c3ba8519554e1e808a011e215fd6de8d342410cd110019fda0c",
@@ -63,6 +63,24 @@
       "peak_bytes": 669847552,
       "sqlite_returned_rows": 55306,
       "sqlite_returned_value_bytes": 27410461
+    },
+    "D207_cold": {
+      "input_seconds": 192.9562654000474,
+      "feature_seconds": 6.311159100034274,
+      "inference_seconds": 0.47916190000250936,
+      "total_seconds": 200.23797580006067,
+      "peak_bytes": 1981194240,
+      "sqlite_returned_rows": 92417,
+      "sqlite_returned_value_bytes": 394212861
+    },
+    "D207_warm": {
+      "input_seconds": 19.30763769999612,
+      "feature_seconds": 5.33084880001843,
+      "inference_seconds": 0.43686669995076954,
+      "total_seconds": 25.418999499990605,
+      "peak_bytes": 672968704,
+      "sqlite_returned_rows": 55306,
+      "sqlite_returned_value_bytes": 27410461
     }
   },
   "equivalence": {
@@ -86,7 +104,7 @@
     "native_encryption_tested_in_this_PC_run": false
   },
   "limits": [
-    "Initial/rebuild still decodes broad source history. D206 reduces working-frame copies/peak and repeated selected-history scans; its native initial run must be rechecked.",
+    "Initial/rebuild still verifies broad source history. D207 avoids unused historical metadata and repeated verified-token/shared-source work; native acceptance remains separate.",
     "Warm reuse is not a measurement of a new real business-day update.",
     "SQLite bytes count returned BLOB/UTF8/scalar values, not physical disk page IO.",
     "PC RSS cannot be compared directly with Android app plus renderer RSS.",
@@ -102,5 +120,5 @@
   "real_orders": 0,
   "external_AI_transmissions": 0,
   "private_originals": ".demo-artifacts/topix500-20261020/pc-001/",
-  "current_calculation_code_sha256": "ac27a913dc7bc118889a3087df2a49dc0293624e71886f90ddfb64c198fca11a"
+  "current_calculation_code_sha256": "c9ce910408fdebb0dadf8b6124e42cf37486b783d80cb0e97bf0a03707ae0ef4"
 }
