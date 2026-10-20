@@ -1,5 +1,5 @@
 {
-  "status": "D207_INITIAL_SOURCE_REUSE_EXACT_NATIVE_RECHECK_PENDING",
+  "status": "D207_INITIAL_AND_REUSE_EXACT_PC_AND_ANDROID",
   "scope": "Operational feature/inference equivalence and performance; not investment return evaluation or model adoption",
   "product_checkpoint": "08a8f0c",
   "calculation_code_sha256": "6e81e77eed4b0c3ba8519554e1e808a011e215fd6de8d342410cd110019fda0c",
@@ -109,7 +109,7 @@
     "SQLite bytes count returned BLOB/UTF8/scalar values, not physical disk page IO.",
     "PC RSS cannot be compared directly with Android app plus renderer RSS.",
     "Android 399-second input baseline has not yet been remeasured for this implementation.",
-    "See android-comparison.json for source203f42b warm-save/backup/reboot success and initial compute timeout. These are not D206 native acceptance."
+    "See android-comparison.json for D207 normal initial/save/backup/reboot and native-created cache reuse; these are emulator results, not Xiaomi or a new real business day."
   ],
   "legacy300_remains_default": true,
   "original_candidate_0123_preserved": true,
@@ -120,5 +120,6 @@
   "real_orders": 0,
   "external_AI_transmissions": 0,
   "private_originals": ".demo-artifacts/topix500-20261020/pc-001/",
-  "current_calculation_code_sha256": "c9ce910408fdebb0dadf8b6124e42cf37486b783d80cb0e97bf0a03707ae0ef4"
+  "current_calculation_code_sha256": "c9ce910408fdebb0dadf8b6124e42cf37486b783d80cb0e97bf0a03707ae0ef4",
+  "current_product_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133"
 }

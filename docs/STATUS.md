@@ -1,4 +1,12 @@
-## 2026-10-20 — TOPIX500事前選定の独立実装中（D205）
+## 2026-10-20 — TOPIX500事前選定：D207の通常Android保存・再利用を確認
+
+- 製品a9e3bfaの通常runtime APKで、実730暦日/485営業日・493対象の初回予測→暗号化保存が562.541秒で完走。起動時のowner読込77.111秒は別。sampled app+renderer最大2,992,934,912bytes、既存600秒/4GiB guest/2cores/Java192MiB/RAM guardを維持した。978予測・全特徴量hash/source ID/上位20/共通統計はPCと完全一致。初回余裕37.459秒を十分な余裕や日次3分の達成とはしない。
+- 同じ端末のB1書出33.960秒/検査85.548秒/復元101.712秒、kernel再起動後cold GET100.100秒が成功。独立PC検査で保存/復元/再起動後の20mobile/27operations tableが型付きで一致し、元の保有/現金/実台帳/市場/modelを保持した。
+- そのAndroid自身が作ったcacheを、同じAVD/Keystoreの再起動後に再利用した通常再計算は106.142秒、owner読込107.137秒は別。sampled app+renderer最大1,969,451,008bytes、同じ978予測/全特徴量/入力版/receipt/snapshotを返し、全47tableが不変。再seed/clock変更/通常main APK再installなし。翌営業日の性能試験ではない。
+- a9e3bfaの必要CI39380572689はverify/android/android-historyすべてsuccess、release skip。tested merge3249083とGit tree一致。Python関連群1255合格（複数呼出の重複を含む）/Windows専用1skip、Ruff/mypy75file両platform、Web100/画面36、native89/JVM15、合成全量B1復元222.201秒が成功。通常0.1.24-candidate/code10024を既存署名で非公開作成し、184製品file/43資産/秘密・市場・weight・診断非混入を照合。SHA256=be6a09be7009c9d7c137ac89f31bebdccb59e32053ba0365b90571de0f3c8a28、23976505bytes、署名build111.289秒。旧0.1.23/PR #2/191行の私有差分/データ原本のhash不変を再確認した。[CI集約](evidence/topix500-20261020/ci-result.json)・[候補記録](evidence/topix500-20261020/candidate-apk.json)。
+- 実際の新営業日・月次/訂正/保有追加のAndroid測定とXiaomiは未完。これらの分岐の合成試験と区別する。[集約報告](evidence/topix500-20261020/implementation-summary.md)・[Android JSON](evidence/topix500-20261020/android-comparison.json)・[一括受入票](evidence/topix500-20261020/xiaomi-acceptance.md)へまとめる。旧300を既定に保持し、全役割HOLD/152条件/holdout未採点を維持する。
+
+### D205〜D207の途中経過（失敗・先行証拠を保持）
 
 - D207：共通計算に不要な過去会社名/interval列を新context経路だけで省き、原v1 hashのUTF-8 tokenを既存128件LRU内で再利用。同じ初回内で検証済みの財務/暦/TOPIXを二度読み込まない。Ruff/mypy75file・97関連試験が成功。実730日/493対象で旧基準の全入力/特徴量・978予測・全source IDが完全一致。初回入力192.956秒/全体200.238秒/peak1,981,194,240bytes、別process再利用19.308秒/25.419秒/672,968,704bytes。coldのSQLite返却は92,417行/394,212,861bytesへ減少。新fingerprint c9ce9104で通常Android初回/保存・再利用と必要CIを続ける。
 - D206/source5b07f3eのAndroid初回も600秒停止で不合格。sampled app+renderer3,049,295,872bytes。初回input563.745秒/うち全source読込478.041秒・raw v1行hash129.620秒、詳細特徴量11.790秒を私有の時間観測版で確認した（包含時間であり単純合算しない）。診断版は通常候補にしない。原本はnative-profile-cold-001/timing-summary.json、PC新比較はpc-003。自分のCI39374367653だけ追加修正前に停止し、旧0.1.23/PR #2の試験は不変。

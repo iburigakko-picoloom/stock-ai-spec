@@ -11,6 +11,7 @@
 - 固定APKに時間観測だけを付けた私有診断版で工程を測る。計算ソース・時計・制限は同じで、診断runtimeの差分とhashを別記録し、通常候補へ使わない。master読込226.509秒、その中のraw v1行hash61.340秒を観測。cache再利用やPC時間を初回Androidの合格へ読み替えない。
 - 新context経路だけ、過去の会社名の保持と未使用の上場interval列の生成を省く。全市場の対象行、日付欠損/不正履歴の除外、適格性検査、業種、共通集計式、price joinは維持する。画面の会社名は従来どおり実受領済みの当日masterを使う。旧方式/研究用の既定universeは変更しない。
 - raw v1 hashのJSON tokenをUTF-8へ一度変換し、検証済み列の既存128件LRU内だけで再利用する。各refのDB bytes読取/検証は毎回維持し、変更・消失・別圧縮・trailing dataを旧cacheが隠さない。定数列も同じv1表現を使う。数値/Unicode/key順/欠損・raw/normalized照合・全source IDを変えない。codecも計算cacheのコードfingerprintへ含める。
+- 同じ初回の中では、既に原本/hashを検証した財務・暦・TOPIXの小さなframeを共有し、財務結合用に二度読み込まない。永続の原本検証を省略するcacheや全市場価格/master frameの保持は追加しない。別の再計算では受領版を改めて確認する。
 - 変更後の関連試験、実730日PC全値一致、通常APKのAndroid初回/保存/復元/再起動と必要CIを別に検証する。600秒・RAM/CPU・export上限・正式HOLD・最終holdoutは不変。
 
 ### D206 — 初回600秒停止を不合格として保全し、全量コピーと反復走査を除く（2026-10-20）
