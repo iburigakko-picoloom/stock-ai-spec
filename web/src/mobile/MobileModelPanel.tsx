@@ -92,7 +92,6 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
     <h2>モデルと計算</h2>
     <p>確認済みの一式：{bundleCount}件／端末へ取込済み：{model?.imported_bundle_count ?? 0}件</p>
     <p>実運用の採用確認：{model?.model_adopted ? "確認済み" : "未完了・研究用"}</p>
-    <details className="settings-disclosure"><summary>予測について</summary><p>5日・20日のモデルを一式で取り込みます。研究用の一式に含まれない下振れ・下落確率・校正情報は未提供です。</p></details>
     {!inputsSaved && <p>口座・保有の編集を保存してから予測を計算します。</p>}
     {model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
     <div className="button-stack">

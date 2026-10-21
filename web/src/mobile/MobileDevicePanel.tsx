@@ -66,14 +66,14 @@ const iconPaths = {
   info: "M12 8v1m0 3v5m9-5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
 };
 
-function SettingsRow({ title, description, value, icon, onClick, checked, disabled = false, badge = false }: {
-  title: string; description: string; value?: string; icon: keyof typeof iconPaths;
+function SettingsRow({ title, value, icon, onClick, checked, disabled = false, badge = false }: {
+  title: string; value?: string; icon: keyof typeof iconPaths;
   onClick: () => void; checked?: boolean; disabled?: boolean; badge?: boolean;
 }): ReactNode {
   return <button type="button" className={`settings-menu-row${checked === undefined ? "" : " settings-menu-row--switch"}`} onClick={onClick} disabled={disabled}
     role={checked === undefined ? undefined : "switch"} aria-checked={checked} aria-label={checked === undefined ? undefined : title}>
     <svg className="settings-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={iconPaths[icon]} /></svg>
-    <span className="settings-menu-copy"><strong>{title}</strong><small className="sr-only">{description}</small></span>
+    <span className="settings-menu-copy"><strong>{title}</strong></span>
     {checked === undefined ? <>
       {value && <span className={badge ? "settings-menu-value settings-menu-badge" : "settings-menu-value"}>{value}</span>}
       <svg className="settings-menu-chevron" viewBox="0 0 16 24" aria-hidden="true"><path d="m5 5 7 7-7 7" /></svg>
@@ -151,24 +151,24 @@ export function MobileDevicePanel(): ReactNode {
     {busy && <SaveProgress />}
     <div className="settings-overview" hidden={selected !== null}>
       <section className="settings-menu-section" aria-labelledby="settings-connection"><h2 id="settings-connection">接続</h2><div className="settings-menu-list">
-        <SettingsRow icon="database" title="J-Quants API" description="日本株のデータを取得します" value={configured === null ? "確認中" : configured ? "設定済み" : "未設定"} badge={configured === true} onClick={() => open("market")} />
+        <SettingsRow icon="database" title="J-Quants API" value={configured === null ? "確認中" : configured ? "設定済み" : "未設定"} badge={configured === true} onClick={() => open("market")} />
       </div></section>
       <section className="settings-menu-section" aria-labelledby="settings-accounts"><h2 id="settings-accounts">口座・資金</h2><div className="settings-menu-list">
-        <SettingsRow icon="bank" title="証券口座" description="口座区分・現金・保有株の設定" value={!portfolioLoaded ? "確認中" : savedPortfolio?.portfolio.accounts.length ? "登録済み" : "未登録"} badge={!!savedPortfolio?.portfolio.accounts.length} onClick={() => open("accounts")} />
-        <SettingsRow icon="database" title="運用資金" description="運用に使う投資上限" value={portfolioLoaded ? budgetValue : "確認中"} onClick={() => open("capital")} />
+        <SettingsRow icon="bank" title="証券口座" value={!portfolioLoaded ? "確認中" : savedPortfolio?.portfolio.accounts.length ? "登録済み" : "未登録"} badge={!!savedPortfolio?.portfolio.accounts.length} onClick={() => open("accounts")} />
+        <SettingsRow icon="database" title="運用資金" value={portfolioLoaded ? budgetValue : "確認中"} onClick={() => open("capital")} />
       </div></section>
       <section className="settings-menu-section" aria-labelledby="settings-conditions"><h2 id="settings-conditions">運用条件</h2><div className="settings-menu-list">
-        <SettingsRow icon="calendar" title="予測期間" description="モデルの取込と予測の計算" value="5日・20日" onClick={() => open("model")} />
-        <SettingsRow icon="shield" title="許容下落率" description="本人が設定する下落率の目安" value={!portfolioLoaded ? "確認中" : drawdown === null || drawdown === undefined ? "未設定" : `${drawdown}%`} onClick={() => open("risk")} />
+        <SettingsRow icon="calendar" title="予測期間" value="5日・20日" onClick={() => open("model")} />
+        <SettingsRow icon="shield" title="許容下落率" value={!portfolioLoaded ? "確認中" : drawdown === null || drawdown === undefined ? "未設定" : `${drawdown}%`} onClick={() => open("risk")} />
       </div></section>
       <section className="settings-menu-section" aria-labelledby="settings-automation"><h2 id="settings-automation">自動更新</h2><div className="settings-menu-list">
-        <SettingsRow icon="refresh" title="営業日に自動更新" description={daily.busy ? "変更を確認しています…" : !configured && daily.status && !daily.status.enabled ? "先にAPIキーを設定してください" : "毎営業日のデータ取得と予測"} checked={daily.status?.enabled ?? false} disabled={daily.busy || !daily.status || (!daily.status.enabled && !configured)} onClick={() => void daily.change(!daily.status?.enabled)} />
-        <SettingsRow icon="bell" title="完了通知" description="Androidの通知許可・更新状態" value={daily.status ? daily.status.notificationsEnabled ? "許可済み" : "オフ" : "確認中"} onClick={() => open("daily")} />
-      </div>{daily.message && <p className="settings-menu-message" role="alert">{daily.message}</p>}</section>
+        <SettingsRow icon="refresh" title="営業日に自動更新" checked={daily.status?.enabled ?? false} disabled={daily.busy || !daily.status || (!daily.status.enabled && !configured)} onClick={() => void daily.change(!daily.status?.enabled)} />
+        <SettingsRow icon="bell" title="完了通知" value={daily.status ? daily.status.notificationsEnabled ? "許可済み" : "オフ" : "確認中"} onClick={() => open("daily")} />
+      </div>{daily.busy && <p role="status">変更中…</p>}{!configured && daily.status && !daily.status.enabled && <p>先にAPIキーを設定してください。</p>}{daily.message && <p className="settings-menu-message" role="alert">{daily.message}</p>}</section>
       <section className="settings-menu-section" aria-labelledby="settings-storage"><h2 id="settings-storage">データ</h2><div className="settings-menu-list">
-        <SettingsRow icon="cloud" title="バックアップ・復元" description="保有・設定・履歴を保存します" onClick={() => open("backup")} />
-        <SettingsRow icon="chat" title="ChatGPT" description="銘柄の相談・連携設定" onClick={() => open("chatgpt")} />
-        <SettingsRow icon="info" title="アプリ情報・詳細" description="保存済みの設定値・ライセンス" onClick={() => open("about")} />
+        <SettingsRow icon="cloud" title="バックアップ・復元" onClick={() => open("backup")} />
+        <SettingsRow icon="chat" title="ChatGPT" onClick={() => open("chatgpt")} />
+        <SettingsRow icon="info" title="アプリ情報・詳細" onClick={() => open("about")} />
       </div></section>
     </div>
     <SettingsPanel visible={selected === "accounts" || selected === "capital" || selected === "risk"}>
