@@ -2,7 +2,7 @@
   "schema_version": "mobile-model-policy-v2",
   "approved_models": [],
   "approved_bundles": [],
-  "reason": "Formal adoption remains HOLD. Private research imports include a return-only bundle and a mixed-fold ensemble integration bundle. The latter verifies arithmetic and encrypted reload only; it is not a selected strategy. Risk and calibration are unavailable. Xiaomi and whole-owner acceptance remain pending.",
+  "reason": "Formal adoption remains HOLD. Private research imports retain earlier technical bundles and add the frozen three-model research composition: 5d CatBoost return, 20d CatBoost return, and 20d LightGBM rank, seed17. Each head uses identity output; no ensemble uplift, risk or calibration is assumed. PC and API35 arithmetic plus existing encrypted-state preservation are verified. Normal new-bundle import/save and Xiaomi acceptance remain separate.",
   "research_bundles": [
     {
       "bundle_id": "fcfca56783dfa5cec2e36e3ccd2563645c9c63090a564b128be2d0e634e926e6",
@@ -23,6 +23,16 @@
       "sha256": "de883c9dcaa42632f7d980ebbb3c49a485c43d787bf13f045a2d1bbbb40920e5",
       "source_evidence_sha256": "81b3c6030e4015738e3f984e073b996bc2f5b1dacf168cd7c66293dc6d6f74a8",
       "use": "ensemble-research"
+    },
+    {
+      "bundle_id": "fb56d5b1a36d9c57ce5ba13c9d0ad9ebfc158c1c2c62ec85b58bb06760aaa5c7",
+      "device_parity_evidence_sha256": "ac0f352ef84c75614d764e6b60e3bb3a5d4b2fac4ca62be1f56261271c7ec92c",
+      "distribution_review": "private-research-import-approved",
+      "pc_parity_evidence_sha256": "ca8822d94ad6386fa353fb138084999912877d3190b61e7f90fa76d4ca78a43d",
+      "sha256": "f595cebc6f0bfabe1e10714a24d6b4323feeda03cd2fb12886fb63d01b1daa4e",
+      "source_evidence_sha256": "dc1af108f56bc4bab4b9f02dec488e38a031931de92f749ea150f7067e8fbe00",
+      "use": "ensemble-research",
+      "device_evidence_scope": "all489-3-selected-single-head-mathematical-parity-and-all47-tables-unchanged-after-encrypted-reopen-API35-emulator; no-normal-new-bundle-import-or-daily-generation-or-Xiaomi-or-adoption"
     }
   ]
 }

@@ -1,0 +1,99 @@
+{
+  "schema_version": "selected-three-research-integration-evidence-v1",
+  "recorded_at": "2026-10-21T11:11:54.233892+00:00",
+  "source_commit": "d64dbd9ca0b4d08cae8922cbedd1d071a2a8b3d4",
+  "formal_adoption": "HOLD",
+  "real_holdout_opened": false,
+  "owner_review_created": false,
+  "conditional_cost_comparison": {
+    "cases": 96,
+    "complete": 96,
+    "seconds": 1426.39,
+    "receipt": {
+      "path": ".demo-artifacts/completion-20261021/conditional-nav-v1/comparison-receipt-v1.json",
+      "bytes": 206424,
+      "sha256": "c1ccc75607a6950d6416c2a3709dd27953a5ba3e486b8d3e0e0147609abc9b52"
+    },
+    "limitations": "Outcome-conditioned common C, not complete predictable universe or repaired old152; 20d MDD criterion unmet."
+  },
+  "new_fit_count": 3,
+  "same_fit_export": true,
+  "fitting_receipt": {
+    "path": ".demo-artifacts/completion-20261021/selected-model-fitting-receipt-v1.json",
+    "bytes": 14479,
+    "sha256": "fe18f135e289a19a960057ca760f199b81f104f8283ffbf208d88b1f5aaed7ba"
+  },
+  "unit_elapsed_seconds": [
+    403.297,
+    495.204,
+    574.219
+  ],
+  "total_unit_seconds": 1472.72,
+  "actual_worker_peak_RSS_bytes": [
+    4135534592,
+    4669673472,
+    4265250816
+  ],
+  "memory_scope": "PC training workers, not Android; initial launcher-only reading corrected and preserved privately",
+  "bundle": {
+    "bytes": 13012309,
+    "sha256": "f595cebc6f0bfabe1e10714a24d6b4323feeda03cd2fb12886fb63d01b1daa4e",
+    "bundle_id": "fb56d5b1a36d9c57ce5ba13c9d0ad9ebfc158c1c2c62ec85b58bb06760aaa5c7"
+  },
+  "PC": {
+    "path": ".demo-artifacts/completion-20261021/selected-model-bundle-prep/pc-parity-001/receipt.json",
+    "bytes": 12937,
+    "sha256": "ca8822d94ad6386fa353fb138084999912877d3190b61e7f90fa76d4ca78a43d"
+  },
+  "device_proof": {
+    "path": ".demo-artifacts/completion-20261021/selected-model-device-proof-v1.json",
+    "bytes": 3254,
+    "sha256": "ac0f352ef84c75614d764e6b60e3bb3a5d4b2fac4ca62be1f56261271c7ec92c"
+  },
+  "device_scope": "Old frozen input projected with genuinely later-trained models; mathematical research only. No past model availability, selected deployment, normal daily generation or Xiaomi success is claimed.",
+  "native_seconds": 368.260353393,
+  "first_owner_POST_seconds": 53.308206344,
+  "sampled_app_plus_WebView_peak_RSS_bytes": 2270015488,
+  "raw_and_composed_values_each": 1467,
+  "maximum_absolute_error": 0.0,
+  "top20_exact": true,
+  "all47_typed_tables_unchanged": true,
+  "Xiaomi": "DEFERRED_BY_OWNER",
+  "normal_new_model_import_and_save": "PENDING",
+  "candidate_APK": "PENDING",
+  "CI_source_pending_for_new_policy": true,
+  "targeted_pytest": {
+    "tests": 128,
+    "seconds": 101.35,
+    "failed": 0,
+    "errors": 0,
+    "warnings": 11,
+    "receipt": {
+      "path": ".demo-artifacts/completion-20261021/selected-policy-checks-002/results.xml",
+      "sha256": "a9204615f3479f89d162386998b5a9bdbea011da56c8212661176bbd2ec4f892",
+      "bytes": 19910
+    },
+    "warnings_scope": "preexisting negative-schema serializer fixtures"
+  },
+  "actual_private_bundle_policy_check": {
+    "receipt": {
+      "path": ".demo-artifacts/completion-20261021/selected-policy-checks-003/actual-policy-receipt.json",
+      "sha256": "7819a6df6cdf4bec96b2bcefe11f5a38b88091766a15b9f9829c2e3ed089efdc",
+      "bytes": 1020
+    },
+    "PC_asset_location_adapter_only": true,
+    "old_cutoff_rejected": true,
+    "formal_import_rejected": true,
+    "new_research_only_import": true
+  },
+  "prior_CI": {
+    "source_commit": "d64dbd9ca0b4d08cae8922cbedd1d071a2a8b3d4",
+    "run": 39582760928,
+    "required_jobs": "ALL_SUCCESS",
+    "new_policy_covered": false
+  },
+  "initial_private_test_repairs_preserved": [
+    "restricted TestClient stalled, same128 tests pass elevated with diagnostics",
+    "PC APK asset path adapter and nested feature_selection extraction fixed; no product gate changed"
+  ]
+}

@@ -1992,3 +1992,11 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - 最終評価の既存入口へoptional prefit参照を追加する。訓練行/float32入力・rawラベル/時刻の列別identity、構成/設定/出所、native/fullprocessorのbyte/hashを照合し、参照不整合やprovider未設定を再fitで埋めない。providerには特徴量列だけを渡す。成功checkpointの再開はfit/推論0、legacyの空参照は既存IDを維持する。明示的な保持要求があれば、sinkの未設定/未実行を拒否する。
 - compositionのtrain_cutoffはexclusive upper boundであり、locked境界と等しい指定を認める。実際のtraining date/label_end/label_availableは引き続き厳密に境界未満とし、境界超過や最終ラベルを使った重み/校正は拒否する。受領時刻/実際の学習完了時刻を境界へ遡及しない。
 - 既存strictのhistorical available_at条件は維持する。保存マスタ/calendarの後日受領は過去の知識として認証しない。研究用配備と厳密最終評価/本人採用を別工程とし、実holdoutを未承認の新モードで消費しない。Xiaomi確認は本人指定で後回し。公開配布/main merge/実注文は行わない。
+
+## D223（2026-10-21）：選定3headの研究用接続と実測の境界
+
+- D222の条件付き比較から固定した5日CatBoost回帰17・20日CatBoost回帰17・20日LightGBM順位17の不足weightだけをfitする。同じfitからnative/fullprocessor/portableを保存し、後日取得版の情報時刻と実学習完了時刻を遡及しない。正式Selection/本人審査やholdout実行済みを意味しない。
+- 研究用ensemble schemaをidentity3headの容器として再利用する。単体を無理にensemble化せず、risk/校正/5日順位はnull、20日主軸/5日補助の役割は不変。64MiB上限を維持し、私有モデル/実市場/秘密情報をAPKやGitへ含めない。
+- 新bundleの全489銘柄に対するPC/native portableとAPI35公開parityの実一致、暗号化再起動後を含む47table全件不変の実証拠だけをresearch pinへ紐付ける。既存approved欄は空のまま。旧runtimeとの数値/保存kernel差分0という範囲を明示し、既存APKを新sourceと偽らない。
+- モデルは実際に2026-10-21作成したもので、凍結10/20入力への数学的projectionは過去の利用可能性や通常日次成功ではない。通常取込は実nowで行い、過去cutoffのモデル利用拒否を維持する。研究projectionを保存する場合は実generated_atと研究/非取引/当時モデル未利用の理由を残す。既存保有/現金/税/原予測を変更しない。
+- 現在の実機確認は本人の明示回答により後回し。Xiaomi待ちをPC/エミュレーター工程全体の停止理由にせず、今回sourceの必要CIと一つの非公開候補APK/一括票まで進める。新規公開・main merge・注文・本人承認代行は行わない。

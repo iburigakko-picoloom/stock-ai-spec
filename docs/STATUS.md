@@ -1,4 +1,13 @@
-## 2026-10-21 — 全18構成の共通条件付き費用比較を完走（D222、進行中）
+## 2026-10-21 — 必要3モデルの同fit書出し・実Android数値照合（D223）
+
+- D222の研究用構成を訓練入力/設定/列順/seed17へ固定し、不足3本だけを1本ずつfitした。5日CatBoost回帰403.297秒、20日CatBoost回帰495.204秒、20日LightGBM順位574.219秒、合計1,472.720秒。同じfitからnative/fullprocessor/portableを書出し、全面再学習/書出し専用再fitは0。全訓練date/label_end/label_availableは2026-03-04未満。後日取得版の出所時刻は保持し、実holdoutは開いていない。
+- 私有 `selected-model-fitting-receipt-v1.json` SHA256=`fe18f135e289a19a960057ca760f199b81f104f8283ffbf208d88b1f5aaed7ba`、bundle SHA256=`f595cebc6f0bfabe1e10714a24d6b4323feeda03cd2fb12886fb63d01b1daa4e`、13,012,309bytes。5日/20日returnと20日rankのidentity3headであり、合成改善や未採用risk/校正を追加していない。PCの全489銘柄×3head/前処理/上位20/逆順/nullable snapshot読戻しは差0、3.458秒。
+- 既存API35隔離AVD/暗号化状態/Keystoreを再利用し、公開parity APIの新3モデル全1,467基本出力と全1,467合成出力・上位20・逆順がPCと差0。native試験368.260秒、最初のowner POST53.308秒、app＋WebView RSS標本最大2,270,015,488bytes。暗号化再起動後を含む47 typed tableは10.437秒のhost検査で全件不変。保有/現金/税/旧予測/cacheを削除・初期化していない。
+- 私有 `selected-model-device-proof-v1.json` SHA256=`ac0f352ef84c75614d764e6b60e3bb3a5d4b2fac4ca62be1f56261271c7ec92c` を根拠に、このbundleだけを既存research policyへ追加。正式approved欄は空のまま。実行APKのruntimeはb11b97で、d64との数値/保存kernel差分0を検査した範囲に限る。旧入力を後日作成モデルで数学的に照合したもので、当時利用可能な予測・通常日次・新bundle通常取込/新予測保存・Xiaomiの成功とはしない。
+- policy変更後の取込/ensemble/nullable snapshot/母集団/相談/復旧の関連128合成試験は101.35秒で全成功。実13MB bundleのPC隔離DB取込/選択/読戻しも成功し、pinなし/改変byte/正式取込/過去cutoffは拒否した。PCでは同一feature-selectionのasset配置だけを適合し、実Android通常取込は別工程。Ruff全体とdiff検査は成功。d64のCI39582760928は必要3job全成功だが新policyの証拠へ流用しない。初回制限環境のTestClient停止と私有helper修正の履歴を保全した。
+- [実測・hash記録](evidence/model-completion-20261020/selected-three-integration-20261021.json)。旧cold593.209秒を新モデルの日次実測へ読み替えない。今回policyのCI、通常取込/新研究projection保存、非公開候補APKを仕上げる。正式HOLD/strict最終の後日受領障害と本人指定のXiaomi後回しは維持する。
+
+## 2026-10-21 — 全18構成の共通条件付き費用比較を完走（D222、先行記録）
 
 - 全18構成/72taskの保存OOFに基づく単体回帰9・単体順位9・等重み/学習重みreturn/rank4・保存momentum・全現金HOLDを、5/20日×片道20/40bpsで比較した。**新96ケースは96完走/不完全0、合計1,426.390秒**。初期1,000万円/上位20/90%/100株/既存資金解放と同じstateful NAVを再利用し、別の損益エンジンやGBDT再学習は0。全96の圧縮原本/読戻しreceiptのhashを照合し、日次台帳・未約定/費用/turnover定義を保全した。
 - 私有 `conditional-nav-v1/comparison-receipt-v1.json` SHA256=`c1ccc75607a6950d6416c2a3709dd27953a5ba3e486b8d3e0e0147609abc9b52` に全ケース・3seed平均/ばらつき・対照差・原本を対応付け、`comparison-v1.csv`へ保存。評価日は5日177日（2025-04-24〜2026-01-15）、20日140日（2025-04-14〜2025-11-06）。異なるhorizon期間の単純な優劣比較はしない。
