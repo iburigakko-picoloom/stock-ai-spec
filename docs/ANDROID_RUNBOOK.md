@@ -1,3 +1,7 @@
+2026-10-21 D224：現在の本人用候補は非公開0.1.30-candidate/code10030。製品source `7ac228f8b0a915e6e0f04a63ecf8c08501b9eff7`、必要CI39591437353全成功、APK SHA256=`2f9ff1bf5d0a88062bb7f985cb9665b560fb35ff980f5c619ba16460b92d9f0e`。既存署名/非debug/モデル・市場非同梱。本人バックアップ確認後、Xiaomi/Android16へ0.1.27から上書き成功。私有APK/検査receiptは`.demo-artifacts/completion-20261021/candidate-0130/release/`、一括受入票は同候補親の`xiaomi-acceptance-prepared.md`を更新した。bundleは別ファイルで本人指定の非共有Driveへ保存済み。
+
+本人画面は「口座・保有と初回台帳を確認」「数値予測の保存を完了してから株数を計算」で停止している。本人入力と初回台帳確認が必要。正式HOLD/研究用表示は正常で、本人確認を代行しない。今日11:30後に作成・取込したモデルを当日の通常予測へ遡及せず、真正な次営業日の更新を別に確認する。新3モデルの通常API取込・数値/保存補足・合成通常経路のPASSと、Xiaomiの通常予測/相談/通知/復旧の未確認を分ける。[証拠と対象範囲](evidence/model-completion-20261020/selected-three-integration-20261021.json)、詳細はSTATUS D224。以下は旧候補/公開版の履歴。
+
 2026-10-21 D214：ノッチ修正版0.1.28-candidate/code10028を非公開作成済み。必要CI39448906494全成功、source `3f5dc8b3a87f4c2ecd4751778937ce4525d9b421`、既存署名/非debug、SHA256=`026221c40c767d9509065bd317cf8ee8ea9c7e827da6706bc6070a5ae590fd71`。私有APKは`.demo-artifacts/notch-safe-area-20261021/candidate-0128/StockAI-0.1.28-candidate.apk`。署名済み実Androidの縦横cutout/設定遷移を確認。[候補検査](evidence/notch-safe-area-20261021/candidate-apk.json)。
 
 公開切替は自動承認審査の拒否により本人の明示承認待ち。現在公開の0.1.27には今回のノッチ修正は未反映。Xiaomi未確認。以下は公開済み旧版の記録。

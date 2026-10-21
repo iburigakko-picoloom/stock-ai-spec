@@ -1,3 +1,13 @@
+## 2026-10-21 — A/B限定の通常取込・保存検証、0.1.30とXiaomi上書き（D224）
+
+- 最新範囲はA研究用アプリ・B同一APK/bundleのXiaomi受入。Cの正式Selection/追加研究/実holdout/正式採用は実行せず、HOLDを維持。製品sourceは`7ac228f8b0a915e6e0f04a63ecf8c08501b9eff7`のまま。CI [39591437353](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39591437353)はverify/android/android-history全成功、release skip。今回の記録差分は文書/証拠だけで、製品/依存/assets不変を確認してこのCIと既存128関連試験を再利用する。
+- API35の通常APIで実3head bundleを取込→保存モデルから489銘柄×3出力/上位20のPC差0→非取引研究snapshot保存→暗号化再起動読戻しを確認。中断前の登録を巻き戻さず、再取込の冪等性も成功。全47 typed tableを12.734秒で比較し、新規3行（bundle/selection/研究snapshot）以外の44tableと全旧行は不変。これは後日作成モデルによる過去入力の技術projectionで、通常日次成功ではない。
+- 同じ実bundle/実weight＋明示した合成日時/3銘柄の合成特徴量で、通常予測公開/ホーム・今日・ランキング/固定回答JSON検算・保存/不正bundle・JSON拒否/同日cache/入力変更時無効化/復旧を9.79秒で一連確認。資産・税・実約定・旧予測は不変。新予測/相談/選択metadataと、未提供riskによる日次状態1行を内容付き許可差分とした。実市場/実営業日/外部ChatGPT品質の証拠とはしない。
+- 同CI資産から非公開の正式署名0.1.30-candidate/code10030を114.701秒でbuild/検査。`jp.stockai.app`、23,994,429B、SHA256=`2f9ff1bf5d0a88062bb7f985cb9665b560fb35ff980f5c619ba16460b92d9f0e`。旧版と同じ証明書`97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979`、非debug、モデル/市場/私有試験機構非同梱。bundleは別の13,012,309B、SHA256=`f595cebc6f0bfabe1e10714a24d6b4323feeda03cd2fb12886fb63d01b1daa4e`。
+- Xiaomi 14T Pro/Android16/API36/HyperOS3.0を識別。本人のバックアップ保存確認と旧APK署名照合後、0.1.27→同じ0.1.30の`install -r`に成功。アンインストール/データ消去0。入力注入のOS拒否とUSB debug offline後は手動へ切替え、本人指定の非共有Drive「株AI」にbundleを保存/親・byte数・ownerのみを再確認した。本人画面では研究用表示と通常計算の停止応答を確認。理由は口座/保有・初回台帳の未確認と、それに続く数値予測未完。本人の入力/初回台帳確認が必要で、本人確認の代行はしない。
+- API35の技術試験全体446.000秒、再取込＋AES52.523秒、保存モデルprojection＋AES82.457秒、app＋WebView RSS標本最大2,171,650,048B。新構成の通常初回/真正差分/同日再表示の全体性能は未測定。600秒はComputeHostの1要求応答（初期化read lease120秒）、DailyWorkerのowner待機660秒とは別。旧cold593.209秒や今回projectionを日次全体へ流用しない。
+- [既存証拠へのA/B追記](evidence/model-completion-20261020/selected-three-integration-20261021.json)。本人端末のbundle選択ID/取込件数・実予測・相談・再起動/通知は未確認。今日11:30後に作成/取込したモデルの当日利用拒否を維持し、真正な次営業日更新を個別BLOCKEDとする。A/B全完了とはしない。検査ツールのAPK役割別versionCode/JSON転送/host URI指定を直して既存結果だけ再検査し、数値assert/許容差/必須CIは変更していない。署名エミュレーターprobeの旧package不在による設置前FAILも保全。新規課金/実注文/main merge/新規公開配布/実holdoutは0。
+
 ## 2026-10-21 — 必要3モデルの同fit書出し・実Android数値照合（D223）
 
 - D222の研究用構成を訓練入力/設定/列順/seed17へ固定し、不足3本だけを1本ずつfitした。5日CatBoost回帰403.297秒、20日CatBoost回帰495.204秒、20日LightGBM順位574.219秒、合計1,472.720秒。同じfitからnative/fullprocessor/portableを書出し、全面再学習/書出し専用再fitは0。全訓練date/label_end/label_availableは2026-03-04未満。後日取得版の出所時刻は保持し、実holdoutは開いていない。
