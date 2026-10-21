@@ -24,8 +24,8 @@ def fit_export_frozen_model(
 
     from stock_ai.ml.advanced import fit_predict_frozen_model
 
-    if horizon not in (5, 20) or task not in ("regression", "quantile", "large_loss"):
-        raise ValueError("Mobile export requires a daily 5d/20d non-ranking head")
+    if horizon not in (5, 20) or task not in ("regression", "ranking", "quantile", "large_loss"):
+        raise ValueError("Mobile export requires a daily 5d/20d scalar head")
     if config.target_family != "return":
         raise ValueError("Mobile bundle requires the absolute-return label contract")
     if not 1 <= len(prediction_frame) <= 1000:

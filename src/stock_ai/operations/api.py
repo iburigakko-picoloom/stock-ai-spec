@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -43,6 +43,7 @@ from stock_ai.operations.daily import (
     PredictionSnapshot,
     content_id,
     export_prediction_snapshot,
+    prediction_score,
     validate_research_link,
 )
 from stock_ai.operations.models import (
@@ -170,7 +171,9 @@ def _daily_import(
         raw = json.loads(body.json_text)
         if not isinstance(raw, dict):
             raise ValueError("JSON object required")
-        if raw.get("schema_version") == "daily-prediction-snapshot-v1":
+        if raw.get("schema_version") in (
+            "daily-prediction-snapshot-v1", "daily-prediction-snapshot-v2"
+        ):
             return PredictionSnapshot.model_validate(raw)
         if raw.get("schema_version") == "company-research-v1":
             return CompanyResearchRecord.model_validate(raw)
@@ -850,6 +853,29 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
     ) -> object:
         records = store.latest_rankings(rank_type, limit=limit)
+        snapshot = store.latest_prediction_snapshot()
+        if (snapshot is not None and rank_type in ("overall", "5d", "20d")
+                and (not records or snapshot.as_of > max(item.as_of for item in records)
+                     or (snapshot.schema_version == "daily-prediction-snapshot-v2"
+                         and snapshot.as_of == max(item.as_of for item in records)))):
+            horizon: Literal[5, 20] = 5 if rank_type == "5d" else 20
+            ordered = sorted(snapshot.predictions, key=lambda item: (
+                -prediction_score(item, horizon), item.symbol,
+            ))
+            names = {item.symbol: item.company_name for item in records}
+            # Read-only projection of the original numerical snapshot. Overall
+            # uses the 20d priority; it never adds the two horizons or creates orders.
+            return [{
+                "ranking_id": content_id({"snapshot": snapshot.snapshot_id,
+                                          "rank_type": rank_type, "symbol": item.symbol}),
+                "as_of": snapshot.as_of, "symbol": item.symbol,
+                "company_name": names.get(item.symbol, item.symbol), "rank_type": rank_type,
+                "rank": index + 1, "total_universe": len(ordered),
+                "percentile": (index + 1) / len(ordered),
+                "candidate_status": "保有" if item.symbol in snapshot.holding_symbols else "候補",
+                "portfolio_action": None, "model_bundle_version": snapshot.model_version,
+                "data_snapshot_id": snapshot.data_snapshot_id,
+            } for index, item in enumerate(ordered[:limit])]
         return [
             {
                 **jsonable_encoder(item, by_alias=True),

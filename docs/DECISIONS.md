@@ -5,6 +5,17 @@
 
 ## 確定事項
 
+### D216 — 独立した母集団・必要fold復元・研究ensembleを接続する（2026-10-21）
+
+- 最新の本人指示をFINISHING_PLAN冒頭へ置く。D215のUI/ノッチ、元152、本人データ、PR #2/#3を保全。必要な過去fold再fitは今回明示許可された範囲であり、全面再学習/新探索ではない。元317評価日/horizonの回帰/順位は108単位の条件付き試算で、前半meta学習期間のcoverage監査後に必要数を確定する。optional riskまで216を必須にしない。holdout開封・採用・公開の承認は含まれない。
+- eligible/predictable/label_evaluable/execution_eligible/valuation_resolvableを分離する。候補はrawマスタの国内普通株/ScaleCatから独立生成し、OOF/ラベルの有無では絞らない。歴史復元と当時受領済みPITを区別する。初回観測前の入力欠損は明示棄権、未知の執行/保有評価はunknownのまま保存する。
+- 元の学習行/分割/index hash/パラメータを維持し、推論だけ全validation foldへ拡張する。未来の出口価格を推論条件にしない。別checkpoint/新版全foldを作り、元共通行を全件比較する。不一致を旧OOFへ継ぎ足さず、欠損行だけのpatchや存在しないfold指定も拒否する。同じfitからnative/portableを保存し、書き出しのために二重学習しない。全幅の前処理入力コピーを除去して数式/float32/列順を維持する。PC研究用ガードとAndroidの600秒/RAM制約を混同しない。
+- 研究ensembleは独立schemaとし、成分/前処理hash、保存simplex重み、recipe、順位母集団、単位を保存する。schema4原予測/snapshotv2は研究用で、リターン未提供はnull、順位scoreは率にしない。元予測/提案/実約定は分離。全対象の基本出力後に順位化し、保存読戻し時も合成を再検算する。全市場順位を必要とするrecipeは候補限定経路で理由付き停止し、TOPIX内順位へ置換しない。
+- 株式交換は専用kindで数量と原価を移し、未知端数は未評価の権利として持続保存する。未入金を余力にしない。旧入力/結果の空/null追加項目は省略しhash互換を維持。旧96不完全はそのまま残し、新TOPIX研究に直接影響するイベントから解決する。
+- 事前固定Selection→単回holdout保存予測→固定ルールNAV→条件receipt→本人審査の合成経路を追加する。既存Selectionのidentityを保ち、別の`FrozenCompositionManifest` sidecarでraw-return/rank-space・任意head・保存重み/校正・順位母集団を明示する。宣言成分の全基本予測を保存して合成し、固定outputを最終NAVへ結合する。`adoption_eligible=False`、既存dev拒否/単回ledger/本人審査は不変。合成の接続成功を実選定・実holdoutや市場根拠の認証へ読み替えない。
+- 独立母集団のcrossfitは別APIを使い、予測全体で順位化してから成熟ラベルをfit/校正/採点に分離する。元の全OOF日付と20日以上の校正条件を維持し、後半317組だけで再分割しない。比較の宣言範囲と不足componentをreceiptへ保存し、少数構成の成功を全18構成の完了としない。
+- 研究用アプリA、正式評価B、本人運用Cを分ける。実holdout、新規課金、注文、main merge、新APK公開、本人承認代行は行わない。
+
 ### D215 — 参考画像の青いカード表示を主要画面と開いた先まで揃える（2026-10-21）
 
 - 本人の後続画像依頼を優先し、D213の外観追加停止を今回の5画面と既存の詳細/編集画面に限って更新する。D214のノッチ・既存の保存/研究成果を保持し、大規模な画面基盤の置換や新機能は追加しない。

@@ -200,7 +200,8 @@ export interface StockDetail {
     snapshotId: string; asOf: string; generatedAt: string; isStale: boolean;
     mode: "research" | "paper" | "owner_approved"; blockingReasons: string[];
     labelDefinition?: string; labelDefinitionSupported?: boolean;
-    prediction: { expected_return_5d: number; expected_return_20d: number; large_loss_probability: number | null };
+    prediction: { expected_return_5d: number | null; expected_return_20d: number | null; large_loss_probability: number | null;
+      rank_score_5d?: number | null; rank_score_20d?: number | null };
     researchEligible: boolean;
   } | null;
   researchRuns: import("./mobile/chatgpt").ResearchRunView[];

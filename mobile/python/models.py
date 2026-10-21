@@ -11,6 +11,7 @@ from .features import bundled_selection, calculate
 from .market import feature_inputs
 from .model_bundle import ModelBundle, ResearchModelBundle, reviewed
 from .portable_model import predict
+from .research_ensemble import ResearchEnsembleBundle
 from .storage import connect
 
 
@@ -155,11 +156,13 @@ def status(path: Path, store=None) -> dict:
     adopted = False
     reason = None
     research_ready = False
+    ensemble_ready = False
     if bundles & (bundle_pins | research_pins):
         try:
             bundle, _ = load_bundle(path, datetime.now(UTC))
             ready = True
             research_ready = isinstance(bundle, ResearchModelBundle)
+            ensemble_ready = isinstance(bundle, ResearchEnsembleBundle)
             if (store is not None and isinstance(bundle, ModelBundle)
                     and bundle.adoption_review.decision == "adopt"):
                 try:
@@ -180,7 +183,8 @@ def status(path: Path, store=None) -> dict:
         "model_adopted": adopted,
         "bundle_ready": ready,
         "return_only_research": research_ready,
-        "risk_available": ready and not research_ready,
+        "risk_available": ready and not research_ready and not ensemble_ready,
+        **({"ensemble_research": True} if ensemble_ready else {}),
         "bundle_blocking_reason": reason,
         "research_only": True,
     }

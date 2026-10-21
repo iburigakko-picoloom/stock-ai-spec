@@ -102,7 +102,32 @@ test("return-only research imports without adoption and opens manual consultatio
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("ChatGPTへの相談"));
   expect(screen.getByRole("link", { name: "予測を使ってChatGPTへ相談する" })).toHaveAttribute("href", "/today/chatgpt");
   expect(screen.queryByRole("link", { name: "今日の判定を見る" })).not.toBeInTheDocument();
-  expect(screen.getByText(/下振れ・下落確率・確信度は未提供/)).toBeVisible();
+  expect(screen.getByText(/自動判定に必要なリスク情報・検証がそろっていません/)).toBeVisible();
   expect(screen.getByText("上位20と全保有の予測を見る 1社")).toBeVisible();
   expect(screen.getByText(/実運用の採用確認/)).toHaveTextContent("未完了・研究用");
+});
+
+test("rank-only research preserves units, all holdings and unavailable returns", async () => {
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? {
+    ...model, approved_bundle_count: 0, research_bundle_count: 1, ensemble_research: true,
+  } : null);
+  vi.mocked(apiPost).mockImplementation(async path => path.includes("/decision/") ? {
+    ...decision, outcome: "blocked", phase: "blocked", is_active: false,
+    blocking_reasons: ["FORECAST_RISK_UNAVAILABLE"],
+  } : { ...run, snapshot: { ...run.snapshot, candidate_symbols: ["1000"], holding_symbols: ["7203"] },
+    outputs: [
+      { horizon: 5, role: "ranking", values: [["1000", .4], ["7203", .2]] },
+      { horizon: 20, role: "ranking", values: [["1000", .9], ["7203", .1]] },
+    ] });
+  panel();
+  const button = await screen.findByRole("button", { name: "当日の予測を計算・保存" });
+  fireEvent.click(button);
+  const summary = await screen.findByText("上位20と全保有の予測を見る 2社");
+  fireEvent.click(summary);
+  expect(screen.getByRole("columnheader", { name: "20日順位スコア" })).toBeVisible();
+  expect(screen.getByRole("cell", { name: "0.9000" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "7203" })).toBeVisible();
+  expect(screen.getAllByRole("cell", { name: "未提供" })).toHaveLength(4);
+  expect(screen.queryByText(/NaN|90%/)).not.toBeInTheDocument();
+  expect(screen.getByText(/期待リターン率ではありません/)).toBeVisible();
 });

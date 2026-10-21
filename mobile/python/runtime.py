@@ -453,6 +453,7 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             value = strict_json(body)
             return {"status": 200, "body": bundle_parity(
                 value["content"], value["rows"], bundled_selection(),
+                rank_universes=value.get("rank_universes"),
             )}
         except (ValueError, KeyError, TypeError, IndexError):
             return {"status": 422, "body": {"detail": "モデル一式の一致確認用データが不正です。"}}

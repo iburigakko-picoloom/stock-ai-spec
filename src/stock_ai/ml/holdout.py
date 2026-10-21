@@ -10,7 +10,7 @@ import shutil
 import sys
 import tempfile
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -32,6 +32,7 @@ from pydantic import (
 from stock_ai.features import V2_EXTENDED_MANIFEST
 from stock_ai.ml.advanced import (
     AdvancedModelMetrics,
+    FoldPreprocessor,
     fit_predict_frozen_model,
     summarize_oof_predictions,
 )
@@ -43,9 +44,13 @@ from stock_ai.ml.research_metrics import (
 )
 from stock_ai.ml.selection import (
     DevelopmentSelectionArtifact,
+    FrozenCompositionManifest,
+    FrozenCompositionOutput,
     FrozenModelComponent,
     HorizonDevelopmentSelection,
+    compose_frozen_predictions,
     load_development_selection,
+    load_frozen_composition,
 )
 from stock_ai.ml.validation import reserve_locked_final_holdout
 
@@ -115,10 +120,7 @@ class LockedHoldoutLedger(BaseModel):
         if self.status is HoldoutEvaluationStatus.COMPLETED:
             if self.report_path is None or self.completed_at is None:
                 raise ValueError("completed holdout ledger requires its immutable report")
-            if any(
-                item.status is not HoldoutComponentStatus.SUCCEEDED
-                for item in self.components
-            ):
+            if any(item.status is not HoldoutComponentStatus.SUCCEEDED for item in self.components):
                 raise ValueError("completed holdout ledger has unfinished components")
         return self
 
@@ -179,8 +181,13 @@ class HoldoutEnsembleResult(BaseModel):
             self.empirical_coverage_90,
         )
         all_metrics = (
-            *observed, self.mean_daily_rank_ic, self.rank_icir,
-            self.ndcg_at_5, self.ndcg_at_10, self.ndcg_at_20, self.disagreement_error_correlation,
+            *observed,
+            self.mean_daily_rank_ic,
+            self.rank_icir,
+            self.ndcg_at_5,
+            self.ndcg_at_10,
+            self.ndcg_at_20,
+            self.disagreement_error_correlation,
         )
         if (self.rows == 0 and (self.dates != 0 or any(x is not None for x in all_metrics))) or (
             self.rows > 0 and (not 0 < self.dates <= self.rows or any(x is None for x in observed))
@@ -216,14 +223,43 @@ class HoldoutLabelCoverage(BaseModel):
         return self
 
 
+class HoldoutCompositionResult(BaseModel):
+    """Preserved final output; units and recipe are never inferred from its name."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
+    recipe: FrozenCompositionOutput
+    prediction: HoldoutComponentCheckpoint
+    evaluated_rows: int = Field(ge=0)
+    mean_squared_error: float | None = Field(default=None, ge=0)
+    mean_daily_rank_ic: float | None = Field(default=None, ge=-1, le=1)
+
+    @model_validator(mode="after")
+    def valid_output(self) -> Self:
+        if (
+            self.prediction.status is not HoldoutComponentStatus.SUCCEEDED
+            or self.prediction.horizon != self.recipe.horizon
+            or self.prediction.component_name != self.recipe.output_id
+            or self.prediction.prediction_path is None
+            or self.prediction.parquet_sha256 is None
+        ):
+            raise ValueError("composition result lacks completed prediction provenance")
+        if self.evaluated_rows == 0 and any(
+            v is not None for v in (self.mean_squared_error, self.mean_daily_rank_ic)
+        ):
+            raise ValueError("unlabelled composed output cannot have prediction metrics")
+        if self.recipe.role != "return" and self.mean_squared_error is not None:
+            raise ValueError("non-return score cannot report return MSE")
+        return self
+
+
 class LockedHoldoutReport(BaseModel):
     """Immutable result of the sole post-selection final evaluation."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
 
-    schema_version: Literal["locked-holdout-report-v1", "locked-holdout-report-v2"] = (
-        "locked-holdout-report-v1"
-    )
+    schema_version: Literal[
+        "locked-holdout-report-v1", "locked-holdout-report-v2", "locked-holdout-report-v3"
+    ] = "locked-holdout-report-v1"
     report_id: str = Field(min_length=64, max_length=64)
     created_at: datetime
     selection_id: str = Field(min_length=64, max_length=64)
@@ -238,6 +274,12 @@ class LockedHoldoutReport(BaseModel):
     component_results: tuple[HoldoutComponentResult, ...]
     ensemble_results: tuple[HoldoutEnsembleResult, ...]
     label_coverage: tuple[HoldoutLabelCoverage, ...] | None = None
+    composition_id: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$", exclude_if=lambda v: v is None
+    )
+    composition_results: tuple[HoldoutCompositionResult, ...] | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     selection_was_frozen_before_access: Literal[True] = True
     model_choices_changed_after_access: Literal[False] = False
     adoption_eligible: Literal[False] = False
@@ -261,16 +303,29 @@ class LockedHoldoutReport(BaseModel):
 
     @model_validator(mode="after")
     def coherent_report(self) -> Self:
-        if tuple(item.horizon for item in self.ensemble_results) not in (
+        composed = self.schema_version == "locked-holdout-report-v3"
+        if composed:
+            if (
+                self.composition_id is None
+                or not self.composition_results
+                or self.ensemble_results
+                or {x.recipe.horizon for x in self.composition_results} != {5, 20}
+            ):
+                raise ValueError(
+                    "composed holdout requires explicit output recipes and no legacy ensemble"
+                )
+        elif self.composition_id is not None or self.composition_results is not None:
+            raise ValueError("legacy holdout cannot contain undeclared composition results")
+        if not composed and tuple(item.horizon for item in self.ensemble_results) not in (
             (5, 20),
             (1, 5, 20),
         ):
             raise ValueError("holdout report requires ordered 5d/20d or 1d/5d/20d results")
         if not self.component_results or not self.adoption_blocking_reasons:
             raise ValueError("holdout report cannot claim live adoption")
-        if self.schema_version == "locked-holdout-report-v2":
+        if self.schema_version in ("locked-holdout-report-v2", "locked-holdout-report-v3"):
             if self.label_coverage is None or tuple(x.horizon for x in self.label_coverage) != (
-                tuple(x.horizon for x in self.ensemble_results)
+                (5, 20) if composed else tuple(x.horizon for x in self.ensemble_results)
             ):
                 raise ValueError("v2 holdout report requires prediction/label coverage")
             coverage = {x.horizon: x for x in self.label_coverage}
@@ -282,6 +337,11 @@ class LockedHoldoutReport(BaseModel):
                     raise ValueError("holdout component metrics differ from label coverage")
             if any(x.rows != coverage[x.horizon].evaluated_rows for x in self.ensemble_results):
                 raise ValueError("holdout ensemble metrics differ from label coverage")
+            if any(
+                x.evaluated_rows != coverage[x.recipe.horizon].evaluated_rows
+                for x in self.composition_results or ()
+            ):
+                raise ValueError("holdout composed metrics differ from label coverage")
         elif self.label_coverage is not None or any(
             x.metrics is None for x in self.component_results
         ):
@@ -363,18 +423,29 @@ def evaluate_locked_holdout(
     evaluation_root: Path,
     evaluator_code_commit: str,
     created_at: datetime | None = None,
+    composition_path: Path | None = None,
+    fitted_model_sink: Callable[[FrozenModelComponent, Any, FoldPreprocessor], None] | None = None,
 ) -> LockedHoldoutEvaluation:
     """Evaluate the frozen selection once, resuming prediction-only checkpoints safely."""
 
     if not evaluator_code_commit.strip() or evaluator_code_commit == "UNSET":
         raise ValueError("locked holdout evaluator code commit must be explicit")
     selection = load_development_selection(selection_path)
+    composition = (
+        load_frozen_composition(composition_path, selection)
+        if composition_path is not None
+        else None
+    )
     build_id = load_campaign_build_id(build_manifest_path)
     if build_id != selection.build_id:
         raise ValueError("locked holdout build differs from frozen development selection")
     timestamp = created_at or datetime.now(UTC)
     evaluation_directory = (evaluation_root / selection.selection_id).resolve()
     ledger_path = evaluation_directory / "ledger.json"
+    if composition is not None:
+        _require_composition_preaccess_plan(
+            selection_path, composition_path, composition, ledger_path, timestamp
+        )
     _authorize_single_evaluation(
         selection_path=selection_path,
         selection=selection,
@@ -382,9 +453,10 @@ def evaluate_locked_holdout(
         evaluator_code_commit=evaluator_code_commit,
         ledger_path=ledger_path,
         now=timestamp,
+        composition_id=None if composition is None else composition.composition_id,
     )
     evaluation_directory.mkdir(parents=True, exist_ok=True)
-    plans = _component_plans(selection)
+    plans = _component_plans(selection, composition)
     with _ExclusiveHoldoutLock(evaluation_directory / ".evaluation.lock"):
         resumed = ledger_path.exists()
         ledger = (
@@ -414,6 +486,7 @@ def evaluate_locked_holdout(
                 ledger=ledger,
                 selection=selection,
                 build_id=build_id,
+                composition=composition,
             )
             return LockedHoldoutEvaluation(
                 report=report,
@@ -429,7 +502,7 @@ def evaluate_locked_holdout(
         snapshot, dataset = load_production_dataset_snapshot(dataset_path)
         if snapshot.snapshot_id != selection.data_snapshot_id:
             raise RuntimeError("locked holdout dataset differs from frozen selection")
-        holdout_frames = _holdout_frames(dataset, selection)
+        holdout_frames = _holdout_frames(dataset, selection, composition)
         state_by_id = {item.component_id: item for item in ledger.components}
         plan_by_id = {item.component_id: item for item in plans}
         for component_id in (item.component_id for item in plans):
@@ -446,6 +519,19 @@ def evaluate_locked_holdout(
             state.failure_code = None
             _write_ledger(ledger, ledger_path)
             try:
+                fit_options: dict[str, Any] = {}
+                if fitted_model_sink is not None:
+                    # Synchronous same-fit export; no second fit is requested.
+                    # The sink must durably retain state before returning.
+                    def retain(
+                        model: Any,
+                        processor: FoldPreprocessor,
+                        component: FrozenModelComponent = plan.component,
+                    ) -> None:
+                        assert fitted_model_sink is not None
+                        fitted_model_sink(component, model, processor)
+
+                    fit_options["fitted_model_sink"] = retain
                 prediction = fit_predict_frozen_model(
                     training,
                     holdout,
@@ -457,6 +543,7 @@ def evaluate_locked_holdout(
                     seed=plan.component.seed,
                     parameters=plan.component.parameters,
                     config=plan.component.source_config,
+                    **fit_options,
                 )
                 artifact = holdout.loc[:, ["symbol", "trading_date"]].copy()
                 artifact["prediction"] = prediction
@@ -480,6 +567,8 @@ def evaluate_locked_holdout(
             plans=plans,
             holdout_frames=holdout_frames,
             created_at=timestamp,
+            composition=composition,
+            prediction_directory=evaluation_directory / "predictions",
         )
         report_path = write_locked_holdout_report(report, evaluation_root / "reports")
         ledger.status = HoldoutEvaluationStatus.COMPLETED
@@ -599,6 +688,7 @@ def _authorize_single_evaluation(
     evaluator_code_commit: str,
     ledger_path: Path,
     now: datetime,
+    composition_id: str | None = None,
 ) -> None:
     """Bind one selection artifact to one ledger path before any holdout data is read."""
 
@@ -611,6 +701,8 @@ def _authorize_single_evaluation(
         "evaluator_code_commit": evaluator_code_commit,
         "ledger_path": str(ledger_path.resolve()),
     }
+    if composition_id is not None:
+        identity["composition_id"] = composition_id
     if authorization_path.exists():
         payload = _read_json(
             authorization_path,
@@ -652,6 +744,7 @@ def _authorize_single_evaluation(
             evaluator_code_commit=evaluator_code_commit,
             ledger_path=ledger_path,
             now=now,
+            composition_id=composition_id,
         )
         return
     try:
@@ -663,6 +756,7 @@ def _authorize_single_evaluation(
 
 def _component_plans(
     selection: DevelopmentSelectionArtifact,
+    composition: FrozenCompositionManifest | None = None,
 ) -> tuple[_ComponentPlan, ...]:
     plans: list[_ComponentPlan] = []
     for horizon in selection.horizons:
@@ -676,17 +770,24 @@ def _component_plans(
                 *horizon.ensemble_components,
             )
         }
+        if composition is not None:
+            components = {
+                p.component.component_name: p.component
+                for p in composition.components
+                if p.component.horizon == horizon.horizon
+            }
         for name in sorted(components):
             component = components[name]
             component_key = f"h{horizon.horizon}:{name}"
-            component_id = _stable_hash(
-                {
-                    "selection_id": selection.selection_id,
-                    "component_key": component_key,
-                    "feature_names": horizon.feature_names,
-                    "component": component.model_dump(mode="json"),
-                }
-            )
+            identity: dict[str, object] = {
+                "selection_id": selection.selection_id,
+                "component_key": component_key,
+                "feature_names": horizon.feature_names,
+                "component": component.model_dump(mode="json"),
+            }
+            if composition is not None:
+                identity["composition_id"] = composition.composition_id
+            component_id = _stable_hash(identity)
             plans.append(
                 _ComponentPlan(
                     component_id=component_id,
@@ -732,6 +833,7 @@ def _dataset_path_from_build_marker(path: Path) -> Path:
 def _holdout_frames(
     dataset: pd.DataFrame,
     selection: DevelopmentSelectionArtifact,
+    composition: FrozenCompositionManifest | None = None,
 ) -> Mapping[int, tuple[pd.DataFrame, pd.DataFrame]]:
     output: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
     boundary = pd.Timestamp(selection.locked_holdout_start)
@@ -750,7 +852,8 @@ def _holdout_frames(
         }
         if len(configs) != 1:
             raise ValueError("frozen holdout period differs across components")
-        reserved = reserve_locked_final_holdout(dataset, holdout_periods=configs.pop())
+        holdout_periods = configs.pop()
+        reserved = reserve_locked_final_holdout(dataset, holdout_periods=holdout_periods)
         if reserved.holdout_start != boundary:
             raise RuntimeError("frozen selection holdout boundary differs from dataset")
         target = f"target_return_{horizon}d"
@@ -773,6 +876,57 @@ def _holdout_frames(
         # Future exit availability must never decide which symbols get a
         # prediction. Metrics below use a separate, explicitly counted mask.
         holdout = dataset.loc[date_values >= boundary].copy()
+        if composition is not None:
+            parts = [p for p in composition.components if p.component.horizon == horizon]
+            if not parts or any(
+                p.component.source_config.holdout_periods != holdout_periods for p in parts
+            ):
+                raise ValueError("composition holdout period differs across components")
+            cutoffs = {pd.Timestamp(p.train_cutoff) for p in parts}
+            if len(cutoffs) != 1:
+                raise ValueError("composition requires one predeclared training cutoff per horizon")
+            cutoff = next(iter(cutoffs))
+            # This mask concerns training only; prediction rows never depend on a label.
+            receipt_column = f"label_available_at_{horizon}d"
+            if receipt_column not in training.columns:
+                raise ValueError("composition training requires explicit label receipt timestamps")
+            receipts = pd.to_datetime(training[receipt_column], utc=True)
+            training = training.loc[
+                (pd.to_datetime(training[endpoint], utc=True) < cutoff)
+                & receipts.notna()
+                & (receipts < cutoff)
+            ]
+            population = [p for p in composition.prediction_population if p.horizon == horizon]
+            keys = {
+                (pd.Timestamp(p.trading_date), symbol) for p in population for symbol in p.symbols
+            }
+            available_keys = set(
+                zip(pd.to_datetime(holdout.trading_date), holdout.symbol.astype(str), strict=True)
+            )
+            if not keys or not keys <= available_keys:
+                raise ValueError(
+                    "declared composition prediction features unavailable; no fabricated rows"
+                )
+            if {p.trading_date for p in population} != set(
+                pd.to_datetime(holdout.trading_date).dt.date
+            ):
+                raise ValueError(
+                    "composition population does not cover the complete final calendar"
+                )
+            keep = [
+                (pd.Timestamp(d), str(s)) in keys
+                for d, s in zip(holdout.trading_date, holdout.symbol, strict=True)
+            ]
+            holdout = holdout.loc[keep]
+            if "as_of" not in holdout.columns:
+                raise ValueError("composition prediction requires feature availability timestamps")
+            decisions = {p.trading_date: p.decision_as_of for p in population}
+            available = pd.to_datetime(holdout["as_of"], utc=True)
+            if available.isna().any() or any(
+                stamp > decisions[pd.Timestamp(day).date()]
+                for stamp, day in zip(available, holdout.trading_date, strict=True)
+            ):
+                raise ValueError("composition features unavailable at their declared decision")
         training = training.sort_values(["trading_date", "symbol"], kind="stable").reset_index(
             drop=True
         )
@@ -795,7 +949,9 @@ def _label_coverage(frame: pd.DataFrame, horizon: int) -> HoldoutLabelCoverage:
     statuses = frame.loc[~usable, f"label_status_{horizon}d"].fillna("UNKNOWN").astype(str)
     statuses = statuses.replace("AVAILABLE", "AVAILABLE_WITHOUT_FINITE_TARGET")
     return HoldoutLabelCoverage(
-        horizon=horizon, prediction_rows=len(frame), evaluated_rows=int(usable.sum()),
+        horizon=horizon,
+        prediction_rows=len(frame),
+        evaluated_rows=int(usable.sum()),
         unavailable_rows=int((~usable).sum()),
         unavailable_status_counts=tuple(sorted(Counter(statuses).items())),
     )
@@ -836,9 +992,7 @@ def _load_prediction(
         raise RuntimeError("holdout prediction row count differs from locked rows")
     if not frame["symbol"].astype(str).equals(expected["symbol"].astype(str)):
         raise RuntimeError("holdout prediction symbol identity mismatch")
-    if not pd.to_datetime(frame["trading_date"]).equals(
-        pd.to_datetime(expected["trading_date"])
-    ):
+    if not pd.to_datetime(frame["trading_date"]).equals(pd.to_datetime(expected["trading_date"])):
         raise RuntimeError("holdout prediction date identity mismatch")
     return frame
 
@@ -878,6 +1032,8 @@ def _build_holdout_report(
     plans: tuple[_ComponentPlan, ...],
     holdout_frames: Mapping[int, tuple[pd.DataFrame, pd.DataFrame]],
     created_at: datetime,
+    composition: FrozenCompositionManifest | None = None,
+    prediction_directory: Path | None = None,
 ) -> LockedHoldoutReport:
     state_by_id = {item.component_id: item for item in ledger.components}
     predictions: dict[str, pd.DataFrame] = {}
@@ -888,20 +1044,24 @@ def _build_holdout_report(
         prediction = _load_prediction(state, expected=holdout)
         predictions[plan.component_key] = prediction
         metric_frame = prediction.copy()
-        metric_frame["target"] = holdout[
-            f"target_return_{plan.component.horizon}d"
-        ].to_numpy(dtype=float)
+        metric_frame["target"] = holdout[f"target_return_{plan.component.horizon}d"].to_numpy(
+            dtype=float
+        )
         metric_frame["horizon"] = plan.component.horizon
         metric_frame["model_family"] = plan.component.model_family
         metric_frame["task"] = plan.component.task
         metric_frame["seed"] = plan.component.seed
         metric_frame["fold"] = 0
         labelled = metric_frame.loc[_evaluable_labels(holdout, plan.component.horizon)]
-        metrics = summarize_oof_predictions(
-            labelled,
-            quantile_alpha=plan.component.source_config.quantile_alpha,
-            large_loss_threshold=plan.component.source_config.large_loss_threshold,
-        ) if not labelled.empty else None
+        metrics = (
+            summarize_oof_predictions(
+                labelled,
+                quantile_alpha=plan.component.source_config.quantile_alpha,
+                large_loss_threshold=plan.component.source_config.large_loss_threshold,
+            )
+            if not labelled.empty
+            else None
+        )
         assert state.parquet_sha256 is not None
         component_results.append(
             HoldoutComponentResult(
@@ -911,20 +1071,36 @@ def _build_holdout_report(
                 prediction_sha256=state.parquet_sha256,
             )
         )
-    ensemble_results = tuple(
-        _evaluate_holdout_ensemble(
-            horizon,
-            predictions=predictions,
-            holdout=holdout_frames[horizon.horizon][1],
+    ensemble_results = (
+        ()
+        if composition is not None
+        else tuple(
+            _evaluate_holdout_ensemble(
+                horizon,
+                predictions=predictions,
+                holdout=holdout_frames[horizon.horizon][1],
+            )
+            for horizon in selection.horizons
         )
-        for horizon in selection.horizons
     )
+    composition_results: tuple[HoldoutCompositionResult, ...] | None = None
+    if composition is not None:
+        assert prediction_directory is not None
+        composition_results = tuple(
+            _evaluate_frozen_composition(
+                output,
+                composition,
+                predictions,
+                holdout_frames[output.horizon][1],
+                prediction_directory,
+            )
+            for output in composition.outputs
+        )
     holdout_end = max(
-        pd.to_datetime(frame[1]["trading_date"]).max()
-        for frame in holdout_frames.values()
+        pd.to_datetime(frame[1]["trading_date"]).max() for frame in holdout_frames.values()
     )
     values: dict[str, object] = {
-        "schema_version": _REPORT_SCHEMA,
+        "schema_version": _REPORT_SCHEMA if composition is None else "locked-holdout-report-v3",
         "report_id": "0" * 64,
         "created_at": created_at,
         "selection_id": selection.selection_id,
@@ -938,6 +1114,8 @@ def _build_holdout_report(
         "feature_definition_hashes": _expected_feature_definition_hashes(selection),
         "component_results": tuple(component_results),
         "ensemble_results": ensemble_results,
+        "composition_id": None if composition is None else composition.composition_id,
+        "composition_results": composition_results,
         "label_coverage": tuple(
             _label_coverage(frame[1], horizon) for horizon, frame in holdout_frames.items()
         ),
@@ -959,9 +1137,7 @@ def _build_holdout_report(
 def _expected_feature_definition_hashes(
     selection: DevelopmentSelectionArtifact,
 ) -> dict[str, str]:
-    selected_features = {
-        name for horizon in selection.horizons for name in horizon.feature_names
-    }
+    selected_features = {name for horizon in selection.horizons for name in horizon.feature_names}
     unknown = selected_features - set(V2_EXTENDED_MANIFEST.feature_names)
     if unknown:
         raise RuntimeError("selection contains a feature outside the frozen V2 manifest")
@@ -978,10 +1154,9 @@ def _require_completed_report(
     ledger: LockedHoldoutLedger,
     selection: DevelopmentSelectionArtifact,
     build_id: str,
+    composition: FrozenCompositionManifest | None = None,
 ) -> None:
-    expected_components = {
-        item.component_key: item.parquet_sha256 for item in ledger.components
-    }
+    expected_components = {item.component_key: item.parquet_sha256 for item in ledger.components}
     reported_components = {
         item.component_key: item.prediction_sha256 for item in report.component_results
     }
@@ -992,11 +1167,105 @@ def _require_completed_report(
         or report.data_snapshot_id != selection.data_snapshot_id
         or report.evaluator_code_commit != ledger.evaluator_code_commit
         or report.locked_holdout_start != selection.locked_holdout_start
-        or dict(report.feature_definition_hashes)
-        != _expected_feature_definition_hashes(selection)
+        or dict(report.feature_definition_hashes) != _expected_feature_definition_hashes(selection)
         or reported_components != expected_components
     ):
         raise RuntimeError("completed holdout report provenance mismatch")
+    if report.composition_id != (None if composition is None else composition.composition_id):
+        raise RuntimeError("completed holdout composition identity mismatch")
+    if composition is not None:
+        if tuple(r.recipe for r in report.composition_results or ()) != composition.outputs:
+            raise RuntimeError("completed holdout composition recipes differ")
+        for result in report.composition_results or ():
+            _load_prediction_artifact(result.prediction)
+
+
+def _require_composition_preaccess_plan(
+    selection_path: Path,
+    composition_path: Path | None,
+    composition: FrozenCompositionManifest,
+    ledger_path: Path,
+    now: datetime,
+) -> None:
+    """The new path needs explicit pre-access strategy/criteria and owner reference.
+
+    Reading this metadata does not grant owner approval or open market data.
+    The existing single-use authorization still binds the execution afterwards.
+    """
+    assert composition_path is not None
+    if composition_path.resolve() != selection_path.resolve().parent / "frozen-composition.json":
+        raise ValueError("composition must be the immutable sidecar beside this selection")
+    plan = _read_json(
+        selection_path.parent / "final-strategy-plan.json",
+        description="pre-access composition strategy plan",
+    )
+    anchor = _read_json(
+        ledger_path.parent / "final-strategy-preaccess.json",
+        description="pre-access composition strategy anchor",
+    )
+    if plan != anchor or plan.get("plan_id") != _stable_hash(
+        {k: v for k, v in plan.items() if k != "plan_id"}
+    ):
+        raise ValueError("composition strategy differs from its pre-access anchor/hash")
+    if (
+        plan.get("composition_id") != composition.composition_id
+        or plan.get("composition_file_sha256") != _file_sha256(composition_path)
+        or plan.get("composition_manifest_path") != str(composition_path.resolve())
+        or plan.get("selection_id") != composition.selection_id
+        or plan.get("data_snapshot_id") != composition.data_snapshot_id
+        or plan.get("ledger_path") != str(ledger_path.resolve())
+        or plan.get("owner_confirmation_reference") != composition.owner_confirmation_reference
+    ):
+        raise ValueError("composition strategy/owner confirmation differs from frozen manifest")
+    frozen = datetime.fromisoformat(str(plan.get("frozen_at")))
+    if not composition.created_at <= frozen < now:
+        raise ValueError("composition/criteria must be frozen before holdout access")
+
+
+def _evaluate_frozen_composition(
+    output: FrozenCompositionOutput,
+    composition: FrozenCompositionManifest,
+    predictions: Mapping[str, pd.DataFrame],
+    holdout: pd.DataFrame,
+    destination: Path,
+) -> HoldoutCompositionResult:
+    frames = {name: predictions[f"h{output.horizon}:{name}"] for name in output.components}
+    combined = compose_frozen_predictions(output, frames)
+    expected = holdout[["symbol", "trading_date"]].reset_index(drop=True)
+    if not combined[["symbol", "trading_date"]].equals(expected):
+        raise RuntimeError("composed final prediction keys differ from frozen population")
+    state = HoldoutComponentCheckpoint(
+        component_id=_stable_hash(
+            {"composition_id": composition.composition_id, "output_id": output.output_id}
+        ),
+        component_key=f"output:{output.output_id}",
+        horizon=output.horizon,
+        component_name=output.output_id,
+        status=HoldoutComponentStatus.SUCCEEDED,
+    )
+    _publish_prediction(state, combined, destination)
+    usable = _evaluable_labels(holdout, output.horizon)
+    count = int(usable.sum())
+    mse, rank_ic = None, None
+    if count:
+        target = holdout.loc[usable, f"target_return_{output.horizon}d"].reset_index(drop=True)
+        value = combined.loc[usable, "prediction"].reset_index(drop=True)
+        if output.role == "return":
+            mse = float(np.mean(np.square(value.to_numpy() - target.to_numpy())))
+        if output.role in ("return", "ranking"):
+            metric = evaluate_cross_sectional_predictions(
+                dates=pd.to_datetime(holdout.loc[usable, "trading_date"]).reset_index(drop=True),
+                target=target,
+                prediction=value,
+            )
+            rank_ic = metric.mean_daily_rank_ic
+    return HoldoutCompositionResult(
+        recipe=output,
+        prediction=state,
+        evaluated_rows=count,
+        mean_squared_error=mse,
+        mean_daily_rank_ic=rank_ic,
+    )
 
 
 def _evaluate_holdout_ensemble(
@@ -1015,9 +1284,7 @@ def _evaluate_holdout_ensemble(
         key = f"h{horizon.horizon}:{name}"
         frame = predictions[key]
         ranked = (
-            frame.groupby("trading_date", sort=False)["prediction"].rank(
-                method="average", pct=True
-            )
+            frame.groupby("trading_date", sort=False)["prediction"].rank(method="average", pct=True)
             - 0.5
         ) * 2.0
         matrix_columns.append(ranked.to_numpy(dtype=float))
@@ -1029,11 +1296,17 @@ def _evaluate_holdout_ensemble(
     usable = _evaluable_labels(holdout, horizon.horizon).to_numpy(dtype=bool)
     if not usable.any():
         return HoldoutEnsembleResult(
-            horizon=horizon.horizon, adopted_on_development=horizon.ensemble_adopted,
-            component_names=horizon.ensemble.component_names, weights=horizon.ensemble.weights,
-            rows=0, dates=0, mean_squared_error_rank_space=None,
-            mean_daily_rank_ic=None, rank_icir=None,
-            empirical_coverage_80=None, empirical_coverage_90=None,
+            horizon=horizon.horizon,
+            adopted_on_development=horizon.ensemble_adopted,
+            component_names=horizon.ensemble.component_names,
+            weights=horizon.ensemble.weights,
+            rows=0,
+            dates=0,
+            mean_squared_error_rank_space=None,
+            mean_daily_rank_ic=None,
+            rank_icir=None,
+            empirical_coverage_80=None,
+            empirical_coverage_90=None,
             disagreement_error_correlation=None,
         )
     dates = dates.loc[usable].reset_index(drop=True)
@@ -1063,12 +1336,8 @@ def _evaluate_holdout_ensemble(
         ndcg_at_5=metrics.ndcg_at_5,
         ndcg_at_10=metrics.ndcg_at_10,
         ndcg_at_20=metrics.ndcg_at_20,
-        empirical_coverage_80=float(
-            np.mean(residual <= horizon.uncertainty.residual_quantile_80)
-        ),
-        empirical_coverage_90=float(
-            np.mean(residual <= horizon.uncertainty.residual_quantile_90)
-        ),
+        empirical_coverage_80=float(np.mean(residual <= horizon.uncertainty.residual_quantile_80)),
+        empirical_coverage_90=float(np.mean(residual <= horizon.uncertainty.residual_quantile_90)),
         disagreement_error_correlation=_finite_correlation(disagreement, residual),
     )
 
@@ -1162,6 +1431,8 @@ def _report_identity(report: LockedHoldoutReport) -> dict[str, object]:
     excluded = {"report_id", "created_at"}
     if report.schema_version == "locked-holdout-report-v1":
         excluded.add("label_coverage")
+    if report.schema_version != "locked-holdout-report-v3":
+        excluded.update({"composition_id", "composition_results"})
     return report.model_dump(mode="json", exclude=excluded)
 
 

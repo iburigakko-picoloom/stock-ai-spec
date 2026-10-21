@@ -6,15 +6,15 @@ import { StockAI } from "./native";
 interface ModelStatus {
   approved_bundle_count: number; imported_bundle_count: number; bundle_ready: boolean;
   model_adopted: boolean; bundle_blocking_reason?: string | null;
-  research_bundle_count?: number; return_only_research?: boolean; risk_available?: boolean;
+  research_bundle_count?: number; return_only_research?: boolean; ensemble_research?: boolean; risk_available?: boolean;
 }
 interface ForecastRun {
   run_id: string; phase: string; outcome: string; checked_at: string;
   scope: { as_of: string; universe?: { latest_source_date?: string | null; policy?: string } };
   snapshot: { generated_at: string; data_as_of: string; predictions: { symbol: string;
-    expected_return_5d: number; expected_return_20d: number }[];
+    expected_return_5d: number | null; expected_return_20d: number | null }[];
     candidate_symbols?: string[]; holding_symbols?: string[] } | null;
-  outputs: { horizon: number; task: string; values: [string, number][] }[];
+  outputs: { horizon: number; task?: string; role?: string; values: [string, number][] }[];
   excluded_candidates: { symbol: string; reason: string }[]; blocking_reasons: string[];
 }
 interface DecisionRun {
@@ -35,7 +35,10 @@ function reason(code: string): string {
     UNIVERSE_HELD_INSTRUMENT_UNSUPPORTED_OR_NOT_LISTED: "対応する国内普通株として確認できない保有があります。銘柄と上場状況を確認してください。",
     UNIVERSE_NON_BUSINESS_DAY: "当日は休場日です。",
     CALIBRATED_MODEL_BUNDLE_UNAVAILABLE: "締切までに取り込まれた、利用条件を確認済みのモデル一式が必要です。",
-    FORECAST_RISK_UNAVAILABLE: "下振れ・下落確率・確信度は未提供です。株数の自動判定を行わず、ChatGPTへの相談と回答の検算を利用できます。",
+    ENSEMBLE_REQUIRES_ALL_MARKET_FEATURES: "この合成モデルは全市場の順位を必要とします。現在の対象限定入力では計算できません。",
+    ENSEMBLE_UNIVERSE_RULE_MISMATCH: "合成モデルと銘柄の対象方式が異なります。対応する研究用モデルを確認してください。",
+    ENSEMBLE_UNSUPPORTED_RISK_HORIZON: "この研究用モデルのリスク対象期間には対応していません。",
+    FORECAST_RISK_UNAVAILABLE: "株数の自動判定に必要なリスク情報・検証がそろっていません。ChatGPTへの相談と回答の検算を利用できます。",
     NO_USABLE_FORECAST: "候補銘柄の予測に必要な履歴が不足しています。",
     NUMERICAL_FORECAST_INCOMPLETE: "数値予測の保存を完了してから株数を計算します。",
     NUMERICAL_FORECAST_NOT_CURRENT_DAY: "当日の数値予測が必要です。",
@@ -49,7 +52,7 @@ function reason(code: string): string {
   };
   return messages[code] ?? "保存済みの履歴・原予測・口座・保有・補足設定を確認してください。";
 }
-const percent = (value: number): string => new Intl.NumberFormat("ja-JP", { style: "percent", maximumFractionDigits: 2 }).format(value);
+const percent = (value: number | undefined): string => value === undefined ? "未提供" : new Intl.NumberFormat("ja-JP", { style: "percent", maximumFractionDigits: 2 }).format(value);
 const clock = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" });
 function timestamp(value: string): ReactNode {
   const date = new Date(value);
@@ -74,12 +77,14 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
     catch (error) { setMessage(error instanceof Error ? error.message : "計算・保存を完了できませんでした。"); }
     finally { onBusy(false); }
   }
-  const five = new Map(run?.outputs.find(x => x.horizon === 5 && x.task === "regression")?.values ?? []);
-  const twenty = new Map(run?.outputs.find(x => x.horizon === 20 && x.task === "regression")?.values ?? []);
-  const available = [...five.keys()].filter(symbol => twenty.has(symbol));
+  const five = new Map(run?.outputs.find(x => x.horizon === 5 && (x.task === "regression" || x.role === "return"))?.values ?? []);
+  const twenty = new Map(run?.outputs.find(x => x.horizon === 20 && (x.task === "regression" || x.role === "return"))?.values ?? []);
+  const ranking = new Map(run?.outputs.find(x => x.horizon === 20 && x.role === "ranking")?.values ?? []);
+  const priority = ranking.size ? ranking : twenty;
+  const available = [...priority.keys()];
   const holdings = new Set(run?.snapshot?.holding_symbols ?? []);
-  const top = run?.snapshot?.candidate_symbols?.filter(symbol => twenty.has(symbol))
-    .sort((a, b) => twenty.get(b)! - twenty.get(a)! || a.localeCompare(b)).slice(0, 20);
+  const top = run?.snapshot?.candidate_symbols?.filter(symbol => priority.has(symbol))
+    .sort((a, b) => priority.get(b)! - priority.get(a)! || a.localeCompare(b)).slice(0, 20);
   const symbols = top ? [...new Set([...top, ...[...holdings].sort()])].filter(symbol => available.includes(symbol)) : available.sort();
   const researchConsultation = decision?.blocking_reasons.length === 1 && decision.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE";
   const bundleCount = (model?.approved_bundle_count ?? 0) + (model?.research_bundle_count ?? 0);
@@ -100,7 +105,7 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
         const value = await apiPost<ForecastRun>("/api/v1/mobile/daily/generate", {}); setRun(value);
         const shares = await apiPost<DecisionRun>("/api/v1/mobile/decision/generate", {}); setDecision(shares);
         setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : shares.blocking_reasons.length === 1 && shares.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE" ? "研究用の予測を保存しました。ChatGPTへの相談で株数案を検討できます。" : "計算状況と不足項目を保存しました。");
-      })}>{model?.return_only_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
+      })}>{model?.return_only_research || model?.ensemble_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
     </div>
     <p role="status">{message}</p>
     {run && <div className="forecast-state">
@@ -124,8 +129,9 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
       {run.excluded_candidates.length > 0 && <details><summary>履歴不足で予測を見送った候補 {run.excluded_candidates.length}社</summary>
         <p>{run.excluded_candidates.map(x => x.symbol).join("、")}</p></details>}
       {symbols.length > 0 && <details><summary>{top ? "上位20と全保有の予測を見る" : "算出できた予測を見る"} {symbols.length}社</summary>
-        <table><thead><tr><th>銘柄</th><th>5日</th><th>20日</th></tr></thead><tbody>{symbols.map(symbol => <tr key={symbol}>
-          <td><Link to={`/stocks/${symbol}`}>{symbol}</Link>{holdings.has(symbol) && "（保有）"}</td><td>{percent(five.get(symbol)!)}</td><td>{percent(twenty.get(symbol)!)}</td></tr>)}</tbody></table>
+        {ranking.size > 0 && <p>順位スコアは期待リターン率ではありません。20日の順位で表示します。</p>}
+        <table><thead><tr><th>銘柄</th>{ranking.size > 0 && <th>20日順位スコア</th>}<th>5日リターン</th><th>20日リターン</th></tr></thead><tbody>{symbols.map(symbol => <tr key={symbol}>
+          <td><Link to={`/stocks/${symbol}`}>{symbol}</Link>{holdings.has(symbol) && "（保有）"}</td>{ranking.size > 0 && <td>{ranking.get(symbol)?.toFixed(4) ?? "未提供"}</td>}<td>{percent(five.get(symbol))}</td><td>{percent(twenty.get(symbol))}</td></tr>)}</tbody></table>
       </details>}
     </div>}
   </section>;

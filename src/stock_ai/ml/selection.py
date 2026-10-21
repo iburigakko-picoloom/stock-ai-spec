@@ -15,7 +15,7 @@ import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, Self, cast
@@ -23,6 +23,7 @@ from typing import Any, Literal, Self, cast
 import numpy as np
 import pandas as pd
 from pydantic import (
+    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
@@ -88,15 +89,11 @@ class FrozenModelComponent(BaseModel):
 
     @field_validator("parameters", mode="after")
     @classmethod
-    def freeze_parameters(
-        cls, value: Mapping[str, int | float]
-    ) -> Mapping[str, int | float]:
+    def freeze_parameters(cls, value: Mapping[str, int | float]) -> Mapping[str, int | float]:
         return MappingProxyType(dict(value))
 
     @field_serializer("parameters")
-    def serialize_parameters(
-        self, value: Mapping[str, int | float]
-    ) -> dict[str, int | float]:
+    def serialize_parameters(self, value: Mapping[str, int | float]) -> dict[str, int | float]:
         return dict(value)
 
     @model_validator(mode="after")
@@ -110,6 +107,363 @@ class FrozenModelComponent(BaseModel):
         if self.source_config.seeds != (self.seed,):
             raise ValueError("frozen component source config seed mismatch")
         return self
+
+
+class FrozenCompositionCalibration(BaseModel):
+    """Development-only calibration; the final evaluator never refits it."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
+    method: Literal["affine_rank_to_return", "isotonic_probability", "quantile_offset"]
+    source_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    latest_label_available_at: AwareDatetime
+    fitted_at: AwareDatetime
+    slope: float | None = None
+    intercept: float | None = None
+    x: tuple[float, ...] | None = None
+    y: tuple[float, ...] | None = None
+    offset: float | None = None
+
+    @model_validator(mode="after")
+    def coherent(self) -> Self:
+        present = {
+            k for k in ("slope", "intercept", "x", "y", "offset") if getattr(self, k) is not None
+        }
+        required = {
+            "affine_rank_to_return": {"slope", "intercept"},
+            "isotonic_probability": {"x", "y"},
+            "quantile_offset": {"offset"},
+        }
+        if present != required[self.method] or self.latest_label_available_at > self.fitted_at:
+            raise ValueError("frozen composition calibration provenance/parameters differ")
+        if self.method == "affine_rank_to_return" and cast(float, self.slope) < 0:
+            raise ValueError("rank-to-return slope must be nonnegative")
+        if self.method == "isotonic_probability":
+            assert self.x is not None and self.y is not None
+            if (
+                not self.x
+                or len(self.x) != len(self.y)
+                or any(a >= b for a, b in zip(self.x, self.x[1:], strict=False))
+                or any(a > b for a, b in zip(self.y, self.y[1:], strict=False))
+                or any(not 0 <= v <= 1 for v in (*self.x, *self.y))
+            ):
+                raise ValueError("invalid frozen probability calibration")
+        return self
+
+    def apply(self, value: float) -> float:
+        if self.method == "affine_rank_to_return":
+            return cast(float, self.intercept) + cast(float, self.slope) * value
+        if self.method == "quantile_offset":
+            return value + cast(float, self.offset)
+        assert self.x is not None and self.y is not None
+        if value <= self.x[0]:
+            return self.y[0]
+        for i in range(1, len(self.x)):
+            if value <= self.x[i]:
+                return self.y[i - 1] + (self.y[i] - self.y[i - 1]) * (
+                    (value - self.x[i - 1]) / (self.x[i] - self.x[i - 1])
+                )
+        return self.y[-1]
+
+
+class FrozenCompositionOutput(BaseModel):
+    """Explicit mathematical recipe, including the population used for ranks."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
+    output_id: str = Field(min_length=1, max_length=200)
+    horizon: Literal[5, 20]
+    role: Literal["return", "ranking", "quantile", "large_loss"]
+    recipe_version: Literal[
+        "daily-forward-crossfit-v1", "selection-rank-space-v1", "research-composition-v1"
+    ]
+    components: tuple[str, ...] = Field(min_length=1, max_length=72)
+    weights: tuple[float, ...] = Field(min_length=1, max_length=72)
+    weight_source: Literal["single", "equal", "learned"]
+    transform: Literal["identity", "within_date_average_percentile_v1"]
+    unit: Literal["fractional_return", "rank_score", "probability"]
+    rank_universe: Literal["decision_symbols", "all_market_symbols"] | None = None
+    universe_rule_version: str | None = Field(default=None, min_length=1)
+    universe_evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    source_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    latest_weight_label_available_at: AwareDatetime
+    weights_fitted_at: AwareDatetime
+    received_at: AwareDatetime
+    calibration: FrozenCompositionCalibration | None = None
+
+    @model_validator(mode="after")
+    def coherent(self) -> Self:
+        if (
+            len(self.components) != len(set(self.components))
+            or len(self.components) != len(self.weights)
+            or any(w < 0 for w in self.weights)
+            or abs(sum(self.weights) - 1) > 1e-10
+        ):
+            raise ValueError("composition weights require an aligned nonnegative simplex")
+        if self.weight_source == "single" and self.weights != (1.0,):
+            raise ValueError("single output requires one weight")
+        if self.weight_source == "equal" and any(
+            abs(w - 1 / len(self.weights)) > 1e-12 for w in self.weights
+        ):
+            raise ValueError("equal composition weights changed")
+        if not self.latest_weight_label_available_at <= self.weights_fitted_at <= self.received_at:
+            raise ValueError("composition weights used unreceived labels")
+        ranked = self.transform != "identity"
+        population = (self.rank_universe, self.universe_rule_version, self.universe_evidence_sha256)
+        if ranked != all(v is not None for v in population) or (
+            not ranked and any(v is not None for v in population)
+        ):
+            raise ValueError("rank composition requires its full population contract")
+        if self.recipe_version == "selection-rank-space-v1" and not ranked:
+            raise ValueError("selection rank-space cannot be a raw return recipe")
+        if (
+            self.unit
+            != {
+                "return": "fractional_return",
+                "ranking": "rank_score",
+                "quantile": "fractional_return",
+                "large_loss": "probability",
+            }[self.role]
+        ):
+            raise ValueError("composition role and output unit differ")
+        if self.role in ("quantile", "large_loss") and ranked:
+            raise ValueError("risk heads cannot use rank transforms")
+        if self.role == "ranking" and len(self.components) > 1 and not ranked:
+            raise ValueError("ranking ensemble requires percentile normalization")
+        if self.role == "return" and ranked and self.calibration is None:
+            raise ValueError("uncalibrated rank scores are not return percentages")
+        if self.calibration is not None:
+            expected = {
+                "return": "affine_rank_to_return",
+                "quantile": "quantile_offset",
+                "large_loss": "isotonic_probability",
+            }.get(self.role)
+            if self.calibration.method != expected or (self.role == "return" and not ranked):
+                raise ValueError("composition calibration differs from output role")
+            if self.calibration.fitted_at > self.received_at:
+                raise ValueError("composition calibration was unavailable at receipt")
+        return self
+
+
+class FrozenCompositionPopulation(BaseModel):
+    """Independent prediction keys, never derived from future target availability."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    horizon: Literal[5, 20]
+    trading_date: date
+    decision_as_of: AwareDatetime
+    available_at: AwareDatetime
+    symbols: tuple[str, ...] = Field(min_length=1)
+    source_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def independent(self) -> Self:
+        if (
+            self.symbols != tuple(sorted(set(self.symbols)))
+            or any(not s for s in self.symbols)
+            or self.available_at > self.decision_as_of
+            or self.trading_date >= self.decision_as_of.date()
+        ):
+            raise ValueError("composition population keys/timing are invalid")
+        return self
+
+
+class FrozenCompositionComponent(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    component: FrozenModelComponent
+    feature_names_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preprocessing_rule_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    definition_received_at: AwareDatetime
+    train_cutoff: AwareDatetime
+
+    @model_validator(mode="after")
+    def preprocessing(self) -> Self:
+        cfg = self.component.source_config
+        expected = _stable_hash(
+            {
+                "feature_names_hash": self.feature_names_hash,
+                "clip_lower_quantile": cfg.clip_lower_quantile,
+                "clip_upper_quantile": cfg.clip_upper_quantile,
+                "correlation_threshold": cfg.correlation_threshold,
+            }
+        )
+        if self.preprocessing_rule_sha256 != expected:
+            raise ValueError("composition preprocessing rule hash mismatch")
+        return self
+
+
+class FrozenCompositionManifest(BaseModel):
+    """Sidecar linked to a legacy Selection without changing legacy identities.
+
+    Only declared components are fitted. Risk roles are optional. A manifest is
+    evidence of frozen choices, not certification of historical membership.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
+    schema_version: Literal["frozen-final-composition-v1"] = "frozen-final-composition-v1"
+    composition_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    created_at: AwareDatetime
+    selection_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    build_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    data_snapshot_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    owner_confirmation_reference: str = Field(min_length=1)
+    components: tuple[FrozenCompositionComponent, ...] = Field(min_length=1, max_length=72)
+    outputs: tuple[FrozenCompositionOutput, ...] = Field(min_length=2, max_length=8)
+    prediction_population: tuple[FrozenCompositionPopulation, ...] = Field(min_length=2)
+    adoption_eligible: Literal[False] = False
+
+    @model_validator(mode="after")
+    def authentic(self) -> Self:
+        parts = {(c.component.horizon, c.component.component_name): c for c in self.components}
+        if len(parts) != len(self.components):
+            raise ValueError("composition component identities must be unique")
+        if len({(o.horizon, o.role) for o in self.outputs}) != len(self.outputs) or len(
+            {o.output_id for o in self.outputs}
+        ) != len(self.outputs):
+            raise ValueError("composition output roles/identities must be unique")
+        if {o.horizon for o in self.outputs} != {5, 20}:
+            raise ValueError("composition requires both daily horizons")
+        if any(not any(o.horizon == h and o.role in ("return", "ranking")
+                       for o in self.outputs) for h in (5, 20)):
+            raise ValueError("each composition horizon requires a daily priority output")
+        used = set()
+        for output in self.outputs:
+            allowed = {
+                "return": {"regression"},
+                "ranking": {"regression", "ranking"},
+                "quantile": {"quantile"},
+                "large_loss": {"large_loss"},
+            }[output.role]
+            if output.role == "return" and output.transform != "identity":
+                allowed = {"regression", "ranking"}
+            for name in output.components:
+                key = (output.horizon, name)
+                if key not in parts or parts[key].component.task not in allowed:
+                    raise ValueError("composition output references an incompatible component")
+                used.add(key)
+            if output.received_at > self.created_at:
+                raise ValueError("composition weights were received after freeze")
+        if used != set(parts) or any(
+            max(c.definition_received_at, c.train_cutoff) > self.created_at for c in self.components
+        ):
+            raise ValueError("composition has unused or unavailable components")
+        keys = [(p.horizon, p.trading_date) for p in self.prediction_population]
+        if keys != sorted(set(keys)) or {p.horizon for p in self.prediction_population} != {5, 20}:
+            raise ValueError("composition populations must be ordered and unique")
+        if self.composition_id != _stable_hash(
+            self.model_dump(mode="json", exclude={"composition_id"})
+        ):
+            raise ValueError("frozen composition content hash mismatch")
+        return self
+
+    @classmethod
+    def create(cls, **values: Any) -> FrozenCompositionManifest:
+        """Hash explicit caller choices; this neither selects nor authorizes them."""
+        provisional = cls.model_construct(composition_id="0" * 64, **values)
+        data = provisional.model_dump(mode="json", exclude={"composition_id"})
+        return cls.model_validate({**data, "composition_id": _stable_hash(data)})
+
+
+def load_frozen_composition(
+    path: Path, selection: DevelopmentSelectionArtifact
+) -> FrozenCompositionManifest:
+    value = FrozenCompositionManifest.model_validate_json(path.read_text(encoding="utf-8"))
+    _validate_composition_selection(value, selection)
+    return value
+
+
+def _validate_composition_selection(
+    value: FrozenCompositionManifest, selection: DevelopmentSelectionArtifact
+) -> None:
+    if (
+        value.selection_id != selection.selection_id
+        or value.build_id != selection.build_id
+        or value.data_snapshot_id != selection.data_snapshot_id
+    ):
+        raise ValueError("composition selection/build/snapshot mismatch")
+    horizons = {h.horizon: h for h in selection.horizons}
+    boundary = pd.Timestamp(selection.locked_holdout_start).tz_localize("UTC")
+    if value.created_at < selection.created_at:
+        raise ValueError("composition predates its selection")
+    for part in value.components:
+        if part.feature_names_hash != horizons[part.component.horizon].feature_names_hash:
+            raise ValueError("composition feature order differs from selection")
+        if pd.Timestamp(part.train_cutoff) >= boundary:
+            raise ValueError("composition training cutoff crosses the locked holdout")
+    if any(pd.Timestamp(o.latest_weight_label_available_at) >= boundary for o in value.outputs):
+        raise ValueError("composition weights used holdout labels")
+    if any(
+        o.calibration is not None
+        and pd.Timestamp(o.calibration.latest_label_available_at) >= boundary
+        for o in value.outputs
+    ):
+        raise ValueError("composition calibration used holdout labels")
+
+
+def write_frozen_composition(value: FrozenCompositionManifest, selection_path: Path) -> Path:
+    """Publish one immutable sidecar before the existing access authorization."""
+    selection = load_development_selection(selection_path)
+    path = selection_path.resolve().parent / "frozen-composition.json"
+    if (selection_path.parent / "holdout-access.json").exists():
+        raise ValueError("cannot freeze or refreeze composition after holdout access")
+    # Validate all cross-artifact bindings before publishing.
+    encoded = value.model_dump_json(indent=2) + "\n"
+    _validate_composition_selection(value, selection)
+    if path.exists():
+        if load_frozen_composition(path, selection) != value:
+            raise ValueError("composition is already frozen with different conditions")
+        return path
+    with path.open("x", encoding="utf-8", newline="\n") as stream:
+        stream.write(encoded)
+        stream.flush()
+        os.fsync(stream.fileno())
+    load_frozen_composition(path, selection)
+    return path
+
+
+def compose_frozen_predictions(
+    recipe: FrozenCompositionOutput, predictions: Mapping[str, pd.DataFrame]
+) -> pd.DataFrame:
+    """Same average-tie percentile, scalar sum and calibration as mobile."""
+    frames = [
+        predictions[name]
+        .sort_values(["trading_date", "symbol"], kind="stable")
+        .reset_index(drop=True)
+        for name in recipe.components
+    ]
+    first = frames[0]
+    keys = first[["symbol", "trading_date"]]
+    if (
+        first.empty
+        or keys.duplicated().any()
+        or any(not f[["symbol", "trading_date"]].equals(keys) for f in frames)
+    ):
+        raise ValueError("composition component prediction key sets differ")
+    matrices = []
+    for frame in frames:
+        values = frame.prediction
+        if not np.isfinite(values.to_numpy(dtype=float)).all():
+            raise ValueError("nonfinite composition component")
+        if recipe.transform != "identity":
+            values = (
+                frame.groupby("trading_date", sort=False).prediction.rank(
+                    method="average", pct=True
+                )
+                - 0.5
+            ) * 2.0
+        matrices.append(values.to_numpy(dtype=float))
+    # Python scalar sum deliberately matches the portable runtime operation order.
+    result = [
+        sum(w * float(v[i]) for w, v in zip(recipe.weights, matrices, strict=True))
+        for i in range(len(first))
+    ]
+    if recipe.calibration is not None:
+        result = [recipe.calibration.apply(v) for v in result]
+    if any(
+        not math.isfinite(v) or (recipe.role == "large_loss" and not 0 <= v <= 1) for v in result
+    ):
+        raise ValueError("invalid composed prediction")
+    output = keys.copy()
+    output["prediction"] = result
+    return output
 
 
 class FeatureFamilySelection(BaseModel):
@@ -222,9 +576,10 @@ class DevelopmentFeatureSelectionArtifact(BaseModel):
         _require_active_horizons(horizons)
         if (horizons == (5, 20)) != (self.one_day_exclusion_decision_hash is not None):
             raise ValueError("5d/20d feature selection requires one-day exclusion evidence")
-        if self.one_day_exclusion_decision_hash is not None and len(
-            self.one_day_exclusion_decision_hash
-        ) != 64:
+        if (
+            self.one_day_exclusion_decision_hash is not None
+            and len(self.one_day_exclusion_decision_hash) != 64
+        ):
             raise ValueError("one-day exclusion decision hash is invalid")
         if len(self.seeds) < 3 or len(self.seeds) != len(set(self.seeds)):
             raise ValueError("feature selection requires at least three unique seeds")
@@ -314,9 +669,7 @@ class DevelopmentSelectionArtifact(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
 
-    schema_version: Literal["goal3-development-selection-v1"] = (
-        "goal3-development-selection-v1"
-    )
+    schema_version: Literal["goal3-development-selection-v1"] = "goal3-development-selection-v1"
     selection_id: str = Field(min_length=64, max_length=64)
     created_at: datetime
     build_id: str = Field(min_length=64, max_length=64)
@@ -355,9 +708,10 @@ class DevelopmentSelectionArtifact(BaseModel):
         _require_active_horizons(horizons)
         if (horizons == (5, 20)) != (self.one_day_exclusion_decision_hash is not None):
             raise ValueError("5d/20d development selection requires one-day exclusion evidence")
-        if self.one_day_exclusion_decision_hash is not None and len(
-            self.one_day_exclusion_decision_hash
-        ) != 64:
+        if (
+            self.one_day_exclusion_decision_hash is not None
+            and len(self.one_day_exclusion_decision_hash) != 64
+        ):
             raise ValueError("one-day exclusion decision hash is invalid")
         if len(self.seeds) < 3 or len(self.seeds) != len(set(self.seeds)):
             raise ValueError("development selection requires at least three unique seeds")
@@ -459,9 +813,7 @@ def freeze_development_features(
         "adoption_eligible": False,
     }
     provisional = DevelopmentFeatureSelectionArtifact.model_construct(**cast(Any, values))
-    values["feature_selection_id"] = _stable_hash(
-        _feature_selection_identity(provisional)
-    )
+    values["feature_selection_id"] = _stable_hash(_feature_selection_identity(provisional))
     return DevelopmentFeatureSelectionArtifact.model_validate(values)
 
 
@@ -610,9 +962,7 @@ def _freeze_development_selection_from_evidence(
         raise ValueError("ablation and candidate campaigns must use one Production Build")
     seeds = tuple(sorted({cast(int, run.batch.seed) for run in candidate_runs}))
     reference = candidate_runs[0].report
-    candidate_holdout_periods = {
-        run.report.config.holdout_periods for run in candidate_runs
-    }
+    candidate_holdout_periods = {run.report.config.holdout_periods for run in candidate_runs}
     if candidate_holdout_periods != {feature_votes.holdout_periods}:
         raise ValueError("ablation and candidate evidence use different holdout periods")
     if (
@@ -654,9 +1004,7 @@ def _freeze_development_selection_from_evidence(
         "data_snapshot_id": reference.data_snapshot_id,
         "feature_snapshot_id": reference.feature_snapshot_id,
         "feature_manifest_hash": reference.feature_manifest_hash,
-        "candidate_campaign_ids": tuple(
-            sorted({run.campaign_id for run in candidate_runs})
-        ),
+        "candidate_campaign_ids": tuple(sorted({run.campaign_id for run in candidate_runs})),
         "ablation_campaign_ids": feature_votes.campaign_ids,
         "source_report_ids": source_report_ids,
         "source_code_commits": tuple(
@@ -684,9 +1032,7 @@ def _freeze_development_selection_from_evidence(
     return DevelopmentSelectionArtifact.model_validate(values)
 
 
-def write_development_selection(
-    artifact: DevelopmentSelectionArtifact, destination: Path
-) -> Path:
+def write_development_selection(artifact: DevelopmentSelectionArtifact, destination: Path) -> Path:
     """Publish one immutable content-addressed development selection."""
 
     if artifact.selection_id != _stable_hash(_selection_identity(artifact)):
@@ -797,10 +1143,9 @@ def _authenticate_batch_report(
         build_payload = json.loads(build_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         raise RuntimeError("campaign Production Build marker is missing or invalid") from None
-    if (
-        report.data_snapshot_id != str(build_payload.get("dataset_snapshot_id", ""))
-        or report.feature_snapshot_id != str(build_payload.get("v2_snapshot_id", ""))
-    ):
+    if report.data_snapshot_id != str(
+        build_payload.get("dataset_snapshot_id", "")
+    ) or report.feature_snapshot_id != str(build_payload.get("v2_snapshot_id", "")):
         raise RuntimeError("campaign report snapshot lineage differs from Production Build")
     if report.report_id != batch.report_id:
         raise RuntimeError("campaign report identity mismatch")
@@ -868,9 +1213,7 @@ def _derive_feature_votes(runs: Sequence[_AuthenticatedRun]) -> _FeatureVoteEvid
                 ]
                 blocked_reports += len(seed_rows) - len(available)
                 evidence_reports += len(available)
-                selected_count = sum(
-                    bool(item.selected_on_tuning_period) for item in available
-                )
+                selected_count = sum(bool(item.selected_on_tuning_period) for item in available)
                 if (
                     available
                     and len(available) == len(seed_rows)
@@ -1040,7 +1383,10 @@ def _select_horizon(
         )
     else:
         best_rank = _seed_stable_component(
-            metrics, task=None, reports=reports_by_component, seeds=stable_seeds,
+            metrics,
+            task=None,
+            reports=reports_by_component,
+            seeds=stable_seeds,
             rank_ics=component_rank_ics,
         )
     ensemble_components = tuple(
@@ -1116,10 +1462,14 @@ def _seed_stable_component(
         if name not in reports:
             raise ValueError("seed selection is missing a source report")
         value = (
-            cast(Mapping[str, float], rank_ics).get(name) if task is None
-            else item.pinball_loss if task == "quantile"
-            else item.brier_score if task == "large_loss"
-            else item.mean_squared_error if task == "regression"
+            cast(Mapping[str, float], rank_ics).get(name)
+            if task is None
+            else item.pinball_loss
+            if task == "quantile"
+            else item.brier_score
+            if task == "large_loss"
+            else item.mean_squared_error
+            if task == "regression"
             else item.mean_daily_rank_ic
         )
         if value is None or not math.isfinite(value):
