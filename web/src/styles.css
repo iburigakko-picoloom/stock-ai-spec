@@ -448,3 +448,9 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+/* Keep persistence visible without replacing the form or resetting its draft. */
+.save-progress { position: sticky; top: var(--safe-area-inset-top, 0px); z-index: 20; display: flex; align-items: center; gap: 12px; padding: 16px; background: #eaf3ff; color: #164a8a; border: 1px solid #b6d5ff; border-radius: 12px; }
+.save-progress small { display: block; margin-top: 4px; }
+.save-progress-spinner { width: 24px; height: 24px; flex: 0 0 24px; border: 3px solid #b6d5ff; border-top-color: #0866e8; border-radius: 50%; animation: save-spin 0.9s linear infinite; }
+@keyframes save-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .save-progress-spinner { animation: none; } }

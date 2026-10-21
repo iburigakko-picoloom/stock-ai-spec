@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { MobileBackupPanel } from "./MobileBackupPanel";
 import { MobilePersonalPanel } from "./MobilePersonalPanel";
+import { SaveProgress } from "./SaveProgress";
 import { ChatGPTPanel } from "./ChatGPTPanel";
 import { MobileMarketPanel } from "./MobileMarketPanel";
 import { MobileModelPanel } from "./MobileModelPanel";
@@ -118,6 +119,7 @@ export function MobileDevicePanel(): ReactNode {
     else setParams({}, { replace: true });
   }
   async function action(task: () => Promise<unknown>, success: string, group = "account"): Promise<void> {
+    if (busy) return;
     setBusy(true); setMessage(""); setMessageGroup(group);
     try { await task(); setMessage(success); }
     catch (error) { setMessage(error instanceof Error ? error.message : "処理を完了できませんでした。入力・通信・保存状態を確認してください。"); }
@@ -147,6 +149,7 @@ export function MobileDevicePanel(): ReactNode {
       {!selected && <p>運用に必要な設定をまとめて管理。</p>}
     </header>
     {loadError && <p role="alert">{loadError}</p>}
+    {busy && <SaveProgress />}
     <div className="settings-overview" hidden={selected !== null}>
       <section className="settings-menu-section" aria-labelledby="settings-connection"><h2 id="settings-connection">接続</h2><div className="settings-menu-list">
         <SettingsRow icon="database" title="J-Quants API" description="日本株のデータを取得します" value={configured === null ? "確認中" : configured ? "設定済み" : "未設定"} badge={configured === true} onClick={() => open("market")} />

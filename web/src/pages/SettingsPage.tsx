@@ -69,6 +69,14 @@ const sections = [
 
 export function SettingsPage(): ReactNode {
   const { section } = useParams();
+  // The editable native form must survive focus/visibility and polling refreshes.
+  // Its own APIs load and save revisions; the read-only web settings poller does not own it.
+  if (!section && isAndroid()) return <div className="page page--settings"><MobileDevicePanel /></div>;
+  return <ReadOnlySettingsPage />;
+}
+
+function ReadOnlySettingsPage(): ReactNode {
+  const { section } = useParams();
   const [category, setCategory] = useState("account");
   const { data, error, loading } = useApiData<SettingsPayload>("/api/v1/settings");
   const [notificationState, setNotificationState] = useState<string>(() => (
@@ -88,9 +96,6 @@ export function SettingsPage(): ReactNode {
   }
 
   const currentSection = sections.find((item) => item.id === section);
-  if (!section && isAndroid()) return <div className="page page--settings">
-    <MobileDevicePanel />
-  </div>;
   return (
     <div className="page">
       {section && <Link className="back-link" to="/settings">← 設定一覧へ</Link>}

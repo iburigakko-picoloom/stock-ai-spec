@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "../api";
+import { SaveProgress } from "./SaveProgress";
 import { blankAccount, costLabels, emptySettings, gapLabel, taxLabels, type AccountSettings,
   type InitialLedgerPreview, type PersonalSettings, type Readiness, type SavedPortfolio,
   type SavedSettings, type SettingsResponse } from "./personal";
@@ -39,6 +40,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
     if (draft) change({ ...draft, accounts: draft.accounts.map(x => x.account_id === id ? { ...x, ...value } : x) });
   }
   async function act(task: () => Promise<void>) {
+    if (busy) return;
     setBusy(true); setMessage("");
     try { await task(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "入力と保存状態を確認してください。"); }
@@ -50,6 +52,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
   const reasons = [...new Set((readiness?.comparison.blocking_reasons ?? []).map(x => gapLabel(x.code)))];
   return <section className="section" aria-label="補足設定と初回台帳">
     <h2>補足設定と初回台帳</h2>
+    {busy && <SaveProgress label="端末で確認・保存中…" />}
     <p>未確認の項目は空欄で保存できます。空欄を0として計算しません。入力の保存と、初回残高を台帳へ確定する操作は別です。</p>
     <button className="button button--secondary" disabled={busy || disabled} onClick={() => {
       setLoaded(false); setPreview(null); setConfirm(false); setReload(value => value + 1);

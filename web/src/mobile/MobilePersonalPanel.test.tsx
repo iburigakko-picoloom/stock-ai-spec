@@ -6,6 +6,25 @@ import { emptySettings, type Readiness, type SavedPortfolio, type SavedSettings 
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
 afterEach(cleanup);
+
+test("pending save keeps the form, shows progress and retains input on failure", async () => {
+  let rejectSave!: (error: Error) => void;
+  vi.mocked(apiPost).mockImplementation(() => new Promise((_resolve, reject) => { rejectSave = reject; }));
+  render(<MobilePersonalPanel profile={profile} disabled={false} />);
+  const save = await screen.findByRole("button", { name: "補足設定を保存" });
+  const year = screen.getByRole("spinbutton", { name: "損益の対象年" });
+  fireEvent.change(year, { target: { value: "2026" } });
+  fireEvent.click(save);
+  expect(screen.getByText("端末で確認・保存中…")).toBeInTheDocument();
+  expect(save).toBeDisabled();
+  fireEvent.click(save);
+  expect(apiPost).toHaveBeenCalledTimes(1);
+  rejectSave(new Error("保存できませんでした"));
+  await screen.findByText("保存できませんでした");
+  expect(screen.queryByText("端末で確認・保存中…")).not.toBeInTheDocument();
+  expect(year).toHaveValue(2026);
+  expect(save).toBeEnabled();
+});
 const profile: SavedPortfolio = { revision_id: "a".repeat(64), saved_at: "2026-01-06T10:00:00Z", portfolio: {
   schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: null,
   maximum_drawdown_percent: null, accounts: [], holdings: [],

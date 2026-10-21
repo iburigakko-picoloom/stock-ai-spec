@@ -1,3 +1,10 @@
+## 2026-10-21 — 設定保存中のフォーム破棄を修正（D225）
+
+- 本人から初回台帳入力・保存中に画面が更新される報告。SettingsPageの共通useApiDataが60秒/focus/visibility/onlineでloadingへ戻り、MobileDevicePanelと下書き・保存待ち・初回previewをunmountしていた。Android編集入口を参照専用設定ページから分離し、参照ページの鮮度保護は変更しない。
+- 口座保存と補足設定・初回台帳処理に進行表示（spinner/端末に保存中）を追加。失敗時の入力保持と二重送信防止を確認。暗号化/native/API/台帳内容/モデルは変更していない。端末の保存破損が確認されたという意味ではない。
+- 今回のWeb全15file/111試験、lint、typecheck、production build成功。追加回帰は120秒とfocus/visibility/online後の編集保持、保存待ち表示・重複クリック・失敗時入力保持。最初のsandbox実行は一時ファイルrenameのEPERMで試験開始前失敗、通常環境で同試験成功。旧CIを今回差分のPASSに流用しない。
+- 端末の0.1.30には未反映。新しい候補APK/必要CIとXiaomi再確認が残る。本人の初回残高確認は代行せず、正式HOLD/C未実施を維持。
+
 ## 2026-10-21 — A/B限定の通常取込・保存検証、0.1.30とXiaomi上書き（D224）
 
 - 最新範囲はA研究用アプリ・B同一APK/bundleのXiaomi受入。Cの正式Selection/追加研究/実holdout/正式採用は実行せず、HOLDを維持。製品sourceは`7ac228f8b0a915e6e0f04a63ecf8c08501b9eff7`のまま。CI [39591437353](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39591437353)はverify/android/android-history全成功、release skip。今回の記録差分は文書/証拠だけで、製品/依存/assets不変を確認してこのCIと既存128関連試験を再利用する。
