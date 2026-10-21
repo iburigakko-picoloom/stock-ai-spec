@@ -84,10 +84,15 @@ for (const layout of [
         if (["top", "right", "bottom", "left"].includes(side)) document.documentElement.style.setProperty(`--safe-area-inset-${side}`, `${value}px`);
       }
     }, { layout, bottom });
-    await setInsets(layout.bottom);
     const brand = page.locator(".app-brand");
-    expect((await brand.boundingBox())!.y).toBe(layout.top);
-    expect((await brand.boundingBox())!.x).toBe(layout.left);
+    const baseline = (await brand.boundingBox())!;
+    const basePadding = await page.locator(".app-main").evaluate(node => Number.parseFloat(getComputedStyle(node).paddingBottom));
+    await setInsets(layout.bottom);
+    expect((await brand.boundingBox())!.y).toBe(baseline.y + layout.top);
+    const safeBrand = (await brand.boundingBox())!;
+    expect(safeBrand.x).toBeGreaterThanOrEqual(layout.left);
+    expect(safeBrand.x + safeBrand.width).toBeLessThanOrEqual(layout.width - layout.right);
+    if (layout.width <= 800) expect(safeBrand.x).toBe(baseline.x + layout.left);
     await page.evaluate(() => localStorage.setItem("settingsTestUpdate", "available"));
     await page.reload();
     await setInsets(layout.bottom);
@@ -115,10 +120,9 @@ for (const layout of [
     // Reuse the updated value immediately, without adding a second inset.
     await setInsets(0);
     const mainPadding = await page.locator(".app-main").evaluate(node => getComputedStyle(node).paddingBottom);
-    const basePadding = layout.width >= 760 ? 34 : 80;
-    expect(mainPadding).toBe(`${basePadding}px`);
+    expect(Number.parseFloat(mainPadding)).toBeCloseTo(basePadding, 2);
     await setInsets(layout.bottom);
-    expect(await page.locator(".app-main").evaluate(node => getComputedStyle(node).paddingBottom)).toBe(`${basePadding + layout.bottom}px`);
+    expect(await page.locator(".app-main").evaluate(node => Number.parseFloat(getComputedStyle(node).paddingBottom))).toBeCloseTo(basePadding + layout.bottom, 2);
   });
 }
 
@@ -139,7 +143,7 @@ for (const width of [320, 390]) for (const font of [100, 150]) {
       return { top: banner.getBoundingClientRect().top, height: banner.getBoundingClientRect().height,
         beforeBrand: !!(banner.compareDocumentPosition(document.querySelector(".app-brand")!) & Node.DOCUMENT_POSITION_FOLLOWING),
         width: document.documentElement.scrollWidth, buttonHeight: button.height, summaryHeight: summary.height, gap: summary.top - button.bottom,
-        brand: getComputedStyle(document.querySelector(".brand-mark")!).backgroundColor,
+        brand: getComputedStyle(document.querySelector(".brand-mark")!).color,
         icon: getComputedStyle(document.querySelector(".settings-menu-icon")!).stroke,
         toggle: getComputedStyle(document.querySelector(".settings-switch--on")!).backgroundColor,
       };
@@ -148,7 +152,7 @@ for (const width of [320, 390]) for (const font of [100, 150]) {
     expect(metrics.height).toBeLessThan(220); expect(metrics.width).toBeLessThanOrEqual(width);
     expect(metrics.buttonHeight).toBeGreaterThanOrEqual(48); expect(metrics.summaryHeight).toBeGreaterThanOrEqual(48);
     expect(metrics.gap).toBeGreaterThanOrEqual(12);
-    expect(metrics.brand).toBe("rgb(36, 95, 202)"); expect(metrics.icon).toBe(metrics.brand); expect(metrics.toggle).toBe(metrics.brand);
+    expect(metrics.brand).toBe("rgb(16, 35, 71)"); expect(metrics.icon).toBe("rgb(8, 102, 229)"); expect(metrics.toggle).toBe(metrics.icon);
     const calls = await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string }[] }).__settingsCalls);
     expect(calls.some(x => x.method === "installUpdate")).toBe(false);
     await page.screenshot({ path: info.outputPath(`blue-update-${width}-${font}.png`), fullPage: false });

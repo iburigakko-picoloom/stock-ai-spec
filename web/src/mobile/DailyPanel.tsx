@@ -75,8 +75,8 @@ export function DailyControls({ status, busy, message, onChange }: {
     <p role="status">{status ? delayed ? "締切後の実行待ち・Androidの予約処理を待っています" : labels[status.state] ?? "保存状態を確認してください" : "状態を確認しています…"}</p>
     {status?.day && <p>対象日：{status.day}</p>}
     <div className="button-stack">
-      <button className="button button--primary" disabled={busy || !status || (status.enabled && status.state !== "credentials")} onClick={() => onChange(true)}>{status?.state === "paused" || status?.state === "credentials" ? "続きから再開" : "開始"}</button>
-      <button className="button button--secondary" disabled={busy || !status?.enabled} onClick={() => onChange(false)}>自動処理を停止</button>
+      <button className="button button--primary" hidden={!!status?.enabled && status.state !== "credentials"} disabled={busy || !status || (status.enabled && status.state !== "credentials")} onClick={() => onChange(true)}>{status?.state === "paused" || status?.state === "credentials" ? "続きから再開" : "開始"}</button>
+      <button className="button button--secondary" hidden={!status?.enabled} disabled={busy || !status?.enabled} onClick={() => onChange(false)}>自動処理を停止</button>
     </div>
     {message && <p role="alert">{message}</p>}
     {status && !status.notificationsEnabled && <p>通知はオフです。計算結果はアプリ内に保存します。</p>}

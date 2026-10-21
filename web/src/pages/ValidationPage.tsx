@@ -4,7 +4,7 @@ import { useApiData } from "../hooks";
 import type { PaperSeriesPoint, PaperSummary } from "../types";
 
 function PaperPerformanceChart({ series }: { series: PaperSeriesPoint[] }): ReactNode {
-  if (series.length < 2) return <StatePanel title="チャートに必要な観測が不足しています" detail="1営業日Paperを2件以上記録すると表示します。" />;
+  if (series.length < 2) return <div className="chart-empty" role="status"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="7" y="31" width="7" height="12" rx="2" /><rect x="21" y="19" width="7" height="24" rx="2" /><rect x="35" y="5" width="7" height="38" rx="2" /></svg><p>観測データが揃うと表示します</p><small>チャートに必要な観測が不足しています。1営業日Paperを2件以上記録すると表示します。</small></div>;
   const width = 320;
   const height = 140;
   const inset = 12;
@@ -28,27 +28,30 @@ function PaperPerformanceChart({ series }: { series: PaperSeriesPoint[] }): Reac
 export function ValidationPage(): ReactNode {
   const [mode, setMode] = useState("paper");
   const { data, error, loading } = useApiData<PaperSummary & { blockingReason?: string }>(`/api/v1/validation?mode=${mode}`);
+  const observed = (data?.observations ?? 0) > 0;
+  const weekly = data?.weekly_readouts ?? [];
+  const monthly = data?.monthly_readouts ?? [];
   return (
     <div className="page">
       <PageHeader eyebrow="提案と実績を振り返る" title="検証" />
       <TabBar label="検証の種類" options={[["paper", "提案Paper"], ["live", "実運用"], ["historical", "過去検証"]]} value={mode} onChange={setMode} panelId="validation-panel" />
       <div id="validation-panel" role="tabpanel" aria-labelledby={`validation-panel-${mode}`}>
-      {loading ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : mode === "paper" && data?.observations === 0 ? <StatePanel title="Paperの観測はまだありません" detail="実データの観測を記録すると、成績を表示します。" /> : mode === "paper" && data ? <>
+      {loading ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : mode === "paper" && data ? <>
         <section className="validation-hero">
           <span>提案戦略（1営業日・記録済み将来観測）</span>
-          <strong>{pct(data.proposal_return)}</strong>
-          <small>TOPIX {pct(data.benchmark_return)} / 超過 {pct(data.excess_return)}</small>
+          <strong>{pct(observed ? data.proposal_return : null)}</strong>
+          {observed ? <small>TOPIX {pct(data.benchmark_return)} / 超過 {pct(data.excess_return)}</small> : <small>Paperの観測はまだありません</small>}
         </section>
         <section className="section">
           <div className="section-heading"><div><span>FORWARD PAPER</span><h2>累積推移</h2></div></div>
-          <PaperPerformanceChart series={data.series} />
+          <PaperPerformanceChart series={data.series ?? []} />
         </section>
         <section className="section">
           <div className="metric-grid metric-grid--2">
-            <Metric label="最大ドローダウン" value={pct(data.maximum_drawdown)} />
-            <Metric label="観測数" value={`${data.observations}件`} />
-            <Metric label="平均コスト誤差" value={yen(data.mean_cost_error)} />
-            <Metric label="平均税影響誤差" value={yen(data.mean_tax_error)} />
+            <Metric label="TOPIXとの差" value={pct(observed ? data.excess_return : null)} />
+            <Metric label="最大ドローダウン" value={pct(observed ? data.maximum_drawdown : null)} />
+            <Metric label="平均コスト誤差" value={yen(observed ? data.mean_cost_error : null)} />
+            <Metric label="平均税影響誤差" value={yen(observed ? data.mean_tax_error : null)} />
           </div>
         </section>
         <details className="section metadata-details">
@@ -57,30 +60,31 @@ export function ValidationPage(): ReactNode {
             <div><span>MODEL MONITOR</span><h2>Champion / Challenger</h2></div>
           </div>
           <dl className="summary-list">
-            <div><dt>Champion版 / 観測数</dt><dd>{data.champion_version ?? "—"} / {data.champion_observations}件</dd></div>
+            <div><dt>Champion版 / 観測数</dt><dd>{data.champion_version ?? "—"} / {data.champion_observations ?? "—"}件</dd></div>
             <div><dt>Champion 平均絶対誤差</dt><dd>{pct(data.champion_mean_absolute_error)}</dd></div>
-            <div><dt>Challenger版 / 比較数</dt><dd>{data.challenger_version ?? "—"} / {data.challenger_observations}件</dd></div>
+            <div><dt>Challenger版 / 比較数</dt><dd>{data.challenger_version ?? "—"} / {data.challenger_observations ?? "—"}件</dd></div>
             <div><dt>Challenger 平均絶対誤差</dt><dd>{pct(data.challenger_mean_absolute_error)}</dd></div>
             <div><dt>Challenger 勝率</dt><dd>{pct(data.challenger_better_rate)}</dd></div>
-            <div><dt>ドリフト判定</dt><dd>{data.drift_status}</dd></div>
+            <div><dt>ドリフト判定</dt><dd>{data.drift_status === "INSUFFICIENT_OBSERVATIONS" ? "観測不足" : data.drift_status === "STABLE" ? "安定" : data.drift_status === "DEGRADED" ? "誤差が増加" : "未確認"}</dd></div>
             <div><dt>直近/直前の誤差比</dt><dd>{data.drift_ratio == null ? "—" : `${data.drift_ratio.toFixed(2)}x`}</dd></div>
           </dl>
-          <p className="explain">同じ現行モデル版の{data.drift_window}件ずつを比較します。Challenger比較は同じ組合せの分母だけです。自動的なモデル昇格には使いません。</p>
+          <p className="explain">同じ現行モデル版の{data.drift_window ?? "—"}件ずつを比較します。Challenger比較は同じ組合せの分母だけです。自動的なモデル昇格には使いません。</p>
         </details>
-        <section className="section">
+        <details className="section metadata-details">
+          <summary>週次・月次</summary>
           <div className="section-heading">
             <div><span>PERIODIC READOUT</span><h2>週次・月次</h2></div>
           </div>
-          {data.weekly_readouts.length === 0 && data.monthly_readouts.length === 0 ? <StatePanel title="確定した将来観測はまだありません" detail="EOD観測を不変記録すると、週次・月次に集計します。" /> : <div className="readout-list">
-            {[...data.weekly_readouts.slice(0, 3), ...data.monthly_readouts.slice(0, 3)].map((item) => <article key={`${item.period}-${item.period_key}`}>
+          {weekly.length === 0 && monthly.length === 0 ? <StatePanel title="確定した将来観測はまだありません" detail="EOD観測を不変記録すると、週次・月次に集計します。" /> : <div className="readout-list">
+            {[...weekly.slice(0, 3), ...monthly.slice(0, 3)].map((item) => <article key={`${item.period}-${item.period_key}`}>
               <div><strong>{item.period_key}</strong><span>{item.period === "weekly" ? "週次" : "月次"}・{item.observations}件</span></div>
               <div><b>{pct(item.proposal_return)}</b><small>超過 {pct(item.excess_return)}</small></div>
             </article>)}
           </div>}
-        </section>
+        </details>
         <section className={`readiness ${data.is_decision_ready ? "readiness--ready" : ""}`}>
           <strong>{data.is_decision_ready ? "最低観測数に到達" : "観測継続中"}</strong>
-          <span>{data.observations} / {data.minimum_observation_count}件 ・ 更新 {dateTime(data.updated_at)}</span>
+          <span>{data.observations} / {data.minimum_observation_count ?? "—"}件 ・ 更新 {dateTime(data.updated_at)}</span>
           <p>最低件数への到達は収益性やChampion採用を意味しません。</p>
           {!data.model_monitoring_ready && <p>モデル版ごとの監視・比較件数はまだ不足しています。</p>}
         </section>

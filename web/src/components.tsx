@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import type { Action } from "./types";
 import { MobileUpdateNotice } from "./mobile/MobileDevicePanel";
 
@@ -38,18 +38,21 @@ export function PageHeader({
   eyebrow,
   title,
   meta,
+  actions,
 }: {
   eyebrow?: string;
   title: string;
   meta?: string;
+  actions?: ReactNode;
 }): ReactNode {
   return (
-    <header className="page-header">
-      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+    <header className="page-header app-brand">
       <div className="page-header__line">
+        <span className="brand-mark" aria-hidden="true">株AI</span>
         <h1>{title}</h1>
-        {meta && <span className="page-header__meta">{meta}</span>}
+        {actions && <div className="page-header__actions">{actions}</div>}
       </div>
+      {(eyebrow || meta) && <div className="page-header__context">{eyebrow && <p className="eyebrow">{eyebrow}</p>}{meta && <span className="page-header__meta">{meta}</span>}</div>}
     </header>
   );
 }
@@ -88,32 +91,32 @@ export function RuntimeBanner({ mode }: { mode: string }): ReactNode {
 
 const nav = [
   ["/", "M3 10 12 3l9 7v10H3Z M9 20v-7h6v7", "ホーム"],
-  ["/today", "M8 3h8v4H8Z M8 5H5v16h14V5h-3 M8 12l2 2 5-5 M8 18h8", "今日"],
-  ["/ranking", "M4 20V12h4v8 M10 20V4h4v16 M16 20V8h4v12", "ランキング"],
-  ["/validation", "M4 3v17h17 M7 15l4-5 4 3 5-7", "検証"],
-  ["/settings", "M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6", "設定"],
+  ["/today", "M5 5h14v16H5Z M8 3v4 M16 3v4 M5 10h14 M9 14h.01 M15 14h.01 M9 18h.01 M15 18h.01", "今日"],
+  ["/ranking", "m3 6 5 4 4-7 4 7 5-4-2 14H5Z", "ランキング"],
+  ["/validation", "M8 3h8 M10 3v7L4 19q-1 2 2 2h12q3 0 2-2l-6-9V3 M7 16h10", "検証"],
+  ["/settings", "m10 3-.5 3-2 1-2.8-1L3 10l2.4 2L3 14l1.7 4 2.8-1 2 1 .5 3h4l.5-3 2-1 2.8 1 1.7-4-2.4-2L21 10l-1.7-4-2.8 1-2-1L14 3Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0", "設定"],
 ] as const;
 
 export function AppShell(): ReactNode {
+  const location = useLocation();
+  const from: unknown = location.state?.from;
+  const stockParent = location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : "/today" : null;
   return (
     <div className="app-shell">
       <MobileUpdateNotice />
       <a className="skip-link" href="#main">本文へ移動</a>
-      <header className="app-brand">
-        <span className="brand-mark" aria-hidden="true">株</span>
-        <strong>株AI<span>投資判断サポート</span></strong>
-        <span className="manual-only">自動発注なし</span>
-      </header>
       <main id="main" className="app-main">
         <Outlet />
       </main>
       <nav className="bottom-nav" aria-label="メインナビゲーション">
-        {nav.map(([to, path, label]) => (
-          <NavLink key={to} to={to} end={to === "/"}>
+        {nav.map(([to, path, label]) => {
+          const content = <>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg>
             <strong>{label}</strong>
-          </NavLink>
-        ))}
+          </>;
+          return stockParent ? <Link key={to} to={to} className={stockParent === to ? "active" : undefined} aria-current={stockParent === to ? "page" : undefined}>{content}</Link>
+            : <NavLink key={to} to={to} end={to === "/"}>{content}</NavLink>;
+        })}
       </nav>
     </div>
   );

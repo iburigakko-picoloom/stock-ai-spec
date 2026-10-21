@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ActionBadge, DecisionSteps, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
+import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, TodayResponse } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
@@ -15,7 +15,7 @@ const priority = new Map([
 
 function ProposalRow({ line }: { line: ProposalLine }): ReactNode {
   return (
-    <Link className="proposal-row" to={`/stocks/${line.symbol}`}>
+    <Link className="proposal-row" state={{ from: "/today" }} to={`/stocks/${line.symbol}`}>
       <ActionBadge action={line.action} />
       <div className="proposal-row__body">
         <strong>{line.companyName}</strong>
@@ -42,11 +42,10 @@ export function TodayPage(): ReactNode {
     ? cashValues.reduce((sum, value) => sum + Number(value), 0) : null;
 
   return (
-    <div className={`page${proposal ? " page--with-sticky" : ""}`}>
-      <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} />
+    <div className="page">
+      <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} actions={<Link className="button button--secondary consultation-link" to="/today/chatgpt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 18 3 22l5-2a9 9 0 1 0-4-2Z" /></svg>ChatGPTと相談</Link>} />
       <RuntimeBanner mode={data.runtimeMode} />
       <DailyPanel />
-      <Link className="button button--secondary" to="/today/chatgpt">ChatGPTと相談</Link>
       {!data.isStale && data.pipelineState === "CASH_ONLY" ? (
         <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
       ) : !proposal ? (
@@ -57,7 +56,6 @@ export function TodayPage(): ReactNode {
         /><Link className="button button--secondary" to="/settings/data">データの更新状況を確認</Link></>
       ) : (
         <>
-          <DecisionSteps current="proposal" />
           <section className="proposal-hero" aria-label="今日の提案概要">
             <div><span>今日の変更</span><strong>{proposal.changeCount}<small>件</small></strong></div>
             <span className="status-pill">{proposal.isResearchOnly ? "研究用の提案" : "提案を確認できます"}</span>
@@ -92,6 +90,8 @@ export function TodayPage(): ReactNode {
               <p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p>
               <p className="explain">推定値です。将来の利益や実際の約定価格を保証しません。</p>
             </details>
+            <Link className="button button--primary summary-review-link" to="/today/review">判断を確認<span aria-hidden="true">›</span></Link>
+            <p className="explain">保存しても証券会社への注文は行われません</p>
           </section>
           <details className="metadata-details proposal-metadata"><summary>提案の基準時刻・モデル詳細</summary>
             <dl className="summary-list">
@@ -100,10 +100,6 @@ export function TodayPage(): ReactNode {
               <div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div>
             </dl>
           </details>
-          <div className="sticky-action">
-            <p>保存しても証券会社への注文は行われません</p>
-            <Link className="button button--primary" to="/today/review">判断を確認</Link>
-          </div>
         </>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { DecisionSteps, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
@@ -75,9 +76,7 @@ export function ExecutionPage(): ReactNode {
       .finally(() => setLoadingDecision(false));
   }, [proposal]);
 
-  if (today.loading || loadingDecision) return <StatePanel title="実行結果入力を準備しています" />;
-  if (today.error || loadError) return <StatePanel tone="error" title="入力を準備できません" detail={today.error || loadError} />;
-  if (!proposal || !decision) return <StatePanel title="実行待ちの保存済み判断がありません" />;
+  if (today.loading || loadingDecision || today.error || loadError || !proposal || !decision) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="実行結果を記録" /><StatePanel tone={today.error || loadError ? "error" : "neutral"} title={today.loading || loadingDecision ? "実行結果入力を準備しています" : today.error || loadError ? "入力を準備できません" : "実行待ちの保存済み判断がありません"} detail={today.error || loadError} /></div>;
 
   const savedDecision = decision;
   const decisionTargets = new Map(savedDecision.lines.map((line) => [line.proposal_line_id, line.selected_target_shares]));

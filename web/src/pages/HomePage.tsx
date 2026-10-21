@@ -41,13 +41,13 @@ export function HomePage(): ReactNode {
           <Metric label="現金" value={yen(data.portfolio.cashValue)} />
           <Metric label="株式" value={yen(data.portfolio.equityValue)} />
         </div>
+        <Link className="button button--primary home-proposal-link" to="/today">今日の提案を確認<span aria-hidden="true">›</span></Link>
       </section>
-      <Link className="next-action" to="/today"><strong>今日の提案を確認</strong><span aria-hidden="true">→</span></Link>
 
       <section className="section">
         <div className="section-title">
           <div><span>ACTUAL HOLDINGS</span><h2>実保有</h2></div>
-          <small>{data.portfolio.holdingsCount}口座明細</small>
+          <small>約定を記録するまで保有は変わりません。</small>
         </div>
         {groups.length === 0 ? (
           <StatePanel title="保有株はありません" detail="AI提案だけでは実保有は変わりません。" />
@@ -56,6 +56,10 @@ export function HomePage(): ReactNode {
             {groups.map(([symbol, holdings]) => {
               const marketValue = holdings.reduce((sum, item) => sum + Number(item.marketValue), 0);
               const shares = holdings.reduce((sum, item) => sum + item.shares, 0);
+              if (holdings.length === 1) return <Link className="holding-summary-row" state={{ from: "/" }} to={`/stocks/${symbol}`} key={symbol}>
+                <div><strong>{holdings[0].companyName}</strong><span>{holdings[0].accountBucketId}</span>{holdings[0].latestAction && <ActionBadge action={holdings[0].latestAction} />}</div>
+                <strong>{shares.toLocaleString("ja-JP")}株</strong><b>{yen(marketValue)}</b><span className="row-chevron" aria-hidden="true">›</span>
+              </Link>;
               return (
                 <details className="holding-group" key={symbol} open={holdings.length === 1}>
                   <summary>
@@ -67,7 +71,7 @@ export function HomePage(): ReactNode {
                     <span className="disclosure-chevron" aria-hidden="true">⌄</span>
                   </summary>
                   {holdings.map((holding) => (
-                    <Link className="holding-row" to={`/stocks/${holding.symbol}`} key={holding.accountBucketId}>
+                    <Link className="holding-row" state={{ from: "/" }} to={`/stocks/${holding.symbol}`} key={holding.accountBucketId}>
                       <div>
                         <span>{holding.accountBucketId}</span>
                         <strong>{holding.shares.toLocaleString("ja-JP")}株</strong>

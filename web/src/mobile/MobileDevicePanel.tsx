@@ -141,9 +141,9 @@ export function MobileDevicePanel(): ReactNode {
   const budgetValue = budget && Number.isFinite(Number(budget)) ? `¥${Math.round(Number(budget)).toLocaleString("ja-JP")}` : "未設定";
   const drawdown = savedPortfolio?.portfolio.maximum_drawdown_percent;
   return <div className="device-settings settings-screen">
-    <header className="settings-page-header">
+    <header className="settings-page-header app-brand">
       {selected && <button type="button" className="settings-back" onClick={back}>← 設定一覧へ</button>}
-      <h1 ref={heading} tabIndex={-1}>{selected ? panelTitles[selected] : "設定"}</h1>
+      <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{selected ? panelTitles[selected] : "設定"}</h1></div>
       {!selected && <p>運用に必要な設定をまとめて管理。</p>}
     </header>
     {loadError && <p role="alert">{loadError}</p>}

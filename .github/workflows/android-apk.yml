@@ -150,6 +150,7 @@ jobs:
           npx playwright test --config playwright.mobile.config.ts
           npx playwright test --config playwright.compute.config.ts
           npx playwright test e2e/company-research.spec.ts e2e/tax-cash.spec.ts e2e/execution-recovery.spec.ts
+          npx playwright test e2e/reference-layout.spec.ts
       - name: Validate package contents
         run: |
           uv run python scripts/android_source_audit.py

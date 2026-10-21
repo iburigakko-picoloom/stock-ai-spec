@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { StockDetail } from "../types";
@@ -7,10 +7,12 @@ import { CompanyResearchPanel } from "../mobile/CompanyResearchPanel";
 
 export function StockDetailPage(): ReactNode {
   const { symbol = "" } = useParams();
+  const location = useLocation();
+  const from: unknown = location.state?.from;
+  const backTo = from === "/" || from === "/ranking" ? from : "/today";
   const { data, error, loading, reload } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
   const [selectedBucket, setSelectedBucket] = useState("ALL");
-  if (loading) return <StatePanel title="銘柄情報を読み込んでいます" />;
-  if (error || !data) return <StatePanel tone="error" title="銘柄情報を取得できません" detail={error} />;
+  if (loading || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /></div>;
 
   const bucketIds = Array.from(new Set([
     ...data.positions.map((item) => item.account_bucket_id),
@@ -33,7 +35,7 @@ export function StockDetailPage(): ReactNode {
 
   return (
     <div className="page">
-      <Link className="back-link" to="/today">← 戻る</Link>
+      <Link className="back-link" to={backTo}>← 戻る</Link>
       <PageHeader eyebrow={symbol} title={company} meta={selectedLines.length === 1 ? yen(selectedLines[0].referencePrice) : undefined} />
       {bucketIds.length > 1 && <div className="account-tabs" role="tablist">
         <button role="tab" aria-selected={selectedBucket === "ALL"} className={selectedBucket === "ALL" ? "active" : ""} onClick={() => setSelectedBucket("ALL")}>合計</button>

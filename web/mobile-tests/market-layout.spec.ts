@@ -60,12 +60,14 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
   await expect(page.getByRole("combobox", { name: "株数の探索方法" })).toHaveValue("daily-decision-engine-v3-bounded");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   for (const group of await page.locator(".button-stack").all()) {
-    const controls = await group.locator("button").evaluateAll(nodes => nodes.map(node => {
+    const controls = await group.locator("button:visible").evaluateAll(nodes => nodes.map(node => {
       const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
     }));
     for (const control of controls) expect(control.height).toBeGreaterThanOrEqual(48);
     for (let i = 1; i < controls.length; i++) expect(controls[i].top - controls[i - 1].bottom).toBeGreaterThanOrEqual(12);
   }
+  await expect(page.getByRole("region", { name: "毎日の自動処理" }).getByRole("button", { name: "開始", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "毎日の自動処理" }).getByRole("button", { name: "自動処理を停止", exact: true })).toHaveCount(0);
   for (const select of await page.locator("select:visible").all()) {
     expect((await select.boundingBox())!.height).toBeGreaterThanOrEqual(48);
   }
@@ -84,6 +86,7 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
     ["forecast_saved", "原予測を保存済み・株数判定待ち"],
     ["deciding", "株数を計算しています"],
     ["compute_wait", "Androidの計算待ち・アプリで保存状態を確認してください"],
+    ["credentials", "APIキー・契約を確認して再開してください"],
   ]) {
     await page.goto(`/mobile-tests/market-layout.html?dailyState=${state}`);
     await page.addStyleTag({ content: "html { font-size: 150%; }" });
@@ -91,11 +94,15 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
     await expect(daily.getByRole("status")).toHaveText(label);
     await expect(daily.getByRole("button", { name: "自動処理を停止" })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    const boxes = await daily.locator("button").evaluateAll(nodes => nodes.map(node => {
+    const boxes = await daily.locator("button:visible").evaluateAll(nodes => nodes.map(node => {
       const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
     }));
     for (const box of boxes) expect(box.height).toBeGreaterThanOrEqual(48);
-    expect(boxes[1].top - boxes[0].bottom).toBeGreaterThanOrEqual(12);
+    expect(boxes).toHaveLength(state === "credentials" ? 2 : 1);
+    if (state === "credentials") {
+      expect(boxes[1].top - boxes[0].bottom).toBeGreaterThanOrEqual(12);
+      await expect(daily.getByRole("button", { name: "続きから再開" })).toBeEnabled();
+    } else await expect(daily.getByRole("button", { name: "開始", exact: true })).toHaveCount(0);
     await daily.screenshot({ path: info.outputPath(`daily-${state}-${width}.png`) });
   }
 });

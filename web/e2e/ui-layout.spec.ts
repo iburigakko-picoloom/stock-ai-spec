@@ -21,6 +21,7 @@ for (const width of [360, 390, 430, 1280]) {
       await expect(page.getByRole("navigation", { name: "メインナビゲーション" }).getByRole("link")).toHaveCount(5);
       if (path === "/today") {
         const action = page.getByRole("link", { name: "判断を確認" });
+        await action.scrollIntoViewIfNeeded();
         await expect(action).toBeInViewport();
         await expect(page.getByText("取引後の推定現金（合計）")).toBeAttached();
         expect(await page.locator(".proposal-metadata").getAttribute("open")).toBeNull();

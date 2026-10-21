@@ -39,9 +39,7 @@ export function DecisionReviewPage(): ReactNode {
     return () => { active = false; };
   }, [proposal, targets]);
 
-  if (loading) return <StatePanel title="判断内容を準備しています" />;
-  if (error) return <StatePanel tone="error" title="提案を取得できません" detail={error} />;
-  if (!proposal) return <StatePanel tone="warning" title="有効な当日提案がありません" detail={data?.blockingReason} />;
+  if (loading || error || !proposal) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="判断を確認" /><StatePanel tone={loading ? "neutral" : error ? "error" : "warning"} title={loading ? "判断内容を準備しています" : error ? "提案を取得できません" : "有効な当日提案がありません"} detail={error || data?.blockingReason} /></div>;
 
   async function save(): Promise<void> {
     if (!proposal || !review || review.constraint_violations.length > 0) return;
@@ -69,6 +67,7 @@ export function DecisionReviewPage(): ReactNode {
 
   return (
     <div className="page page--with-sticky">
+      <Link className="back-link" to="/today">← 今日へ戻る</Link>
       <PageHeader eyebrow="AI提案とは別に保存" title="判断を確認" />
       <DecisionSteps current="review" />
       <section className="notice-box"><strong>これは注文画面ではありません</strong><span>証券会社での操作はご自身で行い、結果を後から記録します。</span></section>
