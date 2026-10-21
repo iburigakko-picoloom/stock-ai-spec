@@ -1,3 +1,24 @@
+## 2026-10-21 — 修正母集団の費用比較と実モデル接続（D218、進行中）
+
+- source `8a1f7b35789318fc610ba179468fdf30d8ba202f` のローカル全体pytest--covは **1,907件成功、1,950.01秒、coverage87.23%**。Ruff全体、mypy76sourceの通常/win32、source/package監査も成功。CI [39539125268](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39539125268)はverify/android/android-history全成功、releaseはskip。実APKのtested merge `d564bed316552986f668875d6876fd60d27244a4` とsourceのGit tree一致を確認した。後続差分全体の成功へ読み替えない。
+- 独立E314,915/P250313,863を使うLightGBM seed17回帰の5/20日を再接続。未来ラベルのない111行も予測を保持し、明示棄権はEに残す。全OOFのcrossfitを実行し、比較は2/36回帰・順位系列限定、全18構成/3seed/実ensembleの比較は未完。5日MSEのzero-return差は改善せず、校正Rank ICには定数予測日の未定義値があるため、異なる有効日数の平均を改善の証拠にしない。
+- 新P250の先頭10日smokeは5日9.013/20日10.014秒で成功。共通開発期間5日177/20日140営業日の回帰・momentum・全現金HOLD×20/40bpsの12条件を149.194秒で完走。私有 `p250-nav/comparison-receipt-v1.json`（SHA256 `41e4b8a2c0df3d74aa83a542ab168b6b6e0c1da5dc86a61353f070d856d05f19`）に全入力/結果/guardを保存。14成功工程は168.221秒、最大RSS1,086,656,512 bytes、私有出力約548MB。初回の任意bytes項目の工程エラーは結果生成前に停止・保存し、同じ売買条件のv4へ版を分けた。
+
+| 期間/費用 | 回帰の費用後収益 | momentum | 回帰MDD | momentum MDD |
+| --- | ---: | ---: | ---: | ---: |
+| 5日/20bps | 16.2584% | 18.6658% | 3.1138% | 3.5687% |
+| 5日/40bps | 10.6608% | 16.1214% | 4.0726% | 3.7492% |
+| 20日/20bps | 17.5730% | 12.2585% | 3.4657% | 2.2672% |
+| 20日/40bps | 16.3517% | 10.4840% | 3.4949% | 2.1655% |
+
+- 全現金HOLDは0%。20日20bpsの資金不足による未約定1件を保持し、価格や費用を補正して約定させていない。12条件の未確定mark/権利入金は0だが、配当除外・税引前・日足proxy・事後会計を含む探索的研究である。20日は対照よりMDDが悪化し、単一seedの正収益だけで採用しない。旧317組の結果と新P250の結果を区別し、元152/旧96不完全は不変。
+- 公式構成表・変更一覧・整理指定履歴と4営業日規則を突合し、過去633組中384組を補足的なHISTORICALLY_RECONSTRUCTEDとして照合。残249組は初期anchor不足58/同日公表時刻不明4/個別除外根拠不足187。個別の残りは8905/6594/3141。原manifestを差し替えず、真正PIT/strict採用の認証にはしていない。限定検索を終了し、同じ資料不足を無期限に再調査しない。
+- 私有の技術bundleは3基本モデル・1,921,442 bytes。保存済み実特徴量493候補/489予測可能に対し、PC native/portableの1,467基本出力・合成後・上位20が差0。回帰5日fold6/回帰20日fold5/順位20日fold3を使う混在foldの接続試験用で、選定構成ではない。risk/5日rankはnull、検証用口座の保有0は非空の本人保有確認を意味しない。作成は当日12:49以降で、過去の通常予測へ遡及使用しない。
+- 同じsource/成功CI資産の私有debug APK一式を171.880秒でbuildし、独立したlocal署名・全資産・sourceのbyte一致を監査。API35の実Android emulatorで3基本モデル1,467出力・合成後・上位20がPCと一致し、欠落母集団拒否・optional risk null・暗号化保存/復元・保護table不変を確認（instrumentation61.99秒、controller73.45秒、app＋WebViewのRSS標本最大1,154,019,328 bytes）。私有 `real-ensemble-android/execution-006/proof/report.json` SHA256=`5078f81f79e6cc9639501c015735ceffa9d2f26efc7110b97d3d15de391805aa`。保存済み実特徴量の技術接続試験であり、全市場入力作成/本人の全owner経路/Xiaomiの成功ではない。失敗した空VMの生成物と成功pytestの一時物だけを記録して整理し、既存市場データ/モデル/本人バックアップは触れていない。
+- 1,921,442 bytesの混在fold技術bundleを別research pinへ接続し、実bundleのreviewed取込と不一致6条件の拒否を確認。私有 `real-model-technical/import-review-002/receipt.json` SHA256=`03f229f31a8843a5c2e982724ee1431359de31ceeaf9d5127bd3ec7bba0436b8`。approved_models/bundlesは空、owner_manual/正式採用は作らない。新policyの対象CIと最終署名候補APK、Xiaomi、真正な次締切の通常予測は未完。
+- research/ensemble取込・手動相談・保存の関連63件は51.40秒で成功。sandbox内の初回は応答待ちを中断して記録し、同じ試験を制約外で実行して切り分けた。Ruff全体/mypy76sourceは成功。数学の製品sourceは8a1f7b3から変更せず、全体1,907件の証拠と新policyの関連63件を区別する。
+- A研究アプリ/B正式評価/C本人正式利用はPARTIAL。必要fold復元は8/126、残118。次のLightGBM17順位6単位と他family/seedを一つずつ実行し、全18比較を省略しない。実holdout未開封、owner承認なし、新APK公開/main merge/実注文なし。
+
 ## 2026-10-21 — 履歴条件の独立証拠と事後株数会計（D217、検証中）
 
 - `531d2b16eda0ae7559446ef61be6081427d8bdad`をPR #3へ保存。CI [39532063890](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39532063890)はverify/android/android-historyの3job成功、releaseはskip。実ComputeHostの合成ensembleは216基本出力/合成後/上位20/全保有/暗号化再読込でPC差0、45.700秒。Java heap標本はrenderer peakではなく、実モデル/Xiaomi/本項の追加変更の証拠とも区別する。

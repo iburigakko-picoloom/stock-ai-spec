@@ -1,5 +1,7 @@
 # 端末用モデル一式の受け渡し
 
+D218（2026-10-21）：実モデル3component/1,921,442 bytesの混在fold技術bundleを別research pinへ追加した。PC native/portableとAPI35 debug emulatorの全1,467基本出力・合成後・上位20が一致し、暗号化保存/再読込と保護table不変を確認。risk/5日rankingはnull。これは保存済み実特徴量・保有0の接続証拠で、選定戦略/全owner経路/Xiaomi/正式採用の証拠ではない。元return-only pinは保持し、approved_models/bundlesは空。作成/取込時刻後の真正な締切だけで通常予測へ使い、過去の11:30へ遡及しない。bundle本体/入力/モデルは非公開のまま、APKへはpinだけを含める。詳細はSTATUSのD218を参照する。
+
 D217（2026-10-21）：`predictable_decision_symbols` を明示した研究recipeでは、既存250営業日条件からラベルと独立に予測可能集合を固定し、入力/計算コード/特徴量版/全候補/棄権理由の証拠を保存する。別pinのない宣言や、5/20日の集合不一致、component不足、保有不足は拒否する。旧 `decision_symbols` は全候補必須のままで、欠落後のintersectionへ置換しない。旧bundle/固定compositionの省略項目とidentityは維持する。特徴量コードhashが変わるため入力cacheの再構築を伴い、過去の実測時間を現版の実測とはしない。
 
 D216（2026-10-21）：`stockai-mobile-research-ensemble-v1`を別schemaとして追加。複数portable componentと前処理hash、horizon/役割別の単位・保存重み・recipe・校正・順位母集団を保持する。全基本出力の後に平均percentile順位を計算し、batch/入力順による変更と欠落した順位母集団を拒否する。全市場rankをTOPIX内rankへ置換しない。既存64MiB/policy evidence pin/実機一致/公開承認を維持する。

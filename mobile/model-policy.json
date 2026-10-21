@@ -2,7 +2,7 @@
   "schema_version": "mobile-model-policy-v2",
   "approved_models": [],
   "approved_bundles": [],
-  "reason": "Formal adoption remains HOLD. The separately reviewed private two-head research bundle provides returns only; risk and calibration are unavailable. Xiaomi and whole-owner acceptance remain pending.",
+  "reason": "Formal adoption remains HOLD. Private research imports include a return-only bundle and a mixed-fold ensemble integration bundle. The latter verifies arithmetic and encrypted reload only; it is not a selected strategy. Risk and calibration are unavailable. Xiaomi and whole-owner acceptance remain pending.",
   "research_bundles": [
     {
       "bundle_id": "fcfca56783dfa5cec2e36e3ccd2563645c9c63090a564b128be2d0e634e926e6",
@@ -13,6 +13,16 @@
       "sha256": "5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5",
       "source_evidence_sha256": "dc78d8723c35af1dec94f12738c01046b1b6560a82397c9b2383d0ada47e2138",
       "use": "return-only-research"
+    },
+    {
+      "bundle_id": "2e0a86e231e2f33572388f2e8ea2f13e2346436b1d5d2d21fd90ed3e710fa803",
+      "device_evidence_scope": "real-model-arithmetic-and-isolated-encrypted-reload-API35-debug-emulator-not-Xiaomi-or-whole-owner-path; mixed-fold-technical-only-not-selected-strategy",
+      "device_parity_evidence_sha256": "5078f81f79e6cc9639501c015735ceffa9d2f26efc7110b97d3d15de391805aa",
+      "distribution_review": "private-research-import-approved",
+      "pc_parity_evidence_sha256": "3c3fb14737c9bbc8985b9d9b2d8d9adef699d168d1aca99affc76e18a7f415fd",
+      "sha256": "de883c9dcaa42632f7d980ebbb3c49a485c43d787bf13f045a2d1bbbb40920e5",
+      "source_evidence_sha256": "81b3c6030e4015738e3f984e073b996bc2f5b1dacf168cd7c66293dc6d6f74a8",
+      "use": "ensemble-research"
     }
   ]
 }
