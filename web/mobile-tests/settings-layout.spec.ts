@@ -224,11 +224,12 @@ test("returning to the list during an API-key save preserves the pending action 
   await page.getByLabel("J-Quants APIキー", { exact: true }).fill("synthetic-ui-test-key");
   await page.getByRole("button", { name: "APIキーを保存" }).click();
   await page.getByRole("button", { name: "← 設定一覧へ" }).click();
-  await expect(page.getByText("端末内で処理しています…", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "端末に保存中…" })).toBeVisible();
+  await expect(page.locator(".save-progress-spinner")).toHaveCount(1);
   await page.getByRole("button", { name: /^J-Quants API/ }).click();
   await expect(page.getByRole("button", { name: "APIキーを保存" })).toBeDisabled();
   await page.evaluate(() => (window as unknown as { __finishSettingsSave: () => void }).__finishSettingsSave());
-  await expect(page.getByText("APIキーを端末に暗号化保存しました。")).toBeVisible();
+  await expect(page.getByText("APIキーを保存しました。")).toBeVisible();
   await expect(page.getByLabel("J-Quants APIキー", { exact: true })).toHaveValue("");
   expect(await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string }[] }).__settingsCalls.filter(x => x.method === "saveApiKey").length)).toBe(1);
 });

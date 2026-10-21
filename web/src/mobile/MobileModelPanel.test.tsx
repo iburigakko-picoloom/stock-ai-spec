@@ -35,7 +35,7 @@ test("one file imports the reviewed bundle and refreshes saved status", async ()
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
   await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/models/import", { content: "synthetic bundle file" }));
-  expect(screen.getByText(/実運用の採用確認/)).toHaveTextContent("未完了・研究用");
+  expect(screen.getByText("研究用・正式採用前")).toBeVisible();
 });
 test("frozen timestamps, excluded candidates and stored output remain readable", async () => {
   vi.mocked(apiPost).mockImplementation(async path => path.includes("/decision/") ? decision : run);
@@ -104,7 +104,7 @@ test("return-only research imports without adoption and opens manual consultatio
   expect(screen.queryByRole("link", { name: "今日の判定を見る" })).not.toBeInTheDocument();
   expect(screen.getByText(/自動判定に必要なリスク情報・検証がそろっていません/)).toBeVisible();
   expect(screen.getByText("上位20と全保有の予測を見る 1社")).toBeVisible();
-  expect(screen.getByText(/実運用の採用確認/)).toHaveTextContent("未完了・研究用");
+  expect(screen.getByText("研究用・正式採用前")).toBeVisible();
 });
 
 test("rank-only research preserves units, all holdings and unavailable returns", async () => {
@@ -130,4 +130,21 @@ test("rank-only research preserves units, all holdings and unavailable returns",
   expect(screen.getAllByRole("cell", { name: "未提供" })).toHaveLength(4);
   expect(screen.queryByText(/NaN|90%/)).not.toBeInTheDocument();
   expect(screen.getByText(/期待リターン率ではありません/)).toBeVisible();
+});
+
+
+test("cutoff rejection is shown once and never claims a saved prediction", async () => {
+  const blocked = { ...run, phase: "blocked", outcome: "blocked", snapshot: null,
+    outputs: [], blocking_reasons: ["ALPHA_CUTOFF_OPEN"] };
+  vi.mocked(apiPost).mockImplementation(async path => path.includes("/decision/") ? {
+    ...decision, phase: "blocked", is_active: false, blocking_reasons: ["ALPHA_CUTOFF_OPEN"],
+  } : blocked);
+  panel();
+  const button = screen.getByRole("button", { name: "当日の予測・株数を計算・保存" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("予測は未完了"));
+  expect(screen.getAllByText("11:30の締切後に計算できます。")).toHaveLength(1);
+  expect(screen.getByText("モデルファイル：1件取込済み")).toBeVisible();
+  expect(screen.getByRole("status")).not.toHaveTextContent("保存しました");
 });

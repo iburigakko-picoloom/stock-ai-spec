@@ -103,7 +103,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
       <button className="button" onClick={() => void act(async () => {
         const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
         setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false);
-        await refresh(); setMessage("補足設定を端末に保存しました。未入力は未入力のまま保持します。");
+        await refresh(); setMessage("保存しました。");
       })}>補足設定を保存</button>
     </fieldset>
     {gaps.length > 0 && <div><h3>まだ確認が必要な入力</h3><ul>{gaps.map(x => <li key={x}>{x}</li>)}</ul></div>}
@@ -119,7 +119,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
       <label><input type="checkbox" checked={confirm} onChange={event => setConfirm(event.target.checked)} />この口座・保有・現金・税の保存内容を初回台帳に確定します</label>
       <button className="button" disabled={blocked || !confirm} onClick={() => void act(async () => {
         await apiPost("/api/v1/mobile/personal/initial/confirm", { preview_id: preview.preview_id, confirmed: true });
-        setPreview(null); setConfirm(false); await refresh(); setMessage("初回台帳を確定しました。ホームで確認できます。実注文は行いません。");
+        setPreview(null); setConfirm(false); await refresh(); setMessage("残高を登録しました。ホームで確認できます。");
       })}>この内容を初回台帳に確定</button>
     </>}</div>}
     <h3>個人比較の準備状況</h3><p>{readiness?.comparison.ledger_portfolio_id ? "初回台帳は登録済みです。" : "初回台帳は未確定です。"} 採用モデルと最新予測が揃うまで、研究用表示を続けます。</p>

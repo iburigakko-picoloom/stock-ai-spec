@@ -81,7 +81,11 @@ function SettingsRow({ title, value, icon, onClick, checked, disabled = false, b
   </button>;
 }
 
-function SettingsPanel({ visible, children }: { visible: boolean; children: ReactNode }): ReactNode {
+export function SettingsPanel({ visible, children }: { visible: boolean; children: ReactNode }): ReactNode {
+  const [visited, setVisited] = useState(visible);
+  useEffect(() => { if (visible) setVisited(true); }, [visible]);
+  // Defer unused panels, but retain drafts and in-flight work after first opening.
+  if (!visible && !visited) return null;
   return <div className="settings-edit-content" hidden={!visible}>{children}</div>;
 }
 
@@ -218,19 +222,21 @@ export function MobileDevicePanel(): ReactNode {
       </details>
     </section>
     {messageGroup === "account" && message && <p role="status">{message}</p>}
-    <details className="settings-disclosure" hidden={selected !== "accounts"}><summary>税金・費用・初回台帳</summary>
+    <SettingsPanel visible={selected === "accounts"}>
+    <details className="settings-disclosure"><summary>税金・費用・残高登録</summary>
       <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
     </details>
+    </SettingsPanel>
     </SettingsPanel>
     <SettingsPanel visible={selected === "market"}>
     <section className="section">
       <h2>J-Quants APIキー</h2>
-      <p>{configured === null ? "確認中" : configured ? "設定済み（値は表示しません）" : "未設定"}</p>
+      <p>{configured === null ? "確認中" : configured ? "設定済み" : "未設定"}</p>
       <label>J-Quants APIキー<input type="password" value={key} autoComplete="off" onChange={event => setKey(event.target.value)} /></label>
       <div className="button-stack">
         <button className="button" disabled={busy || !key} onClick={() => void action(async () => {
           await StockAI.saveApiKey({ apiKey: key }); setKey(""); setConfigured(true);
-        }, "APIキーを端末に暗号化保存しました。", "data")}>APIキーを保存</button>
+        }, "APIキーを保存しました。", "data")}>APIキーを保存</button>
         <button className="button button--secondary" disabled={busy || !configured} onClick={() => void action(async () => { await StockAI.clearApiKey(); setConfigured(false); }, "APIキーを削除しました。", "data")}>APIキーを削除</button>
       </div>
       {messageGroup === "data" && message && <p role="status">{message}</p>}
@@ -242,7 +248,7 @@ export function MobileDevicePanel(): ReactNode {
     </SettingsPanel>
     <SettingsPanel visible={selected === "daily"}>
     <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />
-    <section className="section"><h2>完了通知</h2><p>通知はAndroidの許可状態を表示します。オフへの変更や許可後の再設定は、Androidの「アプリ情報 → 通知」で行ってください。</p>
+    <section className="section"><h2>完了通知</h2><p>通知のオン・オフはAndroidの設定で変更できます。</p>
       <button className="button button--secondary" disabled={daily.busy || !daily.status} onClick={() => void daily.requestNotifications()}>通知の許可を確認</button>
     </section>
     </SettingsPanel>
@@ -261,6 +267,5 @@ export function MobileDevicePanel(): ReactNode {
       </nav>
       <p><a href="/python/licenses.html" target="_blank" rel="noreferrer">オープンソースの表示・ソース取得先</a></p>
     </SettingsPanel>
-    {busy && <p role="status">端末内で処理しています…</p>}
   </div>;
 }

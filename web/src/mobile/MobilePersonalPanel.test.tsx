@@ -47,7 +47,7 @@ test("incomplete settings can be saved without inventing amounts and blocked bal
   const saved: SavedSettings = { revision_id: "b".repeat(64), saved_at: profile.saved_at, settings: draft };
   vi.mocked(apiPost).mockImplementation(async path => path.endsWith("settings") ? { saved, current_portfolio: profile } : initial);
   fireEvent.click(save);
-  await screen.findByText("補足設定を端末に保存しました。未入力は未入力のまま保持します。");
+  await screen.findByText("保存しました。");
   expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/personal/settings", { expected_revision_id: null, settings: draft });
   expect(draft.tax_assumptions.taxable_rate_percent).toBeNull();
   const preview = screen.getByRole("button", { name: "初回残高の確認内容を作る" });
@@ -75,7 +75,7 @@ test("initial balances display every account and require explicit confirmation",
   expect(screen.getByText(/7203 37株／取得単価 900円／参考価格 1000円/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("checkbox", { name: "この口座・保有・現金・税の保存内容を初回台帳に確定します" }));
   fireEvent.click(confirm);
-  await screen.findByText("初回台帳を確定しました。ホームで確認できます。実注文は行いません。");
+  await screen.findByText("残高を登録しました。ホームで確認できます。");
   expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/personal/initial/confirm", { preview_id: initial.preview_id, confirmed: true });
 });
 

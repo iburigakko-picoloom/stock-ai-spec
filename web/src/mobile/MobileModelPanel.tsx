@@ -88,10 +88,10 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
   const symbols = top ? [...new Set([...top, ...[...holdings].sort()])].filter(symbol => available.includes(symbol)) : available.sort();
   const researchConsultation = decision?.blocking_reasons.length === 1 && decision.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE";
   const bundleCount = (model?.approved_bundle_count ?? 0) + (model?.research_bundle_count ?? 0);
+  const blockingMessages = [...new Set([...(run?.blocking_reasons ?? []), ...(decision?.blocking_reasons ?? [])].map(reason))];
   return <section className="section model-panel" aria-label="端末内のモデルと予測">
-    <h2>モデルと計算</h2>
-    <p>確認済みの一式：{bundleCount}件／端末へ取込済み：{model?.imported_bundle_count ?? 0}件</p>
-    <p>実運用の採用確認：{model?.model_adopted ? "確認済み" : "未完了・研究用"}</p>
+    <p>{model ? `モデルファイル：${model.imported_bundle_count}件取込済み` : "モデルを確認中…"}</p>
+    <p>{model?.model_adopted ? "採用確認済み" : "研究用・正式採用前"}</p>
     {!inputsSaved && <p>口座・保有の編集を保存してから予測を計算します。</p>}
     {model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
     <div className="button-stack">
@@ -103,7 +103,7 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
         setDecision(null);
         const value = await apiPost<ForecastRun>("/api/v1/mobile/daily/generate", {}); setRun(value);
         const shares = await apiPost<DecisionRun>("/api/v1/mobile/decision/generate", {}); setDecision(shares);
-        setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : shares.blocking_reasons.length === 1 && shares.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE" ? "研究用の予測を保存しました。ChatGPTへの相談で株数案を検討できます。" : "計算状況と不足項目を保存しました。");
+        setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : shares.blocking_reasons.length === 1 && shares.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE" ? "研究用の予測を保存しました。ChatGPTへの相談で株数案を検討できます。" : value.phase === "published" && value.snapshot ? "予測は保存済みです。株数の判定は未完了です。" : "予測は未完了です。下の理由を確認してください。");
       })}>{model?.return_only_research || model?.ensemble_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
     </div>
     <p role="status">{message}</p>
@@ -114,10 +114,9 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
       {researchConsultation && <Link className="button button--secondary" to="/today/chatgpt">予測を使ってChatGPTへ相談する</Link>}
       {decision?.phase === "published" && !decision.is_active && <p>保存後に入力や計算対象が変わっています。最新の条件を確認して再実行してください。</p>}
       {decision?.phase === "computed" && <p>株数の保存が途中です。同じ計算を実行すると保存を再開します。</p>}
-      {decision && decision.blocking_reasons.length > 0 && <ul>{decision.blocking_reasons.map(code => <li key={code}>{reason(code)}</li>)}</ul>}
       {run.outcome === "cash_only" && <p>対象銘柄と保有がないため、銘柄の数値予測はありません。</p>}
       {run.phase === "computed" && <p>保存の確定を確認できません。同じ計算を実行すると保存を再開します。</p>}
-      {run.blocking_reasons.length > 0 && <ul>{run.blocking_reasons.map(code => <li key={code}>{reason(code)}</li>)}</ul>}
+      {blockingMessages.length > 0 && <ul>{blockingMessages.map(message => <li key={message}>{message}</li>)}</ul>}
       <details><summary>計算時刻・参照情報</summary>
         <p>確認：{timestamp(run.checked_at)}</p>
         <p>この予測の対象方式：{run.scope.universe?.policy === "jquants-scalecat-topix500-v1" ? "TOPIX500" : run.scope.universe?.policy?.startsWith("cap30bn-adv20-top300-") ? "従来300" : "記録を確認してください"}</p>
