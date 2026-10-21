@@ -1,5 +1,7 @@
 # 端末用モデル一式の受け渡し
 
+D219（2026-10-21）：research pinを含む製品2b0f361の必要CI3系統が成功し、同一sourceの非公開0.1.29候補を署名・内容検査済みとした。私有APK SHA256=`af719de47e1bb789fc1b76ffedf95b1c9f6f001c1ae5e821406fe1a8afade9df`、23,994,021 bytes。APKへ技術bundle本体を同梱せず、同じ私有handoffにbundle/実hash/一括Xiaomi票を保存した。現版cache再構築からのPC全特徴量/合成一致も確認済み。Xiaomi/真正次締切/選定ensembleの配備確認は未完で、混在foldの技術bundleを候補選定や正式採用へ昇格しない。
+
 D218（2026-10-21）：実モデル3component/1,921,442 bytesの混在fold技術bundleを別research pinへ追加した。PC native/portableとAPI35 debug emulatorの全1,467基本出力・合成後・上位20が一致し、暗号化保存/再読込と保護table不変を確認。risk/5日rankingはnull。これは保存済み実特徴量・保有0の接続証拠で、選定戦略/全owner経路/Xiaomi/正式採用の証拠ではない。元return-only pinは保持し、approved_models/bundlesは空。作成/取込時刻後の真正な締切だけで通常予測へ使い、過去の11:30へ遡及しない。bundle本体/入力/モデルは非公開のまま、APKへはpinだけを含める。詳細はSTATUSのD218を参照する。
 
 D217（2026-10-21）：`predictable_decision_symbols` を明示した研究recipeでは、既存250営業日条件からラベルと独立に予測可能集合を固定し、入力/計算コード/特徴量版/全候補/棄権理由の証拠を保存する。別pinのない宣言や、5/20日の集合不一致、component不足、保有不足は拒否する。旧 `decision_symbols` は全候補必須のままで、欠落後のintersectionへ置換しない。旧bundle/固定compositionの省略項目とidentityは維持する。特徴量コードhashが変わるため入力cacheの再構築を伴い、過去の実測時間を現版の実測とはしない。
