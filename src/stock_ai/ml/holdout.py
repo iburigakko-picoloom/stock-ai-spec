@@ -34,6 +34,7 @@ from stock_ai.ml.advanced import (
     AdvancedModelMetrics,
     FoldPreprocessor,
     fit_predict_frozen_model,
+    research_input_columns,
     summarize_oof_predictions,
 )
 from stock_ai.ml.campaign import load_campaign_build_id
@@ -499,7 +500,9 @@ def evaluate_locked_holdout(
                 state.failure_code = "WORKER_EXITED_BEFORE_PREDICTION_PUBLICATION"
         _write_ledger(ledger, ledger_path)
         dataset_path = _dataset_path_from_build_marker(build_manifest_path)
-        snapshot, dataset = load_production_dataset_snapshot(dataset_path)
+        snapshot, dataset = load_production_dataset_snapshot(
+            dataset_path, columns=_holdout_input_columns(selection, composition)
+        )
         if snapshot.snapshot_id != selection.data_snapshot_id:
             raise RuntimeError("locked holdout dataset differs from frozen selection")
         holdout_frames = _holdout_frames(dataset, selection, composition)
@@ -828,6 +831,26 @@ def _dataset_path_from_build_marker(path: Path) -> Path:
     if not isinstance(value, str) or not value:
         raise RuntimeError("Production Build marker lacks its dataset path")
     return Path(value).resolve()
+
+
+def _holdout_input_columns(
+    selection: DevelopmentSelectionArtifact,
+    composition: FrozenCompositionManifest | None,
+) -> tuple[str, ...]:
+    """Project frozen inputs while the loader still authenticates every source column."""
+    columns: list[str] = []
+    for horizon in selection.horizons:
+        columns.extend(
+            research_input_columns(
+                horizon.expected_return_component.source_config, horizon.feature_names
+            )
+        )
+        # Both raw-return status and receipt clocks are needed even when a source
+        # config names a different target family. Never filter prediction rows here.
+        columns.append(f"label_status_{horizon.horizon}d")
+        if composition is not None:
+            columns.append(f"label_available_at_{horizon.horizon}d")
+    return tuple(dict.fromkeys(columns))
 
 
 def _holdout_frames(

@@ -15,6 +15,7 @@ from mobile.python.research_ensemble import (
     inference,
 )
 
+import stock_ai.ml.holdout as holdout_module
 from stock_ai.ml.holdout import evaluate_locked_holdout
 from stock_ai.ml.selection import (
     FrozenCompositionComponent,
@@ -151,6 +152,35 @@ def test_frozen_daily_return_and_rank_composition_reaches_final_nav_once(tmp_pat
             evaluation_root=tmp_path / "holdout",
             evaluator_code_commit="synthetic-final-evaluator",
         )
+
+
+def test_projected_holdout_keeps_full_identity_receipts_and_missing_labels(tmp_path, monkeypatch):
+    original_loader = holdout_module.load_production_dataset_snapshot
+    observed = []
+
+    def projected_loader(path, *, columns=None):
+        assert columns is not None
+        assert {"as_of", "label_available_at_5d", "label_available_at_20d"} <= set(columns)
+        snapshot, projected = original_loader(path, columns=columns)
+        full_snapshot, full = original_loader(path)
+        assert snapshot.snapshot_id == full_snapshot.snapshot_id
+        assert len(columns) < len(full.columns)
+        pd.testing.assert_frame_equal(projected, full.loc[:, list(columns)])
+        for horizon in (5, 20):
+            target = f"target_return_{horizon}d"
+            assert projected[target].isna().sum() == full[target].isna().sum() > 0
+        observed.append(tuple(columns))
+        return snapshot, projected
+
+    monkeypatch.setattr(holdout_module, "load_production_dataset_snapshot", projected_loader)
+    f = fixture(tmp_path, monkeypatch, missing_labels=True, composition_builder=composition)
+    receipt = run(f)
+    assert receipt.status == "INCOMPLETE" and not receipt.adoption_eligible
+    assert len(observed) == 1
+    assert len(f["calls"]) == 6
+    assert {task for _, task in f["calls"]} == {"regression", "ranking"}
+    report = json.loads(f["report_path"].read_text(encoding="utf-8"))["report"]
+    assert all(result["prediction"]["rows"] == 30 for result in report["composition_results"])
 
 
 def test_missing_exit_labels_still_receive_all_composed_predictions(tmp_path, monkeypatch):

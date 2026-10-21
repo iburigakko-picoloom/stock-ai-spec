@@ -1,3 +1,22 @@
+## 2026-10-21 — 本人の完成優先指示を反映し全補修queueを停止（D221、進行中）
+
+- 20日主軸/5日補助、ChatGPT上位20銘柄＋全保有（重複除外）を本人回答で確定。20％化/新しい期間混合/広範な重み探索はしない。同じlocalのPR #3を継続し、モデル固定→最終holdout→APK→Xiaomiを優先する。
+- 実行中だったXGBoost20日順位seed17/fold2は735.047秒で完了。元共通225,308行差0、追加ラベルなし3,018行を含む全228,326行を別identityへ保存。同じfitのnative/portable/fullprocessorを保持した。worker240816/supervisor90368は不存在を確認し、後続fit0、boundary markerを保持。復元18/126、残108は必須queueではない。私有index SHA256=`2a9cdeebeb57d582dbf29e4276e3ee5ce84a55f66f72f7418ccb27addadb2622`、72task `inventory-006.json` SHA256=`99b99a005437073d7a3e6d79f4bea9daff0c1bc7f2f743afd63ac3c0f60d6207`。
+- 旧全18の認証済みdaily-forward-crossfit-v1/単体・ensemble・baselineの共通後半比較を再発見し再利用する。全市場を母数にした順位をTOPIX500内順位へ同じものとして移植しない。必要な同一母数の条件付き比較だけを追加し、元152/96不完全/新P250比較を分ける。欠損の条件付き除外で失われる順位/実運用への一般化を明示する。
+- 最終評価の初期loaderだけを既存の全logical hash認証付きcolumns読込へ変更した。固定特徴量・rawラベル状態・compositionの受領時刻を保持し、予測行をラベルで事前除外しない。変更後のlocked holdout/composition/予測母集団/research memory関連45試験は34.34秒で成功（2既存警告）。全列読込とのsnapshot ID・保持列の型/値・ラベル欠損行・6成分の全30予測行を合成試験で確認した。私有 `holdout-projection-001/results.xml` に保存。大規模な評価器再構築や別損益エンジンは作らず、実holdoutはまだ実行していない。
+- 同じ差分の最終戦略/NAV接続19試験も27.32秒で成功し、Ruff全体とmypy76source（非incremental）が成功。関連計64試験。最初の19試験呼出しはrootがbasetemp親を用意せず18 setup errorだったため、失敗logを残して別directoryで修正実行した。[今回の検証記録](evidence/model-completion-20261020/checks-20261021-projected-inputs.json)。checkpoint65219fcのCI39565041769も必要3系統成功したが、この未commit source差分のCI成功証拠とはしない。
+- 追加warm計測は私有handoff/合成反例34件まで保全し、build/VM/実データ実行は0で保留。初回593.209秒と検査済み0.1.29は維持。本人の正式採用はHOLD、owner_manualなし、新APK公開/main merge/実注文なし。
+
+## 2026-10-21 — 実SQLiteから実ensemble・暗号化保存・再起動まで照合（D220、進行中）
+
+- 製品source2b0f361/成功CI39549216577の同じ数式を使う隔離API35試験で、現版cache再構築→特徴量/P250→実3component/合成→研究snapshot保存→暗号化publish→再起動読戻しを完走した。SQLite219,598,848 bytes、全市場485営業日の価格/マスタ計970日別snapshot・4,291,120 source rows、候補493/予測可能489/保有0。PCと全特徴量/欠損・1,467基本出力・合成後/上位20が完全一致。通常APKと違う唯一のprivate runtime appendixで凍結入力を検査する技術経路であり、通常予測/採用/Xiaomiの成功にはしない。
+- 入力再構築532.273秒、特徴量/P証拠11.196秒、portable合成0.857秒、計算とsnapshot544.904秒。queueから状態export/AES永続publishを含むownerPOSTは **593.209秒**。製品1要求600秒は維持したが余裕は6.791秒であり、十分な性能余裕や日次3分を達成済みとはしない。旧399秒の入力より速くなったとも主張しない。warm再利用の実測を別に進める。
+- fixture準備125.081秒、検査/再起動126.430秒、native一連844.724秒（JUnit844.785秒、host観測851.812秒）。試験準備/検査と製品1要求を分離し、前者の時間を製品の600秒へ混ぜない。app＋WebViewのRSS標本最大 **3,203,035,136 bytes**、host空きRAM最小1,582,391,296 bytes。既存CPU/RAM/600秒を緩めていない。旧renderer単独3.3GBの観測とは定義をそろえず削減率を作らない。
+- nativeはOK(1 test)/時間枠PASSだったが、初回controllerは私有host照合helperのfile URIにuri=Trueがなく失敗した。旧helper/FAILED report/全出力を保全し、2つのreadonly接続だけを修正。日本語/空白path・書込拒否・既存snapshot改変・余分な挿入・期待行欠落の5試験を確認し、保存出力から全47table（mobile20/operations27）を再照合して成功した。callerの相対outputによる別失敗も保全し、絶対pathで再検証。nativeの重い全量処理は再実行していない。途中のrootの「要求600秒超」推測は、実測593.209秒に訂正し、追加004のlogging/teardown案は未実装とした。
+- 私有 `current-cache-ensemble-android/execution-003/combined-verified-v1.json` SHA256=`6d41483f5c991acdc06922c744f877c521d25f317c09d05f363eac5f620d65d9` に成功native/host再照合と元FAILEDを対応付けた。元capsule不変、cacheと新研究snapshot1件以外の全typed内容不変、再起動後全table一致。元のactive selection/通常daily latestは維持され、新projectionはID指定で確認した。本人の非空保有確認・通常モデル配備とは区別する。
+- 暗号化保存前のencoded stateは248,814,264文字で、既存256MiB上限まで19,621,192文字の余裕。本人台帳/履歴を削らず、上限を増やしていない。この1回の成功を無期限の継続余裕とせず、真正な日次とXiaomiは引き続き未確認。使い捨てVM/重複した展開作業ファイルだけを、元capsule/出力/検証hashを保持して整理する。
+- 全36回帰/順位系列の次比較も元18report/同P250/crossfit条件からmetadataだけ固定した。私有 `p250-ensemble-preparation/future-original36-plan-v1.json` SHA256=`1131ae7864c6e85f7cbe1a6e54da5dd4c0d0df1dba6499024d093ffe20c2e0ad`。未復元のcomponentを省略して成功表示せず、全体比較は引き続き未完。正式HOLD、実holdout未実行、本人審査なし、Xiaomiは本人指定で後回し。新規課金/注文/main merge/新APK公開なし。
+
 ## 2026-10-21 — 順位ensembleの実比較・72タスク診断・検査済み候補（D219、進行中）
 
 - 製品source `2b0f36192b7386253c8c0b831cf91d1c2bcbbd3c` のCI [39549216577](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39549216577)はverify/android/android-history全成功、release skipped。tested merge `b11b97fc1a4d005066ac58b97b252811176a62b2` とsourceのtree `1088499814a00dd8783a9ac6af9b298852440688` が一致。D218の全体試験と、このpolicy差分の関連63件・対象CIを区別する。

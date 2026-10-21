@@ -1,5 +1,7 @@
 # 端末用モデル一式の受け渡し
 
+D220（2026-10-21）：同sourceのprivate API35試験で実SQLiteから現版cache再構築/全特徴量/実3成分/合成/暗号化保存/再起動までPCと一致した。ownerPOST593.209秒/RSS標本最大3.203GBで、600秒以内だが余裕6.791秒。private技術snapshotのID指定保存を証明したもので、通常daily latest/採用/Xiaomiへ読み替えない。host照合のURI指定だけを直し、保存済み出力の全47tableを再照合した。元FAILEDも保全。詳細・hashはSTATUS D220を参照する。
+
 D219（2026-10-21）：research pinを含む製品2b0f361の必要CI3系統が成功し、同一sourceの非公開0.1.29候補を署名・内容検査済みとした。私有APK SHA256=`af719de47e1bb789fc1b76ffedf95b1c9f6f001c1ae5e821406fe1a8afade9df`、23,994,021 bytes。APKへ技術bundle本体を同梱せず、同じ私有handoffにbundle/実hash/一括Xiaomi票を保存した。現版cache再構築からのPC全特徴量/合成一致も確認済み。Xiaomi/真正次締切/選定ensembleの配備確認は未完で、混在foldの技術bundleを候補選定や正式採用へ昇格しない。
 
 D218（2026-10-21）：実モデル3component/1,921,442 bytesの混在fold技術bundleを別research pinへ追加した。PC native/portableとAPI35 debug emulatorの全1,467基本出力・合成後・上位20が一致し、暗号化保存/再読込と保護table不変を確認。risk/5日rankingはnull。これは保存済み実特徴量・保有0の接続証拠で、選定戦略/全owner経路/Xiaomi/正式採用の証拠ではない。元return-only pinは保持し、approved_models/bundlesは空。作成/取込時刻後の真正な締切だけで通常予測へ使い、過去の11:30へ遡及しない。bundle本体/入力/モデルは非公開のまま、APKへはpinだけを含める。詳細はSTATUSのD218を参照する。
