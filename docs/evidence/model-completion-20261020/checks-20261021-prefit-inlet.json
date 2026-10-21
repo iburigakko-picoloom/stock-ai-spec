@@ -1,0 +1,46 @@
+{
+  "schema_version": "prefit-inlet-checks-v1",
+  "recorded_at": "2026-10-21T10:11:15.916598+00:00",
+  "base_commit": "2be9bceea438f8ce31c07f36f02bdf91c71c2304",
+  "source_sha256": {
+    "src/stock_ai/ml/advanced.py": "562a886ed4736ff982834356826cd64556d8b72ffaca93636c0f985970fbf96e",
+    "src/stock_ai/ml/selection.py": "431fe3dd0667dbde918e21c3d668b02b69be6cac979d731a1adb9e794b7e1e79",
+    "src/stock_ai/ml/holdout.py": "89dbaaef0dfabe2601c4400ad3d5ff9bd41c3b8c0c6eb5648f80bd20bf7b2785",
+    "tests/test_holdout_prefit.py": "da6da4c8fbe2e56d910d7e051704ef7e117c0285b6dc3c27bc60d597aa20d612"
+  },
+  "pytest": {
+    "path": ".demo-artifacts\\completion-20261021\\prefit-checks-005\\results.xml",
+    "sha256": "c51650f99d37e381e74a643392a71f2cfa0e5d03984d5941ed649d1daf3a7dab",
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "56",
+    "time": "70.560",
+    "timestamp": "2026-10-21T19:08:06.205709+09:00",
+    "hostname": "manatobook"
+  },
+  "ruff": "PASS whole repository",
+  "mypy": "PASS src --no-incremental 76 files",
+  "warnings": "13: 12 NumPy/Pandas timedelta fixture deprecations plus preexisting negative-schema serializer warning; assertions unchanged",
+  "initial_attempts_preserved": [
+    "prefit-checks-001",
+    "prefit-checks-002"
+  ],
+  "initial_repairs": "typed nested synthetic fixture inputs; Windows-safe synthetic directory identifiers; explicit prefit dict type and imports",
+  "all_empty_prefit_legacy_identity_compatible": true,
+  "prefit_no_refit_fallback": true,
+  "successful_resume_fits_and_predictions": 0,
+  "unretained_fit_rejected": true,
+  "exclusive_upper_training_boundary_strict_rows": true,
+  "real_holdout_opened": false,
+  "real_fit_performed": false,
+  "owner_approval_created": false,
+  "CI_pending_for_new_commit": true,
+  "prior_CI": {
+    "commit": "2be9bceea438f8ce31c07f36f02bdf91c71c2304",
+    "run": 39573724466,
+    "required_jobs": "ALL_SUCCESS",
+    "covers_new_difference": false
+  }
+}

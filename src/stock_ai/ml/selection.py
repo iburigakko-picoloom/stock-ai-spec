@@ -45,6 +45,7 @@ from stock_ai.ml.advanced import (
     ModelFamily,
     ModelTask,
     UncertaintyCalibration,
+    _file_sha256,
     load_advanced_research_run,
     load_authenticated_advanced_oof_slice,
 )
@@ -312,6 +313,55 @@ class FrozenCompositionComponent(BaseModel):
         return self
 
 
+class FrozenPrefitArtifact(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    path: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    bytes: int = Field(gt=0)
+
+class FrozenPrefitReceipt(BaseModel):
+    """Same-fit state retained before composition freeze, not adoption evidence."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    schema_version: Literal["frozen-prefit-model-v1"] = "frozen-prefit-model-v1"
+    component: FrozenModelComponent
+    build_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    data_snapshot_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    feature_names_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preprocessing_rule_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    training_identity_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    training_identity_version: Literal["frozen-training-column-digest-v1"]
+    train_cutoff: AwareDatetime
+    created_at: AwareDatetime
+    native: FrozenPrefitArtifact
+    full_processor: FrozenPrefitArtifact
+
+class FrozenPrefitReceiptReference(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    horizon: Literal[5, 20]
+    component_name: str = Field(min_length=1)
+    receipt: FrozenPrefitArtifact
+
+def authenticate_prefit_artifact(ref: FrozenPrefitArtifact) -> Path:
+    path = Path(ref.path)
+    if not path.is_file() or path.stat().st_size != ref.bytes or _file_sha256(path) != ref.sha256:
+        raise ValueError("prefit artifact byte/hash mismatch")
+    return path
+
+def load_frozen_prefit_receipt(ref: FrozenPrefitReceiptReference) -> FrozenPrefitReceipt:
+    if ref.receipt.bytes > 1024 * 1024:
+        raise ValueError("prefit receipt exceeds metadata bound")
+    value = FrozenPrefitReceipt.model_validate_json(
+        authenticate_prefit_artifact(ref.receipt).read_text(encoding="utf-8")
+    )
+    if (value.component.horizon, value.component.component_name) != (
+        ref.horizon,
+        ref.component_name,
+    ):
+        raise ValueError("prefit receipt component reference mismatch")
+    return value
+
+
 class FrozenCompositionManifest(BaseModel):
     """Sidecar linked to a legacy Selection without changing legacy identities.
 
@@ -330,21 +380,34 @@ class FrozenCompositionManifest(BaseModel):
     components: tuple[FrozenCompositionComponent, ...] = Field(min_length=1, max_length=72)
     outputs: tuple[FrozenCompositionOutput, ...] = Field(min_length=2, max_length=8)
     prediction_population: tuple[FrozenCompositionPopulation, ...] = Field(min_length=2)
+    prefit_receipts: tuple[FrozenPrefitReceiptReference, ...] = ()
     adoption_eligible: Literal[False] = False
+
+    @model_serializer(mode="wrap")
+    def legacy_prefit_identity(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value = cast(dict[str, Any], handler(self))
+        if not self.prefit_receipts:
+            value.pop("prefit_receipts", None)
+        return value
 
     @model_validator(mode="after")
     def authentic(self) -> Self:
         parts = {(c.component.horizon, c.component.component_name): c for c in self.components}
         if len(parts) != len(self.components):
             raise ValueError("composition component identities must be unique")
+        refs = [(r.horizon, r.component_name) for r in self.prefit_receipts]
+        if len(refs) != len(set(refs)) or not set(refs) <= set(parts):
+            raise ValueError("composition prefit references must be unique declared components")
         if len({(o.horizon, o.role) for o in self.outputs}) != len(self.outputs) or len(
             {o.output_id for o in self.outputs}
         ) != len(self.outputs):
             raise ValueError("composition output roles/identities must be unique")
         if {o.horizon for o in self.outputs} != {5, 20}:
             raise ValueError("composition requires both daily horizons")
-        if any(not any(o.horizon == h and o.role in ("return", "ranking")
-                       for o in self.outputs) for h in (5, 20)):
+        if any(
+            not any(o.horizon == h and o.role in ("return", "ranking") for o in self.outputs)
+            for h in (5, 20)
+        ):
             raise ValueError("each composition horizon requires a daily priority output")
         used = set()
         for output in self.outputs:
@@ -384,6 +447,7 @@ class FrozenCompositionManifest(BaseModel):
         return cls.model_validate({**data, "composition_id": _stable_hash(data)})
 
 
+
 def load_frozen_composition(
     path: Path, selection: DevelopmentSelectionArtifact
 ) -> FrozenCompositionManifest:
@@ -408,8 +472,29 @@ def _validate_composition_selection(
     for part in value.components:
         if part.feature_names_hash != horizons[part.component.horizon].feature_names_hash:
             raise ValueError("composition feature order differs from selection")
-        if pd.Timestamp(part.train_cutoff) >= boundary:
+        # train_cutoff is an exclusive filter upper bound, not an actual receipt.
+        if pd.Timestamp(part.train_cutoff) > boundary:
             raise ValueError("composition training cutoff crosses the locked holdout")
+    for ref in value.prefit_receipts:
+        receipt = load_frozen_prefit_receipt(ref)
+        part = next(
+            p
+            for p in value.components
+            if (p.component.horizon, p.component.component_name)
+            == (ref.horizon, ref.component_name)
+        )
+        if (
+            receipt.component != part.component
+            or receipt.build_id != value.build_id
+            or receipt.data_snapshot_id != value.data_snapshot_id
+            or receipt.feature_names_hash != part.feature_names_hash
+            or receipt.preprocessing_rule_sha256 != part.preprocessing_rule_sha256
+            or receipt.train_cutoff != part.train_cutoff
+            or receipt.created_at > value.created_at
+        ):
+            raise ValueError("prefit receipt differs from frozen composition")
+        authenticate_prefit_artifact(receipt.native)
+        authenticate_prefit_artifact(receipt.full_processor)
     if any(pd.Timestamp(o.latest_weight_label_available_at) >= boundary for o in value.outputs):
         raise ValueError("composition weights used holdout labels")
     if any(
@@ -418,6 +503,7 @@ def _validate_composition_selection(
         for o in value.outputs
     ):
         raise ValueError("composition calibration used holdout labels")
+
 
 
 def write_frozen_composition(value: FrozenCompositionManifest, selection_path: Path) -> Path:

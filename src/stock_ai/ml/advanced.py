@@ -1072,6 +1072,82 @@ def _fit_predict(
     return predict_fitted(model)
 
 
+def frozen_training_identity(
+    training: pd.DataFrame,
+    *,
+    feature_names: Sequence[str],
+    target_column: str,
+    horizon: int,
+) -> dict[str, Any]:
+    """Authenticate the exact fit input one column at a time, without a wide copy.
+
+    Dates are calendar-day ns; receipt/decision clocks are UTC ns. Feature values
+    use the existing float32/Inf-to-NaN input coercion, before train-only fitting.
+    Extra unrelated columns and the caller's index do not change this identity.
+    """
+    from stock_ai.data.production import _source_row_hashes
+
+    raw = (
+        "symbol",
+        "trading_date",
+        "as_of",
+        target_column,
+        f"label_status_{horizon}d",
+        f"label_end_date_{horizon}d",
+        f"label_available_at_{horizon}d",
+    )
+    names = tuple(feature_names)
+    if not names or len(set(names)) != len(names) or set(raw) & set(names):
+        raise ValueError("invalid frozen training feature order")
+    if missing := set((*raw, *names)) - set(training.columns):
+        raise ValueError(f"frozen training identity lacks: {sorted(missing)}")
+    order = training.loc[training[target_column].notna(), ["trading_date", "symbol"]]
+    if order.empty or order.isna().any().any() or order.duplicated().any():
+        raise ValueError("frozen training requires nonempty unique ordered keys")
+    # Positions, not arbitrary caller index labels, identify the rows for each column.
+    positions = np.flatnonzero(training[target_column].notna().to_numpy())
+    order = order.assign(_position=positions).sort_values(["trading_date", "symbol"], kind="stable")
+    positions = order._position.to_numpy(dtype=np.int64)
+    columns = []
+    for name in (*raw, *names):
+        column = training[name].iloc[positions].reset_index(drop=True)
+        if name in names:
+            column = _finite_numeric(column.to_frame(), (name,))[name]
+        elif name in ("symbol", f"label_status_{horizon}d"):
+            column = column.astype("string")
+        elif name in ("trading_date", f"label_end_date_{horizon}d"):
+            column = pd.to_datetime(column).astype("datetime64[ns]")
+            if column.isna().any() or not column.eq(column.dt.normalize()).all():
+                raise ValueError("frozen training calendar date is invalid")
+        elif name in ("as_of", f"label_available_at_{horizon}d"):
+            column = pd.to_datetime(column, utc=True).astype("datetime64[ns, UTC]")
+        else:
+            column = pd.to_numeric(column, errors="raise").astype("float64")
+        if name in raw and column.isna().any():
+            raise ValueError("frozen training raw identity column is missing")
+        values = _source_row_hashes(column.to_frame()).astype("<u8", copy=False)
+        columns.append(
+            {
+                "name": name,
+                "dtype": str(column.dtype),
+                "sha256": hashlib.sha256(values.tobytes()).hexdigest(),
+            }
+        )
+    payload: dict[str, Any] = {
+        "version": "frozen-training-column-digest-v1",
+        "rows": len(positions),
+        "feature_names": list(names),
+        "feature_names_hash": hashlib.sha256(
+            json.dumps(names, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "column_digests": columns,
+    }
+    payload["identity_sha256"] = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return payload
+
+
 def fit_predict_frozen_model(
     training: pd.DataFrame,
     prediction_frame: pd.DataFrame,

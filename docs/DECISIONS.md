@@ -1982,3 +1982,13 @@ Local related216 tests30.73s, separate dividend24 tests2.85s, Ruff and mypy75 pa
 Use unchanged product c2fa278 and its successful required CI/normal private 0.1.23 candidate. Real-clock API35 instrumentation now covers the existing WorkManager path, pre-cutoff refusal, OS dispatch, foreground calculation/encrypted commit, actual daily notification, and a separate read-only process/AVD reopen. Preserve original native receipt times; this run does not claim new HTTP acquisition or unattended Xiaomi delivery.
 
 The observed forecast/save state interval is544.795s under the existing600s bound. All feature-value hashes and590 predictions match PC; all17/27 typed tables are checked, and market/model/personal ledger inputs remain immutable. Keep incomplete diagnostic observations and the interrupted original reopen separate from the passed additional probe. Tolerate only unavailable/partial intermediate sidecars; final proof and DB checks remain strict. Preserve boot/wait/probe-setup failures, all resource guards, and the unmodified signed APK. No new model fit, final scoring, automatic external AI send, real order, merge or public distribution. Xiaomi and daily performance improvements remain open.
+
+
+## D222（2026-10-21）：共通条件付き比較から必要な配備fitだけへ収束する
+
+- 元18構成/72task、元OOF/152結果、独立E/Pと未使用holdoutは不変。本人の完成優先指示により、全126foldの復元を必須化しない。全候補の共通C（成熟ラベルと保存出力が存在する部分）で96費用条件を実行し、future-label/output-conditioned選択バイアスを必ず保存する。旧96不完全の修復やfullP運用評価へ読み替えない。既存価格/固定ルール/stateful NAV/資金/費用/権利保護の計算を再利用し、別損益エンジンは作らない。
+- 研究用の今回版は20日を主順位、5日は短期補助とする。候補は3seed平均の役割別誤差・順位指標と同条件費用比較で判断し、代表seedは17に固定する。20日学習重み順位は従来の最強個別IC要件を満たさず、return ensembleも安定した追加改善を認証できなかった。5日/20日CatBoost回帰17と20日LightGBM順位17だけの最大3fitを研究配備案とし、risk/未採用校正はnull。MDD/高費用対照差の未達を残し、正式採用の条件を緩めない。
+- 選定した訓練入力/設定/列順/出所/ライブラリ/実時刻をtraining-only choiceへ固定し、実際のfitからnative/fullprocessor/portableを同期保存する。正式Selection/composition/本人審査のIDを架空に作らない。異なるLight入力の既存5日CBや回帰taskの20日LGBを、同一最終fitとして流用しない。
+- 最終評価の既存入口へoptional prefit参照を追加する。訓練行/float32入力・rawラベル/時刻の列別identity、構成/設定/出所、native/fullprocessorのbyte/hashを照合し、参照不整合やprovider未設定を再fitで埋めない。providerには特徴量列だけを渡す。成功checkpointの再開はfit/推論0、legacyの空参照は既存IDを維持する。明示的な保持要求があれば、sinkの未設定/未実行を拒否する。
+- compositionのtrain_cutoffはexclusive upper boundであり、locked境界と等しい指定を認める。実際のtraining date/label_end/label_availableは引き続き厳密に境界未満とし、境界超過や最終ラベルを使った重み/校正は拒否する。受領時刻/実際の学習完了時刻を境界へ遡及しない。
+- 既存strictのhistorical available_at条件は維持する。保存マスタ/calendarの後日受領は過去の知識として認証しない。研究用配備と厳密最終評価/本人採用を別工程とし、実holdoutを未承認の新モードで消費しない。Xiaomi確認は本人指定で後回し。公開配布/main merge/実注文は行わない。

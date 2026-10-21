@@ -1,8 +1,19 @@
+## 2026-10-21 — 全18構成の共通条件付き費用比較を完走（D222、進行中）
+
+- 全18構成/72taskの保存OOFに基づく単体回帰9・単体順位9・等重み/学習重みreturn/rank4・保存momentum・全現金HOLDを、5/20日×片道20/40bpsで比較した。**新96ケースは96完走/不完全0、合計1,426.390秒**。初期1,000万円/上位20/90%/100株/既存資金解放と同じstateful NAVを再利用し、別の損益エンジンやGBDT再学習は0。全96の圧縮原本/読戻しreceiptのhashを照合し、日次台帳・未約定/費用/turnover定義を保全した。
+- 私有 `conditional-nav-v1/comparison-receipt-v1.json` SHA256=`c1ccc75607a6950d6416c2a3709dd27953a5ba3e486b8d3e0e0147609abc9b52` に全ケース・3seed平均/ばらつき・対照差・原本を対応付け、`comparison-v1.csv`へ保存。評価日は5日177日（2025-04-24〜2026-01-15）、20日140日（2025-04-14〜2025-11-06）。異なるhorizon期間の単純な優劣比較はしない。
+- **旧152条件の56完走/96不完全を修復した意味ではない**。今回のCは成熟ラベル/保存出力の共通部分であり、Pからの15/96行除外に由来する条件付き選択バイアスを明記する。保有/未収権利/損失を除外していないが、fullP/当時の全対象による実運用成績・正式採用の証拠にはしない。配当除外/税引前・後日取得単一版・日足proxy/費用/分割/資金解放の仮定は維持した。
+- 20日weighted rankは最強個別ICを上回らず、回帰ensembleの改善も保存済み20営業日blockのpaired区間で安定を確認できなかった。研究配備は20日LightGBM順位seed17と、両horizonのCatBoost回帰seed17を候補とする。全seed平均/固定seed規則で選び、成績のよいseedだけを選ばない。20日主候補のMDDはmomentumより悪く、5日回帰も40bpsで対照差を満たさないため、**正式採用HOLD/基準据置**。risk/未検証校正はnull、5日を主売買へ加えない。
+- 同fit保持モデルの最終評価入口を実装し、変更後の関連56合成試験が70.58秒で成功。Ruff全体/mypy76source非incrementalも成功。空prefitのlegacy ID互換、異なる訓練/モデル/processor/snapshot拒否、特徴量だけのprovider、成功checkpoint再fit/再推論0、保持sinkの未設定/未実行拒否、境界exclusive filterを確認した。初回fixture型/Windows禁止文字とmypy型の失敗は保全して修正し、NumPy/Pandas fixture警告12＋既存negative-schema警告1を残す。[検証記録](evidence/model-completion-20261020/checks-20261021-prefit-inlet.json)。新sourceのCIは後続であり、2be9bce/CI39573724466の必要3成功と区別する。
+- strict最終評価に必要な独立所属/利用可能時刻は別障害。保存dated master/calendarの実受領が過去の判断より後であり、過去時点へ受領時刻を戻して厳密評価を通さない。最終holdout/owner_manualは未実行。本人の端末確認は後回しとし、この工程だけを待つ。0.1.29私有候補と一括受入票を保持し、新公開/main merge/実注文はしない。
+
 ## 2026-10-21 — 本人の完成優先指示を反映し全補修queueを停止（D221、進行中）
 
 - 20日主軸/5日補助、ChatGPT上位20銘柄＋全保有（重複除外）を本人回答で確定。20％化/新しい期間混合/広範な重み探索はしない。同じlocalのPR #3を継続し、モデル固定→最終holdout→APK→Xiaomiを優先する。
 - 実行中だったXGBoost20日順位seed17/fold2は735.047秒で完了。元共通225,308行差0、追加ラベルなし3,018行を含む全228,326行を別identityへ保存。同じfitのnative/portable/fullprocessorを保持した。worker240816/supervisor90368は不存在を確認し、後続fit0、boundary markerを保持。復元18/126、残108は必須queueではない。私有index SHA256=`2a9cdeebeb57d582dbf29e4276e3ee5ce84a55f66f72f7418ccb27addadb2622`、72task `inventory-006.json` SHA256=`99b99a005437073d7a3e6d79f4bea9daff0c1bc7f2f743afd63ac3c0f60d6207`。
 - 旧全18の認証済みdaily-forward-crossfit-v1/単体・ensemble・baselineの共通後半比較を再発見し再利用する。全市場を母数にした順位をTOPIX500内順位へ同じものとして移植しない。必要な同一母数の条件付き比較だけを追加し、元152/96不完全/新P250比較を分ける。欠損の条件付き除外で失われる順位/実運用への一般化を明示する。
+- この全18比較は共通Cを先に保存して実行済み。元OOF354/279日全prefixを使い、既存3 forward fold/purge/校正の数式を変えず、評価177/140日を維持。5日E176,036/P175,410/C175,395、20日E138,879/P138,453/C138,357で、Cは成熟ラベルと全9候補×4taskの保存予測の共通部分。採点後半は87,563/69,255行。Pから落ちる15/96行もE/P/C membershipへ理由付き保存し、fullP順位/NAVの証明にしない。4工程すべてCPU1/RSS3500MiB/600秒のguard成功、outer合計139.162秒・RSS最大952,086,528 bytes、GBDT fit0。私有 `conditional-all18-comparison-v1.json` に原本/新receipt/hashを対応付けた。v1初回はfold int32/int64だけの型差で停止し、633時点の値差0を確認して整数型だけ正規化したv2で実行。元失敗/plan/OOFは保全。
+- 条件付き順位ICは5日等重み0.071445/学習重み0.084501、20日等重み0.096004/学習重み0.109397。20日LightGBM順位の3seed平均0.103190・代表seed17は0.111802で、学習重みが単体を常に上回るとは判定しない。回帰MSE/MAE/RMSE、全3seed、校正前後、保存momentum/zero基準も同じCで出力した。zero予測と全現金HOLDは別。費用比較/最終構成固定はこの後であり、正式採用/実holdout完了とはしない。
 - 最終評価の初期loaderだけを既存の全logical hash認証付きcolumns読込へ変更した。固定特徴量・rawラベル状態・compositionの受領時刻を保持し、予測行をラベルで事前除外しない。変更後のlocked holdout/composition/予測母集団/research memory関連45試験は34.34秒で成功（2既存警告）。全列読込とのsnapshot ID・保持列の型/値・ラベル欠損行・6成分の全30予測行を合成試験で確認した。私有 `holdout-projection-001/results.xml` に保存。大規模な評価器再構築や別損益エンジンは作らず、実holdoutはまだ実行していない。
 - 同じ差分の最終戦略/NAV接続19試験も27.32秒で成功し、Ruff全体とmypy76source（非incremental）が成功。関連計64試験。最初の19試験呼出しはrootがbasetemp親を用意せず18 setup errorだったため、失敗logを残して別directoryで修正実行した。[今回の検証記録](evidence/model-completion-20261020/checks-20261021-projected-inputs.json)。checkpoint65219fcのCI39565041769も必要3系統成功したが、この未commit source差分のCI成功証拠とはしない。
 - 追加warm計測は私有handoff/合成反例34件まで保全し、build/VM/実データ実行は0で保留。初回593.209秒と検査済み0.1.29は維持。本人の正式採用はHOLD、owner_manualなし、新APK公開/main merge/実注文なし。

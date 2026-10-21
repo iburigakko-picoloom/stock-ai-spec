@@ -34,6 +34,7 @@ from stock_ai.ml.advanced import (
     AdvancedModelMetrics,
     FoldPreprocessor,
     fit_predict_frozen_model,
+    frozen_training_identity,
     research_input_columns,
     summarize_oof_predictions,
 )
@@ -48,10 +49,14 @@ from stock_ai.ml.selection import (
     FrozenCompositionManifest,
     FrozenCompositionOutput,
     FrozenModelComponent,
+    FrozenPrefitReceipt,
+    FrozenPrefitReceiptReference,
     HorizonDevelopmentSelection,
+    authenticate_prefit_artifact,
     compose_frozen_predictions,
     load_development_selection,
     load_frozen_composition,
+    load_frozen_prefit_receipt,
 )
 from stock_ai.ml.validation import reserve_locked_final_holdout
 
@@ -426,6 +431,8 @@ def evaluate_locked_holdout(
     created_at: datetime | None = None,
     composition_path: Path | None = None,
     fitted_model_sink: Callable[[FrozenModelComponent, Any, FoldPreprocessor], None] | None = None,
+    prefit_predictor: Callable[[FrozenPrefitReceipt, pd.DataFrame], np.ndarray] | None = None,
+    require_model_retention: bool = False,
 ) -> LockedHoldoutEvaluation:
     """Evaluate the frozen selection once, resuming prediction-only checkpoints safely."""
 
@@ -443,6 +450,27 @@ def evaluate_locked_holdout(
     timestamp = created_at or datetime.now(UTC)
     evaluation_directory = (evaluation_root / selection.selection_id).resolve()
     ledger_path = evaluation_directory / "ledger.json"
+    succeeded = set() if not ledger_path.exists() else {
+        (state.horizon, state.component_name) for state in _load_ledger(ledger_path).components
+        if state.status is HoldoutComponentStatus.SUCCEEDED
+    }
+    prefit: dict[tuple[int, str], FrozenPrefitReceiptReference] = (
+        {}
+        if composition is None
+        else {(ref.horizon, ref.component_name): ref for ref in composition.prefit_receipts}
+    )
+    if set(prefit) - succeeded and prefit_predictor is None:
+        raise ValueError("frozen prefit references require an explicit predictor; no fit fallback")
+    if (
+        require_model_retention
+        and fitted_model_sink is None
+        and any(
+            (p.component.horizon, p.component.component_name) not in prefit
+            and (p.component.horizon, p.component.component_name) not in succeeded
+            for p in _component_plans(selection, composition)
+        )
+    ):
+        raise ValueError("model retention requires a synchronous fitted model sink")
     if composition is not None:
         _require_composition_preaccess_plan(
             selection_path, composition_path, composition, ledger_path, timestamp
@@ -522,39 +550,39 @@ def evaluate_locked_holdout(
             state.failure_code = None
             _write_ledger(ledger, ledger_path)
             try:
-                fit_options: dict[str, Any] = {}
-                if fitted_model_sink is not None:
-                    # Synchronous same-fit export; no second fit is requested.
-                    # The sink must durably retain state before returning.
-                    def retain(
-                        model: Any,
-                        processor: FoldPreprocessor,
-                        component: FrozenModelComponent = plan.component,
-                    ) -> None:
-                        assert fitted_model_sink is not None
-                        fitted_model_sink(component, model, processor)
-
-                    fit_options["fitted_model_sink"] = retain
-                prediction = fit_predict_frozen_model(
-                    training,
-                    holdout,
-                    feature_names=plan.horizon_selection.feature_names,
-                    target_column=f"target_return_{plan.component.horizon}d",
-                    horizon=plan.component.horizon,
-                    family=plan.component.model_family,
-                    task=plan.component.task,
-                    seed=plan.component.seed,
-                    parameters=plan.component.parameters,
-                    config=plan.component.source_config,
-                    **fit_options,
-                )
+                ref = prefit.get((plan.component.horizon, plan.component.component_name))
+                if ref is not None:
+                    assert prefit_predictor is not None
+                    receipt = load_frozen_prefit_receipt(ref)
+                    identity = frozen_training_identity(
+                        training,
+                        feature_names=plan.horizon_selection.feature_names,
+                        target_column=f"target_return_{plan.component.horizon}d",
+                        horizon=plan.component.horizon,
+                    )
+                    if identity["identity_sha256"] != receipt.training_identity_sha256:
+                        raise ValueError("prefit training frame identity mismatch")
+                    authenticate_prefit_artifact(receipt.native)
+                    authenticate_prefit_artifact(receipt.full_processor)
+                    prediction = np.asarray(
+                        prefit_predictor(
+                            receipt, holdout.loc[:, list(plan.horizon_selection.feature_names)]
+                        ),
+                        dtype=float,
+                    )
+                    if (
+                        prediction.ndim != 1
+                        or len(prediction) != len(holdout)
+                        or not np.isfinite(prediction).all()
+                    ):
+                        raise ValueError("prefit predictor emitted invalid values or shape")
+                else:
+                    prediction = _fit_pending_component(
+                        training, holdout, plan, fitted_model_sink, require_model_retention
+                    )
                 artifact = holdout.loc[:, ["symbol", "trading_date"]].copy()
                 artifact["prediction"] = prediction
-                _publish_prediction(
-                    state,
-                    artifact,
-                    evaluation_directory / "predictions",
-                )
+                _publish_prediction(state, artifact, evaluation_directory / "predictions")
                 state.status = HoldoutComponentStatus.SUCCEEDED
                 state.completed_at = datetime.now(UTC)
                 _write_ledger(ledger, ledger_path)
@@ -579,6 +607,44 @@ def evaluate_locked_holdout(
         ledger.report_path = str(report_path.resolve())
         _write_ledger(ledger, ledger_path)
         return LockedHoldoutEvaluation(report=report, report_path=report_path, resumed=resumed)
+
+
+
+def _fit_pending_component(
+    training: pd.DataFrame,
+    holdout: pd.DataFrame,
+    plan: _ComponentPlan,
+    sink: Callable[[FrozenModelComponent, Any, FoldPreprocessor], None] | None,
+    require_retention: bool,
+) -> np.ndarray:
+    """Legacy fit path, with opt-in same-fit durable retention only."""
+    retained = False
+    options: dict[str, Any] = {}
+    if sink is not None:
+
+        def retain(model: Any, processor: FoldPreprocessor) -> None:
+            nonlocal retained
+            assert sink is not None
+            sink(plan.component, model, processor)
+            retained = True
+
+        options["fitted_model_sink"] = retain
+    prediction = fit_predict_frozen_model(
+        training,
+        holdout,
+        feature_names=plan.horizon_selection.feature_names,
+        target_column=f"target_return_{plan.component.horizon}d",
+        horizon=plan.component.horizon,
+        family=plan.component.model_family,
+        task=plan.component.task,
+        seed=plan.component.seed,
+        parameters=plan.component.parameters,
+        config=plan.component.source_config,
+        **options,
+    )
+    if require_retention and not retained:
+        raise ValueError("fit returned without retained native model and processor")
+    return prediction
 
 
 def read_locked_holdout_status(evaluation_directory: Path) -> Mapping[str, object]:
