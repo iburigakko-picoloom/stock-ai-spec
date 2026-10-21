@@ -1,14 +1,14 @@
 :root {
   font-family: Inter, "Noto Sans JP", "Yu Gothic UI", sans-serif;
   color: #172b3a;
-  background: #f5f7fa;
+  background: #fff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --ink: #102347;
   --muted: #566880;
-  --line: #e1ebf4;
+  --line: #e4e8ef;
   --paper: #fff;
-  --wash: #edf7ff;
+  --wash: #fff;
   --teal: #087f7a;
   --teal-soft: #dff6f2;
   --red: #c0394b;
@@ -176,7 +176,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sticky-action .text-link { display: block; margin-top: 7px; text-align: center; }
 .button { display: inline-flex; width: 100%; min-height: 48px; padding: 10px 18px; align-items: center; justify-content: center; border: 0; border-radius: 10px; font-weight: 800; cursor: pointer; }
 .button--primary { color: white; background: var(--blue); }
-.button--secondary { color: var(--ink); background: #e8f0f4; border: 1px solid #cbd9e1; }
+.button--secondary { color: var(--ink); background: white; border: 1px solid var(--line); }
 .button:disabled { opacity: 0.45; cursor: not-allowed; }
 .button-stack { display: grid; gap: 12px; margin-top: 18px; }
 .manual-chatgpt label.checkbox { min-height: 48px; padding: 8px 0; margin: 12px 0; }
@@ -316,8 +316,8 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .settings-back { min-height: 48px; margin: -12px 0 12px; padding: 10px 0; border: 0; background: none; color: var(--blue); cursor: pointer; text-align: left; }
 .settings-menu-section { margin: 0 0 20px; }
 .settings-menu-section > h2 { margin: 0 10px 7px; color: var(--muted); font-size: .8rem; font-weight: 600; letter-spacing: .04em; }
-.settings-menu-list { padding: 0 12px; border-radius: 13px; background: white; }
-.settings-menu-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 12px; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.settings-menu-list { padding: 0 4px; background: white; }
+.settings-menu-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 12px; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
 .settings-menu-row:last-child { border-bottom: 0; }
 .settings-menu-row:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 5px; }
 .settings-menu-row:disabled { cursor: default; }
@@ -325,7 +325,7 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .settings-menu-icon { width: 26px; height: 26px; stroke: var(--blue); stroke-width: 1.7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .settings-menu-copy { grid-column: 2; min-width: 0; overflow-wrap: anywhere; }
 .settings-menu-copy strong { display: block; font-size: .95rem; font-weight: 650; line-height: 1.35; }
-.settings-menu-copy small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; line-height: 1.5; }
+.settings-menu-copy small { color: var(--muted); }
 .settings-menu-value { grid-column: 3; color: var(--ink); font-size: .92rem; font-weight: 600; line-height: 1.4; text-align: right; white-space: nowrap; }
 .settings-menu-badge { padding: 4px 8px; border-radius: 20px; background: var(--blue-soft); color: var(--blue); font-size: .7rem; }
 .settings-menu-chevron { grid-column: 4; width: 12px; height: 20px; stroke: #9299a6; stroke-width: 1.6; fill: none; }

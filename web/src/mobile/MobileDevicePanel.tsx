@@ -73,7 +73,7 @@ function SettingsRow({ title, description, value, icon, onClick, checked, disabl
   return <button type="button" className={`settings-menu-row${checked === undefined ? "" : " settings-menu-row--switch"}`} onClick={onClick} disabled={disabled}
     role={checked === undefined ? undefined : "switch"} aria-checked={checked} aria-label={checked === undefined ? undefined : title}>
     <svg className="settings-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={iconPaths[icon]} /></svg>
-    <span className="settings-menu-copy"><strong>{title}</strong><small>{description}</small></span>
+    <span className="settings-menu-copy"><strong>{title}</strong><small className="sr-only">{description}</small></span>
     {checked === undefined ? <>
       {value && <span className={badge ? "settings-menu-value settings-menu-badge" : "settings-menu-value"}>{value}</span>}
       <svg className="settings-menu-chevron" viewBox="0 0 16 24" aria-hidden="true"><path d="m5 5 7 7-7 7" /></svg>
@@ -146,7 +146,6 @@ export function MobileDevicePanel(): ReactNode {
     <header className="settings-page-header app-brand">
       {selected && <button type="button" className="settings-back" onClick={back}>← 設定一覧へ</button>}
       <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{selected ? panelTitles[selected] : "設定"}</h1></div>
-      {!selected && <p>運用に必要な設定をまとめて管理。</p>}
     </header>
     {loadError && <p role="alert">{loadError}</p>}
     {busy && <SaveProgress />}

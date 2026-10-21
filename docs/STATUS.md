@@ -1,3 +1,9 @@
+## 2026-10-21 — 白背景と簡潔な設定画面（D226）
+
+- 本人のQuiz Make参考指示に従い、手元quiz-makeの白surface・区切り線・簡潔な行構成を参照。全画面の背景を白へ変更し、Android設定一覧は項目名/値/アイコンだけを視覚表示。説明は読み上げ用に保持。
+- 開いた先の入力/保存/エラーは表示を維持し、残高説明・口座税NISA・計算方式・モデル補足はdetailsへ整理。残高登録を入力→確認の2段階に表記。D225の保存フォーム維持/spinner/本人確認/API/台帳は不変。
+- Web111試験・lint/typecheck/build成功、既存settings-layout15件全成功（320/390px・文字100/150%、cutout、操作間隔、保存中の設定遷移）。実ブラウザーの390px設定スクリーンショットで白背景/余白を確認。Xiaomi/新APKへは未反映、必要CIは新commitで確認する。
+
 ## 2026-10-21 — 設定保存中のフォーム破棄を修正（D225）
 
 - 本人から初回台帳入力・保存中に画面が更新される報告。SettingsPageの共通useApiDataが60秒/focus/visibility/onlineでloadingへ戻り、MobileDevicePanelと下書き・保存待ち・初回previewをunmountしていた。Android編集入口を参照専用設定ページから分離し、参照ページの鮮度保護は変更しない。

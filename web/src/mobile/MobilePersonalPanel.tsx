@@ -51,12 +51,15 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
   const gaps = [...new Set((readiness?.input_gaps ?? []).map(gapLabel))];
   const reasons = [...new Set((readiness?.comparison.blocking_reasons ?? []).map(x => gapLabel(x.code)))];
   return <section className="section" aria-label="補足設定と初回台帳">
-    <h2>補足設定と初回台帳</h2>
+    <h2>残高の登録</h2>
     {busy && <SaveProgress label="端末で確認・保存中…" />}
-    <p>未確認の項目は空欄で保存できます。空欄を0として計算しません。入力の保存と、初回残高を台帳へ確定する操作は別です。</p>
+    <p className="setting-footnote">分からない項目は空欄で保存できます。</p>
+    <details className="settings-disclosure"><summary>入力・保存について</summary>
+    <p>空欄を0として計算しません。入力の保存と、初回残高を台帳へ確定する操作は別です。</p>
     <button className="button button--secondary" disabled={busy || disabled} onClick={() => {
       setLoaded(false); setPreview(null); setConfirm(false); setReload(value => value + 1);
     }}>補足設定を読み直す</button>
+    </details>
     {disabled && <p>口座・保有に未保存の変更があります。先に保存してください。</p>}
     {stale && <div><p>口座・保有が更新されています。補足設定を見直してください。</p>
       <button className="button button--secondary" disabled={disabled || busy} onClick={() => change({ ...draft,
@@ -64,7 +67,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
         accounts: profile.portfolio.accounts.map(x => draft.accounts.find(old => old.account_id === x.id) ?? blankAccount(x.id)),
       })}>最新の口座・保有に合わせて見直す</button></div>}
     <fieldset disabled={blocked}>
-      <legend>現金・口座・税の補足</legend>
+      <legend>1. 残高を入力</legend>
       <label>口座に入力した現金の意味<select value={draft.cash_basis ?? ""} onChange={event => change({ ...draft, cash_basis: event.target.value as PersonalSettings["cash_basis"] || null })}>
         <option value="">未確認</option><option value="total_including_reserved">確保中の金額を含む総現金</option><option value="deployable_after_reserved">確保中の金額を除いた買付余力</option>
       </select></label>
@@ -78,8 +81,10 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
           <label>未反映の取引・決済・入出金<select value={item.pending_activity} onChange={event => accountChange(source.id, { pending_activity: event.target.value as AccountSettings["pending_activity"] })}>
             <option value="unknown">まだ確認していない</option><option value="none">未反映のものはない</option><option value="pending">未反映・未決済のものがある</option>
           </select></label>
+          <details className="settings-disclosure"><summary>この口座の税・NISA</summary>
           {(Object.entries(taxLabels) as [keyof typeof taxLabels, string][]).filter(([key]) => source.account_type === "nisa" || !key.startsWith("nisa_") || item[key] !== null).map(([key, label]) =>
             <Amount key={key} label={label} value={item[key]} change={next => accountChange(source.id, { [key]: next })} />)}
+          </details>
         </fieldset>;
       })}
       <details><summary>費用と税の計算条件</summary><p>bpsは1万分の1です。税率や手数料は自動補完しません。</p>
@@ -90,6 +95,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
         <Amount label="NISA枠の機会費用の仮定（%）" value={draft.tax_assumptions.nisa_opportunity_cost_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, nisa_opportunity_cost_percent: next } })} />
       </details>
       <details><summary>研究用比較で使う条件</summary><p>20日予測で比較し、5日予測は参考とします。売買は100株単位、最大10銘柄、1銘柄10%・同一業種30%まで、現金10%以上。売買総額は資産の100%まで、1銘柄の注文は平均日次売買代金の5%までとします。</p><p>費用・推定税・下側リスク・不確実性を考慮し、現状維持から1,000円以上改善する案を比較します。下側リスク・不確実性は各1倍、追加の集中・下落確率・回転ペナルティと金額バッファーは0です。最大下落率の希望から条件を自動設定せず、損失額を保証しません。NISAの残り購入枠は売却で同日回復させません。</p></details>
+      <details className="settings-disclosure"><summary>株数の計算方法</summary>
       <label>株数の探索方法<select value={draft.research_decision_policy} onChange={event => change({ ...draft,
         research_decision_policy: event.target.value as PersonalSettings["research_decision_policy"], research_conditions_reviewed: false,
       })}><option value="daily-decision-engine-v3-bounded">300社向け</option>
@@ -97,6 +103,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
       <p>{draft.research_decision_policy === "daily-decision-engine-v3-bounded"
         ? "HOLD・現金化・保有調整・乗り換えを有限回で比較します。すべての銘柄・口座を検討しますが、最良の組合せは保証しません。"
         : "全組合せを比較し、上限を超える場合は計算を止めます。別の探索方法へ自動変更しません。"}</p>
+      </details>
       <label><input type="checkbox" checked={draft.research_conditions_reviewed} onChange={event => change({ ...draft, research_conditions_reviewed: event.target.checked })} />探索方法を含む研究用の比較条件を確認しました</label>
       <button className="button" onClick={() => void act(async () => {
         const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
@@ -105,7 +112,8 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
       })}>補足設定を保存</button>
     </fieldset>
     {gaps.length > 0 && <div><h3>まだ確認が必要な入力</h3><ul>{gaps.map(x => <li key={x}>{x}</li>)}</ul></div>}
-    <h3>初回残高の確認</h3><p>保存済み入力から一度だけ初回台帳を作成します。保有株がある場合は、保存済みの未調整終値を確認します。確定後の台帳は入力欄の編集では変更しません。</p>
+    <h3>2. 残高を確認して登録</h3>
+    <details className="settings-disclosure"><summary>初回台帳とは</summary><p>最初の現金・保有株の記録です。保存済み入力から一度だけ作成します。保有株は保存済みの未調整終値で確認します。確定後の台帳は入力欄の編集では変更しません。</p></details>
     <button className="button button--secondary" disabled={blocked || draft !== saved?.settings} onClick={() => void act(async () => {
       setPreview(await apiPost<InitialLedgerPreview>("/api/v1/mobile/personal/initial/preview", {})); setConfirm(false);
     })}>初回残高の確認内容を作る</button>
