@@ -1,5 +1,7 @@
 # 端末用モデル一式の受け渡し
 
+D217（2026-10-21）：`predictable_decision_symbols` を明示した研究recipeでは、既存250営業日条件からラベルと独立に予測可能集合を固定し、入力/計算コード/特徴量版/全候補/棄権理由の証拠を保存する。別pinのない宣言や、5/20日の集合不一致、component不足、保有不足は拒否する。旧 `decision_symbols` は全候補必須のままで、欠落後のintersectionへ置換しない。旧bundle/固定compositionの省略項目とidentityは維持する。特徴量コードhashが変わるため入力cacheの再構築を伴い、過去の実測時間を現版の実測とはしない。
+
 D216（2026-10-21）：`stockai-mobile-research-ensemble-v1`を別schemaとして追加。複数portable componentと前処理hash、horizon/役割別の単位・保存重み・recipe・校正・順位母集団を保持する。全基本出力の後に平均percentile順位を計算し、batch/入力順による変更と欠落した順位母集団を拒否する。全市場rankをTOPIX内rankへ置換しない。既存64MiB/policy evidence pin/実機一致/公開承認を維持する。
 
 研究ensembleの原予測はschema4/snapshotv2でreturnとrankを分離し、未提供return/riskはnull。ranking20を優先し、なければ20日returnを使い、5/20を加算しない。全保有を残して手動相談へ渡し、回答取込は提案保存のみ。optional raw riskの値があっても採用/校正がそろうとは扱わず、自動株数提案を許可しない。保存読戻しでcomponent/recipe/全対象/合成値を再検査する。現時点では合成統合試験済みで、実選定ensemble bundleやXiaomi完了を意味しない。

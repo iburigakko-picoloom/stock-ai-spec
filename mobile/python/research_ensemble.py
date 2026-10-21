@@ -11,7 +11,15 @@ import math
 from datetime import datetime
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import AwareDatetime, Field, StrictFloat, StrictInt, ValidationInfo, model_validator
+from pydantic import (
+    AwareDatetime,
+    Field,
+    StrictFloat,
+    StrictInt,
+    ValidationInfo,
+    model_serializer,
+    model_validator,
+)
 
 from stock_ai.operations.daily import (
     DAILY_NEXT_SESSION_CLOSE_LABEL,
@@ -26,7 +34,47 @@ from .portable_model import predict, validate
 MAX_BUNDLE_BYTES = 64 * 1024 * 1024
 SCHEMA: Final = "stockai-mobile-research-ensemble-v1"
 Role = Literal["return", "ranking", "quantile", "large_loss"]
-Population = Literal["decision_symbols", "all_market_symbols"]
+Population = Literal["decision_symbols", "all_market_symbols", "predictable_decision_symbols"]
+PREDICTABILITY_RULE = "completed-history-before-label-v1"
+
+
+class FeaturePredictability(InputModel):
+    """Independent eligible/predictable domains; no outcome/execution mask is accepted."""
+
+    schema_version: Literal["feature-predictability-v1"] = "feature-predictability-v1"
+    rule_version: Literal["completed-history-before-label-v1"] = PREDICTABILITY_RULE
+    as_of: AwareDatetime
+    feature_selection_id: Digest
+    feature_manifest_hash: Digest
+    calculation_code_sha256: Digest
+    source_snapshot_ids: Annotated[
+        tuple[tuple[str, Digest], ...], Field(min_length=5, max_length=5)
+    ]
+    required_history_sessions: Annotated[StrictInt, Field(gt=0)]
+    eligible_symbols: tuple[str, ...]
+    eligible_sha256: Digest
+    completed_sessions: tuple[tuple[str, Annotated[StrictInt, Field(ge=0)]], ...]
+    predictable_symbols: tuple[str, ...]
+    predictable_sha256: Digest
+    abstentions: tuple[tuple[str, Literal["INSUFFICIENT_COMPLETED_HISTORY"]], ...]
+
+    @model_validator(mode="after")
+    def complete_independent_population(self) -> Self:
+        eligible = self.eligible_symbols
+        if (not eligible or eligible != tuple(sorted(set(eligible))) or any(not s for s in eligible)
+                or tuple(s for s, _ in self.completed_sessions) != eligible
+                or len(dict(self.source_snapshot_ids)) != len(self.source_snapshot_ids)):
+            raise ValueError("Predictability requires the whole independent eligible population")
+        predictable = tuple(s for s, n in self.completed_sessions
+                            if n >= self.required_history_sessions)
+        abstentions = tuple((s, "INSUFFICIENT_COMPLETED_HISTORY")
+                            for s, n in self.completed_sessions
+                            if n < self.required_history_sessions)
+        if (self.predictable_symbols != predictable or self.abstentions != abstentions
+                or self.eligible_sha256 != content_id(list(eligible))
+                or self.predictable_sha256 != content_id(list(predictable))):
+            raise ValueError("Predictability counts, abstentions or population hash changed")
+        return self
 
 
 class EnsembleComponent(InputModel):
@@ -121,7 +169,17 @@ class EnsembleOutput(InputModel):
     rank_universe: Population | None = None
     universe_rule_version: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     universe_evidence_sha256: Digest | None = None
+    predictability_rule_version: Literal["completed-history-before-label-v1"] | None = None
+    predictability_evidence_sha256: Digest | None = None
     calibration: EnsembleCalibration | None = None
+
+    @model_serializer(mode="wrap")
+    def legacy_population_identity(self, handler):
+        value = handler(self)
+        for name in ("predictability_rule_version", "predictability_evidence_sha256"):
+            if getattr(self, name) is None:
+                value.pop(name, None)
+        return value
 
     @model_validator(mode="after")
     def coherent(self) -> Self:
@@ -136,6 +194,12 @@ class EnsembleOutput(InputModel):
         ):
             raise ValueError("Equal weights changed")
         ranked = self.transform != "identity"
+        predictable = self.rank_universe == "predictable_decision_symbols"
+        if (predictable != (self.predictability_rule_version is not None
+                            and self.predictability_evidence_sha256 is not None)
+                or (not predictable and any(x is not None for x in (
+                    self.predictability_rule_version, self.predictability_evidence_sha256)))):
+            raise ValueError("Predictable ranks require a separately pinned rule/evidence")
         if self.recipe_version == "selection-rank-space-v1" and not ranked:
             raise ValueError("Selection rank-space recipe requires percentile transforms")
         if ranked != all(x is not None for x in (
@@ -218,6 +282,11 @@ class ResearchEnsembleBundle(InputModel):
                 raise ValueError("Calibration unavailable at bundle creation")
         if used != set(components):
             raise ValueError("Bundle contains unused components")
+        predictable_pins = {(o.predictability_rule_version, o.predictability_evidence_sha256)
+                            for o in self.outputs
+                            if o.rank_universe == "predictable_decision_symbols"}
+        if len(predictable_pins) > 1:
+            raise ValueError("Daily predictable ranks require one frozen eligibility rule/evidence")
         if ((self.large_loss_threshold is not None) != any(r == "large_loss" for _, r in roles)
                 or (self.downside_quantile_alpha is not None)
                 != any(r == "quantile" for _, r in roles)):
@@ -287,11 +356,36 @@ def inference(bundle: ResearchEnsembleBundle, rows: dict, selection: dict,
             raise ValueError("Duplicate ensemble input symbol")
         ordered_rows[horizon] = sorted(values, key=lambda row: row["symbol"])
         symbols[horizon] = sorted(names)
+    for recipe in bundle.outputs:
+        if recipe.rank_universe != "predictable_decision_symbols":
+            continue
+        contracts = []
+        for horizon in ("5", "20"):
+            declared = (rank_universes or {}).get(horizon, {})
+            proof = FeaturePredictability.model_validate(declared.get("predictability_proof"))
+            if (proof.rule_version != recipe.predictability_rule_version
+                    or declared.get("predictability_evidence_sha256")
+                    != recipe.predictability_evidence_sha256
+                    or proof.feature_selection_id != bundle.feature_selection_id
+                    or proof.feature_manifest_hash != bundle.feature_manifest_hash
+                    or list(proof.predictable_symbols) != symbols[horizon]
+                    or declared.get("predictable_decision_symbols") != symbols[horizon]):
+                raise ValueError("PREDICTABLE_RANK_CONTRACT_MISMATCH")
+            for row in ordered_rows[horizon]:
+                stamp = datetime.fromisoformat(
+                    str(row.get("available_at", "")).replace("Z", "+00:00"))
+                if stamp != proof.as_of:
+                    raise ValueError("PREDICTABLE_FEATURE_TIME_MISMATCH")
+            contracts.append(proof)
+        if contracts[0] != contracts[1] or symbols["5"] != symbols["20"]:
+            raise ValueError("PREDICTABLE_HORIZON_POPULATIONS_DIFFER")
     raw = {}
     for component in bundle.components:
         raw[component.model_id] = predict(
             component.decoded(selection), ordered_rows[str(component.horizon)]
         )
+        if len(raw[component.model_id]) != len(symbols[str(component.horizon)]):
+            raise ValueError("COMPONENT_POPULATION_INCOMPLETE")
     outputs = []
     for recipe in bundle.outputs:
         horizon = str(recipe.horizon)
@@ -319,7 +413,10 @@ def inference(bundle: ResearchEnsembleBundle, rows: dict, selection: dict,
                         "recipe_version": recipe.recipe_version,
                         "rank_universe": recipe.rank_universe,
                         "rank_universe_sha256": population_hash,
-                        "values": list(zip(symbols[horizon], combined, strict=True))})
+                        "values": list(zip(symbols[horizon], combined, strict=True)),
+                        **({"predictability_rule_version": recipe.predictability_rule_version,
+                            "predictability_evidence_sha256": recipe.predictability_evidence_sha256}
+                           if recipe.rank_universe == "predictable_decision_symbols" else {})})
     return {"bundle_id": bundle.bundle_id, "research_only": True, "model_adopted": False,
             "persisted": False, "symbols": symbols,
             "components": [{"model_id": c.model_id, "sha256": c.sha256, "horizon": c.horizon,

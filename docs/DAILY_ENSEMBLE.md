@@ -2,6 +2,16 @@
 
 ## Independent prediction population (D216)
 
+D217: the existence of a frozen dataset row is not evidence that the mobile
+250-completed-session requirement was met. Preserve that original population
+and its results. A separately pinned count of the original canonical history
+defines any new predictable subset before inspecting labels. Keep every eligible
+key and its abstention reason. Single-vintage reconstructed clocks remain
+counterfactual research; counting history does not certify historical receipts
+or point-in-time membership. The mobile `predictable_decision_symbols` recipe
+requires its own rule/evidence pins and identical 5/20-day populations. The old
+`decision_symbols` recipe still requires every eligible symbol.
+
 `crossfit_population_panel` is the separate development API for recovered full-fold
 predictions. The original CLI and `daily-forward-crossfit-v1` identities remain
 unchanged. The caller authenticates an independent eligible population, its

@@ -192,6 +192,8 @@ class FinalHorizonInputs(NavModel):
 
     @model_validator(mode="after")
     def same_calendar(self) -> Self:
+        if self.accounting.posthoc_actions and self.accounting.data_mode != "fixture":
+            raise ValueError("strict final evaluation rejects posthoc accounting actions")
         if (self.evaluation_tier == "synthetic_accounting") != (
             self.accounting.data_mode == "fixture"
         ):

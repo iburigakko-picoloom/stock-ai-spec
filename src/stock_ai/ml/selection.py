@@ -27,8 +27,10 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    SerializerFunctionWrapHandler,
     field_serializer,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from scipy.optimize import minimize
@@ -180,14 +182,28 @@ class FrozenCompositionOutput(BaseModel):
     weight_source: Literal["single", "equal", "learned"]
     transform: Literal["identity", "within_date_average_percentile_v1"]
     unit: Literal["fractional_return", "rank_score", "probability"]
-    rank_universe: Literal["decision_symbols", "all_market_symbols"] | None = None
+    rank_universe: Literal[
+        "decision_symbols", "all_market_symbols", "predictable_decision_symbols"
+    ] | None = None
     universe_rule_version: str | None = Field(default=None, min_length=1)
     universe_evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    predictability_rule_version: Literal["completed-history-before-label-v1"] | None = None
+    predictability_evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     source_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     latest_weight_label_available_at: AwareDatetime
     weights_fitted_at: AwareDatetime
     received_at: AwareDatetime
     calibration: FrozenCompositionCalibration | None = None
+
+    @model_serializer(mode="wrap")
+    def legacy_population_identity(
+        self, handler: SerializerFunctionWrapHandler,
+    ) -> dict[str, Any]:
+        value = cast(dict[str, Any], handler(self))
+        for name in ("predictability_rule_version", "predictability_evidence_sha256"):
+            if getattr(self, name) is None:
+                value.pop(name, None)
+        return value
 
     @model_validator(mode="after")
     def coherent(self) -> Self:
@@ -207,6 +223,12 @@ class FrozenCompositionOutput(BaseModel):
         if not self.latest_weight_label_available_at <= self.weights_fitted_at <= self.received_at:
             raise ValueError("composition weights used unreceived labels")
         ranked = self.transform != "identity"
+        predictable = self.rank_universe == "predictable_decision_symbols"
+        if (predictable != (self.predictability_rule_version is not None
+                            and self.predictability_evidence_sha256 is not None)
+                or (not predictable and any(v is not None for v in (
+                    self.predictability_rule_version, self.predictability_evidence_sha256)))):
+            raise ValueError("predictable composition requires separately pinned rule/evidence")
         population = (self.rank_universe, self.universe_rule_version, self.universe_evidence_sha256)
         if ranked != all(v is not None for v in population) or (
             not ranked and any(v is not None for v in population)

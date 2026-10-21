@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,38 @@ from stock_ai.features.engine import (
     MARKET_REQUIRED,
     SECTOR_REQUIRED,
 )
+from stock_ai.operations.daily import content_id
+
+from .research_ensemble import FeaturePredictability
+
+
+def predictability_code_sha256() -> str:
+    # SourceFileLoader on PC and zipimporter in bundled WASM both expose get_data.
+    # Never open the zip's virtual __file__ with Path.read_bytes().
+    get_data = getattr(__loader__, "get_data", None)
+    if get_data is None:
+        raise ValueError("Predictability source loader cannot provide a code identity")
+    return hashlib.sha256(get_data(__file__).replace(b"\r\n", b"\n")).hexdigest()
+
+
+def history_predictability(payload, selection, counts, focus, required):
+    """Receipt of the same completed-session mask used below, before any model/label."""
+    eligible = sorted(focus)
+    observed = [(symbol, int(counts.get(symbol, 0))) for symbol in eligible]
+    predictable = [symbol for symbol, number in observed if number >= required]
+    return FeaturePredictability.model_validate({
+        "as_of": payload["as_of"],
+        "feature_selection_id": selection["feature_selection_id"],
+        "feature_manifest_hash": selection["feature_manifest_hash"],
+        "calculation_code_sha256": predictability_code_sha256(),
+        "source_snapshot_ids": payload["source_snapshot_ids"],
+        "required_history_sessions": required,
+        "eligible_symbols": eligible, "eligible_sha256": content_id(eligible),
+        "completed_sessions": observed,
+        "predictable_symbols": predictable, "predictable_sha256": content_id(predictable),
+        "abstentions": [(symbol, "INSUFFICIENT_COMPLETED_HISTORY") for symbol, number in observed
+                        if number < required],
+    }).model_dump(mode="json")
 
 
 def model_input_frame(name: str, source: pd.DataFrame) -> pd.DataFrame:
@@ -56,7 +89,7 @@ def _json_records_frame(source: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(columns, copy=False)
 
 
-def calculate(payload: dict, selection: dict) -> dict:
+def calculate(payload: dict, selection: dict, *, include_predictability: bool = False) -> dict:
     frames = {}
     for name in ("daily", "market", "sector", "financials"):
         source = payload[name]
@@ -91,6 +124,7 @@ def calculate(payload: dict, selection: dict) -> dict:
             frame = frames[name]
             if not frame.empty and ("symbol" not in frame or set(frame.symbol) - set(focus)):
                 raise ValueError("Individual inputs differ from the decision-symbol scope")
+    counts = pd.Series(dtype=int)
     if focus is not None and daily.empty:
         eligible = set()
     else:
@@ -100,6 +134,10 @@ def calculate(payload: dict, selection: dict) -> dict:
         ]
         counts = completed.groupby("symbol").trading_date.nunique()
         eligible = set(counts[counts >= required].index)
+    if include_predictability and focus is None:
+        raise ValueError("Predictability requires an independent decision population")
+    population = ({"predictability_proof": history_predictability(
+        payload, selection, counts, focus, required)} if include_predictability else {})
     if not eligible:
         if focus is not None:
             # Preserve missing/short candidate and held coverage for the
@@ -110,7 +148,7 @@ def calculate(payload: dict, selection: dict) -> dict:
                     "research_only": True,
                     "excluded_for_insufficient_history": (
                         sorted(set(daily.symbol)) if "symbol" in daily else []),
-                    "required_history_sessions": required}
+                    "required_history_sessions": required, **population}
         raise ValueError(f"INSUFFICIENT_HISTORY: at least {required} completed sessions required")
     result = FeatureEngine(V2_EXTENDED_MANIFEST).latest_snapshot(
         frames["daily"],
@@ -133,6 +171,7 @@ def calculate(payload: dict, selection: dict) -> dict:
         "research_only": True,
         "excluded_for_insufficient_history": excluded,
         "required_history_sessions": required,
+        **population,
     }
 
 

@@ -14,11 +14,12 @@ from stock_ai.operations.daily import PredictionSnapshot, canonical_json, conten
 from stock_ai.operations.store import OperationalConflictError
 
 from . import market, models, universe
-from .features import bundled_selection, calculate
+from .features import bundled_selection, calculate, predictability_code_sha256
 from .model_bundle import ModelBundle
 from .portable_model import predict
 from .research_ensemble import (
     EnsembleOutput,
+    FeaturePredictability,
     ResearchEnsembleBundle,
     average_percentile,
     inference,
@@ -118,13 +119,46 @@ def _checked(row) -> dict:
     return {**value, "phase": phase}
 
 
+def _predictability_contract(population, evidence):
+    return {"rule_version": population.rule_version, "evidence_sha256": evidence,
+            **{name: getattr(population, name) for name in (
+                "calculation_code_sha256", "feature_selection_id", "feature_manifest_hash",
+                "required_history_sessions", "eligible_sha256", "predictable_sha256")}}
+
+
+def _checked_predictability(value, recipes):
+    scope, proof = value["scope"], value["data_proof"]
+    population = FeaturePredictability.model_validate(proof["feature_predictability"])
+    pins = {(recipe.predictability_rule_version, recipe.predictability_evidence_sha256)
+            for recipe in recipes if recipe.rank_universe == "predictable_decision_symbols"}
+    evidence = proof["predictability_evidence_sha256"]
+    if (pins != {(population.rule_version, evidence)}
+            or population.as_of != datetime.fromisoformat(scope["as_of"])
+            or population.eligible_symbols != tuple(sorted(scope["universe"]["decision_symbols"]))
+            or dict(population.source_snapshot_ids) != dict(proof["source_snapshot_ids"])
+            or population.feature_manifest_hash != scope["feature_manifest_hash"]
+            or scope["predictability_contract"] != _predictability_contract(population, evidence)
+            or set(scope["holding_symbols"]) - set(population.predictable_symbols)):
+        raise ValueError("Saved predictable population provenance or held coverage changed")
+    abstentions = {symbol for symbol, _ in population.abstentions}
+    if ({item["symbol"] for item in value["excluded_candidates"]} != abstentions
+            or any(item["reason"] != "FEATURE_HISTORY_UNAVAILABLE"
+                   for item in value["excluded_candidates"])):
+        raise ValueError("Saved predictable abstentions changed")
+    return population
+
+
 def _check_ensemble_outputs(value, expected_symbols):
     """Recheck the saved composition without rerunning models or changing state."""
     scope = value["scope"]
     recipes = [EnsembleOutput.model_validate(raw) for raw in scope["ensemble_outputs"]]
+    predictable = (_checked_predictability(value, recipes) if any(
+        recipe.rank_universe == "predictable_decision_symbols" for recipe in recipes) else None)
     if any(recipe.transform != "identity" and (
-        recipe.rank_universe != "decision_symbols"
-        or expected_symbols != set(scope["universe"]["decision_symbols"])
+        recipe.rank_universe not in ("decision_symbols", "predictable_decision_symbols")
+        or expected_symbols != set(predictable.predictable_symbols if
+            recipe.rank_universe == "predictable_decision_symbols" and predictable is not None
+            else scope["universe"]["decision_symbols"])
     ) for recipe in recipes):
         raise ValueError("Saved ensemble ranking population is incomplete")
     components = value.get("component_outputs", [])
@@ -145,6 +179,11 @@ def _check_ensemble_outputs(value, expected_symbols):
             "horizon", "role", "output_id", "unit", "recipe_version", "rank_universe"
         )):
             raise ValueError("Saved ensemble recipe mismatch")
+        if recipe.rank_universe == "predictable_decision_symbols" and any(
+            saved.get(key) != getattr(recipe, key) for key in
+            ("predictability_rule_version", "predictability_evidence_sha256")
+        ):
+            raise ValueError("Saved predictable recipe pin changed")
         arrays = [[pair[1] for pair in by_id[name]["values"]] for name in recipe.components]
         if recipe.transform != "identity":
             if saved["rank_universe_sha256"] != content_id(symbols):
@@ -329,7 +368,11 @@ def generate(path: Path, store, now: datetime) -> dict:
                if selection.get("policy") == "jquants-scalecat-topix500-v1" else {})
     inputs = market.feature_inputs(path, now, True,
                                    decision_symbols=selection["decision_symbols"], **options)
-    features = calculate(inputs, bundled_selection())
+    predictable_recipes = ([recipe for recipe in bundle.outputs
+                           if recipe.rank_universe == "predictable_decision_symbols"]
+                          if isinstance(bundle, ResearchEnsembleBundle) else [])
+    features = calculate(inputs, bundled_selection(),
+                         **({"include_predictability": True} if predictable_recipes else {}))
     if inputs["as_of"] != cutoff.isoformat() or features["as_of"] != cutoff.isoformat():
         raise ValueError("Feature cutoff mismatch")
     maps = {}
@@ -371,6 +414,30 @@ def generate(path: Path, store, now: datetime) -> dict:
     if data_as_of > cutoff:
         raise ValueError("Source receipt after alpha cutoff")
     proof["latest_source_received_at"] = data_as_of.isoformat()
+    population = None
+    if predictable_recipes:
+        try:
+            population = FeaturePredictability.model_validate(features["predictability_proof"])
+            if (population.as_of != cutoff
+                    or population.eligible_symbols != tuple(sorted(decision_symbols))
+                    or population.feature_selection_id != bundle.feature_selection_id
+                    or population.feature_manifest_hash != bundle.feature_manifest_hash
+                    or population.calculation_code_sha256 != predictability_code_sha256()
+                    or population.required_history_sessions != features["required_history_sessions"]
+                    or dict(population.source_snapshot_ids) != dict(inputs["source_snapshot_ids"])):
+                raise ValueError("ENSEMBLE_PREDICTABILITY_PROOF_INVALID")
+            if set(maps[5]) != set(maps[20]):
+                raise ValueError("ENSEMBLE_PREDICTABLE_HORIZON_POPULATIONS_DIFFER")
+            if set(maps[5]) != set(population.predictable_symbols):
+                raise ValueError("ENSEMBLE_FEATURE_POPULATION_MISMATCH")
+        except (KeyError, TypeError, ValueError) as error:
+            code = (str(error) if str(error).startswith("ENSEMBLE_") else
+                    "ENSEMBLE_PREDICTABILITY_PROOF_INVALID")
+            return _save(path, store, scope, now, proof=proof, blocks=[code], component_outputs=[])
+        evidence = predictable_recipes[0].predictability_evidence_sha256
+        proof["feature_predictability"] = population.model_dump(mode="json")
+        proof["predictability_evidence_sha256"] = evidence
+        scope["predictability_contract"] = _predictability_contract(population, evidence)
     scope["data_proof_hash"] = content_id(proof)
     with connect(path) as db:
         existing = db.execute(
@@ -386,6 +453,10 @@ def generate(path: Path, store, now: datetime) -> dict:
                 for x in selection["new_candidates"] if x["symbol"] not in usable]
     symbols = sorted(usable)
     outputs, component_outputs = [], None
+    if predictable_recipes and missing_held:
+        return _save(path, store, scope, now, excluded=excluded, proof=proof,
+                     blocks=["HELD_FORECAST_MISSING:" + s for s in missing_held],
+                     component_outputs=[])
     if isinstance(bundle, ResearchEnsembleBundle) and not symbols:
         return _save(path, store, scope, now, excluded=excluded, proof=proof,
                      outcome="cash_only" if not excluded and not missing_held else "blocked",
@@ -393,7 +464,7 @@ def generate(path: Path, store, now: datetime) -> dict:
                              or (["NO_USABLE_FORECAST"] if excluded else [])),
                      component_outputs=[])
     if (isinstance(bundle, ResearchEnsembleBundle) and usable != decision_symbols
-            and any(recipe.transform != "identity" for recipe in bundle.outputs)):
+            and any(recipe.rank_universe == "decision_symbols" for recipe in bundle.outputs)):
         # The recipe names the frozen decision population. A feature abstention
         # cannot silently redefine every peer's percentile score.
         return _save(path, store, scope, now, excluded=excluded, proof=proof,
@@ -401,10 +472,20 @@ def generate(path: Path, store, now: datetime) -> dict:
                              *["HELD_FORECAST_MISSING:" + s for s in missing_held]],
                      component_outputs=[])
     if isinstance(bundle, ResearchEnsembleBundle):
-        result = inference(bundle, {str(h): [maps[h][s] for s in symbols] for h in (5, 20)},
-                           bundled_selection(), rank_universes={
-                               str(h): {"decision_symbols": sorted(decision_symbols)}
-                               for h in (5, 20)})
+        populations = {str(h): {"decision_symbols": sorted(decision_symbols)} for h in (5, 20)}
+        if population is not None:
+            for declared in populations.values():
+                declared.update(predictable_decision_symbols=list(population.predictable_symbols),
+                                predictability_proof=population.model_dump(mode="json"),
+                                predictability_evidence_sha256=proof["predictability_evidence_sha256"])
+        try:
+            result = inference(bundle, {str(h): [maps[h][s] for s in symbols] for h in (5, 20)},
+                               bundled_selection(), rank_universes=populations)
+        except (ValueError, KeyError, TypeError):
+            if not predictable_recipes:
+                raise
+            return _save(path, store, scope, now, excluded=excluded, proof=proof,
+                         blocks=["ENSEMBLE_COMPONENT_PREDICTION_INVALID"], component_outputs=[])
         outputs, component_outputs = result["outputs"], result["components"]
     else:
         for head in bundle.heads:

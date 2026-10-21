@@ -146,6 +146,12 @@ class AssumedMarketRequest(NavModel):
     known_action_blockers: tuple[KnownActionBlocker, ...] = ()
     cash_conversions: tuple[DocumentedCashConversion, ...] = ()
 
+    @model_validator(mode="after")
+    def preserve_existing_evidence_contract(self) -> AssumedMarketRequest:
+        if self.rule.accounting.posthoc_actions:
+            raise ValueError("assumed market entry rejects a new posthoc accounting contract")
+        return self
+
 
 def _sha(path: Path) -> str:
     with path.open("rb") as stream:

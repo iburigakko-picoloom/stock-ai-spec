@@ -188,6 +188,107 @@ class NavAction(NavModel):
         return self
 
 
+class PosthocOfficialSource(NavModel):
+    """Actual late acquisition of a primary document; no fabricated PIT clock."""
+
+    url: str = Field(pattern=r"^https://[^/]+/")
+    document_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    actual_received_at: datetime
+    publication_date: date
+    publication_at: datetime | None = None
+    authority: Literal["issuer", "exchange"]
+
+    @model_validator(mode="after")
+    def distinct_source_clocks(self) -> Self:
+        if self.actual_received_at.astimezone(JST).date() < self.publication_date:
+            raise ValueError("posthoc source receipt precedes its publication date")
+        if self.publication_at is not None and (
+            self.publication_at.astimezone(JST).date() != self.publication_date
+            or self.publication_at > self.actual_received_at
+        ):
+            raise ValueError("posthoc publication time contradicts its date or actual receipt")
+        return self
+
+
+class NavPosthocAction(NavModel):
+    """Ex-post accounting terms, never decision-time information or NavAction.
+
+    The quantity basis is a declared research convention. It is distinct from
+    the legal effective date and the documents' actual current receipt clocks.
+    """
+
+    event_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    kind: Literal["split", "share_exchange"]
+    actual_received_at: datetime
+    official_sources: tuple[PosthocOfficialSource, ...] = Field(min_length=1)
+    legal_effective_date: date
+    legal_effective_at: datetime | None = None
+    ex_rights_date: date | None = None
+    quantity_basis_at: datetime
+    quantity_basis: Literal["legal_effective", "ex_rights_daily_price_proxy"]
+    research_assumption_version: str = Field(min_length=1)
+    evidence_use: Literal["posthoc_accounting_only_never_alpha"] = (
+        "posthoc_accounting_only_never_alpha"
+    )
+    numerator: Annotated[int, Field(strict=True, gt=0)] = 1
+    denominator: Annotated[int, Field(strict=True, gt=0)] = 1
+    recipient_symbol: str | None = Field(default=None, min_length=1)
+    fractional_cash_price: Money | None = None
+    payment_at: datetime | None = None
+
+    @property
+    def effective_at(self) -> datetime:
+        """Accounting ordering only; never a source or legal effective clock."""
+        return self.quantity_basis_at
+
+    @property
+    def cash_per_share(self) -> None:
+        # A cash-conversion event cannot be smuggled into this share-only type.
+        return None
+
+    @model_validator(mode="after")
+    def valid_posthoc_share_terms(self) -> Self:
+        if self.actual_received_at <= self.quantity_basis_at:
+            raise ValueError("posthoc terms require an actual late receipt")
+        if self.actual_received_at.astimezone(JST).date() < self.legal_effective_date:
+            raise ValueError("posthoc accounting cannot certify a future legal event")
+        if any(s.actual_received_at > self.actual_received_at for s in self.official_sources):
+            raise ValueError("posthoc event receipt precedes one of its source receipts")
+        ids = [s.document_sha256 for s in self.official_sources]
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate posthoc primary source hash")
+        if self.legal_effective_at is not None and (
+            self.legal_effective_at.astimezone(JST).date() != self.legal_effective_date
+        ):
+            raise ValueError("posthoc legal effective time contradicts its legal date")
+        basis_date = self.quantity_basis_at.astimezone(JST).date()
+        expected = (
+            self.ex_rights_date
+            if self.quantity_basis == "ex_rights_daily_price_proxy"
+            else self.legal_effective_date
+        )
+        if expected is None or basis_date != expected:
+            raise ValueError("posthoc quantity basis lacks its separately declared date")
+        if self.ex_rights_date is not None and self.ex_rights_date > self.legal_effective_date:
+            raise ValueError("posthoc ex-rights date cannot follow legal effectiveness")
+        if self.payment_at is not None and (
+            self.payment_at < self.quantity_basis_at
+            or self.payment_at.astimezone(JST).date() < self.legal_effective_date
+        ):
+            raise ValueError("posthoc fractional payment precedes entitlement")
+        if self.kind == "split":
+            if self.recipient_symbol is not None or self.numerator == self.denominator:
+                raise ValueError("posthoc split requires a non-unit ratio and no recipient")
+            if (self.fractional_cash_price is None) != (self.payment_at is None):
+                raise ValueError("posthoc split fractional cash requires amount and payment")
+        elif self.recipient_symbol is None or self.recipient_symbol == self.symbol:
+            raise ValueError("posthoc share exchange requires a different recipient")
+        elif self.payment_at is not None and self.fractional_cash_price is None:
+            raise ValueError("posthoc fractional payment requires a verified cash price")
+        return self
+
+
 class NavInput(NavModel):
     schema_version: Literal["daily-nav-input-v1"] = "daily-nav-input-v1"
     data_mode: Literal["fixture", "historical_research"]
@@ -202,13 +303,27 @@ class NavInput(NavModel):
     sessions: tuple[NavSession, ...]
     orders: tuple[NavOrder, ...] = ()
     actions: tuple[NavAction, ...] = ()
+    posthoc_actions: tuple[NavPosthocAction, ...] = ()
     cost_policy: CostPolicy
     fill_fraction: Annotated[Decimal, Field(ge=0, le=1, allow_inf_nan=False)] = ONE
     lot_size: Annotated[int, Field(strict=True, gt=0)] = 100
     tax_mode: Literal["pre_tax"] = "pre_tax"
 
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if not self.posthoc_actions:
+            value.pop("posthoc_actions", None)
+        return value
+
+    @property
+    def accounting_actions(self) -> tuple[NavAction | NavPosthocAction, ...]:
+        """Combined accounting order, with both input types preserved verbatim."""
+        return (*self.actions, *self.posthoc_actions)
+
     @model_validator(mode="after")
     def coherent_input(self) -> Self:
+        actions = self.accounting_actions
         dates = tuple(session.trading_date for session in self.sessions)
         if not dates or dates != tuple(sorted(set(dates))) or dates != self.calendar_dates:
             raise ValueError("sessions must cover the entire ordered fixed calendar")
@@ -225,9 +340,9 @@ class NavInput(NavModel):
             raise ValueError("initial holdings require an exact initial valuation")
         if len({order.order_id for order in self.orders}) != len(self.orders):
             raise ValueError("duplicate order ID")
-        if len({event.event_id for event in self.actions}) != len(self.actions):
+        if len({event.event_id for event in actions}) != len(actions):
             raise ValueError("duplicate corporate-action ID")
-        if len({(e.symbol, e.effective_at) for e in self.actions}) != len(self.actions):
+        if len({(e.symbol, e.effective_at) for e in actions}) != len(actions):
             raise ValueError(
                 "simultaneous same-symbol corporate actions require explicit sequencing"
             )
@@ -235,8 +350,8 @@ class NavInput(NavModel):
             exchange.kind == "share_exchange"
             and exchange.recipient_symbol == other.symbol
             and exchange.effective_at == other.effective_at
-            for exchange in self.actions
-            for other in self.actions
+            for exchange in actions
+            for other in actions
         ):
             raise ValueError("simultaneous recipient corporate actions require explicit sequencing")
         previous = self.initial_as_of
@@ -262,7 +377,7 @@ class NavInput(NavModel):
                 raise ValueError("decision must precede execution and follow prior valuation")
         if any(
             not self.initial_as_of < e.effective_at <= self.sessions[-1].close_at
-            for e in self.actions
+            for e in actions
         ):
             raise ValueError("corporate action is outside the evaluation window")
         return self
@@ -418,7 +533,7 @@ class _Ledger:
         self.receivables: list[NavReceivable] = []
         self.fractional_entitlements: list[NavFractionalEntitlement] = []
         self.cost_engine = TransactionCostEngine(request.cost_policy)
-        self.events: list[NavAction] = []
+        self.events: list[NavAction | NavPosthocAction] = []
 
     def settle(self, at: datetime) -> None:
         pending = []
@@ -456,8 +571,11 @@ class _Ledger:
             )
         )
 
-    def apply_action(self, event: NavAction) -> None:
-        event = NavAction.model_validate(event.model_dump())
+    def apply_action(self, event: NavAction | NavPosthocAction) -> None:
+        if isinstance(event, NavPosthocAction):
+            event = NavPosthocAction.model_validate(event.model_dump())
+        else:
+            event = NavAction.model_validate(event.model_dump())
         for applied in self.events:
             if applied.event_id == event.event_id:
                 if applied != event:
@@ -508,7 +626,7 @@ class _Ledger:
         self.settle(event.effective_at)
 
     def _exchange_position(
-        self, event: NavAction, key: tuple[str, str], position: NavPosition
+        self, event: NavAction | NavPosthocAction, key: tuple[str, str], position: NavPosition
     ) -> None:
         assert event.recipient_symbol is not None
         total_numerator = position.shares * event.numerator
@@ -786,7 +904,9 @@ def _replay_daily_nav(
     initial += sum((position.shares * position.last_price for position in request.positions), ZERO)
     if initial <= 0:
         raise ValueError("initial NAV must be positive")
-    pending_actions = iter(sorted(request.actions, key=lambda e: (e.effective_at, e.event_id)))
+    pending_actions = iter(
+        sorted(request.accounting_actions, key=lambda e: (e.effective_at, e.event_id))
+    )
     event = next(pending_actions, None)
     previous_nav: Decimal | None = initial
     days: list[NavDay] = []
