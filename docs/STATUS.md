@@ -1,3 +1,9 @@
+## 2026-10-22 — 非公開0.1.32 APK引継ぎ
+
+- source `d45124e68a61eb6be77295448606c252da628bd2`、CI `39699685667` のverify/android/android-history成功、release skipped。D227/D228を反映し、11:30前・更新中も日付付き保存済み分析を閲覧できる。未保存なら初回準備表示。
+- 正式署名0.1.32-candidate / code10032、23,995,029 bytes。SHA256 `afcc7cadcc1cc00df2c32a5d89b1c4be49582a4d3a8705f863018a949bdd6f87`。既存証明書一致、957 source / 43 assets照合、私有データ・試験機構混入なし。build 3分1秒。本人指定の非共有Driveへ保存しサイズ・親・非共有を読戻し確認。
+- 必須CIと変更範囲の検査を実行。推論・モデル不変の数値一致証拠は再利用し、再学習・全量数値試験を重複実行していない。追加の署名APK起動・Xiaomi更新後操作は未確認。実機速度改善は未測定。モデル再取込不要。正式採用HOLD、公開配布なし。Drive保存だけではアプリ内更新案内は出ない。
+- 私有証拠: `candidate-0132/release/private-candidate-verified.json`、`candidate-0132/handoff.json`。以下の旧未完記録のうちCI・候補作成は本項で更新。
 ## 2026-10-22 — 保存済み分析の朝・更新中閲覧（D228）
 
 - 今日APIへreadOnlyのsavedAnalysisを追加。active選択が当日blocked/nullでも、hash照合済み確定archiveから対象時点以前の直近を読み出す。過去の予測日・生成時刻・モデル版、上位20＋全保有、順位score/5日20日return/nullを保持。現在のproposal/判断/口座/保存形式は不変。
@@ -2284,3 +2290,4 @@ Androidの別pluginへ公開OAuth client、loopback/PKCE、JWKS/issuer/audience/
 ローカルTypeScript/Lint/build成功、React24件PASS、Pythonの配布検証10件PASS。最初のReact試験はWindowsのsandbox一時directoryのrename EPERMで試験収集前に停止し、作業領域内TEMP/TMPで同じ試験を再実行して成功。Androidコンパイル/機器試験と実アカウント認証・検索はまだ未確認。PCにJDK/SDKがないため既存Android CIを使用する。制限環境でghの接続確認が失敗し、接続済みGitHubアプリもbranch作成403だった。許可された読み取り接続で既存ghのrepository push/admin権限を確認し、既存CLI経路へ戻した。認証情報の変更や取得・表示は行わない。
 
 これは連携入口の段階であり、独立調査の自動保存/表示、背景実行、履歴一括取得、実市場評価、モデル採用、最新予測/個人株数の接続、実機性能は未完。Goal active、実注文なし。
+
