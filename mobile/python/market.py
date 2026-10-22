@@ -411,7 +411,7 @@ class SQLiteSource:
         frame.reset_index(drop=True, inplace=True)
         return frame
 
-    def latest_closed_prices(self, as_of):
+    def latest_closed_prices(self, as_of, *, reference_only=False):
         """The same latest common-issue rows, without assembling all historical prices."""
         if not as_of.tzinfo:
             raise ValueError("Aware cutoff required")
@@ -420,24 +420,31 @@ class SQLiteSource:
         local_day = as_of.astimezone(ZoneInfo("Asia/Tokyo")).date()
         with connect(self.path) as db:
             db.execute("BEGIN")
-            for _, _, raw, normalized, expected in _daily_snapshots(db, kind, as_of):
-                frame = market_codec.frame(db, normalized, raw, expected, cache)
-                if not frame.empty:
-                    profiles.append(market_codec.frame_profile(frame))
-            if not profiles:
-                return pd.DataFrame()
-            common = pd.concat(profiles, ignore_index=True).dtypes
-            for name, dtype in _mixed_datetime_casts(profiles).items():
-                common[name] = dtype
+            common = None
+            if not reference_only:
+                for _, _, raw, normalized, expected in _daily_snapshots(db, kind, as_of):
+                    frame = market_codec.frame(db, normalized, raw, expected, cache)
+                    if not frame.empty:
+                        profiles.append(market_codec.frame_profile(frame))
+                if not profiles:
+                    return pd.DataFrame()
+                common = pd.concat(profiles, ignore_index=True).dtypes
+                for name, dtype in _mixed_datetime_casts(profiles).items():
+                    common[name] = dtype
             profiles.clear()
             for sequence, day, raw, normalized, expected in _daily_snapshots(
                 db, kind, as_of, descending=True
             ):
+                # Ledger references need verified source values, not the concat
+                # dtype of unrelated history. Keep the feature reader unchanged.
+                if reference_only and date.fromisoformat(day) >= local_day:
+                    continue
                 frame = market_codec.frame(db, normalized, raw, expected, cache)
                 if frame.empty:
                     continue
                 frame = _canonical_daily_part(
-                    frame, common, ["trading_date", "provider_code"], sequence, day
+                    frame, frame.dtypes if common is None else common,
+                    ["trading_date", "provider_code"], sequence, day
                 )
                 if date.fromisoformat(day) >= local_day:
                     continue
