@@ -1,3 +1,10 @@
+## 2026-10-23 — 0.1.33非公開更新APKとPR反映
+
+- D229/D230/D231の修正を製品commit `9aa572ddcb16d096071a9611fdce88243e2d8f26`としてPR #3へpush。関連Python148/Web123/Android43件の既存成功範囲は、変更した製品/試験31ファイルのhash一致を確認して再利用。モデル・依存・推論定義は変更しない。
+- 署名0.1.33-candidate / code10033を作成（Gradle約80.3秒）。24,003,661 bytes、SHA256 `7ce49b0c6e7293761e43a247246a35e143470cef7cb37f0ebab9d0099a0fed7f`。旧0.1.32と証明書一致・package ID一致・版番号増加・非debugを確認。46 assetsと凍結sourceを照合し、私有モデル/市場/鍵/試験機構の混入なし。生成ART profileは旧版byte固定ではなく、今回のcompileReleaseArtProfile出力との完全一致で検査した。
+- 本人向けAPKの引渡しを確認。旧APKとbundleは保全し、モデル再取込は不要。配布先のURL/IDと私有引継ぎ記録は公開文書へ含めない。
+- [CI39874569871](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39874569871)は記録時点で進行中。過去の「CI待ちよりAPK引渡し優先」の本人指示を継続し、CI成功とは表示しない。正式署名APKの追加起動/Xiaomi受入・実データ速度は未確認。main merge/公開Releaseは未実施で、アプリ内の公開更新案内には今回版は出ない。正式採用HOLD・実注文なし。
+
 ## 2026-10-23 — 台帳競合・入力保持・保存負荷の修正完了（D231、ローカル検証）
 
 - 基点commit `12d52e18bf360689ff7083da7e4090d1c442dd24`＋ローカル差分。D230のselectorに加え、positions CSVの基点ID/hash・関連約定・日時検証、原子的確定、同一結果への安全な再試行を実装。約定CSVも途中失敗を全rollbackし、追加/未追加件数receiptを再試行で維持する。旧previewは書換えず必要時に再作成。BUSY/LOCKEDは破損と区別する。
