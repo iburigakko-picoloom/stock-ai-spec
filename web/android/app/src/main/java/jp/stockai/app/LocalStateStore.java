@@ -43,6 +43,8 @@ final class LocalStateStore {
         this.database = database;
         database.execSQL("CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK(id=1), generation INTEGER NOT NULL, payload BLOB NOT NULL)");
         database.execSQL("CREATE TABLE IF NOT EXISTS state_chunks (piece INTEGER PRIMARY KEY, payload BLOB NOT NULL)");
+        database.execSQL("CREATE TABLE IF NOT EXISTS operations_state (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)");
+        database.execSQL("CREATE TABLE IF NOT EXISTS operations_chunks (piece INTEGER PRIMARY KEY, payload BLOB NOT NULL)");
     }
 
     static synchronized SecretKey key() throws Exception {
@@ -85,37 +87,16 @@ final class LocalStateStore {
     }
 
     JSObject read() throws Exception {
-        // Envelope and chunks must come from one snapshot even with another DB handle.
-        database.beginTransactionNonExclusive();
+        // Preserve the inline reader's original atomic snapshot across handles.
+        database.beginTransaction();
         try {
-            JSObject result = new JSObject().put("generation", 0).put("payload", "");
-            try (Cursor cursor = database.rawQuery("SELECT generation,payload FROM state WHERE id=1", null)) {
-                if (cursor.moveToFirst()) {
-                    long generation = cursor.getLong(0);
-                    if (generation < 0 || generation > MAX_GENERATION) throw new SecurityException();
-                    String envelope = decrypt(cursor.getBlob(1)), payload = envelope;
-                    if (envelope.length() > MAX_INLINE_CHARACTERS) throw new SecurityException();
-                    if (envelope.startsWith(FORMAT)) {
-                        JSONObject metadata = new JSONObject(envelope.substring(FORMAT.length()));
-                        int length = metadata.getInt("length"), count = metadata.getInt("chunks");
-                        if (length < 0 || length > MAX_INLINE_CHARACTERS || count != (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS) throw new SecurityException();
-                        StringBuilder content = new StringBuilder(length);
-                        MessageDigest digest = MessageDigest.getInstance("SHA-256"); int index = 0;
-                        try (Cursor chunks = database.rawQuery("SELECT piece,payload FROM state_chunks ORDER BY piece", null)) {
-                            while (chunks.moveToNext()) {
-                                if (chunks.getInt(0) != index || index >= count) throw new SecurityException();
-                                String fragment = decryptChunk(chunks.getBlob(1), generation, index++);
-                                if (fragment.length() > CHUNK_CHARACTERS) throw new SecurityException();
-                                digest.update(fragment.getBytes(StandardCharsets.UTF_8)); content.append(fragment);
-                            }
-                        }
-                        if (index != count || content.length() != length || !hex(digest.digest()).equals(metadata.getString("sha256"))) throw new SecurityException();
-                        payload = content.toString();
-                    }
-                    result.put("generation", generation).put("payload", payload);
-                }
+            try (ReadLease saved = openReadLease()) {
+                if (saved.length > MAX_INLINE_CHARACTERS) throw new SecurityException();
+                StringBuilder result = new StringBuilder(saved.length);
+                for (int index = 0; index < saved.chunks; index++) result.append(saved.next(index));
+                saved.finish();
+                return new JSObject().put("generation", saved.generation).put("payload", result.toString());
             }
-            database.setTransactionSuccessful(); return result;
         } finally { database.endTransaction(); }
     }
 
@@ -131,6 +112,8 @@ final class LocalStateStore {
             }
             if (current != generation) throw new IllegalStateException("state conflict");
             database.execSQL("DELETE FROM state_chunks");
+            database.execSQL("DELETE FROM operations_state");
+            database.execSQL("DELETE FROM operations_chunks");
             MessageDigest digest = MessageDigest.getInstance("SHA-256"); int index = 0;
             for (int offset = 0; offset < payload.length(); offset += CHUNK_CHARACTERS) {
                 String fragment = payload.substring(offset, Math.min(offset + CHUNK_CHARACTERS, payload.length()));
@@ -160,6 +143,8 @@ final class LocalStateStore {
         private String legacy;
         private DataInputStream input;
         private long cipherGeneration;
+        private boolean operations;
+        private PendingWrite owned;
         private final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         private int next, characters;
         private boolean closed, finished;
@@ -168,6 +153,7 @@ final class LocalStateStore {
                 boolean chunked, String legacy) throws Exception {
             this.generation = generation; this.length = length; this.chunks = chunks;
             this.expectedHash = expectedHash; this.chunked = chunked; this.legacy = legacy;
+            this.cipherGeneration = generation;
         }
 
         synchronized String next(int index) throws Exception {
@@ -182,11 +168,14 @@ final class LocalStateStore {
             } else if (chunked) {
                 // One statement binds the ciphertext to the current envelope generation.
                 try (Cursor row = database.rawQuery(
-                        "SELECT c.payload FROM state s JOIN state_chunks c ON c.piece=? "
+                        "SELECT c.payload FROM state s JOIN " + (operations ? "operations_chunks" : "state_chunks") + " c ON c.piece=? "
                             + "WHERE s.id=1 AND s.generation=?",
                         new String[]{String.valueOf(index), String.valueOf(generation)})) {
-                    if (!row.moveToFirst()) throw new IllegalStateException("STATE_CONFLICT");
-                    fragment = decryptChunk(row.getBlob(0), generation, index);
+                    if (!row.moveToFirst()) {
+                        if (currentGeneration() != generation) throw new IllegalStateException("STATE_CONFLICT");
+                        throw new SecurityException("MISSING_STATE_CHUNK");
+                    }
+                    fragment = decryptChunk(row.getBlob(0), cipherGeneration, index);
                 }
             } else {
                 if (currentGeneration() != generation) throw new IllegalStateException("STATE_CONFLICT");
@@ -204,7 +193,7 @@ final class LocalStateStore {
             if (closed || finished || next != chunks || characters != length
                     || currentGeneration() != generation) throw new SecurityException();
             if (chunked) {
-                try (Cursor rows = database.rawQuery("SELECT COUNT(*) FROM state_chunks", null)) {
+                try (Cursor rows = database.rawQuery("SELECT COUNT(*) FROM " + (operations ? "operations_chunks" : "state_chunks"), null)) {
                     rows.moveToFirst(); if (rows.getInt(0) != chunks) throw new SecurityException();
                 }
             }
@@ -217,10 +206,11 @@ final class LocalStateStore {
         @Override public synchronized void close() {
             closed = true; legacy = null;
             if (input != null) { try { input.close(); } catch (IOException ignored) { } input = null; }
+            if (owned != null) { owned.close(); owned = null; }
         }
     }
 
-    ReadLease openReadLease() throws Exception {
+    private ReadLease openBaseLease() throws Exception {
         database.beginTransactionNonExclusive();
         try {
             ReadLease result;
@@ -239,6 +229,8 @@ final class LocalStateStore {
                                 || count != (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS
                                 || !hash.matches("[a-f0-9]{64}")) throw new SecurityException();
                         result = new ReadLease(generation, length, count, hash, true, null);
+                        result.cipherGeneration = metadata.optLong("cipher_generation", generation);
+                        if (result.cipherGeneration < 0 || result.cipherGeneration > generation) throw new SecurityException();
                     } else {
                         if (envelope.length() > MAX_INLINE_CHARACTERS) throw new SecurityException();
                         result = new ReadLease(generation, envelope.length(),
@@ -249,6 +241,81 @@ final class LocalStateStore {
             }
             database.setTransactionSuccessful(); return result;
         } finally { database.endTransaction(); }
+    }
+
+    ReadLease openReadLease() throws Exception {
+        ReadLease base = openBaseLease();
+        ReadLease delta = null;
+        PendingWrite merged = null;
+        try {
+            try (Cursor row = database.rawQuery("SELECT payload FROM operations_state WHERE id=1", null)) {
+                if (row.moveToFirst()) {
+                    JSONObject info = new JSONObject(decrypt(row.getBlob(0)));
+                    int length = info.getInt("length"), chunks = info.getInt("chunks");
+                    String hash = info.getString("sha256");
+                    if (info.getLong("generation") != base.generation || length < 0 || length > MAX_CHARACTERS
+                            || chunks != (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS
+                            || !hash.matches("[a-f0-9]{64}")) throw new SecurityException();
+                    delta = new ReadLease(base.generation, length, chunks, hash, true, null);
+                    delta.operations = true;
+                }
+            }
+            if (delta == null) {
+                if (base.cipherGeneration != base.generation) throw new SecurityException();
+                return base;
+            }
+            merged = new PendingWrite(new File(database.getPath()).getParentFile(), base.generation);
+            StateArchiveMerge.merge(base, delta, merged);
+            ReadLease result = stagedLease(merged, base.generation);
+            result.owned = merged;
+            merged = null;
+            base.close(); delta.close();
+            return result;
+        } catch (Exception error) {
+            base.close(); if (delta != null) delta.close();
+            throw error;
+        } finally { if (merged != null) merged.close(); }
+    }
+
+    /** Replace only the operations capsule, preserving market ciphertext. */
+    long commitOperations(long previous, PendingWrite staged) throws Exception {
+        // Validate the small delta before the authoritative transaction.
+        try (ReadLease delta = stagedLease(staged, previous)) { StateArchiveMerge.validateOperations(delta); }
+        synchronized (staged) {
+            database.beginTransaction();
+            try (AutoCloseable transaction = database::endTransaction;
+                    DataInputStream input = new DataInputStream(new FileInputStream(staged.file))) {
+                if (currentGeneration() != previous) throw new IllegalStateException("state conflict");
+                JSONObject base;
+                try (Cursor row = database.rawQuery("SELECT payload FROM state WHERE id=1", null)) {
+                    if (!row.moveToFirst()) throw new SecurityException();
+                    String envelope = decrypt(row.getBlob(0));
+                    if (!envelope.startsWith(FORMAT)) throw new SecurityException();
+                    base = new JSONObject(envelope.substring(FORMAT.length()));
+                }
+                if ((long) base.getInt("length") + staged.length + 64 * 1024 > MAX_CHARACTERS)
+                    throw new IllegalStateException("STATE_CAPACITY_EXCEEDED");
+                base.put("cipher_generation", base.optLong("cipher_generation", previous));
+                database.execSQL("DELETE FROM operations_chunks");
+                MessageDigest hash = MessageDigest.getInstance("SHA-256"); int characters = 0;
+                for (int index = 0; index < staged.chunks; index++) {
+                    int size = input.readInt();
+                    if (size < 28 || size > CHUNK_CHARACTERS * 4 + 28) throw new SecurityException();
+                    byte[] bytes = new byte[size]; input.readFully(bytes);
+                    String fragment = decryptChunk(bytes, staged.generation, index);
+                    if (fragment.length() != Math.min(CHUNK_CHARACTERS, staged.length - characters)) throw new SecurityException();
+                    hash.update(fragment.getBytes(StandardCharsets.UTF_8)); characters += fragment.length();
+                    database.execSQL("INSERT INTO operations_chunks VALUES(?,?)", new Object[]{index, bytes});
+                }
+                if (input.read() != -1 || characters != staged.length || !hex(hash.digest()).equals(staged.hash)) throw new SecurityException();
+                JSONObject info = new JSONObject().put("generation", staged.generation).put("length", staged.length)
+                    .put("chunks", staged.chunks).put("sha256", staged.hash);
+                database.execSQL("INSERT OR REPLACE INTO operations_state VALUES(1,?)", new Object[]{encrypt(info.toString())});
+                database.execSQL("UPDATE state SET generation=?,payload=? WHERE id=1",
+                    new Object[]{staged.generation, encrypt(FORMAT + base)});
+                database.setTransactionSuccessful(); return staged.generation;
+            }
+        }
     }
 
     ReadLease stringLease(String value, long generation) throws Exception {
@@ -339,6 +406,8 @@ final class LocalStateStore {
                     DataInputStream input = new DataInputStream(new FileInputStream(staged.file))) {
                 if (currentGeneration() != previous) throw new IllegalStateException("state conflict");
                 database.execSQL("DELETE FROM state_chunks");
+            database.execSQL("DELETE FROM operations_state");
+            database.execSQL("DELETE FROM operations_chunks");
                 MessageDigest hash = MessageDigest.getInstance("SHA-256"); int characters = 0;
                 for (int index = 0; index < staged.chunks; index++) {
                     int size = input.readInt();

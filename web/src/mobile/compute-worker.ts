@@ -64,13 +64,13 @@ function sendState(id: number, index: number, message: Record<string, unknown>):
     self.postMessage({ id, ...message });
   });
 }
-async function exportNative(id: number, progress: (phase: string) => void): Promise<void> {
+async function exportNative(id: number, progress: (phase: string) => void, operationsOnly: boolean): Promise<void> {
   if (!python) throw new Error("Runtime unavailable");
   const interpreter = python;
   await interpreter.runPythonAsync("_native_export = None");
   try {
     progress("export-archive");
-    const length = Number(await interpreter.runPythonAsync("_native_export = runtime.StateExport()\n_native_export.length"));
+    const length = Number(await interpreter.runPythonAsync(`_native_export = runtime.StateExport(operations_only=${operationsOnly ? "True" : "False"})\n_native_export.length`));
     if (!Number.isSafeInteger(length) || length < 0 || length > 256 * 1024 * 1024) throw new Error("Invalid state length");
     await sendState(id, -1, { state_begin: length });
     progress("export-chunks");
@@ -88,7 +88,7 @@ async function exportNative(id: number, progress: (phase: string) => void): Prom
     await interpreter.runPythonAsync("_native_export.close() if _native_export is not None else None\n_native_export = None");
   }
 }
-self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; method?: string; path?: string; body?: string }>) => {
+self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; operations_only?: boolean; method?: string; path?: string; body?: string }>) => {
   const input = event.data;
   if (input.command === "state_ack") {
     if (awaitingAck?.id === input.id && (input.ok !== true || awaitingAck.index === input.index)) {
@@ -122,7 +122,12 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
       }
       const saves = input.command === "initialize" || input.method === "POST";
       if (saves && input.stream_state === true) {
-        await exportNative(input.id, progress);
+        const operationsOnly = input.operations_only === true;
+        if (operationsOnly && (input.method !== "POST" || ![
+          "/api/v1/mobile/portfolio", "/api/v1/mobile/personal/settings",
+          "/api/v1/mobile/personal/initial/preview", "/api/v1/mobile/personal/initial/confirm",
+        ].includes(input.path ?? ""))) throw new Error("Invalid partial save request");
+        await exportNative(input.id, progress, operationsOnly);
         self.postMessage({ id: input.id, result, state: true });
       } else {
         if (saves) progress("export");

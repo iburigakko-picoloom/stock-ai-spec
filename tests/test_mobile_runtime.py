@@ -23,6 +23,30 @@ def run(device, method, path, body=None):
     return asyncio.run(device.request(method, path, json.dumps(body)))
 
 
+def test_operations_export_does_not_copy_or_compact_market_database(device, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("A small ledger save must not compact market history")
+
+    monkeypatch.setattr(runtime.market, "compact_legacy", forbidden)
+    original = runtime.sqlite3.connect
+    opened = []
+
+    def connect(path, *args, **kwargs):
+        opened.append(str(path))
+        assert not str(path).endswith("mobile.sqlite3")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(runtime.sqlite3, "connect", connect)
+    stream = device.StateExport(operations_only=True)
+    fragments = []
+    while (fragment := stream.read_next()) is not None:
+        fragments.append(fragment)
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode("".join(fragments)))) as archive:
+        assert archive.namelist() == ["operations.sqlite3"]
+        assert archive.read("operations.sqlite3").startswith(b"SQLite format 3\x00")
+    assert any(path.endswith("operations.sqlite3") for path in opened)
+
+
 def test_preselection_is_opt_in_and_policy_survives_archive_restore(device):
     path = "/api/v1/mobile/market/universe-policy"
     assert run(device, "GET", path)["body"]["mode"] == "legacy300"

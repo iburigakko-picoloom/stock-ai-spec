@@ -121,6 +121,13 @@ final class LocalComputeOwner {
             || body == null || body.length() > LocalStateStore.MAX_INLINE_CHARACTERS) throw new IllegalArgumentException();
     }
 
+    static boolean operationsOnly(String method, String path) {
+        return "POST".equals(method) && (path.equals("/api/v1/mobile/portfolio")
+            || path.equals("/api/v1/mobile/personal/settings")
+            || path.equals("/api/v1/mobile/personal/initial/preview")
+            || path.equals("/api/v1/mobile/personal/initial/confirm"));
+    }
+
     CompletableFuture<JSObject> request(String method, String path, String body) {
         try { validateRequest(method, path, body); }
         catch (Exception error) {
@@ -130,14 +137,17 @@ final class LocalComputeOwner {
         return submit(() -> {
             try {
                 initializeIfNeeded();
+                boolean operations = operationsOnly(method, path);
                 try (ComputeHost.Reply reply = host.request(new JSONObject().put("command", "request")
-                        .put("method", method).put("path", path).put("body", body), null, generation)) {
+                        .put("method", method).put("path", path).put("body", body)
+                        .put("operations_only", operations), null, generation)) {
                     JSONObject result = reply.json.getJSONObject("result");
                     int status = result.getInt("status");
                     if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
                     if ("POST".equals(method)) {
                         if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
-                        generation = state.commitTransfer(generation, reply.state);
+                        generation = operations ? state.commitOperations(generation, reply.state)
+                            : state.commitTransfer(generation, reply.state);
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
                         throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
                     return new JSObject(result.toString());

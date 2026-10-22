@@ -1,6 +1,6 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiPost } from "../api";
+import { ApiError, apiPost } from "../api";
 import { PageHeader, StatePanel } from "../components";
 import { useApiData } from "../hooks";
 import type { AppStatus } from "../types";
@@ -22,28 +22,53 @@ export function DataOperationsPage(): ReactNode {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function preview(): Promise<void> {
-    setError(null); setMessage(null); setExecutionPreview(null); setPositionPreview(null); setConfirmed(false);
-    try {
-      if (kind === "executions") {
-        setExecutionPreview(await apiPost<ExecutionPreview>("/api/v1/imports/executions/preview", { csvText: csv }));
-      } else {
-        setPositionPreview(await apiPost<PositionPreview>("/api/v1/imports/positions/preview", { csvText: csv }));
-      }
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "CSVを確認できませんでした"); }
+  const sequence = useRef(0);
+  const mounted = useRef(true);
+  const flight = useRef(false);
+  const attempt = useRef<{ path: string; body: unknown } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmLocked, setConfirmLocked] = useState(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  function invalidate(): void {
+    sequence.current++; setExecutionPreview(null); setPositionPreview(null);
+    setAccepted([]); setConfirmed(false); setMessage(null); setError(null); attempt.current = null; setConfirmLocked(false);
   }
-
-  async function confirmImport(): Promise<void> {
-    setError(null);
+  async function preview(): Promise<void> {
+    if (flight.current) return;
+    invalidate(); const ticket = sequence.current;
+    flight.current = true; setBusy(true);
     try {
-      if (executionPreview) {
-        const result = await apiPost<{ imported: number; skipped: number }>(`/api/v1/imports/executions/${executionPreview.preview_id}/confirm`, { acceptedConflictIds: accepted });
-        setMessage(`${result.imported}件を追加し、${result.skipped}件を既存のまま保持しました。`);
-      } else if (positionPreview) {
-        await apiPost(`/api/v1/imports/positions/${positionPreview.preview_id}/confirm`, { nextPortfolioId: `reconciled-${crypto.randomUUID()}`, confirmAllDifferences: confirmed });
-        setMessage("差分確認済みの口座状態を新しい実状態として追加しました。");
-      }
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "確認を保存できませんでした"); }
+      const value = await apiPost<ExecutionPreview | PositionPreview>(`/api/v1/imports/${kind}/preview`, { csvText: csv });
+      if (!mounted.current || ticket !== sequence.current) return;
+      if (kind === "executions") setExecutionPreview(value as ExecutionPreview);
+      else setPositionPreview(value as PositionPreview);
+    } catch (reason) {
+      if (mounted.current && ticket === sequence.current) setError(reason instanceof Error ? reason.message : "CSVを確認できませんでした");
+    } finally { flight.current = false; if (mounted.current) setBusy(false); }
+  }
+  async function confirmImport(): Promise<void> {
+    if (flight.current || (!executionPreview && !positionPreview)) return;
+    if (!attempt.current) attempt.current = executionPreview ? {
+      path: `/api/v1/imports/executions/${executionPreview.preview_id}/confirm`,
+      body: { acceptedConflictIds: [...accepted] },
+    } : {
+      path: `/api/v1/imports/positions/${positionPreview!.preview_id}/confirm`,
+      body: { nextPortfolioId: `reconciled-${crypto.randomUUID()}`, confirmAllDifferences: confirmed },
+    };
+    const request = attempt.current;
+    setConfirmLocked(true);
+    flight.current = true; setBusy(true); setError(null);
+    try {
+      const result = await apiPost<{ imported?: number; skipped?: number }>(request.path, request.body);
+      if (!mounted.current) return;
+      setMessage(executionPreview ? `${result.imported}件を追加。${result.skipped}件は未追加です。` : "確認した口座状態を保存しました。");
+      setExecutionPreview(null); setPositionPreview(null); attempt.current = null; setConfirmLocked(false);
+    } catch (reason) {
+      if (!mounted.current) return;
+      if (reason instanceof ApiError && reason.status === 409) {
+        invalidate(); setError(`${reason.message} 差分を再確認してください。`);
+      } else setError(reason instanceof ApiError ? reason.message : "保存結果を確認できません。同じ内容で再試行してください。");
+    } finally { flight.current = false; if (mounted.current) setBusy(false); }
   }
 
   return (
@@ -56,23 +81,23 @@ export function DataOperationsPage(): ReactNode {
 
       <section className="section">
         <div className="section-title"><div><span>PREVIEW FIRST</span><h2>CSV差分確認</h2></div></div>
-        <div className="segmented segmented--2"><button className={kind === "executions" ? "active" : ""} onClick={() => setKind("executions")}>約定CSV</button><button className={kind === "positions" ? "active" : ""} onClick={() => setKind("positions")}>口座状態CSV</button></div>
-        <textarea aria-label="CSV内容" className="csv-input" value={csv} onChange={(event) => setCsv(event.target.value)} placeholder={kind === "executions" ? "execution_id,decision_id,executed_at,..." : "as_of,record_type,symbol,account_bucket_id,...,available_cash,reserved_cash"} />
-        <button className="button button--secondary" disabled={!csv.trim()} onClick={() => void preview()}>書き込まずに差分を確認</button>
+        <div className="segmented segmented--2"><button className={kind === "executions" ? "active" : ""} disabled={busy} onClick={() => { invalidate(); setKind("executions"); }}>約定CSV</button><button className={kind === "positions" ? "active" : ""} disabled={busy} onClick={() => { invalidate(); setKind("positions"); }}>口座状態CSV</button></div>
+        <textarea aria-label="CSV内容" className="csv-input" value={csv} onChange={(event) => { if (!flight.current || !attempt.current) { invalidate(); setCsv(event.target.value); } }} placeholder={kind === "executions" ? "execution_id,decision_id,executed_at,..." : "as_of,record_type,symbol,account_bucket_id,...,available_cash,reserved_cash"} />
+        <button className="button button--secondary" disabled={busy || !csv.trim()} onClick={() => void preview()}>書き込まずに差分を確認</button>
       </section>
 
       {executionPreview && <section className="section preview-panel">
         <h2>約定preview</h2><p>候補 {executionPreview.execution_payloads.length}件 / conflict {executionPreview.conflicts.length}件</p>
-        {executionPreview.conflicts.map((conflict) => <label className="conflict-row" key={conflict.conflict_id}><input type="checkbox" checked={accepted.includes(conflict.conflict_id)} onChange={(event) => setAccepted((current) => event.target.checked ? [...current, conflict.conflict_id] : current.filter((item) => item !== conflict.conflict_id))} /><span><strong>{conflict.code}</strong> 行{conflict.row_number}: {conflict.message}</span></label>)}
-        <button className="button button--primary" onClick={() => void confirmImport()}>確認した行だけ追加</button>
+        {executionPreview.conflicts.map((conflict) => <label className="conflict-row" key={conflict.conflict_id}><input type="checkbox" disabled={busy || confirmLocked} checked={accepted.includes(conflict.conflict_id)} onChange={(event) => setAccepted((current) => event.target.checked ? [...current, conflict.conflict_id] : current.filter((item) => item !== conflict.conflict_id))} /><span><strong>{conflict.code}</strong> 行{conflict.row_number}: {conflict.message}</span></label>)}
+        <button className="button button--primary" disabled={busy} onClick={() => void confirmImport()}>確認した行だけ追加</button>
       </section>}
 
       {positionPreview && <section className="section preview-panel">
         <h2>保有差分preview</h2><p>取込時点 {positionPreview.imported_as_of}</p>
         {positionPreview.differences.map((difference) => <div className="difference-row" key={`${difference.symbol}-${difference.account_bucket_id}`}><span>{difference.symbol} / {difference.account_bucket_id}</span><strong>{difference.ledger_shares}株 → {difference.imported_shares}株</strong></div>)}
         {positionPreview.cash_differences.map((difference) => <div className="difference-row" key={`cash-${difference.account_bucket_id}`}><span>現金 / {difference.account_bucket_id}</span><strong>{difference.ledger_available_cash}円（予約 {difference.ledger_reserved_cash}円） → {difference.imported_available_cash}円（予約 {difference.imported_reserved_cash}円）</strong></div>)}
-        <label className="checkbox"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />全差分を確認し、新しい実状態として追加する</label>
-        <button className="button button--primary" disabled={!confirmed} onClick={() => void confirmImport()}>差分確認済みで反映</button>
+        <label className="checkbox"><input type="checkbox" disabled={busy || confirmLocked} checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />全差分を確認し、新しい実状態として追加する</label>
+        <button className="button button--primary" disabled={busy || !confirmed} onClick={() => void confirmImport()}>差分確認済みで反映</button>
       </section>}
       {message && <StatePanel title={message} detail="既存recordは上書きしていません。" />}
       {error && <StatePanel tone="error" title="処理を完了できません" detail={error} />}

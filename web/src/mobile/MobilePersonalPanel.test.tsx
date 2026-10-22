@@ -7,6 +7,20 @@ import { emptySettings, type Readiness, type SavedPortfolio, type SavedSettings 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
 afterEach(cleanup);
 
+test("profile revision changes preserve edits and require explicit rebase", async () => {
+  const { rerender } = render(<MobilePersonalPanel profile={profile} disabled={false} />);
+  const year = await screen.findByRole("spinbutton", { name: "損益の対象年" });
+  fireEvent.change(year, { target: { value: "2025" } });
+  const reads = vi.mocked(apiGet).mock.calls.length;
+  rerender(<MobilePersonalPanel profile={{ ...profile, revision_id: "d".repeat(64) }} disabled={false} />);
+  expect(year).toHaveValue(2025);
+  expect(screen.getByRole("button", { name: "補足設定を保存" })).toBeDisabled();
+  expect(apiGet).toHaveBeenCalledTimes(reads);
+  fireEvent.click(screen.getByRole("button", { name: "最新の口座・保有に合わせて見直す" }));
+  expect(year).toHaveValue(2025);
+  expect(screen.getByRole("button", { name: "補足設定を保存" })).toBeEnabled();
+});
+
 test("pending save keeps the form, shows progress and retains input on failure", async () => {
   let rejectSave!: (error: Error) => void;
   vi.mocked(apiPost).mockImplementation(() => new Promise((_resolve, reject) => { rejectSave = reject; }));

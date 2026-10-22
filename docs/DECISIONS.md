@@ -2028,3 +2028,19 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 
 - 台帳参照は全履歴concatのdtypeではなく、検証済み直近日足の値と出所を利用する。latest_closed_pricesのreference_only経路では同日を除外し直近から読み、普通株がある確定日を採用する。保有銘柄欠損を古い日で埋めず、既存の鮮度・訂正・本人確認検査を維持する。予測/特徴量側の従来読込と型は変更しない。
 - 全DBの暗号化保存、共通待ち列、画面再取得は別の未解決箇所。全体保存の分離には世代整合・中断復元を含む検証が必要で、保存を省略して成功表示しない。
+### D230 — 台帳選択の正確性を高速化より先に固定（2026-10-23）
+
+- 本人指定の2026-10-23実装依頼に従い、最初の独立小パッチを台帳selectorと回帰試験に限定する。既存の高速化差分は保全し、今回APK配布・Drive保存・pushはしない。
+- 現在台帳は同一connectionで全候補のraw/hash/model/catalogを検証し、aware UTCの正確な日時で最大値を選ぶ。ISO文字列順・SQLite日時の精度落ち・IDによる同時刻の勝者選択は使わない。同時刻複数IDまたは未来台帳を明示的な競合として拒否し、過去IDの個別参照は維持する。
+- positions CSVのpreview/confirm基点固定と原子的保存は次の独立工程であり、このselector修正だけで競合安全を完成扱いにしない。研究モデル・holdout・採用条件は変更しない。
+
+### D231 — 台帳競合・入力保持・小さな保存の分離を完了する（2026-10-23）
+
+- 追加本人指示「反映、更新をおこなおう」により、検証済み差分をPR #3へpushし、同じ署名の新しい非公開APKを既存Driveフォルダへ引き渡す。main merge・公開Release・自動更新配信先の変更は含めない。既存の試験証拠は関連sourceが不変の範囲で再利用する。
+
+- 最新本人指示「修整全て完了させて」によりD230の最初の小パッチで止める範囲を更新し、提示文書の残る修正を実装する。ローカル修正と隔離検証に限定し、APK配布・Drive書込・GitHub push・main mergeは行わない。モデル・研究結果・holdout・正式採用HOLDは変更しない。
+- positions CSVは同一transaction内で基点台帳のID/hash、対象時点までの約定fingerprint、日時を検証し、結果台帳とpreview確定を原子的に保存する。基点変更・関連約定追加・未適用約定は再確認を要求する。確認済みの同じ結果IDへの再試行は元結果を返す。旧guardなしpreviewは原本を保持し再previewが必要。約定CSVもbatch全体と件数receiptを原子的に確定し、途中例外を一部成功にしない。
+- SQLite BUSY/LOCKEDを破損と区別し503 STORAGE_BUSYとする。Web/native共通のApiErrorはstatus/code/detailを保持する。不明な通信結果の再試行では同じ送信ID/bodyを保持し、409で旧preview/reviewを無効化する。
+- 設定・初回台帳・提案の編集中draftを背景refreshから分離する。profile revision変更はpreviewを無効化し、入力を捨てない。同一hookの読込は実行中1件＋必要時の後続1件へ集約し、古いfinallyでも自分のslotを解放する。再取得中の同じ画面は既存表示を保持し、path変更・Web offline・失敗では古い結果を利用しない。全GET共通の永続cacheやPythonの並行実行は導入しない。
+- Androidのportfolio・personal settings・initial preview・initial confirmの4 POSTだけ、operations DBを暗号化差分として保存する。市場DBの暗号文は毎回書換えない。世代照合・原子的commit・容量上限を維持し、復元/バックアップ時だけ共通archiveへ合成する。全状態保存は差分を原子的に置換する。他POST・初回復元・市場更新の全処理を高速化済みとはしない。
+- 全状態inline読込は従来の一貫したtransactionを維持する。欠損chunkは同世代なら破損、世代変更なら競合として拒否する。テストの期待例外も欠損のSecurityException/MISSING_STATE_CHUNKを正確に検証し、例外の握り潰しやassert緩和で合格させない。

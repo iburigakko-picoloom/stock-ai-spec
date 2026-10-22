@@ -23,6 +23,13 @@ test("HTTP failure keeps the native committed receipt and exposes its stable rea
   await expect(mobileRequest("POST", "/api/v1/mobile/portfolio", {})).rejects.toThrow("口座・保有が更新されています");
 });
 
+test("native errors preserve HTTP status and conflict code", async () => {
+  vi.mocked(StockAI.compute).mockResolvedValue({ status: 409, body: { detail: "changed", code: "RECONCILIATION_BASE_CHANGED" } });
+  await expect(mobileRequest("POST", "/api/v1/imports/positions/p/confirm", {})).rejects.toMatchObject({
+    status: 409, detail: "changed", code: "RECONCILIATION_BASE_CHANGED",
+  });
+});
+
 test("settings still decorate native key availability without reading credentials", async () => {
   vi.mocked(StockAI.compute).mockResolvedValue({ status: 200, body: { data: {}, runtime: {} } });
   vi.mocked(StockAI.keyStatus).mockResolvedValue({ configured: true });

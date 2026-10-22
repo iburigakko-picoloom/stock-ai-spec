@@ -1,3 +1,13 @@
+## 2026-10-23 — 台帳競合・入力保持・保存負荷の修正完了（D231、ローカル検証）
+
+- 基点commit `12d52e18bf360689ff7083da7e4090d1c442dd24`＋ローカル差分。D230のselectorに加え、positions CSVの基点ID/hash・関連約定・日時検証、原子的確定、同一結果への安全な再試行を実装。約定CSVも途中失敗を全rollbackし、追加/未追加件数receiptを再試行で維持する。旧previewは書換えず必要時に再作成。BUSY/LOCKEDは破損と区別する。
+- 入力中の設定/初回台帳/提案draftを背景refreshで上書きしない。初期読込失敗時は再試行でき、保存中の重複操作を防ぐ。409は旧previewを無効化し、不明な保存結果は同じID/bodyで再試行。読込はhook内で実行中1件＋後続1件へ集約し、再取得中の既存表示を維持する。検証済みモデルの二重parseを除去。全GET cacheやPython並行読込は導入していない。
+- Androidの小さな個人設定/台帳4 POSTはoperationsだけを暗号化保存し、市場DBの暗号文を保全する。差分は復元/export時に合成し、全状態保存時に原子的置換。世代競合・容量不足・中断/破損時の元データ保護を維持。初回復元や市場更新、その他POSTの全状態保存は残る。
+- Python関連147件成功49.82秒＋追加BUSY試験1件成功0.21秒（計148件の範囲）。Web全123件/19ファイル成功9.63秒、lint/型/build成功。Ruff変更範囲・mypy変更3source成功。モデル/特徴量/依存版は不変で、全銘柄数値照合と再学習は繰り返さない。
+- API35隔離AVDで保存関連24件の範囲を確認：初回の原子的inline読込/欠損chunk分類を修正後23/24成功、残る旧例外期待値をSecurityExceptionと具体コードへ修正して関連17件全成功3.661秒。未変更のStatePersistence7件成功を再利用。正常保存・競合/commit失敗復旧・portable backup復旧・cancel・日次保存後再開の結合4件全成功138.587秒、native JVM15件成功。日次fixtureは休場calendarであり、新モデル実市場推論やOS Worker配送の証拠ではない。
+- 性能参考：API35/4GiB/2core、Python初期化後・市場履歴なし/空保有の合成profile POSTは96ms。実市場730日やXiaomiの速度・最大RSSは今回未測定。debug APKは検証専用で、既存署名0.1.32を差替えていない。今回CI・APK配布・push・Drive書込なし。正式採用HOLD、実注文なし。
+- 私有証拠/復元用差分：`.demo-artifacts/reconciliation-20261023/receipt.json`、同ディレクトリのnativeログとcheckpoint。外部条件として残るのは新修正の署名配布APK作成/反映、Xiaomiでの実データ保存速度・入力操作の受入と真正日次更新。今回の修正完了をA/B全完了と読み替えない。
+
 ## 2026-10-22 — 初回台帳の価格読込削減（D229、APK未反映）
 
 - 原因照合: 初回台帳の価格取得で全日付の型確認読込が残り、POST保存はoperations/mobile両DBのarchiveを待つ。今回まず台帳参照専用経路を追加し直近確定日から検証読込。特徴量読込は不変。
@@ -2295,4 +2305,10 @@ Androidの別pluginへ公開OAuth client、loopback/PKCE、JWKS/issuer/audience/
 ローカルTypeScript/Lint/build成功、React24件PASS、Pythonの配布検証10件PASS。最初のReact試験はWindowsのsandbox一時directoryのrename EPERMで試験収集前に停止し、作業領域内TEMP/TMPで同じ試験を再実行して成功。Androidコンパイル/機器試験と実アカウント認証・検索はまだ未確認。PCにJDK/SDKがないため既存Android CIを使用する。制限環境でghの接続確認が失敗し、接続済みGitHubアプリもbranch作成403だった。許可された読み取り接続で既存ghのrepository push/admin権限を確認し、既存CLI経路へ戻した。認証情報の変更や取得・表示は行わない。
 
 これは連携入口の段階であり、独立調査の自動保存/表示、背景実行、履歴一括取得、実市場評価、モデル採用、最新予測/個人株数の接続、実機性能は未完。Goal active、実注文なし。
+
+## 2026-10-23 — 台帳選択の安全性を先行修正（D230、ローカル差分）
+
+- 本人指定文書に従い、保存先の取り違え防止を高速化より先行。最新台帳の選択を同一connectionの共通処理へ集約し、全行のhash/model/catalog検証後にUTC・microsecond精度で比較する。最新同時刻の複数IDはPORTFOLIO_BASE_AMBIGUOUS、未来台帳はPORTFOLIO_BASE_IN_FUTUREとして拒否。apply-executions APIも理由コードを保持する。
+- 新規6ケース成功。関連4ファイルの試験は103成功・1失敗後、残る同日fixtureの未来時刻依存を修正して当該1件成功（合計104ケース確認、最終一括再実行は省略）。別の未来日fixtureも試験内時計をその合成日時に固定した。assert・本番時刻検査は緩和していない。Ruff、変更sourceのmypy成功。
+- これはPatch1Aのみ。positions CSVのbase_reference・確認時競合防止・原子的保存は未実装であり、CSV更新競合の解決完了とは扱わない。入力draft保全、hook内読込整理、作業中のnative保存分離は別の未完差分として保全。実DB変更、APK更新、CI、push、Driveへの追加保存、Xiaomi試験は今回未実施。正式採用HOLD。
 

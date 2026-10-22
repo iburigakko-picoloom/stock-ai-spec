@@ -106,6 +106,7 @@ export function MobileDevicePanel(): ReactNode {
   const [message, setMessage] = useState("");
   const [messageGroup, setMessageGroup] = useState("account");
   const [busy, setBusy] = useState(false);
+  const acting = useRef(false);
   useEffect(() => { heading.current?.focus(); window.scrollTo(0, 0); }, [selected]);
   useEffect(() => {
     if (!isAndroid()) return;
@@ -123,11 +124,12 @@ export function MobileDevicePanel(): ReactNode {
     else setParams({}, { replace: true });
   }
   async function action(task: () => Promise<unknown>, success: string, group = "account"): Promise<void> {
-    if (busy) return;
+    if (acting.current) return;
+    acting.current = true;
     setBusy(true); setMessage(""); setMessageGroup(group);
     try { await task(); setMessage(success); }
     catch (error) { setMessage(error instanceof Error ? error.message : "処理を完了できませんでした。入力・通信・保存状態を確認してください。"); }
-    finally { setBusy(false); }
+    finally { acting.current = false; setBusy(false); }
   }
   async function savePortfolio(): Promise<void> {
     const base = savedPortfolio?.portfolio ?? blank;
@@ -152,6 +154,10 @@ export function MobileDevicePanel(): ReactNode {
       <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{selected ? panelTitles[selected] : "設定"}</h1></div>
     </header>
     {loadError && <p role="alert">{loadError}</p>}
+    {loadError && !portfolioLoaded && <button className="button" disabled={busy} onClick={() => void action(async () => {
+      const value = await apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio");
+      setSavedPortfolio(value); setPortfolio(value?.portfolio ?? blank); setPortfolioLoaded(true); setLoadError("");
+    }, "口座・保有を読み込みました。")}>口座・保有を読み直す</button>}
     {busy && <SaveProgress />}
     <div className="settings-overview" hidden={selected !== null}>
       <section className="settings-menu-section" aria-labelledby="settings-connection"><h2 id="settings-connection">接続</h2><div className="settings-menu-list">
@@ -177,6 +183,8 @@ export function MobileDevicePanel(): ReactNode {
     </div>
     <SettingsPanel visible={selected === "accounts" || selected === "capital" || selected === "risk"}>
     <section className="section">
+      <fieldset disabled={busy || !portfolioLoaded}>
+
       <div hidden={selected !== "capital"}>
       <label>投資上限（円・未定は空欄）<input inputMode="decimal" value={portfolio.investment_budget_yen ?? ""} onChange={event => setPortfolio({ ...portfolio, investment_budget_yen: event.target.value || null })} /></label>
       </div>
@@ -220,6 +228,7 @@ export function MobileDevicePanel(): ReactNode {
         setSavedPortfolio(value); setPortfolio(value?.portfolio ?? blank); setPortfolioLoaded(true);
       }, "保存済みの口座・保有を読み直しました。")}>すべての保存済み入力を読み直す</button>
       </details>
+      </fieldset>
     </section>
     {messageGroup === "account" && message && <p role="status">{message}</p>}
     <SettingsPanel visible={selected === "accounts"}>

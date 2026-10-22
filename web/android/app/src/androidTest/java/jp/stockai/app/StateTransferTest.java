@@ -60,6 +60,93 @@ public class StateTransferTest {
         }
     }
 
+    private String capsule(java.util.Map<String, String> values) throws Exception {
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+            for (java.util.Map.Entry<String, String> value : values.entrySet()) {
+                zip.putNextEntry(new java.util.zip.ZipEntry(value.getKey()));
+                zip.write(value.getValue().getBytes(StandardCharsets.UTF_8)); zip.closeEntry();
+            }
+        }
+        return android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP);
+    }
+
+    private java.util.Map<String, String> capsuleValues(String encoded) throws Exception {
+        java.util.Map<String, String> values = new java.util.HashMap<>();
+        try (java.util.zip.ZipInputStream zip = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(
+                android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)))) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                values.put(entry.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+        return values;
+    }
+
+    private String baseCipherHash() throws Exception {
+        MessageDigest hash = MessageDigest.getInstance("SHA-256");
+        try (android.database.Cursor rows = store.database.rawQuery("SELECT payload FROM state_chunks ORDER BY piece", null)) {
+            while (rows.moveToNext()) hash.update(rows.getBlob(0));
+        }
+        return LocalStateStore.hex(hash.digest());
+    }
+
+    @Test public void ledgerDeltaPreservesMarketCiphertextAndRestoresLatestOperations() throws Exception {
+        store.write(0, capsule(java.util.Map.of("operations.sqlite3", "old", "mobile.sqlite3", "market")));
+        String originalCipher = baseCipherHash();
+        for (int index = 1; index <= 2; index++) {
+            try (LocalStateStore.PendingWrite delta = stage(index, capsule(java.util.Map.of("operations.sqlite3", "ledger" + index)))) {
+                assertEquals(index + 1, store.commitOperations(index, delta));
+            }
+            assertEquals(originalCipher, baseCipherHash());
+        }
+        store.database.close();
+        store = new LocalStateStore(SQLiteDatabase.openOrCreateDatabase(file, null));
+        assertEquals(java.util.Map.of("operations.sqlite3", "ledger2", "mobile.sqlite3", "market"), capsuleValues(readLease()));
+        String backup = store.read().getString("payload");
+        try (LocalStateStore.PendingWrite full = stage(3, backup)) { store.commitTransfer(3, full); }
+        assertEquals(capsuleValues(backup), capsuleValues(readLease()));
+        try (android.database.Cursor rows = store.database.rawQuery("SELECT COUNT(*) FROM operations_chunks", null)) {
+            rows.moveToFirst(); assertEquals(0, rows.getInt(0));
+        }
+    }
+
+    @Test public void invalidOrInterruptedDeltaLeavesCommittedStateIntact() throws Exception {
+        String initial = capsule(java.util.Map.of("operations.sqlite3", "old", "mobile.sqlite3", "market"));
+        store.write(0, initial);
+        try (LocalStateStore.PendingWrite invalid = stage(1, capsule(java.util.Map.of("mobile.sqlite3", "replacement")))) {
+            rejected(() -> store.commitOperations(1, invalid));
+        }
+        try (LocalStateStore.PendingWrite interrupted = new LocalStateStore.PendingWrite(context.getCacheDir(), 1, 4)) {
+            interrupted.append(0, "AAAA");
+            rejected(() -> store.commitOperations(1, interrupted));
+        }
+        assertEquals(1, store.currentGeneration()); assertEquals(initial, readLease());
+        assertTrue(LocalComputeOwner.operationsOnly("POST", "/api/v1/mobile/personal/initial/confirm"));
+        assertFalse(LocalComputeOwner.operationsOnly("POST", "/api/v1/mobile/market/ingest"));
+        assertFalse(LocalComputeOwner.operationsOnly("GET", "/api/v1/mobile/personal/settings"));
+    }
+
+    @Test public void failedDeltaReplacementRollsBackPreviousDeltaAndRejectsStaleGeneration() throws Exception {
+        store.write(0, capsule(java.util.Map.of("operations.sqlite3", "old", "mobile.sqlite3", "market")));
+        try (LocalStateStore.PendingWrite first = stage(1, capsule(java.util.Map.of("operations.sqlite3", "first")))) {
+            store.commitOperations(1, first);
+        }
+        store.database.execSQL("CREATE TRIGGER fail_delta BEFORE UPDATE ON state BEGIN SELECT RAISE(ABORT,'synthetic failure'); END");
+        try (LocalStateStore.PendingWrite next = stage(2, capsule(java.util.Map.of("operations.sqlite3", "next")))) {
+            rejected(() -> store.commitOperations(2, next));
+        }
+        assertEquals(2, store.currentGeneration());
+        assertEquals("first", capsuleValues(readLease()).get("operations.sqlite3"));
+        store.database.execSQL("DROP TRIGGER fail_delta");
+        try (LocalStateStore.PendingWrite stale = stage(1, capsule(java.util.Map.of("operations.sqlite3", "stale")))) {
+            rejected(() -> store.commitOperations(1, stale));
+        }
+        assertEquals("first", capsuleValues(readLease()).get("operations.sqlite3"));
+        store.database.execSQL("UPDATE operations_chunks SET payload=? WHERE piece=0", new Object[]{new byte[28]});
+        rejected(() -> readLease());
+    }
+
     @Test public void multiChunkUnicodeRoundTripUsesExistingFormatAndDeletesSpool() throws Exception {
         String value = "あ".repeat(LocalStateStore.CHUNK_CHARACTERS) + "b".repeat(LocalStateStore.CHUNK_CHARACTERS) + "終";
         File spool;

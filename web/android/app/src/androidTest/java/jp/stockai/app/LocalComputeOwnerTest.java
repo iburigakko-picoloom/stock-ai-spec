@@ -220,12 +220,14 @@ public class LocalComputeOwnerTest {
     @Test public void realOfflineInterpreterSerializesCallersAndRestoresAfterOwnerRecreation() throws Exception {
         System.out.println("StockAI test WebView=" + android.webkit.WebView.getCurrentWebViewPackage().versionName);
         assertEquals(200, result(owner.request("GET", "/api/v1/health", "null")).getInt("status"));
+        long saveStarted = android.os.SystemClock.elapsedRealtime();
         CompletableFuture<JSObject> first = owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile());
         // Independent callers use the same authoritative state. The second
         // initial revision must conflict, rather than overwriting the first.
         CompletableFuture<JSObject> competing = LocalComputeOwner.get(context, file)
             .request("POST", "/api/v1/mobile/portfolio", emptyProfile());
         JSObject saved = result(first);
+        System.out.println("StockAI synthetic_empty_profile_save_ms=" + (android.os.SystemClock.elapsedRealtime() - saveStarted));
         assertEquals(200, saved.getInt("status"));
         assertEquals(409, result(competing).getInt("status"));
         String original = saved.getJSONObject("body").toString();
@@ -239,7 +241,8 @@ public class LocalComputeOwnerTest {
         assertEquals(original, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
         result(owner.restore(backup, null));
         assertEquals(original, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
-        owner.state.database.execSQL("CREATE TRIGGER fail_compute_commit BEFORE INSERT ON state BEGIN SELECT RAISE(ABORT,'synthetic disk failure'); END");
+        // Small profile saves now update the envelope after staging an operations delta.
+        owner.state.database.execSQL("CREATE TRIGGER fail_compute_commit BEFORE UPDATE ON state BEGIN SELECT RAISE(ABORT,'synthetic disk failure'); END");
         org.json.JSONObject changed = new org.json.JSONObject().put("expected_revision_id", saved.getJSONObject("body").getString("revision_id"))
             .put("portfolio", new org.json.JSONObject(emptyProfile()));
         try { result(owner.request("POST", "/api/v1/mobile/portfolio", changed.toString())); fail("failed native commit acknowledged"); }

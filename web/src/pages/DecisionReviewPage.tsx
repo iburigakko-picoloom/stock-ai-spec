@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { apiGet, apiPost } from "../api";
+import { ApiError, apiGet, apiPost } from "../api";
 import { ActionBadge, DecisionSteps, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { DecisionReview, TodayResponse } from "../types";
@@ -13,41 +13,51 @@ export function DecisionReviewPage(): ReactNode {
   const navigate = useNavigate();
   const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today");
   const [targets, setTargets] = useState<Record<string, number>>({});
-  const [review, setReview] = useState<DecisionReview | null>(null);
+  const [reviewState, setReview] = useState<{ key: string; value: DecisionReview } | null>(null);
+  const [draftProposal, setDraftProposal] = useState("");
+  const flight = useRef(false);
+  const attempt = useRef<{ key: string; path: string; body: unknown } | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const proposal = data?.isStale ? null : data?.proposal;
 
+  const proposalKey = proposal ? JSON.stringify([proposal.proposalId,
+    proposal.lines.map(line => [line.lineId, line.recommendedShares]).sort()]) : "";
+  const targetKey = JSON.stringify([proposalKey, Object.entries(targets).sort(([a], [b]) => a.localeCompare(b))]);
+  const review = reviewState?.key === targetKey && draftProposal === proposalKey ? reviewState.value : null;
   useEffect(() => {
-    if (!proposal) return;
-    setTargets(Object.fromEntries(proposal.lines.map((line) => [line.lineId, line.recommendedShares])));
-  }, [proposal]);
+    if (!proposalKey) { setReview(null); return; }
+    const [, lines] = JSON.parse(proposalKey) as [string, [string, number][]];
+    setDraftProposal(proposalKey); setReview(null); attempt.current = null;
+    setTargets(Object.fromEntries(lines));
+  }, [proposalKey]);
 
   useEffect(() => {
-    if (!proposal || Object.keys(targets).length !== proposal.lines.length) return;
+    if (!proposalKey || draftProposal !== proposalKey) return;
+    const [id, lines] = JSON.parse(proposalKey) as [string, [string, number][]];
+    const [, entries] = JSON.parse(targetKey) as [string, [string, number][]];
+    if (entries.length !== lines.length || lines.some(([key]) => !entries.some(([entry]) => key === entry))) return;
     let active = true;
-    apiPost<DecisionReview>(`/api/v1/proposals/${proposal.proposalId}/review`, { selectedTargets: targets })
-      .then((value) => {
-        if (active) {
-          setReview(value);
-          setReviewError(null);
-        }
-      })
+    setReview(null); setReviewError(null);
+    void apiPost<DecisionReview>(`/api/v1/proposals/${id}/review`, { selectedTargets: Object.fromEntries(entries) })
+      .then(value => { if (active) setReview({ key: targetKey, value }); })
       .catch((reason: unknown) => {
         if (active) setReviewError(reason instanceof Error ? reason.message : "再計算に失敗しました");
       });
     return () => { active = false; };
-  }, [proposal, targets]);
+  }, [proposalKey, draftProposal, targetKey]);
 
   if (loading || error || !proposal) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="判断を確認" /><StatePanel tone={loading ? "neutral" : error ? "error" : "warning"} title={loading ? "判断内容を準備しています" : error ? "提案を取得できません" : "有効な当日提案がありません"} detail={error || data?.blockingReason} /></div>;
 
   async function save(): Promise<void> {
-    if (!proposal || !review || review.constraint_violations.length > 0) return;
+    if (flight.current || !proposal || !review || review.constraint_violations.length > 0) return;
+    flight.current = true;
     setSaving(true);
     setReviewError(null);
     try {
+      if (!attempt.current || attempt.current.key !== targetKey) {
       const existing = await apiGet<SavedDecision | null>(`/api/v1/proposals/${proposal.proposalId}/decision`);
-      await apiPost(`/api/v1/proposals/${proposal.proposalId}/decisions`, {
+      attempt.current = { key: targetKey, path: `/api/v1/proposals/${proposal.proposalId}/decisions`, body: {
         decisionId: `decision-${crypto.randomUUID()}`,
         version: (existing?.version || 0) + 1,
         savedAt: new Date().toISOString(),
@@ -56,12 +66,16 @@ export function DecisionReviewPage(): ReactNode {
           proposalLineId: line.lineId,
           selectedTargetShares: targets[line.lineId],
         })),
-      });
+      } };
+      }
+      await apiPost(attempt.current.path, attempt.current.body);
+      attempt.current = null;
       navigate("/today/decision");
     } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 409) { attempt.current = null; setReview(null); }
       setReviewError(reason instanceof Error ? reason.message : "判断を保存できませんでした");
     } finally {
-      setSaving(false);
+      flight.current = false; setSaving(false);
     }
   }
 
@@ -82,6 +96,7 @@ export function DecisionReviewPage(): ReactNode {
             <label>
               あなたの判断（100株単位）
               <select
+                disabled={saving}
                 aria-label={`${line.companyName}の目標株数`}
                 value={targets[line.lineId] ?? line.recommendedShares}
                 onChange={(event) => setTargets((current) => ({ ...current, [line.lineId]: Number(event.target.value) }))}

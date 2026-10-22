@@ -23,9 +23,10 @@ export function RankingPage(): ReactNode {
       <TabBar label="ランキング期間" options={tabs} value={rankType} onChange={setRankType} panelId="ranking-panel" />
       <div id="ranking-panel" role="tabpanel" aria-labelledby={`ranking-panel-${rankType}`}>
       <label className="search"><span className="sr-only">銘柄名・コードで検索</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7" /><path d="m15 15 6 6" /></svg><input type="search" placeholder="表示中の上位50件から検索" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+      {loading && data && <p role="status">前回の表示です・更新を確認中…</p>}
       <p className="explain">予測順位です。売買の提案は「今日」で確認。</p>
       {!loading && !error && !!data?.length && <p className="list-count" role="status">{rows.length}件を表示 <span>取得した上位{data.length}件が対象</span></p>}
-      {loading ? <StatePanel title="ランキングを読み込んでいます" /> : error ? <StatePanel tone="error" title="ランキングを取得できません" detail={error} /> : rows.length === 0 ? <StatePanel title={query && data?.length ? "検索に一致する銘柄がありません" : "このランキングはまだありません"} detail={query && data?.length ? "表示対象の上位50件を検索しています。銘柄名またはコードを変えてください。" : "認証済み予測を運用台帳へ登録すると表示されます。"} /> : (
+      {loading && !data ? <StatePanel title="ランキングを読み込んでいます" /> : error ? <StatePanel tone="error" title="ランキングを取得できません" detail={error} /> : rows.length === 0 ? <StatePanel title={query && data?.length ? "検索に一致する銘柄がありません" : "このランキングはまだありません"} detail={query && data?.length ? "表示対象の上位50件を検索しています。銘柄名またはコードを変えてください。" : "保存済みの分析は「今日」で確認できます。"} /> : (
         <div className="ranking-list">
           {rows.map((row) => <Link className="ranking-row" state={{ from: "/ranking" }} key={row.ranking_id} to={`/stocks/${row.symbol}`}>
             <strong className="rank-number">{row.rank >= 1 && row.rank <= 3 && <svg className={`rank-crown rank-crown--${row.rank}`} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m2 6 6 4 4-7 4 7 6-4-3 14H5Z" /></svg>}<span>{row.rank}位</span><small>/ {row.total_universe}</small></strong>

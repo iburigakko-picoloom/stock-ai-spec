@@ -46,6 +46,72 @@ from tests.conftest import (
 PAPER_CALENDAR_SOURCE_ID = "jpx-calendar-source-snapshot"
 
 
+def test_latest_portfolio_uses_verified_utc_microseconds_and_preserves_originals(tmp_path):
+    store = OperationalStore(tmp_path / "utc.sqlite3")
+    # Lexical ISO ordering chooses the JST row, but the UTC row is 1us newer.
+    older = portfolio().model_copy(update={"portfolio_id": "z-older", "as_of": AS_OF})
+    newer = portfolio().model_copy(update={
+        "portfolio_id": "a-newer",
+        "as_of": AS_OF.astimezone(ZoneInfo("UTC")) + timedelta(microseconds=1),
+    })
+    for item in (older, newer):
+        store.append_portfolio(item, created_at=item.as_of)
+    with sqlite3.connect(store.path) as db:
+        before = db.execute("SELECT * FROM portfolio_states ORDER BY portfolio_id").fetchall()
+    assert store.latest_portfolio() == newer
+    # A publication selector must use the same current ledger on its own connection.
+    store.select_mobile_numerical_without_snapshot("test-run", AS_OF, None, newer.portfolio_id)
+    with sqlite3.connect(store.path) as db:
+        after = db.execute("SELECT * FROM portfolio_states ORDER BY portfolio_id").fetchall()
+        assert before == after
+
+
+def test_current_portfolio_tie_and_clock_rollback_stop_but_history_remains(tmp_path, monkeypatch):
+    from stock_ai.operations import store as implementation
+
+    store = OperationalStore(tmp_path / "tie.sqlite3")
+    first = portfolio()
+    second = first.model_copy(update={
+        "portfolio_id": "another-id", "as_of": AS_OF.astimezone(ZoneInfo("UTC")),
+    })
+    for item in (first, second):
+        store.append_portfolio(item, created_at=AS_OF)
+    for operation in (
+        store.latest_portfolio,
+        lambda: store.select_mobile_numerical_without_snapshot(
+            "run", AS_OF, None, first.portfolio_id,
+        ),
+        lambda: store.apply_unapplied_executions(next_as_of=AS_OF + timedelta(days=1),
+            next_portfolio_id="next", created_at=AS_OF + timedelta(days=1)),
+    ):
+        with pytest.raises(
+            implementation.PortfolioBaseConflictError, match="PORTFOLIO_BASE_AMBIGUOUS",
+        ):
+            operation()
+    assert store.portfolio(first.portfolio_id) == first
+    assert store.portfolio(second.portfolio_id) == second
+    assert store.verify_integrity()["portfolio_states"] == 2
+    monkeypatch.setattr(implementation, "_now_utc", lambda: AS_OF - timedelta(microseconds=1))
+    with pytest.raises(implementation.PortfolioBaseConflictError, match="PORTFOLIO_BASE_IN_FUTURE"):
+        store.latest_portfolio()
+
+
+@pytest.mark.parametrize("tamper", ["payload", "as_of"])
+def test_current_portfolio_checks_even_nonselected_original_and_catalog(tmp_path, tamper):
+    store = OperationalStore(tmp_path / "corrupt.sqlite3")
+    old = portfolio()
+    new = old.model_copy(update={"portfolio_id": "new", "as_of": AS_OF + timedelta(days=1)})
+    for item in (old, new):
+        store.append_portfolio(item, created_at=item.as_of)
+    with sqlite3.connect(store.path) as db:
+        db.execute(
+            f"UPDATE portfolio_states SET {tamper}=? WHERE portfolio_id=?",
+            ("changed", old.portfolio_id),
+        )
+    with pytest.raises(OperationalIntegrityError):
+        store.latest_portfolio()
+
+
 def _proposal_store(tmp_path: Path) -> tuple[OperationalStore, PortfolioProposal]:
     store = OperationalStore(tmp_path / "operations.sqlite3")
     state = portfolio(cash=Decimal("250000"))
@@ -655,8 +721,10 @@ def test_daily_status_requires_an_archived_same_day_proposal(tmp_path: Path) -> 
     datetime.fromisoformat("2026-12-31T15:30:00+00:00"),
 ])
 def test_position_reconciliation_never_overwrites_without_confirmation(
-    tmp_path: Path, imported_as_of: datetime,
+    tmp_path: Path, imported_as_of: datetime, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # The synthetic reconciliation takes place at its supplied timestamp.
+    monkeypatch.setattr("stock_ai.operations.store._now_utc", lambda: imported_as_of)
     store, _ = _proposal_store(tmp_path)
     csv_text = "\n".join(
         (

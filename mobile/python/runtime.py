@@ -182,12 +182,16 @@ class _BoundedArchive(io.BytesIO):
         return super().write(content)
 
 
-def _export_archive(limit: int | None = None) -> io.BytesIO:
-    market.compact_legacy(STATE / "mobile.sqlite3")
+def _export_archive(limit: int | None = None, *, operations_only=False) -> io.BytesIO:
+    if not operations_only:
+        market.compact_legacy(STATE / "mobile.sqlite3")
     output = io.BytesIO() if limit is None else _BoundedArchive(limit)
     try:
         with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name in ("operations.sqlite3", "mobile.sqlite3"):
+            names = ("operations.sqlite3",) if operations_only else (
+                "operations.sqlite3", "mobile.sqlite3",
+            )
+            for name in names:
                 backup_path = STATE / "export.sqlite3"
                 try:
                     with closing(sqlite3.connect(STATE / name)) as connection:
@@ -218,8 +222,10 @@ _STATE_CHUNK_CHARACTERS = 256 * 1024
 class StateExport:
     """Native-only base64 stream, with one archive and bounded encoded fragments."""
 
-    def __init__(self):
-        self._archive = _export_archive(_MAX_NATIVE_STATE_CHARACTERS // 4 * 3)
+    def __init__(self, operations_only=False):
+        self._archive = _export_archive(
+            _MAX_NATIVE_STATE_CHARACTERS // 4 * 3, operations_only=operations_only,
+        )
         self._view = self._archive.getbuffer()
         self.length = (len(self._view) + 2) // 3 * 4
         self._offset = 0

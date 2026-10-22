@@ -55,7 +55,10 @@ from stock_ai.operations.personal import PersonalComparisonRequest, compare_stor
 from stock_ai.operations.store import (
     OperationalConflictError,
     OperationalIntegrityError,
+    OperationalStorageBusyError,
     OperationalStore,
+    PortfolioBaseConflictError,
+    ReconciliationConflictError,
 )
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -399,7 +402,16 @@ def create_app(
 
     @app.exception_handler(OperationalConflictError)
     async def conflict_handler(_request: Request, exc: OperationalConflictError) -> JSONResponse:
+        if isinstance(exc, (PortfolioBaseConflictError, ReconciliationConflictError)):
+            return JSONResponse(status_code=409, content={"detail": str(exc), "code": exc.code})
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(OperationalStorageBusyError)
+    async def busy_handler(_request: Request, _exc: OperationalStorageBusyError) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"code": "STORAGE_BUSY", "detail": "保存処理中です。再試行してください。"},
+        )
 
     @app.exception_handler(OperationalIntegrityError)
     async def integrity_handler(_request: Request, _exc: OperationalIntegrityError) -> JSONResponse:
@@ -806,6 +818,8 @@ def create_app(
                 next_portfolio_id=body.next_portfolio_id,
                 created_at=now,
             )
+        except PortfolioBaseConflictError:
+            raise
         except OperationalConflictError as exc:
             raise HTTPException(
                 status_code=409,

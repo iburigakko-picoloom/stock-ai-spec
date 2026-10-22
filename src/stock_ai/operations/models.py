@@ -13,7 +13,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Self
+from typing import Literal, Self
 from zoneinfo import ZoneInfo
 
 from pydantic import (
@@ -449,8 +449,20 @@ class ExecutionImportPreview(OperationalModel):
     status: ImportStatus = ImportStatus.PREVIEW
     execution_payloads: tuple[str, ...]
     conflicts: tuple[ImportConflict, ...]
+    confirmed_counts: tuple[int, int] | None = None
+    accepted_conflict_ids: tuple[str, ...] | None = None
 
     _validate_created = field_validator("created_at")(_aware)
+
+    @model_validator(mode="after")
+    def validate_import_receipt(self) -> Self:
+        if (self.confirmed_counts is None) != (self.accepted_conflict_ids is None):
+            raise ValueError("incomplete execution import receipt")
+        if self.confirmed_counts is not None and (
+            self.status is not ImportStatus.CONFIRMED or min(self.confirmed_counts) < 0
+        ):
+            raise ValueError("invalid execution import receipt")
+        return self
 
 
 class PositionDifference(OperationalModel):
@@ -472,6 +484,13 @@ class CashDifference(OperationalModel):
     imported_reserved_cash: Decimal = Field(ge=0)
 
 
+class PositionReconciliationBase(OperationalModel):
+    schema_version: Literal["position-reconciliation-base-v1"] = "position-reconciliation-base-v1"
+    portfolio_id: str = Field(min_length=1)
+    portfolio_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    relevant_executions_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class PositionReconciliationPreview(OperationalModel):
     preview_id: str = Field(min_length=1)
     source_hash: str = Field(min_length=64, max_length=64)
@@ -481,5 +500,21 @@ class PositionReconciliationPreview(OperationalModel):
     portfolio_payload: str = Field(min_length=2)
     differences: tuple[PositionDifference, ...]
     cash_differences: tuple[CashDifference, ...]
+    base_reference: PositionReconciliationBase | None = None
+    confirmed_portfolio_id: str | None = Field(default=None, min_length=1)
 
     _validate_times = field_validator("created_at", "imported_as_of")(_aware)
+
+    @model_validator(mode="after")
+    def validate_confirmation_link(self) -> Self:
+        if self.confirmed_portfolio_id is not None and (
+            self.status is not ImportStatus.CONFIRMED or self.base_reference is None
+        ):
+            raise ValueError("confirmation link requires confirmed guarded preview")
+        if (
+            self.base_reference is not None
+            and self.status is ImportStatus.CONFIRMED
+            and self.confirmed_portfolio_id is None
+        ):
+            raise ValueError("guarded confirmation requires a result link")
+        return self
