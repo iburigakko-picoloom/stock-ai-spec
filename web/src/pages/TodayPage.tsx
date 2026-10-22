@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
-import type { ProposalLine, TodayResponse } from "../types";
+import type { ProposalLine, SavedAnalysis, TodayResponse } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
 
 const priority = new Map([
@@ -29,10 +29,27 @@ function ProposalRow({ line }: { line: ProposalLine }): ReactNode {
   );
 }
 
+function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNode {
+  const percent = (value: number | null) => value === null ? "—" : `${(value * 100).toFixed(2)}%`;
+  const dated = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric" }).format(new Date(analysis.asOf));
+  const ranked = analysis.predictions.some(row => row.rank_score_20d != null);
+  return <section className="section" aria-label="保存済み分析">
+    <h2>{dated}の分析</h2>
+    <p>保存済み・閲覧用。当日の更新が完了すると切り替わります。</p>
+    <table><thead><tr><th>銘柄</th>{ranked && <th>20日順位スコア</th>}<th>5日予測</th><th>20日予測</th></tr></thead>
+      <tbody>{analysis.predictions.map(row => <tr key={row.symbol}>
+        <td>{row.symbol}{analysis.holdingSymbols.includes(row.symbol) && "（保有）"}</td>
+        {ranked && <td>{row.rank_score_20d?.toFixed(4) ?? "—"}</td>}
+        <td>{percent(row.expected_return_5d)}</td><td>{percent(row.expected_return_20d)}</td>
+      </tr>)}</tbody></table>
+    <p>モデル：{analysis.modelVersion} · 生成 {dateTime(analysis.generatedAt)} JST</p>
+  </section>;
+}
+
 export function TodayPage(): ReactNode {
   const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today");
-  if (loading || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
-  const proposal = data.isStale ? null : data.proposal;
+  if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
+  const proposal = loading || data.isStale ? null : data.proposal;
   const visible = proposal?.lines
     .filter((line) => line.action !== "SKIP" && line.action !== "HOLD")
     .sort((a, b) => (priority.get(a.action) ?? 9) - (priority.get(b.action) ?? 9));
@@ -51,9 +68,9 @@ export function TodayPage(): ReactNode {
       ) : !proposal ? (
         <><StatePanel
           tone={data.isStale ? "warning" : "neutral"}
-          title={data.isStale ? "今日は提案を表示できません" : "次回の分析を待っています"}
-          detail={data.blockingReason || "データとモデルの準備が整い、当日の分析が完了すると提案を表示します。"}
-        /><Link className="button button--secondary" to="/settings/data">データの更新状況を確認</Link></>
+          title={data.savedAnalysis ? "保存済みの分析を表示しています" : "初回の分析を準備中"}
+          detail={loading ? "更新状況を確認中…" : data.blockingReason === "ALPHA_CUTOFF_OPEN" ? "今日の予測は11:30以降に更新します。" : "当日の分析はまだ完了していません。"}
+        />{data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}<Link className="button button--secondary" to="/settings?edit=market">データの更新状況を確認</Link></>
       ) : (
         <>
           <section className="proposal-hero" aria-label="今日の提案概要">

@@ -48,7 +48,15 @@ export interface DailyProposal {
   noTradeReason: string | null;
 }
 
+export interface SavedAnalysis {
+  snapshotId: string; asOf: string; generatedAt: string; dataAsOf: string;
+  modelVersion: string; readOnly: true; holdingSymbols: string[];
+  predictions: { symbol: string; expected_return_5d: number | null;
+    expected_return_20d: number | null; rank_score_20d?: number | null }[];
+}
+
 export interface TodayResponse {
+  savedAnalysis?: SavedAnalysis | null;
   businessDate: string;
   pipelineState: string;
   isStale: boolean;

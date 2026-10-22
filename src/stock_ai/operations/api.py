@@ -673,7 +673,27 @@ def create_app(
     def today(
         business_date: Annotated[date | None, Query(alias="businessDate")] = None,
     ) -> dict[str, object]:
-        return _today(store, business_date or current_time().date())
+        now = current_time()
+        selected_date = business_date or now.date()
+        payload = _today(store, selected_date)
+        end = now.replace(year=selected_date.year, month=selected_date.month,
+                          day=selected_date.day, hour=23, minute=59, second=59)
+        snapshot = store.latest_archived_prediction(min(now, end))
+        payload["savedAnalysis"] = None
+        if snapshot is not None:
+            symbols = snapshot.research_symbols()
+            predictions = {item.symbol: item for item in snapshot.predictions}
+            payload["savedAnalysis"] = {
+                "snapshotId": snapshot.snapshot_id,
+                "asOf": snapshot.as_of.isoformat(),
+                "generatedAt": snapshot.generated_at.isoformat(),
+                "dataAsOf": snapshot.data_as_of.isoformat(),
+                "modelVersion": snapshot.model_version,
+                "readOnly": True,
+                "holdingSymbols": snapshot.holding_symbols,
+                "predictions": [predictions[symbol].model_dump(mode="json") for symbol in symbols],
+            }
+        return payload
 
     @app.get("/api/v1/proposals/{proposal_id}")
     def get_proposal(proposal_id: str) -> dict[str, object]:

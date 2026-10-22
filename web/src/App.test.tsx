@@ -168,10 +168,10 @@ describe("Goal 5 PWA", () => {
   it("hides a stale proposal and does not offer review", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, isStale: true })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    await screen.findByText("今日は提案を表示できません");
+    await screen.findByText("初回の分析を準備中");
     expect(screen.queryByText("購入会社")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "判断を確認" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings/data");
+    expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings?edit=market");
   });
 
   it("also blocks a stale proposal on the direct review route without posting", async () => {

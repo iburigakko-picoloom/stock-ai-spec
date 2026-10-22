@@ -1168,6 +1168,26 @@ class OperationalStore:
             "prediction_snapshots", "snapshot_id", snapshot_id, PredictionSnapshot
         )
 
+    def latest_archived_prediction(self, before: datetime) -> PredictionSnapshot | None:
+        """Read-only history, independent of the active proposal/forecast selection."""
+        if before.tzinfo is None or before.utcoffset() is None:
+            raise ValueError("archive cutoff must be timezone-aware")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload,content_hash FROM prediction_snapshots "
+                "WHERE julianday(as_of)<=julianday(?) "
+                "ORDER BY julianday(as_of) DESC, "
+                "julianday(json_extract(payload,'$.generated_at')) DESC,snapshot_id DESC",
+                (before.isoformat(),),
+            )
+            for row in rows:
+                snapshot = _parse_model(
+                    PredictionSnapshot, _checked_payload(row, "prediction_snapshots")
+                )
+                if snapshot.generated_at <= before and not snapshot.blocking_reasons:
+                    return snapshot
+        return None
+
     def latest_prediction_snapshot(self) -> PredictionSnapshot | None:
         with self._connect() as connection:
             reference = _mobile_numerical_selection(connection)
