@@ -1,3 +1,10 @@
+## 2026-10-23 — 取得の固定12.5秒待機を契約能力に応じ短縮（D236）
+
+- MarketClientはLightでも一律12.5秒待機だった。同一キーで非空TOPIX受信を確認してから1.1秒へ短縮。calendarを有料の証拠にしない。未確認/失効/認証拒否は低速維持、429は2分待機＋既存再試行。手動/Worker共通lockを保持。保存形式、データ値、モデル、ACK条件は不変。
+- JVM14件成功（pacing5/query4/burst5）、Android本体とinstrumentation compile成功16秒。最初の試行はsandbox内Gradle daemon接続失敗で未実行、通常環境で同じ範囲を実行。新規の課金/実データ取得/実機速度計測なし。1,000間隔の模擬待機1,100秒は実機全体の所要時間ではない。
+- 大きな残件：市場ingestごとのoperations/mobile両DB全量export（履歴蓄積に伴い増加）、日付別REST取得。休日はcalendarだけで短絡する実装なので「全暦日×6要求」とは数えない。Bulk日足の列差を確認済みで、単純置換せず別の実装/一致検証が必要。細かい効果の集計は行わない。
+- APK反映と端末での速度確認は別工程。今回の保存/推論無変更により既存数値検証を再実行しない。正式採用HOLD。
+
 ## 2026-10-23 — バックグラウンド取得の再予約待ちを削減（D235）
 
 - 前回CI39896399901はverify/android-history成功、native95件成功だったが、OS配送試験でhistory_wait/failures1/retryAt+15分となりACK未完で失敗。取得のforeground拒否を通常の1slice取得へfallbackさせ、取得自体を止めないよう修正。長い計算では拒否を維持。
