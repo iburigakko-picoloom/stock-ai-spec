@@ -1,4 +1,8 @@
-## 2026-10-23 — D233を更新APKへ反映する準備
+## 2026-10-23 — D233を非公開0.1.35 APKへ反映
+
+- source `25b014962f18e10cfbd41d396717d4c395f7952e`、versionCode10035、24,003,981 bytes。SHA256 `d91a08c8effde36dd803928b3a2d2a6c0b0a1cbff55388a91e0fecd6b90e30e3`。既存証明書一致・非debug・46assets/Python/生成profile照合・私有モデル/データ/鍵混入なし。署名build47.26秒。本人向け非公開引継ぎ先へ保存し、公開Release/アプリ内公開更新案内は更新しない。
+- CI39895611341のAndroid persistence instrumentation（今回追加のDailyAutomation/DailyPipelineを含む）はsuccess。対象eefc9fdと候補25b0149の差分は文書/ブラウザ試験selectorだけで、native製品と試験の同一性を確認して再利用。CI全体は未完了。今回のsigned APK起動・Xiaomi背景継続/通知は未確認。追加のモデル取込や履歴の取り直しは必要としない。
+
 
 - 前回はD233をGitHubへpushしただけで、本人端末の0.1.34には含まれていなかった。0.1.35非公開候補へ反映する。現在ADB端末なしのため、本人端末の停止原因/実OS継続は未確認。
 - 旧0.1.34 CI39876702332のverify失敗は、保持した非表示画面も`.app-brand`検査が拾いstrict違反となった3件。可視headerが厳密に1件であることを先に確認し、ノッチ/横cutout/native paddingの座標assertをすべて維持。修正後の当該3件成功16.1秒。android-historyはverify未完による入力artifact不足で未実行。旧android jobは成功だが、新Workerの合格証拠へは流用しない。
