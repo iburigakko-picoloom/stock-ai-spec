@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAndroid, StockAI, type DailyStatus } from "./native";
 
 const labels: Record<string, string> = {
@@ -6,6 +6,7 @@ const labels: Record<string, string> = {
   waiting_cutoff: "11:30の締切待ち", calculating: "予測を計算しています", closed: "今日は休場日です",
   forecast_saved: "原予測を保存済み・株数判定待ち", deciding: "株数を計算しています",
   consultation_ready: "研究用の原予測を保存済み・ChatGPTへの相談準備完了",
+  history_wait: "Androidの取得待ち・アプリで保存状態を確認してください",
   compute_wait: "Androidの計算待ち・アプリで保存状態を確認してください",
   numerical_saved: "数値判定を保存済み・ChatGPT調査は別途確認", inputs: "モデル・本人設定の確認が必要です",
   late: "11:30までの当日情報が不足しています", credentials: "APIキー・契約を確認して再開してください",
@@ -15,24 +16,29 @@ const labels: Record<string, string> = {
   research_attention: "数値判定を保存済み・ChatGPT調査の確認が必要です",
 };
 
-export function DailyPanel(): ReactNode {
+export function useDailyAutomation() {
   const [status, setStatus] = useState<DailyStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const changing = useRef(false);
+  const revision = useRef(0);
   useEffect(() => {
     if (!isAndroid()) return;
     let active = true;
     const refresh = (): void => {
-      void StockAI.dailyStatus().then(value => { if (active) setStatus(value); })
-        .catch(() => { if (active) setMessage("自動処理の状態を確認できません。アプリを再起動してください。"); });
+      if (changing.current) return;
+      const observed = revision.current;
+      void StockAI.dailyStatus().then(value => { if (active && !changing.current && observed === revision.current) setStatus(value); })
+        .catch(() => { if (active && !changing.current && observed === revision.current) setMessage("自動処理の状態を確認できません。アプリを再起動してください。"); });
     };
     refresh();
     const timer = window.setInterval(refresh, 15000);
     window.addEventListener("focus", refresh);
     return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", refresh); };
   }, []);
-  if (!isAndroid()) return null;
   async function change(start: boolean): Promise<void> {
+    if (changing.current) return;
+    changing.current = true; revision.current++;
     setBusy(true); setMessage("");
     try {
       if (start) {
@@ -40,9 +46,25 @@ export function DailyPanel(): ReactNode {
         setStatus(await StockAI.startDaily());
       } else setStatus(await StockAI.stopDaily());
     } catch (error) { setMessage(error instanceof Error ? error.message : "処理を完了できません。保存状態を確認してください。"); }
-    finally { setBusy(false); }
+    finally { changing.current = false; setBusy(false); }
   }
-  return <DailyControls status={status} busy={busy} message={message} onChange={start => void change(start)} />;
+  async function requestNotifications(): Promise<void> {
+    if (changing.current) return;
+    changing.current = true; revision.current++; setBusy(true); setMessage("");
+    try {
+      await StockAI.requestDailyNotifications();
+      const current = await StockAI.dailyStatus(); setStatus(current);
+      setMessage(current.notificationsEnabled ? "通知が許可されています。" : "通知はオフです。Androidのアプリ設定で通知を許可してください。");
+    } catch { setMessage("通知の許可状態を確認できません。Androidのアプリ設定を確認してください。"); }
+    finally { changing.current = false; setBusy(false); }
+  }
+  return { status, busy, message, change, requestNotifications };
+}
+
+export function DailyPanel(): ReactNode {
+  const daily = useDailyAutomation();
+  if (!isAndroid()) return null;
+  return <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />;
 }
 
 export function DailyControls({ status, busy, message, onChange }: {
@@ -52,10 +74,11 @@ export function DailyControls({ status, busy, message, onChange }: {
   return <section className="section daily-panel" aria-label="毎日の自動処理">
     <h2>毎日の自動処理</h2>
     <p role="status">{status ? delayed ? "締切後の実行待ち・Androidの予約処理を待っています" : labels[status.state] ?? "保存状態を確認してください" : "状態を確認しています…"}</p>
+    {status?.state === "history" && <p>画面を閉じても取得を続けます。中断時は保存済みの続きから再開します。</p>}
     {status?.day && <p>対象日：{status.day}</p>}
     <div className="button-stack">
-      <button className="button button--primary" disabled={busy || !status || (status.enabled && status.state !== "credentials")} onClick={() => onChange(true)}>{status?.state === "paused" || status?.state === "credentials" ? "続きから再開" : "開始"}</button>
-      <button className="button button--secondary" disabled={busy || !status?.enabled} onClick={() => onChange(false)}>自動処理を停止</button>
+      <button className="button button--primary" hidden={!!status?.enabled && status.state !== "credentials"} disabled={busy || !status || (status.enabled && status.state !== "credentials")} onClick={() => onChange(true)}>{status?.state === "paused" || status?.state === "credentials" ? "続きから再開" : "開始"}</button>
+      <button className="button button--secondary" hidden={!status?.enabled} disabled={busy || !status?.enabled} onClick={() => onChange(false)}>自動処理を停止</button>
     </div>
     {message && <p role="alert">{message}</p>}
     {status && !status.notificationsEnabled && <p>通知はオフです。計算結果はアプリ内に保存します。</p>}

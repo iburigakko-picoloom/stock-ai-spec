@@ -6,7 +6,7 @@ import type { HoldingView, HomeResponse } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
 
 export function HomePage(): ReactNode {
-  const { data, error, loading } = useApiData<HomeResponse>("/api/v1/home");
+  const { data, error, loading, savedAt } = useApiData<HomeResponse>("/api/v1/home");
   const groups = useMemo(() => {
     const result = new Map<string, HoldingView[]>();
     for (const holding of data?.holdings || []) {
@@ -15,11 +15,12 @@ export function HomePage(): ReactNode {
     return [...result.entries()];
   }, [data]);
 
-  if (loading || error) return <div className="page"><PageHeader eyebrow="実際の状態" title="ホーム" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "実資産を読み込んでいます" : "資産データを取得できません"} detail={error} /></div>;
+  if ((loading && !data) || error) return <div className="page"><PageHeader eyebrow="実際の状態" title="ホーム" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "実資産を読み込んでいます" : "資産データを取得できません"} detail={error} /></div>;
   if (!data?.portfolio) {
     return (
       <div className="page">
         <PageHeader eyebrow="実際の状態" title="ホーム" />
+        {savedAt && <p role="status">{dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。最新情報を確認中…</p>}
         <RuntimeBanner mode={data?.runtimeMode || "UNCONFIGURED"} />
         <DailyPanel />
         <StatePanel title="資産データが未登録です" detail={data?.blockingReason || "保有株・口座区分・現金残高を登録すると、実資産を表示します。"} />
@@ -31,6 +32,7 @@ export function HomePage(): ReactNode {
   return (
     <div className="page">
       <PageHeader eyebrow="実際の状態" title="ホーム" meta={`更新 ${dateTime(data.portfolio.asOf)} JST`} />
+      {loading && <p role="status">{savedAt ? `${dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
       <RuntimeBanner mode={data.runtimeMode} />
       <DailyPanel />
       {data.initialLedger && <p className="explain">初回台帳の残高です。口座・保有の入力欄を編集しても、この台帳は更新されません。{data.initialLedger.referencePriceDate && `株価は${data.initialLedger.referencePriceDate}の日足終値を参照しています。`}</p>}
@@ -41,13 +43,13 @@ export function HomePage(): ReactNode {
           <Metric label="現金" value={yen(data.portfolio.cashValue)} />
           <Metric label="株式" value={yen(data.portfolio.equityValue)} />
         </div>
+        <Link className="button button--primary home-proposal-link" to="/today">今日の提案を確認<span aria-hidden="true">›</span></Link>
       </section>
-      <Link className="next-action" to="/today"><strong>今日の提案を確認</strong><span aria-hidden="true">→</span></Link>
 
       <section className="section">
         <div className="section-title">
           <div><span>ACTUAL HOLDINGS</span><h2>実保有</h2></div>
-          <small>{data.portfolio.holdingsCount}口座明細</small>
+          <small>約定を記録するまで保有は変わりません。</small>
         </div>
         {groups.length === 0 ? (
           <StatePanel title="保有株はありません" detail="AI提案だけでは実保有は変わりません。" />
@@ -56,6 +58,10 @@ export function HomePage(): ReactNode {
             {groups.map(([symbol, holdings]) => {
               const marketValue = holdings.reduce((sum, item) => sum + Number(item.marketValue), 0);
               const shares = holdings.reduce((sum, item) => sum + item.shares, 0);
+              if (holdings.length === 1) return <Link className="holding-summary-row" state={{ from: "/" }} to={`/stocks/${symbol}`} key={symbol}>
+                <div><strong>{holdings[0].companyName}</strong><span>{holdings[0].accountBucketId}</span>{holdings[0].latestAction && <ActionBadge action={holdings[0].latestAction} />}</div>
+                <strong>{shares.toLocaleString("ja-JP")}株</strong><b>{yen(marketValue)}</b><span className="row-chevron" aria-hidden="true">›</span>
+              </Link>;
               return (
                 <details className="holding-group" key={symbol} open={holdings.length === 1}>
                   <summary>
@@ -67,7 +73,7 @@ export function HomePage(): ReactNode {
                     <span className="disclosure-chevron" aria-hidden="true">⌄</span>
                   </summary>
                   {holdings.map((holding) => (
-                    <Link className="holding-row" to={`/stocks/${holding.symbol}`} key={holding.accountBucketId}>
+                    <Link className="holding-row" state={{ from: "/" }} to={`/stocks/${holding.symbol}`} key={holding.accountBucketId}>
                       <div>
                         <span>{holding.accountBucketId}</span>
                         <strong>{holding.shares.toLocaleString("ja-JP")}株</strong>

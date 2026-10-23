@@ -401,6 +401,42 @@ def test_profile_cache_preserves_frame_values_and_checks_each_snapshot_hash(tmp_
             market_codec.frame(db, compact, changed_raw, expected, cache)
 
 
+@pytest.mark.parametrize("change", ["missing", "changed", "trailing-data"])
+def test_cached_raw_hashes_keep_v1_and_verify_every_db_read(tmp_path, monkeypatch, change):
+    rows = [{"code": "00010", "値/😀": '合成/株 "😀" \\ \n', "number": -0.0},
+            {"code": "00020", "値/😀": "different/合成", "number": 1.23e17}]
+    expected = [record_hash_v1(row) for row in rows]
+    cache = OrderedDict()
+    with sqlite3.connect(tmp_path / "raw-cache.sqlite3") as db:
+        market_codec.initialize(db)
+        encoded = market_codec.pack_records(db, rows)
+        queries = []
+        db.set_trace_callback(queries.append)
+        assert market_codec._raw_record_hashes(db, encoded, cache) == expected
+        canonical = market_codec._canonical_token_utf8
+        with monkeypatch.context() as patch:
+            patch.setattr(market_codec, "_canonical_token_utf8",
+                          lambda _: pytest.fail("verified canonical column was rebuilt"))
+            assert market_codec._raw_record_hashes(db, encoded, cache) == expected
+        assert sum(q.startswith("SELECT payload FROM market_columns") for q in queries) == 6
+        digest, compressed = db.execute(
+            "SELECT digest,payload FROM market_columns ORDER BY rowid LIMIT 1"
+        ).fetchone()
+        equivalent = zlib.compress(zlib.decompress(compressed), level=0)
+        db.execute("UPDATE market_columns SET payload=? WHERE digest=?", (equivalent, digest))
+        assert market_codec._raw_record_hashes(db, encoded, cache) == expected
+        assert market_codec._canonical_token_utf8 is canonical and len(cache) <= 128
+        if change == "missing":
+            db.execute("DELETE FROM market_columns WHERE digest=?", (digest,))
+        else:
+            damaged = (
+                zlib.compress(b'["3","4"]') if change == "changed" else equivalent + b"extra"
+            )
+            db.execute("UPDATE market_columns SET payload=? WHERE digest=?", (damaged, digest))
+        with pytest.raises(ValueError):
+            market_codec._raw_record_hashes(db, encoded, cache)
+
+
 def test_cached_reference_keeps_current_expanded_size_limit(tmp_path, monkeypatch):
     cache = OrderedDict()
     with sqlite3.connect(tmp_path / "values.sqlite3") as db:

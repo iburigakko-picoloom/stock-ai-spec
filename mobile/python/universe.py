@@ -75,6 +75,16 @@ def _observations(path, dataset, first, last, cutoff):
 
 
 def select(path: Path, as_of: datetime, holding_symbols=(), *, current_membership=False) -> dict:
+    # Absence of the optional policy table retains the accepted legacy path.
+    with connect(path) as db:
+        exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                            "AND name='mobile_universe_policy'").fetchone()
+        mode = (db.execute("SELECT mode FROM mobile_universe_policy WHERE id=1").fetchone()
+                if exists else None)
+    if mode is not None and mode[0] == "topix500-preview":
+        from .preselection import select as preselect
+
+        return preselect(path, as_of, holding_symbols)
     if as_of.tzinfo is None:
         raise ValueError("Aware candidate cutoff required")
     held = sorted(set(holding_symbols))

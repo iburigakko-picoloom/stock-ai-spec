@@ -22,6 +22,7 @@ from stock_ai.decision.costs import TransactionCostEngine
 from stock_ai.decision.engine import DailyPortfolioDecisionEngine, TradeConstraintCandidate
 from stock_ai.decision.tax import SimpleJapanTaxEngine
 from stock_ai.domain import PortfolioState, Position
+from stock_ai.domain.models import ResearchEnsemblePrediction
 from stock_ai.operations.daily import (
     PredictionSnapshot,
     canonical_json,
@@ -270,6 +271,9 @@ def input_package(
             "large_loss_probability": forecasts[s].large_loss_probability,
             "uncertainty": (None if (uncertainty := forecasts[s].uncertainty) is None else
                             uncertainty.model_dump(mode="json")),
+            **({"ranking_5d": {"value": item.rank_score_5d, "unit": "rank_score"},
+                "ranking_20d": {"value": item.rank_score_20d, "unit": "rank_score"}}
+               if isinstance((item := forecasts[s]), ResearchEnsemblePrediction) else {}),
         }
         for s in symbols
     ]
@@ -329,6 +333,11 @@ def manual_prompt(package: dict[str, Any]) -> str:
     ):
         raise ValueError("SNAPSHOT_MISMATCH")
     require_daily_close_label(str(package.get("label_definition", "")))
+    ranking_note = (
+        "ranking_5d/20dは順位scoreです。forecast_5d/20dがnullならリターン予測は未提供です。"
+        "順位scoreを%に読み替えたり、未提供のリターン・確信度を補ったりしないでください。\n"
+        if any("ranking_20d" in row for row in package.get("securities", [])) else ""
+    )
     return (
         "本人用の日本株判断支援です。外部公開せず、学習利用をoffにした会話で扱ってください。\n"
         "企業IR等を独立に調べ、数値モデルに同調せず、反対材料・不明点も示してください。"
@@ -343,6 +352,7 @@ def manual_prompt(package: dict[str, Any]) -> str:
         "売買差分・費用・税・実台帳の確定はアプリが行います。原予測を変更しないでください。\n"
         "回答は次のschemaのJSONだけ。reasonは根拠/反対材料を含め、sourcesは確認したHTTPS URL、"
         "未確認はunknownsへ。evidence_as_ofは調べた情報の締切日時です。\n"
+        + ranking_note
         + canonical_json(ManualAnswer.model_json_schema())
         + "\n入力:\n"
         + canonical_json(package)

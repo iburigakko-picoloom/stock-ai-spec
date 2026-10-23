@@ -1,0 +1,125 @@
+{
+  "status": "D207_INITIAL_AND_REUSE_EXACT_PC_AND_ANDROID",
+  "scope": "Operational feature/inference equivalence and performance; not investment return evaluation or model adoption",
+  "product_checkpoint": "08a8f0c",
+  "calculation_code_sha256": "6e81e77eed4b0c3ba8519554e1e808a011e215fd6de8d342410cd110019fda0c",
+  "input": {
+    "calendar_days": 730,
+    "sessions": 485,
+    "as_of": "2026-10-20T11:30:00+09:00",
+    "topix500_scale_category_members": 493,
+    "forecastable_members": 489,
+    "prediction_count_5d_and_20d": 978,
+    "selected_daily_rows": 236803,
+    "full_market_context_rows": 485,
+    "full_sector_context_rows": 16490,
+    "cpu_threads_requested": 1,
+    "models": "Existing private 5d CatBoost / 20d LightGBM regression, seed 17",
+    "data_and_model_payloads_public": false
+  },
+  "measurements": {
+    "legacy_input_construction_fixed_493_scope": {
+      "input_seconds": 207.98076269996818,
+      "feature_seconds": 5.725699399947189,
+      "inference_seconds": 0.42021490004844964,
+      "total_seconds": 216.16966789995786,
+      "process_peak_bytes": 2355056640,
+      "sqlite_returned_rows": 86106,
+      "sqlite_returned_value_bytes": 358800055
+    },
+    "new_cold_index_construction": {
+      "input_seconds": 222.46953300002497,
+      "feature_seconds": 5.229972000000998,
+      "inference_seconds": 0.4393286999547854,
+      "total_seconds": 228.68191519996617,
+      "process_peak_bytes": 2393624576,
+      "sqlite_returned_rows": 141882,
+      "sqlite_returned_value_bytes": 405171234
+    },
+    "new_warm_separate_process": {
+      "input_seconds": 17.862870699958876,
+      "feature_seconds": 5.1839220999972895,
+      "inference_seconds": 0.4618528999853879,
+      "total_seconds": 23.887823099968955,
+      "process_peak_bytes": 668450816,
+      "sqlite_returned_rows": 55306,
+      "sqlite_returned_value_bytes": 27410461,
+      "broad_price_master_history_decoded_rows": 0
+    },
+    "D206_cold": {
+      "input_seconds": 215.6302599000046,
+      "feature_seconds": 5.39596240001265,
+      "inference_seconds": 0.48634750000201166,
+      "total_seconds": 221.97571509995032,
+      "peak_bytes": 2117304320,
+      "sqlite_returned_rows": 141882,
+      "sqlite_returned_value_bytes": 405171234
+    },
+    "D206_warm": {
+      "input_seconds": 20.320492599974386,
+      "feature_seconds": 6.920537899946794,
+      "inference_seconds": 0.5780807000119239,
+      "total_seconds": 28.206630100030452,
+      "peak_bytes": 669847552,
+      "sqlite_returned_rows": 55306,
+      "sqlite_returned_value_bytes": 27410461
+    },
+    "D207_cold": {
+      "input_seconds": 192.9562654000474,
+      "feature_seconds": 6.311159100034274,
+      "inference_seconds": 0.47916190000250936,
+      "total_seconds": 200.23797580006067,
+      "peak_bytes": 1981194240,
+      "sqlite_returned_rows": 92417,
+      "sqlite_returned_value_bytes": 394212861
+    },
+    "D207_warm": {
+      "input_seconds": 19.30763769999612,
+      "feature_seconds": 5.33084880001843,
+      "inference_seconds": 0.43686669995076954,
+      "total_seconds": 25.418999499990605,
+      "peak_bytes": 672968704,
+      "sqlite_returned_rows": 55306,
+      "sqlite_returned_value_bytes": 27410461
+    }
+  },
+  "equivalence": {
+    "all_493_scope_model_inputs_and_source_ids_exact": true,
+    "all_features_and_978_predictions_exact": true,
+    "full_market_and_sector_statistics_exact": true,
+    "shared_with_saved_legacy_300_reference_per_horizon": 260,
+    "shared_legacy_features_exact": true,
+    "shared_legacy_prediction_max_error": 0.0,
+    "changed_universe_top20_is_separate_from_arithmetic_equivalence": true
+  },
+  "capacity": {
+    "mobile_database_bytes": 219598848,
+    "database_limit_bytes": 268435456,
+    "archive_bytes": 185022803,
+    "base64_characters": 246697072,
+    "native_base64_character_limit": 268435456,
+    "archive_seconds": 6.442741999984719,
+    "original_17_mobile_and_27_operations_tables_exact": true,
+    "mobile_tables_with_new_derived_tables": 20,
+    "native_encryption_tested_in_this_PC_run": false
+  },
+  "limits": [
+    "Initial/rebuild still verifies broad source history. D207 avoids unused historical metadata and repeated verified-token/shared-source work; native acceptance remains separate.",
+    "Warm reuse is not a measurement of a new real business-day update.",
+    "SQLite bytes count returned BLOB/UTF8/scalar values, not physical disk page IO.",
+    "PC RSS cannot be compared directly with Android app plus renderer RSS.",
+    "Android 399-second input baseline has not yet been remeasured for this implementation.",
+    "See android-comparison.json for D207 normal initial/save/backup/reboot and native-created cache reuse; these are emulator results, not Xiaomi or a new real business day."
+  ],
+  "legacy300_remains_default": true,
+  "original_candidate_0123_preserved": true,
+  "formal_adoption": "HOLD",
+  "existing_cost_cases_reinterpreted": false,
+  "new_fits": 0,
+  "final_holdout_scored": false,
+  "real_orders": 0,
+  "external_AI_transmissions": 0,
+  "private_originals": ".demo-artifacts/topix500-20261020/pc-001/",
+  "current_calculation_code_sha256": "c9ce910408fdebb0dadf8b6124e42cf37486b783d80cb0e97bf0a03707ae0ef4",
+  "current_product_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133"
+}

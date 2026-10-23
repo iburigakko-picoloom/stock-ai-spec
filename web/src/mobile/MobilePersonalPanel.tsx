@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "../api";
+import { SaveProgress } from "./SaveProgress";
 import { blankAccount, costLabels, emptySettings, gapLabel, taxLabels, type AccountSettings,
   type InitialLedgerPreview, type PersonalSettings, type Readiness, type SavedPortfolio,
   type SavedSettings, type SettingsResponse } from "./personal";
@@ -16,9 +17,14 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
   const [confirm, setConfirm] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const acting = useRef(false);
   const [message, setMessage] = useState("");
   const [reload, setReload] = useState(0);
+  const refreshEpoch = useRef(0);
+  const [refreshError, setRefreshError] = useState("");
+  const invalidateRefresh = useCallback(() => { refreshEpoch.current++; }, []);
   useEffect(() => {
+    refreshEpoch.current++;
     let cancelled = false;
     void Promise.all([
       apiGet<SettingsResponse>("/api/v1/mobile/personal/settings"),
@@ -26,11 +32,17 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
     ]).then(([result, ready]) => {
       if (cancelled) return;
       setSaved(result.saved); setReadiness(ready);
-      setDraft(result.saved?.settings ?? (result.current_portfolio ? emptySettings(result.current_portfolio) : null));
+      setDraft(previous => previous ?? result.saved?.settings ?? (result.current_portfolio ? emptySettings(result.current_portfolio) : null));
       setLoaded(true); setPreview(null); setConfirm(false);
     }).catch(() => { if (!cancelled) setMessage("補足設定を読み込めません。保存済みの口座・保有を読み直してください。"); });
-    return () => { cancelled = true; };
-  }, [profile?.revision_id, reload]);
+    return () => { cancelled = true; invalidateRefresh(); };
+  }, [reload, invalidateRefresh]);
+  useEffect(() => {
+    invalidateRefresh(); setReadiness(null); setPreview(null); setConfirm(false);
+  }, [profile?.revision_id, invalidateRefresh]);
+  useEffect(() => {
+    if (loaded && profile) setDraft(previous => previous ?? emptySettings(profile));
+  }, [loaded, profile]);
 
   const stale = draft !== null && draft.portfolio_revision_id !== profile?.revision_id;
   const blocked = disabled || busy || !loaded || stale;
@@ -39,21 +51,33 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
     if (draft) change({ ...draft, accounts: draft.accounts.map(x => x.account_id === id ? { ...x, ...value } : x) });
   }
   async function act(task: () => Promise<void>) {
+    if (acting.current) return;
+    acting.current = true;
+    refreshEpoch.current++;
     setBusy(true); setMessage("");
     try { await task(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "入力と保存状態を確認してください。"); }
-    finally { setBusy(false); }
+    finally { acting.current = false; setBusy(false); }
   }
-  async function refresh() { setReadiness(await apiGet<Readiness>("/api/v1/mobile/personal/readiness")); }
-  if (!profile || !draft) return <section className="section"><h2>補足設定と初回台帳</h2><p>先に口座・保有を保存してください。未定の金額は空欄のまま保存できます。</p>{message && <p role="status">{message}</p>}</section>;
+  function refresh() {
+    const epoch = ++refreshEpoch.current;
+    setReadiness(null); setRefreshError("");
+    void apiGet<Readiness>("/api/v1/mobile/personal/readiness").then(value => {
+      if (epoch === refreshEpoch.current) setReadiness(value);
+    }).catch(() => {
+      if (epoch === refreshEpoch.current) setRefreshError("保存済みです。準備状況の再取得に失敗しました。");
+    });
+  }
+  if (!profile || !draft) return <section className="section"><h2>補足設定と初回台帳</h2><p>先に口座・保有を保存してください。未定の金額は空欄のまま保存できます。</p>{message && <><p role="status">{message}</p><button className="button" disabled={busy} onClick={() => setReload(value => value + 1)}>補足設定を読み直す</button></>}</section>;
   const gaps = [...new Set((readiness?.input_gaps ?? []).map(gapLabel))];
   const reasons = [...new Set((readiness?.comparison.blocking_reasons ?? []).map(x => gapLabel(x.code)))];
   return <section className="section" aria-label="補足設定と初回台帳">
-    <h2>補足設定と初回台帳</h2>
-    <p>未確認の項目は空欄で保存できます。空欄を0として計算しません。入力の保存と、初回残高を台帳へ確定する操作は別です。</p>
-    <button className="button button--secondary" disabled={busy || disabled} onClick={() => {
+    <h2>残高の登録</h2>
+    {busy && <SaveProgress label="端末で確認・保存中…" />}
+    <p className="setting-footnote">分からない項目は空欄で保存できます。</p>
+    {!loaded && <button className="button button--secondary" disabled={busy || disabled} onClick={() => {
       setLoaded(false); setPreview(null); setConfirm(false); setReload(value => value + 1);
-    }}>補足設定を読み直す</button>
+    }}>補足設定を読み直す</button>}
     {disabled && <p>口座・保有に未保存の変更があります。先に保存してください。</p>}
     {stale && <div><p>口座・保有が更新されています。補足設定を見直してください。</p>
       <button className="button button--secondary" disabled={disabled || busy} onClick={() => change({ ...draft,
@@ -61,7 +85,7 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
         accounts: profile.portfolio.accounts.map(x => draft.accounts.find(old => old.account_id === x.id) ?? blankAccount(x.id)),
       })}>最新の口座・保有に合わせて見直す</button></div>}
     <fieldset disabled={blocked}>
-      <legend>現金・口座・税の補足</legend>
+      <legend>1. 残高を入力</legend>
       <label>口座に入力した現金の意味<select value={draft.cash_basis ?? ""} onChange={event => change({ ...draft, cash_basis: event.target.value as PersonalSettings["cash_basis"] || null })}>
         <option value="">未確認</option><option value="total_including_reserved">確保中の金額を含む総現金</option><option value="deployable_after_reserved">確保中の金額を除いた買付余力</option>
       </select></label>
@@ -75,8 +99,10 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
           <label>未反映の取引・決済・入出金<select value={item.pending_activity} onChange={event => accountChange(source.id, { pending_activity: event.target.value as AccountSettings["pending_activity"] })}>
             <option value="unknown">まだ確認していない</option><option value="none">未反映のものはない</option><option value="pending">未反映・未決済のものがある</option>
           </select></label>
+          <details className="settings-disclosure"><summary>この口座の税・NISA</summary>
           {(Object.entries(taxLabels) as [keyof typeof taxLabels, string][]).filter(([key]) => source.account_type === "nisa" || !key.startsWith("nisa_") || item[key] !== null).map(([key, label]) =>
             <Amount key={key} label={label} value={item[key]} change={next => accountChange(source.id, { [key]: next })} />)}
+          </details>
         </fieldset>;
       })}
       <details><summary>費用と税の計算条件</summary><p>bpsは1万分の1です。税率や手数料は自動補完しません。</p>
@@ -92,17 +118,18 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
       })}><option value="daily-decision-engine-v3-bounded">300社向け</option>
         <option value="daily-decision-engine-v2">全組合せ</option></select></label>
       <p>{draft.research_decision_policy === "daily-decision-engine-v3-bounded"
-        ? "HOLD・現金化・保有調整・乗り換えを有限回で比較します。すべての銘柄・口座を検討しますが、最良の組合せは保証しません。"
-        : "全組合せを比較し、上限を超える場合は計算を止めます。別の探索方法へ自動変更しません。"}</p>
+        ? "最良の組合せは保証しません。"
+        : "計算上限を超える場合は停止します。"}</p>
       <label><input type="checkbox" checked={draft.research_conditions_reviewed} onChange={event => change({ ...draft, research_conditions_reviewed: event.target.checked })} />探索方法を含む研究用の比較条件を確認しました</label>
       <button className="button" onClick={() => void act(async () => {
         const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
         setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false);
-        await refresh(); setMessage("補足設定を端末に保存しました。未入力は未入力のまま保持します。");
+        setMessage("保存しました。"); refresh();
       })}>補足設定を保存</button>
     </fieldset>
     {gaps.length > 0 && <div><h3>まだ確認が必要な入力</h3><ul>{gaps.map(x => <li key={x}>{x}</li>)}</ul></div>}
-    <h3>初回残高の確認</h3><p>保存済み入力から一度だけ初回台帳を作成します。保有株がある場合は、保存済みの未調整終値を確認します。確定後の台帳は入力欄の編集では変更しません。</p>
+    <h3>2. 残高を確認して登録</h3>
+    <p className="setting-footnote">最初の残高を登録します。登録後は入力欄の編集では変更されません。</p>
     <button className="button button--secondary" disabled={blocked || draft !== saved?.settings} onClick={() => void act(async () => {
       setPreview(await apiPost<InitialLedgerPreview>("/api/v1/mobile/personal/initial/preview", {})); setConfirm(false);
     })}>初回残高の確認内容を作る</button>
@@ -113,11 +140,12 @@ export function MobilePersonalPanel({ profile, disabled }: { profile: SavedPortf
       <label><input type="checkbox" checked={confirm} onChange={event => setConfirm(event.target.checked)} />この口座・保有・現金・税の保存内容を初回台帳に確定します</label>
       <button className="button" disabled={blocked || !confirm} onClick={() => void act(async () => {
         await apiPost("/api/v1/mobile/personal/initial/confirm", { preview_id: preview.preview_id, confirmed: true });
-        setPreview(null); setConfirm(false); await refresh(); setMessage("初回台帳を確定しました。ホームで確認できます。実注文は行いません。");
+        setPreview(null); setConfirm(false); setMessage("残高を登録しました。ホームで確認できます。"); refresh();
       })}>この内容を初回台帳に確定</button>
     </>}</div>}
-    <h3>個人比較の準備状況</h3><p>{readiness?.comparison.ledger_portfolio_id ? "初回台帳は登録済みです。" : "初回台帳は未確定です。"} 採用モデルと最新予測が揃うまで、研究用表示を続けます。</p>
+    <h3>個人比較の準備状況</h3><p>{!readiness ? "準備状況を確認中…" : readiness.comparison.ledger_portfolio_id ? "初回台帳は登録済みです。" : "初回台帳は未確定です。"} 採用モデルと最新予測が揃うまで、研究用表示を続けます。</p>
     {reasons.length > 0 && <ul>{reasons.map(x => <li key={x}>{x}</li>)}</ul>}
-    <p role="status">{busy ? "端末内で処理しています…" : message}</p>
+    {!busy && message && <p role="status">{message}</p>}
+    {refreshError && <p role="status">{refreshError}</p>}
   </section>;
 }

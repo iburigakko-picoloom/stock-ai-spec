@@ -19,7 +19,7 @@ public class DailyPipelineTest {
     final AtomicBoolean stopped = new AtomicBoolean();
     boolean complete, partial, late, closed, failCommit, badDecision, forbid, failAck, stopAfterCommit;
     boolean planSaved, stopAfterForecast, rolloverAfterForecast, rolloverAfterDecision, rejectForeground;
-    boolean returnOnly, extraBlock, missingContext;
+    boolean returnOnly, extraBlock, missingContext, foregroundGranted;
     String decisionTime = "2026-01-06T11:30:00+09:00";
     JSONObject forecast;
     Instant now = Instant.parse("2026-01-06T02:31:00Z");
@@ -68,6 +68,7 @@ public class DailyPipelineTest {
                 if (forbid) return new JSONObject().put("status", 403);
                 JSONObject result = new JSONObject().put("status", partial ? 202 : 200).put("date", day).put("acquisitionId", "fixture-acquisition");
                 if (!partial) result.put("received_at", now.toString()).put("datasets", new JSONObject()).put("valuations", new JSONArray());
+                if (membership && !partial) result.put("purpose", "membership");
                 return result;
             }
             public void acknowledge(boolean membership, String day, String id) throws Exception {
@@ -77,7 +78,9 @@ public class DailyPipelineTest {
         }, new DailyPipeline.Progress() {
             public void state(String value, String day) throws Exception {
                 events.add("state:" + value);
-                if (rejectForeground && (value.equals("calculating") || value.equals("deciding"))) throw new DailyWorker.ForegroundUnavailable();
+                if (DailyWorker.requiresForeground(value)) foregroundGranted = DailyWorker.tryForeground(value, ignored -> {
+                    if (rejectForeground) throw new DailyWorker.ForegroundUnavailable();
+                });
             }
             public void notice(String key, String text) { events.add("notice:" + key); }
         }, stopped::get, () -> now);
@@ -246,6 +249,35 @@ public class DailyPipelineTest {
         events.clear();
         assertTrue(pipeline().tick(prior));
         assertFalse(events.stream().anyMatch(e -> e.equals("state:numerical_saved") || e.startsWith("notice:")));
+    }
+
+    @Test public void acquisitionContinuationLeavesCalculationForFreshWorker() throws Exception {
+        complete = true;
+        assertTrue(pipeline().tick(prior, true));
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ") || e.equals("state:calculating")));
+        assertNull(forecast);
+        assertTrue(pipeline().tick(prior));
+        assertNotNull(forecast);
+    }
+
+    @Test public void refusedHistoryForegroundStillCommitsOneBoundedSlice() throws Exception {
+        rejectForeground = true;
+        assertTrue(pipeline().tick(prior));
+        assertTrue(complete);
+        assertFalse(foregroundGranted);
+        assertEquals(1, events.stream().filter(e -> e.equals("fetch:false:" + prior)).count());
+        assertTrue(events.contains("ack:false:" + prior));
+        assertNull(forecast);
+    }
+
+    @Test public void refusedMembershipForegroundStillAcquiresBeforeCutoff() throws Exception {
+        complete = true; late = true; rejectForeground = true; now = Instant.parse("2026-01-06T01:45:00Z");
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:membership"));
+        assertTrue(events.contains("fetch:true:" + today));
+        assertFalse(foregroundGranted);
+        assertTrue(events.contains("state:waiting_cutoff"));
+        assertNull(forecast);
     }
 
     @Test public void refusedForegroundDoesNotEnterEitherLongComputation() throws Exception {

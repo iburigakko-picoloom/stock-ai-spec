@@ -57,7 +57,9 @@ public class StateStorageFullTest {
             try {
                 lease.next(0);
                 fail("Missing ciphertext accepted merely because metadata is valid");
-            } catch (IllegalStateException expected) { }
+            } catch (SecurityException expected) {
+                assertEquals("MISSING_STATE_CHUNK", expected.getMessage());
+            }
         }
         assertEquals(1, store.currentGeneration());
     }

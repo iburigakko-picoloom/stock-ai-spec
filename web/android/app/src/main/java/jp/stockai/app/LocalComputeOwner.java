@@ -22,6 +22,7 @@ final class LocalComputeOwner {
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
     private final AtomicInteger queued = new AtomicInteger();
     final LocalStateStore state;
+    final SavedReadViews readViews;
     private volatile ComputeHost host;
     private long generation;
     private volatile boolean closed;
@@ -47,6 +48,7 @@ final class LocalComputeOwner {
         File parent = file.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) throw new IllegalStateException("STATE_UNAVAILABLE");
         state = new LocalStateStore(SQLiteDatabase.openOrCreateDatabase(file, null));
+        readViews = new SavedReadViews(new File(file.getPath() + ".readviews"));
     }
 
     interface Operation<T> { T run() throws Exception; }
@@ -105,13 +107,36 @@ final class LocalComputeOwner {
     private void initializeIfNeeded() throws Exception {
         if (host != null && state.currentGeneration() != generation) dropHost();
         if (host != null) return;
-        try (LocalStateStore.ReadLease saved = state.openReadLease()) {
-            generation = saved.generation;
+        try (LocalStateStore.StartupLease saved = state.openStartupLease()) {
+            generation = saved.base.generation;
             ComputeHost candidate = new ComputeHost(context);
             try {
-                generation = initializeCandidate(candidate, saved, generation); host = candidate;
+                candidate.start();
+                JSONObject command = new JSONObject().put("command", "initialize").put("optimized_startup", true)
+                    .put("defer_initialize", saved.operations != null);
+                try (ComputeHost.Reply reply = candidate.request(command, saved.base, generation)) {
+                    if (saved.operations == null) commitStartup(reply);
+                    else if (!reply.json.getJSONObject("result").getString("persistence").equals("deferred") || reply.state != null)
+                        throw new IllegalStateException("INVALID_STARTUP_OVERLAY");
+                }
+                if (saved.operations != null) {
+                    try (ComputeHost.Reply reply = candidate.request(new JSONObject().put("command", "initialize_operations")
+                            .put("optimized_startup", true), saved.operations, generation)) { commitStartup(reply); }
+                }
+                host = candidate;
             } catch (Exception error) { candidate.close(); throw error; }
         }
+    }
+
+    private void commitStartup(ComputeHost.Reply reply) throws Exception {
+        String mode = reply.json.getJSONObject("result").getString("persistence");
+        if (mode.equals("none")) {
+            if (reply.state != null || state.currentGeneration() != generation) throw new IllegalStateException("STARTUP_STATE_CONFLICT");
+        } else if (mode.equals("operations") && reply.state != null) {
+            generation = state.commitOperations(generation, reply.state);
+        } else if (mode.equals("full") && reply.state != null) {
+            generation = state.commitTransfer(generation, reply.state);
+        } else throw new IllegalStateException("INVALID_STARTUP_STATE");
     }
 
     static void validateRequest(String method, String path, String body) {
@@ -119,6 +144,13 @@ final class LocalComputeOwner {
             || !path.startsWith("/api/v1/") || path.contains("\\") || path.contains("#")
             || path.chars().anyMatch(c -> c < 32 || c == 127)
             || body == null || body.length() > LocalStateStore.MAX_INLINE_CHARACTERS) throw new IllegalArgumentException();
+    }
+
+    static boolean operationsOnly(String method, String path) {
+        return "POST".equals(method) && (path.equals("/api/v1/mobile/portfolio")
+            || path.equals("/api/v1/mobile/personal/settings")
+            || path.equals("/api/v1/mobile/personal/initial/preview")
+            || path.equals("/api/v1/mobile/personal/initial/confirm"));
     }
 
     CompletableFuture<JSObject> request(String method, String path, String body) {
@@ -130,19 +162,28 @@ final class LocalComputeOwner {
         return submit(() -> {
             try {
                 initializeIfNeeded();
+                boolean operations = operationsOnly(method, path);
                 try (ComputeHost.Reply reply = host.request(new JSONObject().put("command", "request")
-                        .put("method", method).put("path", path).put("body", body), null, generation)) {
+                        .put("method", method).put("path", path).put("body", body)
+                        .put("operations_only", operations), null, generation)) {
                     JSONObject result = reply.json.getJSONObject("result");
                     int status = result.getInt("status");
                     if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
                     if ("POST".equals(method)) {
                         if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
-                        generation = state.commitTransfer(generation, reply.state);
+                        generation = operations ? state.commitOperations(generation, reply.state)
+                            : state.commitTransfer(generation, reply.state);
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
                         throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
+                    if ("GET".equals(method) && SavedReadViews.allowed(path)) {
+                        if (status == 200) {
+                            try { readViews.save(path, result, generation); }
+                            catch (Exception ignored) { readViews.clear(); } // Optional display copy never fails a valid read.
+                        } else readViews.clear();
+                    }
                     return new JSObject(result.toString());
                 }
-            } catch (Exception error) { dropHost(); throw error; }
+            } catch (Exception error) { if (!(error instanceof InterruptedException)) readViews.clear(); dropHost(); throw error; }
         });
     }
 
@@ -209,6 +250,7 @@ final class LocalComputeOwner {
     private JSObject restoreFrom(LocalStateStore.ReadLease source, long previous) throws Exception {
         ComputeHost candidate = null;
         try (LocalStateStore.ReadLease incoming = source) {
+            readViews.clear();
             dropHost(); candidate = new ComputeHost(context);
             long saved = initializeCandidate(candidate, incoming, previous);
             host = candidate; generation = saved;

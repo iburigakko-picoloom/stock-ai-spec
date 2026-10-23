@@ -14,12 +14,15 @@ export interface MembershipStatus {
   eligible_received_at?: string | null;
 }
 export interface UniversePreview {
+  policy?: string;
   as_of: string; latest_source_date: string | null; window_dates: string[];
-  new_candidates: { symbol: string; company_name: string; rank: number }[];
+  new_candidates: { symbol: string; company_name: string; rank?: number; scale_category?: string }[];
   decision_symbols: string[]; held_only: string[]; blocking_reasons: string[];
   holdings_recorded?: boolean;
   membership_mode?: string; membership_verified?: boolean; membership_source_date?: string;
+  excluded?: { symbol: string; reason: string }[];
 }
+export interface UniversePolicy { mode: "legacy300" | "topix500-preview"; experimental: boolean }
 export function shiftDate(day: string, count: number): string {
   const value = new Date(`${day}T00:00:00Z`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(value.getTime()) || value.toISOString().slice(0, 10) !== day)

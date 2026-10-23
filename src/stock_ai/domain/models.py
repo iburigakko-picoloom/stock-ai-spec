@@ -317,6 +317,49 @@ class ReturnOnlyPrediction(DomainModel):
         return self
 
 
+class ResearchEnsemblePrediction(DomainModel):
+    """Unadopted, unit-separated daily outputs; unavailable heads remain null."""
+
+    schema_version: Literal[4] = 4
+    active_horizons: tuple[Literal[5, 20], ...] = (5, 20)
+    risk_horizon: Literal[20] | None = None
+    symbol: str = Field(min_length=1)
+    as_of: datetime
+    expected_return_1d: None = None
+    expected_return_5d: float | None = None
+    expected_return_20d: float | None = None
+    rank_score_5d: float | None = None
+    rank_score_20d: float | None = None
+    rank_unit: Literal["rank_score"] = "rank_score"
+    return_unit: Literal["fractional_return"] = "fractional_return"
+    downside_quantile: float | None = None
+    large_loss_probability: float | None = Field(default=None, ge=0, le=1)
+    uncertainty: None = None
+    morning_revision: None = None
+    model_version: str = Field(min_length=1)
+    feature_version: str = Field(min_length=1)
+    data_snapshot_id: str = Field(min_length=1)
+
+    _aware = field_validator("as_of")(_require_aware)
+
+    @model_validator(mode="after")
+    def explicit_daily_outputs(self) -> Self:
+        if self.active_horizons != (5, 20):
+            raise ValueError("Research ensemble requires ordered 5d/20d horizons")
+        for horizon in (5, 20):
+            if (getattr(self, f"expected_return_{horizon}d") is None
+                    and getattr(self, f"rank_score_{horizon}d") is None):
+                raise ValueError("Each research horizon requires a return or ranking output")
+        values = (self.expected_return_5d, self.expected_return_20d, self.rank_score_5d,
+                  self.rank_score_20d, self.downside_quantile, self.large_loss_probability)
+        if any(v is not None and not math.isfinite(v) for v in values):
+            raise ValueError("Research ensemble outputs must be finite or unavailable")
+        risk = self.downside_quantile is not None or self.large_loss_probability is not None
+        if (self.risk_horizon == 20) != risk:
+            raise ValueError("Research risk horizon must match the provided 20d risk heads")
+        return self
+
+
 class TransactionCostEstimate(DomainModel):
     commission: Money = Decimal("0")
     spread: Money = Decimal("0")

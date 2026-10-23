@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { PageHeader, StatePanel, TabBar, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import { MobileDevicePanel } from "../mobile/MobileDevicePanel";
+import { isAndroid } from "../mobile/native";
 
 interface AccountSetting {
   bucketId: string;
@@ -68,6 +69,14 @@ const sections = [
 
 export function SettingsPage(): ReactNode {
   const { section } = useParams();
+  // The editable native form must survive focus/visibility and polling refreshes.
+  // Its own APIs load and save revisions; the read-only web settings poller does not own it.
+  if (!section && isAndroid()) return <div className="page page--settings"><MobileDevicePanel /></div>;
+  return <ReadOnlySettingsPage />;
+}
+
+function ReadOnlySettingsPage(): ReactNode {
+  const { section } = useParams();
   const [category, setCategory] = useState("account");
   const { data, error, loading } = useApiData<SettingsPayload>("/api/v1/settings");
   const [notificationState, setNotificationState] = useState<string>(() => (
@@ -91,7 +100,6 @@ export function SettingsPage(): ReactNode {
     <div className="page">
       {section && <Link className="back-link" to="/settings">← 設定一覧へ</Link>}
       <PageHeader title={currentSection?.title || "設定"} />
-      {!section && <MobileDevicePanel />}
       {!section && <TabBar label="設定の分類" options={[["account", "口座・資金"], ["ai", "AI・データ"], ["device", "通知"]]} value={category} onChange={setCategory} panelId="settings-panel" />}
       <div {...(!section ? { id: "settings-panel", role: "tabpanel", "aria-labelledby": `settings-panel-${category}` } : {})}>
       {!section && category !== "device" && <section className="settings-list">

@@ -190,7 +190,7 @@ def input_state(store, now):
 def reference_prices(market_path, symbols, now):
     if not symbols:
         return {"date": None, "prices": {}, "source_hash": None}
-    frame = SQLiteSource(market_path).latest_closed_prices(now)
+    frame = SQLiteSource(market_path).latest_closed_prices(now, reference_only=True)
     if frame.empty:
         raise ValueError("held_prices_missing")
     frame = frame.loc[

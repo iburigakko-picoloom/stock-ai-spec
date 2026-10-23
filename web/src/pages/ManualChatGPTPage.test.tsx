@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { ManualChatGPTPage } from "./ManualChatGPTPage";
 import { apiGet, apiPost } from "../api";
 
-vi.mock("../mobile/native", () => ({ isAndroid: () => true }));
+vi.mock("../mobile/native", () => ({ isAndroid: () => true, StockAI: {} }));
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); vi.unstubAllGlobals(); });
 function show() { render(<MemoryRouter><ManualChatGPTPage /></MemoryRouter>); }

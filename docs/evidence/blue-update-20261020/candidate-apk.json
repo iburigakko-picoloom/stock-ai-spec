@@ -1,0 +1,41 @@
+{
+  "status": "PRIVATE_CANDIDATE_PACKAGE_VERIFIED_REQUIRED_CI_SUCCESS",
+  "sha256": "e88b4e610e6186095c759afef36b31be4ab39a1e72bb3c298269771ed55bc88e",
+  "bytes": 23980521,
+  "source_commit": "3209604c84fb84fb82827a63a7163a3626d85c5e",
+  "ci_run": 39431174408,
+  "required_CI_success": true,
+  "application_id": "jp.stockai.app",
+  "version_code": 10027,
+  "version_name": "0.1.27-candidate",
+  "certificate_sha256": "97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979",
+  "signature_matches_existing_public_release": true,
+  "release_not_debuggable": true,
+  "success_CI_public_asset_files_exact": 43,
+  "models_packaged": 0,
+  "private_market_data_packaged": false,
+  "private_instrumentation_or_clock_packaged": false,
+  "build_seconds": 161.2913093,
+  "worker_limit": 1,
+  "java_heap_mib": 768,
+  "previous_candidate_preserved": true,
+  "prior_initial_B1_evidence_scope": "UI-only delta; Python/native exact 791dfa5; numerical performance not remeasured",
+  "installed_on_owner_device": false,
+  "public_distribution": true,
+  "legacy300_remains_default": true,
+  "formal_adoption": "HOLD",
+  "published_update_evidence": "published-update.json",
+  "filename": "StockAI-0.1.27-candidate.apk",
+  "previous_0126_preserved": true,
+  "Xiaomi_verified": false,
+  "screen_evidence": "Synthetic native bridge only; owner Xiaomi UI not tested",
+  "known_limitations": [
+    "Android hardware Back closes Activity; use on-screen 設定一覧へ.",
+    "No new real-market numerical performance measurement for UI-only delta."
+  ],
+  "fresh_process_known_secret_scan": {
+    "status": "FRESH_PROCESS_KNOWN_SECRET_SCAN_PASSED",
+    "known_environment_secrets_scanned": 1,
+    "sha256": "e88b4e610e6186095c759afef36b31be4ab39a1e72bb3c298269771ed55bc88e"
+  }
+}

@@ -1,5 +1,7 @@
 # Machine Learning and Research Specification
 
+2026-10-20追記（D213）：現在の完成範囲と未承認の最終基準案は[FINISHING_PLAN冒頭](FINISHING_PLAN.md)。日次の回帰選定はD165の全seed/固定代表を維持し、Rank ICから3seed平均MSEの最小化へ変更する（回帰metric名のみv2）。MAE/RMSEとzero_returnの同一行誤差を併記し、役割の成績と採用許可を分ける。元OOFは未来のラベルが評価可能な行に限定されるため、そのキーを当時の投資可能集合へ流用しない。既知の旧OOF由来domainは新しいNAV再生で拒否し、元152結果は原本のまま完全ラベルcohort上の仮定付き研究として保全する。当時付マスタと保存予測の欠落・後日受領・未確認の月次適用を解決するまで、TOPIX500の運用成績/最終採用の証拠にしない。
+
 2026-10-18追記（D162）：今回の範囲は日次5日/20日の既存18候補。認証済みcampaign/report/OOFを再利用し、追加の高度最適化・大規模探索/無制限の再学習・1日/前場拡張は行わない。モデル比較は同一horizon内の全seedに共通の固定売買/配分ルールを使い、ChatGPT判断は混ぜない。予測精度・配当なし費用控除後・配当込み・個人税引後を別区分にする。[接続契約](DAILY_INTEGRATION_CONTRACT.md)が今回の優先仕様であり、以下の旧拡張計画を今回の完了条件にしない。purge、複数seed、前処理分離、選定固定後の未使用finalと採用gateは維持する。
 
 2026-10-18追記（D165）：新しい5日/20日の開発OOF選定では全seedの平均でモデル種類/taskを比較し、単一の推論用seedを成績に依存せず最小の宣言seedへ固定する（既存集合では17）。欠けたseedや非有限の成績は省略せず拒否する。保存指標は個別seedの成績と区別できる`family_seed_mean_*__fixed_min_seed_v1`。ensembleは従来どおり最強の個別meta-evaluation ICを上回る必要がある。各seedの安定性、費用込み開発比較、規則/合否基準の固定、未使用finalと採用gateは引き続き必須。実データの候補固定・最終評価は未実行。
@@ -449,6 +451,8 @@ rejection reason
 - 計算削減は、認証済み成果物再利用、重複排除、screen不要の探索省略、明確な`SCREEN_REJECTED`への追加探索停止、通過候補限定Final Candidateの順に行い、seed数・walk-forward・cost評価・holdout隔離を削らない
 
 ## 7.3 Development選択の固定とlocked holdout単回評価
+
+D213（2026-10-21）：最終推論は将来ラベルの有無に依存しない全特徴量行へ行い、利用可能なラベルだけで採点する。v2 reportの`label_coverage`に両方の件数と未採点理由を保存し、ラベルがない役割の指標はnullとする。rank ensembleの予測側順位化もラベルによる除外前に行う。これは当時の対象リスト・全市場順位母集団の認証を代替せず、端末のTOPIX500内順位と同一とはしない。旧v1 reportは元identityのまま読める。既存のledger、単回アクセス、再開、`adoption_eligible=false`を維持する。最終戦略NAVの結合は依然必要で、予測reportだけで採用できない。
 
 - 軽量screenを通過した5日・20日のhorizon × familyだけFeature Ablationへ進め、strictly-earlier tuning evidenceをseedごとに集約し、3 seed以上のうち3分の2以上が支持したfeature familyだけをhorizon別に固定する。1日は上記の軽量screenを通過した場合だけ同じfull ablationへ進む
 - vote結果はfinal-candidate開始前に、Production Build / Dataset / Feature / code / seed / holdout境界とexact feature列を持つcontent-addressed中間artifactへ固定する

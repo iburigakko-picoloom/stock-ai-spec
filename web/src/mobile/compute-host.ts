@@ -74,7 +74,7 @@ if (bridge) {
     const input = { ...request };
     const transfer: Transferable[] = [];
     try {
-      if (input.command === "initialize") {
+      if (input.command === "initialize" || input.command === "initialize_operations") {
         const length = input.state_length;
         if ("state" in input || "state_bytes" in input || !Number.isSafeInteger(length) || length === undefined || length < 0 || length > maxCharacters) throw new Error("STATE_TRANSFER_FAILED");
         bridge.progress?.(String(id), "reading-input");

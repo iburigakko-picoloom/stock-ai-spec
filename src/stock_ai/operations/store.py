@@ -77,6 +77,7 @@ from stock_ai.operations.models import (
     PaperSummary,
     PipelineState,
     PositionDifference,
+    PositionReconciliationBase,
     PositionReconciliationPreview,
     RankingRecord,
 )
@@ -90,8 +91,26 @@ class OperationalConflictError(RuntimeError):
     """Raised when a caller attempts an unconfirmed state conflict."""
 
 
+class ReconciliationConflictError(OperationalConflictError):
+    def __init__(self, code: str):
+        self.code = code
+        super().__init__(code)
+
+
+class OperationalStorageBusyError(RuntimeError):
+    pass
+
+
 class OperationalTimelineError(OperationalConflictError):
     """Raised for an impossible immutable event ordering."""
+
+
+class PortfolioBaseConflictError(OperationalConflictError):
+    """A valid ledger history cannot identify an unambiguous current base."""
+
+    def __init__(self, code: Literal["PORTFOLIO_BASE_AMBIGUOUS", "PORTFOLIO_BASE_IN_FUTURE"]):
+        self.code = code
+        super().__init__(code)
 
 
 def _canonical_payload(model: BaseModel) -> str:
@@ -154,9 +173,9 @@ def _require_catalog_value(table: str, field: str, actual: object, expected: obj
         raise OperationalIntegrityError(f"catalog identity mismatch in {table}.{field}")
 
 
-def _verify_hashed_row(table: str, row: sqlite3.Row) -> None:
+def _verify_hashed_row(table: str, row: sqlite3.Row) -> BaseModel | None:
     payload = _checked_payload(row, table)
-    item: Any
+    item: Any = None
     try:
         if table == "chatgpt_research_runs":
             item = _parse_model(ResearchRun, payload)
@@ -310,10 +329,90 @@ def _verify_hashed_row(table: str, row: sqlite3.Row) -> None:
             raise OperationalIntegrityError(f"unknown hashed table {table}")
         for field, expected_value in expected.items():
             _require_catalog_value(table, field, row[field], expected_value)
+        return item if isinstance(item, BaseModel) else None
     except OperationalIntegrityError:
         raise
     except (KeyError, TypeError, ValueError, ValidationError, json.JSONDecodeError) as exc:
         raise OperationalIntegrityError(f"invalid authenticated record in {table}") from exc
+
+
+def _reconciliation_base(
+    connection: sqlite3.Connection,
+    portfolio: PortfolioState,
+    cutoff: datetime,
+) -> tuple[PositionReconciliationBase, set[str]]:
+    row = connection.execute(
+        "SELECT * FROM portfolio_states WHERE portfolio_id = ?",
+        (portfolio.portfolio_id,),
+    ).fetchone()
+    _verify_hashed_row("portfolio_states", row)
+    records = []
+    ids = set()
+    for record in connection.execute("SELECT * FROM executions ORDER BY execution_id"):
+        _verify_hashed_row("executions", record)
+        execution = _parse_model(ExecutionRecord, _checked_payload(record, "executions"))
+        if execution.filled_shares > 0 and execution.executed_at <= cutoff:
+            ids.add(execution.execution_id)
+            records.append([execution.execution_id, record["content_hash"]])
+    fingerprint = json.dumps(
+        {
+            "schema_version": "position-reconciliation-executions-v1",
+            "imported_as_of": cutoff.astimezone(UTC).isoformat(),
+            "executions": records,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return PositionReconciliationBase(
+        portfolio_id=portfolio.portfolio_id,
+        portfolio_sha256=row["content_hash"],
+        relevant_executions_sha256=_payload_hash(fingerprint),
+    ), ids
+
+
+def _confirmed_reconciliation_result(
+    connection: sqlite3.Connection,
+    preview: PositionReconciliationPreview,
+) -> PortfolioState:
+    row = connection.execute(
+        "SELECT * FROM portfolio_states WHERE portfolio_id = ?",
+        (preview.confirmed_portfolio_id,),
+    ).fetchone()
+    if row is None:
+        raise OperationalIntegrityError("reconciliation result missing")
+    _verify_hashed_row("portfolio_states", row)
+    result = _parse_model(PortfolioState, _checked_payload(row, "portfolio_states"))
+    expected = _parse_model(PortfolioState, preview.portfolio_payload).model_copy(
+        update={"portfolio_id": preview.confirmed_portfolio_id},
+    )
+    if result != expected:
+        raise OperationalIntegrityError("reconciliation result differs from confirmed preview")
+    return result
+
+
+def _latest_portfolio_connection(connection: sqlite3.Connection) -> PortfolioState | None:
+    """Verify originals before choosing by exact UTC instant on this connection.
+
+    Ties are history, not an ID-based ordering rule. Current operations stop;
+    explicit history-ID reads remain available. No source bytes are rewritten.
+    """
+    latest: PortfolioState | None = None
+    ambiguous = False
+    for row in connection.execute("SELECT * FROM portfolio_states"):
+        verified = _verify_hashed_row("portfolio_states", row)
+        if not isinstance(verified, PortfolioState):
+            raise OperationalIntegrityError("invalid verified portfolio type")
+        item = verified
+        instant = item.as_of.astimezone(UTC)
+        if latest is None or instant > latest.as_of.astimezone(UTC):
+            latest, ambiguous = item, False
+        elif instant == latest.as_of.astimezone(UTC):
+            ambiguous = True
+    if latest is not None and latest.as_of.astimezone(UTC) > _now_utc():
+        raise PortfolioBaseConflictError("PORTFOLIO_BASE_IN_FUTURE")
+    if ambiguous:
+        raise PortfolioBaseConflictError("PORTFOLIO_BASE_AMBIGUOUS")
+    return latest
 
 
 def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int]:
@@ -333,13 +432,15 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
     for table in _HASHED_TABLES:
         if (
             table in {"chatgpt_research_runs", "chatgpt_research_attempts"}
-            and schema_version < 5 and table not in tables
+            and schema_version < 5
+            and table not in tables
         ):
             counts[table] = 0
             continue
         if (
             table in {"chatgpt_research_passes", "chatgpt_research_records"}
-            and schema_version < 4 and table not in tables
+            and schema_version < 4
+            and table not in tables
         ):
             counts[table] = 0
             continue
@@ -357,6 +458,19 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
         for row in rows:
             _verify_hashed_row(table, row)
         counts[table] = len(rows)
+    for row in connection.execute("SELECT * FROM position_reconciliations"):
+        preview = _parse_model(
+            PositionReconciliationPreview, _checked_payload(row, "position_reconciliations")
+        )
+        if preview.base_reference is not None:
+            base = connection.execute(
+                "SELECT * FROM portfolio_states WHERE portfolio_id = ?",
+                (preview.base_reference.portfolio_id,),
+            ).fetchone()
+            if base is None or base["content_hash"] != preview.base_reference.portfolio_sha256:
+                raise OperationalIntegrityError("reconciliation historical base missing or changed")
+        if preview.confirmed_portfolio_id is not None:
+            _confirmed_reconciliation_result(connection, preview)
     archive_links = connection.execute(
         """
         SELECT proposal.proposal_id, proposal.archived_at,
@@ -450,9 +564,13 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
     if "chatgpt_research_runs" in tables:
         for row in connection.execute("SELECT * FROM chatgpt_research_runs"):
             run = _parse_model(ResearchRun, _checked_payload(row, "chatgpt_research_runs"))
-            validate_context(run.context, _chatgpt_snapshot(
-                connection, run.context.prediction_snapshot_id,
-            ))
+            validate_context(
+                run.context,
+                _chatgpt_snapshot(
+                    connection,
+                    run.context.prediction_snapshot_id,
+                ),
+            )
     if "chatgpt_research_attempts" in tables:
         for row in connection.execute("SELECT * FROM chatgpt_research_attempts"):
             attempt = _parse_model(
@@ -460,13 +578,16 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
             )
             _validate_chatgpt_attempt(connection, attempt)
     _mobile_numerical_selection(connection)
-    for row in connection.execute("SELECT key,value FROM operational_metadata "
-                                  "WHERE key LIKE 'mobile-cash-receipt:%'"):
+    for row in connection.execute(
+        "SELECT key,value FROM operational_metadata WHERE key LIKE 'mobile-cash-receipt:%'"
+    ):
         _cash_receipt(row[1], row[0].removeprefix("mobile-cash-receipt:"))
-    for row in connection.execute("SELECT key,value FROM operational_metadata "
-                                  "WHERE key LIKE 'mobile-cash-active:%'"):
-        linked = connection.execute("SELECT value FROM operational_metadata WHERE key=?",
-                                    ("mobile-cash-receipt:" + row[1],)).fetchone()
+    for row in connection.execute(
+        "SELECT key,value FROM operational_metadata WHERE key LIKE 'mobile-cash-active:%'"
+    ):
+        linked = connection.execute(
+            "SELECT value FROM operational_metadata WHERE key=?", ("mobile-cash-receipt:" + row[1],)
+        ).fetchone()
         if linked is None:
             raise OperationalIntegrityError("cash-only publication receipt missing")
         value = _cash_receipt(linked[0], row[1])
@@ -702,29 +823,43 @@ def _cash_receipt(payload: str, identity: str) -> dict[str, Any]:
 
 
 def _guard_personal_references(
-    connection: sqlite3.Connection, guard: PersonalInputReferences,
+    connection: sqlite3.Connection,
+    guard: PersonalInputReferences,
 ) -> PortfolioState:
-    manual = connection.execute("SELECT revision_id FROM manual_portfolio_imports "
-                                "ORDER BY revision_sequence DESC LIMIT 1").fetchone()
-    ledger = connection.execute("SELECT portfolio_id,payload,content_hash FROM portfolio_states "
-                                "ORDER BY as_of DESC,portfolio_id DESC LIMIT 1").fetchone()
-    if connection.execute("SELECT 1 FROM sqlite_master WHERE name='mobile_personal_settings' "
-                          "AND type='table'").fetchone() is None:
+    manual = connection.execute(
+        "SELECT revision_id FROM manual_portfolio_imports ORDER BY revision_sequence DESC LIMIT 1"
+    ).fetchone()
+    ledger = _latest_portfolio_connection(connection)
+    if (
+        connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='mobile_personal_settings' AND type='table'"
+        ).fetchone()
+        is None
+    ):
         raise OperationalConflictError("frozen personal settings missing")
-    settings = connection.execute("SELECT revision_id,payload,content_hash "
-                                  "FROM mobile_personal_settings ORDER BY sequence DESC LIMIT 1"
-                                  ).fetchone()
-    executions = tuple(_parse_model(ExecutionRecord, _checked_payload(row, "executions"))
-                       for row in connection.execute("SELECT payload,content_hash FROM executions "
-                                                     "ORDER BY execution_id"))
-    if (manual is None or ledger is None or settings is None
-            or manual[0] != guard.manual_revision_id or ledger[0] != guard.ledger_portfolio_id
-            or settings[0] != guard.settings_revision_id
-            or _payload_hash(settings[1]) != settings[2] or settings[0] != settings[2]
-            or content_id([x.model_dump(mode="json") for x in executions])
-            != guard.executions_sha256):
+    settings = connection.execute(
+        "SELECT revision_id,payload,content_hash "
+        "FROM mobile_personal_settings ORDER BY sequence DESC LIMIT 1"
+    ).fetchone()
+    executions = tuple(
+        _parse_model(ExecutionRecord, _checked_payload(row, "executions"))
+        for row in connection.execute(
+            "SELECT payload,content_hash FROM executions ORDER BY execution_id"
+        )
+    )
+    if (
+        manual is None
+        or ledger is None
+        or settings is None
+        or manual[0] != guard.manual_revision_id
+        or ledger.portfolio_id != guard.ledger_portfolio_id
+        or settings[0] != guard.settings_revision_id
+        or _payload_hash(settings[1]) != settings[2]
+        or settings[0] != settings[2]
+        or content_id([x.model_dump(mode="json") for x in executions]) != guard.executions_sha256
+    ):
         raise OperationalConflictError("frozen proposal personal inputs changed")
-    return _parse_model(PortfolioState, _checked_payload(ledger, "portfolio_states"))
+    return ledger
 
 
 def _guard_personal_publication(
@@ -785,6 +920,13 @@ class OperationalStore:
         connection.execute("PRAGMA busy_timeout=30000")
         try:
             yield connection
+        except sqlite3.OperationalError as exc:
+            if getattr(exc, "sqlite_errorcode", 0) & 0xFF in (
+                sqlite3.SQLITE_BUSY,
+                sqlite3.SQLITE_LOCKED,
+            ):
+                raise OperationalStorageBusyError("STORAGE_BUSY") from exc
+            raise
         finally:
             connection.close()
 
@@ -1073,11 +1215,16 @@ class OperationalStore:
             ).fetchone()
             if row is None:
                 return None
-            _verify_hashed_row("manual_portfolio_imports", row)
-            return _parse_model(ImportedManualPortfolio, row["payload"])
+            item = _verify_hashed_row("manual_portfolio_imports", row)
+            if not isinstance(item, ImportedManualPortfolio):
+                raise OperationalIntegrityError("invalid verified manual portfolio type")
+            return item
 
     def append_prediction_snapshot(
-        self, snapshot: PredictionSnapshot, *, expected_manual_revision_id: str | None = None,
+        self,
+        snapshot: PredictionSnapshot,
+        *,
+        expected_manual_revision_id: str | None = None,
         expected_portfolio_id: str | None = None,
         mobile_run_id: str | None = None,
     ) -> bool:
@@ -1094,13 +1241,13 @@ class OperationalStore:
                     "SELECT revision_id FROM manual_portfolio_imports "
                     "ORDER BY revision_sequence DESC LIMIT 1"
                 ).fetchone()
-                ledger = connection.execute(
-                    "SELECT portfolio_id FROM portfolio_states "
-                    "ORDER BY as_of DESC,portfolio_id DESC LIMIT 1"
-                ).fetchone()
-                if (manual is None or ledger is None
-                        or manual[0] != expected_manual_revision_id
-                        or ledger[0] != expected_portfolio_id):
+                ledger = _latest_portfolio_connection(connection)
+                if (
+                    manual is None
+                    or ledger is None
+                    or manual[0] != expected_manual_revision_id
+                    or ledger.portfolio_id != expected_portfolio_id
+                ):
                     raise OperationalConflictError("frozen forecast personal inputs changed")
             _validate_snapshot_approval(connection, snapshot)
             inserted = self._insert_immutable(
@@ -1112,30 +1259,49 @@ class OperationalStore:
                 payload=_canonical_payload(snapshot),
             )
             if mobile_run_id is not None:
-                connection.execute("INSERT OR REPLACE INTO operational_metadata VALUES(?,?)", (
-                    "mobile-numerical-active", canonical_json({"run_id": mobile_run_id,
-                    "as_of": snapshot.as_of.isoformat(), "snapshot_id": snapshot.snapshot_id}),
-                ))
+                connection.execute(
+                    "INSERT OR REPLACE INTO operational_metadata VALUES(?,?)",
+                    (
+                        "mobile-numerical-active",
+                        canonical_json(
+                            {
+                                "run_id": mobile_run_id,
+                                "as_of": snapshot.as_of.isoformat(),
+                                "snapshot_id": snapshot.snapshot_id,
+                            }
+                        ),
+                    ),
+                )
             connection.commit()
             return inserted
 
     def select_mobile_numerical_without_snapshot(
-        self, run_id: str, as_of: datetime, manual_revision_id: str | None,
+        self,
+        run_id: str,
+        as_of: datetime,
+        manual_revision_id: str | None,
         ledger_portfolio_id: str | None,
     ) -> None:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            manual = connection.execute("SELECT revision_id FROM manual_portfolio_imports "
-                                        "ORDER BY revision_sequence DESC LIMIT 1").fetchone()
-            ledger = connection.execute("SELECT portfolio_id FROM portfolio_states "
-                                        "ORDER BY as_of DESC,portfolio_id DESC LIMIT 1").fetchone()
-            if ((None if manual is None else manual[0]) != manual_revision_id
-                    or (None if ledger is None else ledger[0]) != ledger_portfolio_id):
+            manual = connection.execute(
+                "SELECT revision_id FROM manual_portfolio_imports "
+                "ORDER BY revision_sequence DESC LIMIT 1"
+            ).fetchone()
+            ledger = _latest_portfolio_connection(connection)
+            if (None if manual is None else manual[0]) != manual_revision_id or (
+                None if ledger is None else ledger.portfolio_id
+            ) != ledger_portfolio_id:
                 raise OperationalConflictError("numerical selection personal inputs changed")
-            connection.execute("INSERT OR REPLACE INTO operational_metadata VALUES(?,?)", (
-                "mobile-numerical-active", canonical_json({"run_id": run_id,
-                "as_of": as_of.isoformat(), "snapshot_id": None}),
-            ))
+            connection.execute(
+                "INSERT OR REPLACE INTO operational_metadata VALUES(?,?)",
+                (
+                    "mobile-numerical-active",
+                    canonical_json(
+                        {"run_id": run_id, "as_of": as_of.isoformat(), "snapshot_id": None}
+                    ),
+                ),
+            )
             connection.commit()
 
     def append_adoption_review(self, review: OwnerAdoptionReview) -> bool:
@@ -1167,6 +1333,26 @@ class OperationalStore:
         return self._load_one(
             "prediction_snapshots", "snapshot_id", snapshot_id, PredictionSnapshot
         )
+
+    def latest_archived_prediction(self, before: datetime) -> PredictionSnapshot | None:
+        """Read-only history, independent of the active proposal/forecast selection."""
+        if before.tzinfo is None or before.utcoffset() is None:
+            raise ValueError("archive cutoff must be timezone-aware")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload,content_hash FROM prediction_snapshots "
+                "WHERE julianday(as_of)<=julianday(?) "
+                "ORDER BY julianday(as_of) DESC, "
+                "julianday(json_extract(payload,'$.generated_at')) DESC,snapshot_id DESC",
+                (before.isoformat(),),
+            )
+            for row in rows:
+                snapshot = _parse_model(
+                    PredictionSnapshot, _checked_payload(row, "prediction_snapshots")
+                )
+                if snapshot.generated_at <= before and not snapshot.blocking_reasons:
+                    return snapshot
+        return None
 
     def latest_prediction_snapshot(self) -> PredictionSnapshot | None:
         with self._connect() as connection:
@@ -1595,17 +1781,7 @@ class OperationalStore:
 
     def latest_portfolio(self) -> PortfolioState | None:
         with self._connect() as connection:
-            row = connection.execute(
-                """
-                SELECT payload, content_hash FROM portfolio_states
-                ORDER BY as_of DESC, portfolio_id DESC LIMIT 1
-                """
-            ).fetchone()
-        return (
-            None
-            if row is None
-            else _parse_model(PortfolioState, _checked_payload(row, "portfolio_states"))
-        )
+            return _latest_portfolio_connection(connection)
 
     def archive_proposal(
         self,
@@ -2036,7 +2212,7 @@ class OperationalStore:
         payload = _canonical_payload(execution)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            mismatch = self._execution_differs_from_decision(execution)
+            mismatch = self._execution_differs_from_decision(execution, connection=connection)
             if mismatch and not confirm_difference:
                 raise OperationalConflictError(
                     "execution differs from the saved decision; explicit confirmation is required"
@@ -2075,12 +2251,29 @@ class OperationalStore:
         return inserted
 
     def _execution_differs_from_decision(
-        self, execution: ExecutionRecord, *, additional_filled_shares: int = 0
+        self,
+        execution: ExecutionRecord,
+        *,
+        additional_filled_shares: int = 0,
+        connection: sqlite3.Connection | None = None,
     ) -> bool:
-        decision = self.decision(execution.decision_id)
+        def load[ModelT: BaseModel](
+            table: str, key: str, identity: str, model: type[ModelT]
+        ) -> ModelT:
+            if connection is None:
+                return self._load_one(table, key, identity, model)
+            row = connection.execute(
+                f"SELECT * FROM {table} WHERE {key} = ?", (identity,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(identity)
+            _verify_hashed_row(table, row)
+            return _parse_model(model, _checked_payload(row, table))
+
+        decision = load("user_decisions", "decision_id", execution.decision_id, UserDecision)
         if execution.executed_at < decision.saved_at:
             raise OperationalTimelineError("execution timestamp cannot precede the saved decision")
-        proposal = self.proposal(decision.proposal_id)
+        proposal = load("proposals", "proposal_id", decision.proposal_id, PortfolioProposal)
         decision_targets = {
             item.proposal_line_id: item.selected_target_shares for item in decision.lines
         }
@@ -2102,9 +2295,20 @@ class OperationalStore:
             or execution.side is not intended_side
             or execution.ordered_shares != abs(intended_delta)
         )
+        existing_executions = (
+            self.executions(decision_id=execution.decision_id)
+            if connection is None
+            else tuple(
+                load("executions", "execution_id", row[0], ExecutionRecord)
+                for row in connection.execute(
+                    "SELECT execution_id FROM executions WHERE decision_id = ?",
+                    (execution.decision_id,),
+                )
+            )
+        )
         existing_filled = sum(
             item.filled_shares
-            for item in self.executions(decision_id=execution.decision_id)
+            for item in existing_executions
             if item.execution_id != execution.execution_id
             and item.symbol == execution.symbol
             and item.account_bucket_id == execution.account_bucket_id
@@ -2142,7 +2346,7 @@ class OperationalStore:
             raise ValueError("next_as_of must be timezone-aware")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            portfolio = self.latest_portfolio()
+            portfolio = _latest_portfolio_connection(connection)
             if portfolio is None:
                 raise OperationalIntegrityError("cannot apply executions without a portfolio")
             if next_as_of <= portfolio.as_of:
@@ -2955,33 +3159,105 @@ class OperationalStore:
         *,
         accepted_conflict_ids: Iterable[str] = (),
     ) -> tuple[int, int]:
-        preview = self.import_preview(preview_id)
-        accepted = set(accepted_conflict_ids)
-        conflict_ids = {item.conflict_id for item in preview.conflicts}
-        if not accepted.issubset(conflict_ids):
-            raise ValueError("accepted conflict ID does not belong to the preview")
-        unresolved = [item for item in preview.conflicts if item.conflict_id not in accepted]
-        if unresolved:
-            raise OperationalConflictError("import conflicts require explicit review")
-        imported = 0
-        skipped = 0
-        for payload in preview.execution_payloads:
-            execution = _parse_model(ExecutionRecord, payload)
-            confirmed_difference = any(
-                item.code == "DECISION_MISMATCH"
-                and item.record_identity == execution.execution_id
-                and item.conflict_id in accepted
-                for item in preview.conflicts
+        accepted = tuple(sorted(set(accepted_conflict_ids)))
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            _verify_database_connection(connection)
+            row = connection.execute(
+                "SELECT * FROM import_previews WHERE preview_id = ?", (preview_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(preview_id)
+            preview = _parse_model(ExecutionImportPreview, _checked_payload(row, "import_previews"))
+            if preview.status is ImportStatus.CONFIRMED:
+                if preview.confirmed_counts is None or preview.accepted_conflict_ids != accepted:
+                    raise OperationalConflictError(
+                        "import already confirmed with different or legacy receipt"
+                    )
+                return preview.confirmed_counts
+            if preview.status is not ImportStatus.PREVIEW:
+                raise OperationalConflictError("import preview is not pending")
+            conflict_ids = {item.conflict_id for item in preview.conflicts}
+            if not set(accepted).issubset(conflict_ids):
+                raise ValueError("accepted conflict ID does not belong to the preview")
+            if conflict_ids - set(accepted):
+                raise OperationalConflictError("import conflicts require explicit review")
+            imported = 0
+            skipped = len(
+                {
+                    item.row_number
+                    for item in preview.conflicts
+                    if item.code
+                    in {
+                        "INVALID_ROW",
+                        "DUPLICATE_IN_FILE",
+                        "UNKNOWN_DECISION",
+                        "INVALID_TIMELINE",
+                    }
+                }
             )
-            try:
-                imported += int(
-                    self.append_execution(execution, confirm_difference=confirmed_difference)
+            for payload in preview.execution_payloads:
+                execution = _parse_model(ExecutionRecord, payload)
+                conflicts = {
+                    item.code
+                    for item in preview.conflicts
+                    if item.record_identity == execution.execution_id
+                }
+                existing = connection.execute(
+                    "SELECT * FROM executions WHERE execution_id = ?", (execution.execution_id,)
+                ).fetchone()
+                if existing is not None:
+                    _verify_hashed_row("executions", existing)
+                    if (
+                        _checked_payload(existing, "executions") == payload
+                        or "IDENTITY_CONFLICT" in conflicts
+                    ):
+                        skipped += 1
+                        continue
+                    raise OperationalConflictError("execution changed after preview; review again")
+                if (
+                    self._execution_differs_from_decision(execution, connection=connection)
+                    and "DECISION_MISMATCH" not in conflicts
+                ):
+                    raise OperationalConflictError(
+                        "execution differs after preview; explicit review required"
+                    )
+                self._insert_immutable(
+                    connection,
+                    table="executions",
+                    identity_column="execution_id",
+                    identity=execution.execution_id,
+                    columns={
+                        "decision_id": execution.decision_id,
+                        "executed_at": execution.executed_at.isoformat(),
+                    },
+                    payload=payload,
                 )
-            except OperationalConflictError:
-                skipped += 1
-        confirmed = preview.model_copy(update={"status": ImportStatus.CONFIRMED})
-        self._replace_import_preview(confirmed)
-        return imported, skipped
+                imported += 1
+            confirmed = preview.model_copy(
+                update={
+                    "status": ImportStatus.CONFIRMED,
+                    "confirmed_counts": (imported, skipped),
+                    "accepted_conflict_ids": accepted,
+                }
+            )
+            payload = _canonical_payload(confirmed)
+            cursor = connection.execute(
+                "UPDATE import_previews SET status=?, payload=?, content_hash=? "
+                "WHERE preview_id=? AND status=? AND content_hash=?",
+                (
+                    ImportStatus.CONFIRMED.value,
+                    payload,
+                    _payload_hash(payload),
+                    preview_id,
+                    ImportStatus.PREVIEW.value,
+                    row["content_hash"],
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise OperationalConflictError("import preview changed")
+            connection.commit()
+            return imported, skipped
 
     def import_preview(self, preview_id: str) -> ExecutionImportPreview:
         return self._load_one("import_previews", "preview_id", preview_id, ExecutionImportPreview)
@@ -2993,9 +3269,6 @@ class OperationalStore:
         preview_id: str,
         created_at: datetime,
     ) -> PositionReconciliationPreview:
-        current = self.latest_portfolio()
-        if current is None:
-            raise OperationalIntegrityError("position reconciliation requires a current portfolio")
         required = {
             "as_of",
             "record_type",
@@ -3011,13 +3284,39 @@ class OperationalStore:
         if reader.fieldnames is None or not required.issubset(reader.fieldnames):
             missing = sorted(required - set(reader.fieldnames or ()))
             raise ValueError(f"position CSV missing required columns: {missing}")
+        rows = list(reader)
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = _latest_portfolio_connection(connection)
+            if current is None:
+                raise OperationalIntegrityError(
+                    "position reconciliation requires a current portfolio"
+                )
+            return self._preview_positions_locked(
+                connection,
+                rows,
+                csv_text,
+                preview_id,
+                created_at,
+                current,
+            )
+
+    def _preview_positions_locked(
+        self,
+        connection: sqlite3.Connection,
+        rows: list[dict[str, str]],
+        csv_text: str,
+        preview_id: str,
+        created_at: datetime,
+        current: PortfolioState,
+    ) -> PositionReconciliationPreview:
         positions: list[Position] = []
         imported_times: set[datetime] = set()
         keys: set[tuple[str, str]] = set()
         bucket_ids = {item.bucket_id for item in current.account_buckets}
         current_cash = current.cash_map()
         imported_cash: dict[str, CashState] = {}
-        for row_number, row in enumerate(reader, start=2):
+        for row_number, row in enumerate(rows, start=2):
             imported_as_of = datetime.fromisoformat(str(row["as_of"]))
             if imported_as_of.tzinfo is None or imported_as_of.utcoffset() is None:
                 raise ValueError(f"position row {row_number} as_of must be timezone-aware")
@@ -3059,12 +3358,12 @@ class OperationalStore:
         imported_as_of = imported_times.pop()
         if imported_as_of <= current.as_of:
             raise ValueError("position reconciliation as_of must be later than current state")
+        if imported_as_of > _now_utc():
+            raise ReconciliationConflictError("RECONCILIATION_IN_FUTURE")
+        base_reference, relevant_ids = _reconciliation_base(connection, current, imported_as_of)
+        if relevant_ids - set(current.applied_execution_ids):
+            raise ReconciliationConflictError("RECONCILIATION_UNAPPLIED_EXECUTIONS")
         applied_ids = set(current.applied_execution_ids)
-        applied_ids.update(
-            item.execution_id
-            for item in self.executions()
-            if item.filled_shares > 0 and item.executed_at <= imported_as_of
-        )
         tax_year = imported_as_of.astimezone(JST).year
         tax_states = tuple(
             state
@@ -3127,6 +3426,7 @@ class OperationalStore:
         )
         preview = PositionReconciliationPreview(
             preview_id=preview_id,
+            base_reference=base_reference,
             source_hash=hashlib.sha256(csv_text.encode("utf-8")).hexdigest(),
             created_at=created_at,
             imported_as_of=imported_as_of,
@@ -3134,7 +3434,19 @@ class OperationalStore:
             differences=tuple(differences),
             cash_differences=cash_differences,
         )
-        self._save_position_reconciliation(preview)
+        self._insert_immutable(
+            connection,
+            table="position_reconciliations",
+            identity_column="preview_id",
+            identity=preview.preview_id,
+            columns={
+                "source_hash": preview.source_hash,
+                "status": preview.status.value,
+                "created_at": preview.created_at.isoformat(),
+            },
+            payload=_canonical_payload(preview),
+        )
+        connection.commit()
         return preview
 
     def position_reconciliation(self, preview_id: str) -> PositionReconciliationPreview:
@@ -3155,45 +3467,77 @@ class OperationalStore:
     ) -> PortfolioState:
         if created_at.tzinfo is None or created_at.utcoffset() is None:
             raise ValueError("created_at must be timezone-aware")
-        preview = self.position_reconciliation(preview_id)
-        if preview.status is not ImportStatus.PREVIEW:
-            raise OperationalConflictError("position reconciliation preview is not pending")
-        if (preview.differences or preview.cash_differences) and not confirm_all_differences:
-            raise OperationalConflictError("all position differences require manual confirmation")
-        proposed = _parse_model(PortfolioState, preview.portfolio_payload).model_copy(
-            update={"portfolio_id": next_portfolio_id}
-        )
-        confirmed = preview.model_copy(update={"status": ImportStatus.CONFIRMED})
-        payload = _canonical_payload(confirmed)
+        next_portfolio_id = next_portfolio_id.strip()
+        if not next_portfolio_id:
+            raise ValueError("next_portfolio_id must not be blank")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            connection.execute(
-                """
-                UPDATE position_reconciliations
-                SET status = ?, payload = ?, content_hash = ?
-                WHERE preview_id = ? AND status = ?
-                """,
+            _verify_database_connection(connection)
+            row = connection.execute(
+                "SELECT * FROM position_reconciliations WHERE preview_id = ?",
+                (preview_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(preview_id)
+            preview = _parse_model(
+                PositionReconciliationPreview, _checked_payload(row, "position_reconciliations")
+            )
+            if preview.status is ImportStatus.CONFIRMED:
+                if preview.confirmed_portfolio_id != next_portfolio_id:
+                    raise ReconciliationConflictError("RECONCILIATION_ALREADY_CONFIRMED")
+                return _confirmed_reconciliation_result(connection, preview)
+            if preview.status is not ImportStatus.PREVIEW or preview.base_reference is None:
+                raise ReconciliationConflictError("RECONCILIATION_REPREVIEW_REQUIRED")
+            current = _latest_portfolio_connection(connection)
+            if current is None:
+                raise ReconciliationConflictError("RECONCILIATION_BASE_CHANGED")
+            base, relevant_ids = _reconciliation_base(connection, current, preview.imported_as_of)
+            if (base.portfolio_id, base.portfolio_sha256) != (
+                preview.base_reference.portfolio_id,
+                preview.base_reference.portfolio_sha256,
+            ):
+                raise ReconciliationConflictError("RECONCILIATION_BASE_CHANGED")
+            if base.relevant_executions_sha256 != preview.base_reference.relevant_executions_sha256:
+                raise ReconciliationConflictError("RECONCILIATION_EXECUTIONS_CHANGED")
+            if not current.as_of < preview.imported_as_of <= _now_utc():
+                raise ReconciliationConflictError("RECONCILIATION_REPREVIEW_REQUIRED")
+            if relevant_ids - set(current.applied_execution_ids):
+                raise ReconciliationConflictError("RECONCILIATION_UNAPPLIED_EXECUTIONS")
+            if (preview.differences or preview.cash_differences) and not confirm_all_differences:
+                raise OperationalConflictError(
+                    "all position differences require manual confirmation"
+                )
+            proposed = _parse_model(PortfolioState, preview.portfolio_payload).model_copy(
+                update={"portfolio_id": next_portfolio_id},
+            )
+            confirmed = preview.model_copy(
+                update={
+                    "status": ImportStatus.CONFIRMED,
+                    "confirmed_portfolio_id": next_portfolio_id,
+                }
+            )
+            payload = _canonical_payload(confirmed)
+            cursor = connection.execute(
+                "UPDATE position_reconciliations SET status = ?, payload = ?, content_hash = ? "
+                "WHERE preview_id = ? AND status = ? AND content_hash = ?",
                 (
                     ImportStatus.CONFIRMED.value,
                     payload,
                     _payload_hash(payload),
                     preview_id,
                     ImportStatus.PREVIEW.value,
+                    row["content_hash"],
                 ),
             )
-            if connection.total_changes != 1:
-                raise OperationalConflictError("position reconciliation was already confirmed")
-            portfolio_payload = _canonical_payload(proposed)
+            if cursor.rowcount != 1:
+                raise ReconciliationConflictError("RECONCILIATION_ALREADY_CONFIRMED")
             self._insert_immutable(
                 connection,
                 table="portfolio_states",
                 identity_column="portfolio_id",
                 identity=proposed.portfolio_id,
-                columns={
-                    "as_of": proposed.as_of.isoformat(),
-                    "created_at": created_at.isoformat(),
-                },
-                payload=portfolio_payload,
+                columns={"as_of": proposed.as_of.isoformat(), "created_at": created_at.isoformat()},
+                payload=_canonical_payload(proposed),
             )
             connection.commit()
         return proposed

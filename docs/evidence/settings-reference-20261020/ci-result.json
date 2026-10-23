@@ -1,0 +1,37 @@
+{
+  "status": "REQUIRED_CI_PASSED",
+  "source_commit": "18fb6d83f3c6517007979c9ce840ee99d6294717",
+  "tested_merge": "e33b7eb8054ee28c4eb731f5fb98a4741bdb76f4",
+  "tree": "ecfd63b97484a8be7ebd37ea6d67a5a0412a71a3",
+  "tested_tree_exact": true,
+  "run_id": 39417285273,
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39417285273",
+  "jobs": [
+    {
+      "name": "verify",
+      "conclusion": "success",
+      "started_at": "2026-10-20T11:56:32Z",
+      "completed_at": "2026-10-20T12:40:01Z"
+    },
+    {
+      "name": "android",
+      "conclusion": "success",
+      "started_at": "2026-10-20T11:56:32Z",
+      "completed_at": "2026-10-20T12:10:26Z"
+    },
+    {
+      "name": "android-history",
+      "conclusion": "success",
+      "started_at": "2026-10-20T12:40:03Z",
+      "completed_at": "2026-10-20T12:43:45Z"
+    },
+    {
+      "name": "release",
+      "conclusion": "skipped",
+      "started_at": "2026-10-20T12:43:46Z",
+      "completed_at": "2026-10-20T12:43:45Z"
+    }
+  ],
+  "source_public_assets_exact": 43,
+  "scope": "Current settings UI, shared Python, storage, interpreter, native worker/upgrade, synthetic full-market capacity and full SQLite restore. Owner Xiaomi not tested."
+}

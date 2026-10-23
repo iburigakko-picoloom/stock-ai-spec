@@ -15,8 +15,7 @@ export function DecisionSavedPage(): ReactNode {
   const today = useApiData<TodayResponse>("/api/v1/today");
   const proposalId = today.data?.proposal?.proposalId;
   const decision = useApiData<SavedDecision | null>(proposalId ? `/api/v1/proposals/${proposalId}/decision` : "/api/v1/health");
-  if (today.loading || decision.loading) return <StatePanel title="保存済み判断を確認しています" />;
-  if (!proposalId || !decision.data) return <StatePanel title="保存済み判断はありません" detail="今日の提案から判断を保存してください。" />;
+  if (today.loading || decision.loading || !proposalId || !decision.data) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="保存済み判断" /><StatePanel title={today.loading || decision.loading ? "保存済み判断を確認しています" : "保存済み判断はありません"} detail={!today.loading && !decision.loading ? "今日の提案から判断を保存してください。" : undefined} /></div>;
   return (
     <div className="page">
       <PageHeader eyebrow={`Version ${decision.data.version}`} title="判断を保存しました" />

@@ -33,6 +33,7 @@ public class StockAIPlugin extends Plugin {
     static final String REPO = "iburigakko-picoloom/stock-ai-spec";
     final ExecutorService executor = Executors.newSingleThreadExecutor();
     final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
+    final ExecutorService displayExecutor = Executors.newSingleThreadExecutor();
     SQLiteDatabase db;
     volatile JSONObject pendingUpdate;
     static String hex(byte[] bytes) {
@@ -86,14 +87,20 @@ public class StockAIPlugin extends Plugin {
     @PluginMethod public void compute(PluginCall call) { background(call, () -> {
         completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
+    @PluginMethod public void readSavedView(PluginCall call) { displayExecutor.execute(() -> {
+        try { call.resolve(owner().readViews.read(call.getString("path"))); }
+        catch (Exception ignored) { call.reject("保存済み表示を確認できません。", "SAVED_VIEW_INVALID"); }
+    }); }
     @PluginMethod public void readState(PluginCall call) { background(call, () -> {
         completeLocal(call, owner().readState());
     }); }
     @PluginMethod public void restoreState(PluginCall call) { background(call, () -> {
+        owner().readViews.clear();
         automation().stop();
         completeLocal(call, owner().restore(call.getString("payload"), null));
     }); }
     @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
+        owner().readViews.clear();
         Object raw = call.getData().opt("generation");
         if (!(raw instanceof Number)) throw new IllegalArgumentException();
         double value = ((Number) raw).doubleValue();
@@ -184,6 +191,7 @@ public class StockAIPlugin extends Plugin {
     }); }
 
     @PluginMethod public void restoreBackup(PluginCall call) { background(call, () -> {
+        owner().readViews.clear();
         if (!Boolean.TRUE.equals(call.getBoolean("confirmed"))) throw new IllegalArgumentException();
         completeBackup(call, owner().restoreBackup(call.getString("token")));
     }); }

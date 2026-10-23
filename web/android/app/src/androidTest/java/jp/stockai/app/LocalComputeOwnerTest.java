@@ -35,6 +35,30 @@ public class LocalComputeOwnerTest {
 
     static <T> T result(CompletableFuture<T> value) throws Exception { return value.get(300, TimeUnit.SECONDS); }
 
+    @Test public void splitStartupSkipsCommitAndSavedDisplayBypassesBusyOwner() throws Exception {
+        JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
+        JSObject home = result(owner.request("GET", "/api/v1/home", "null"));
+        long generation = owner.state.currentGeneration();
+        assertTrue(owner.readViews.read("/api/v1/home").getBoolean("readOnly"));
+        assertEquals(home.getJSONObject("body").toString(), owner.readViews.read("/api/v1/home").getJSONObject("body").toString());
+        try (LocalStateStore.StartupLease leases = owner.state.openStartupLease()) {
+            assertNotNull("Personal save stays an independent operations overlay", leases.operations);
+        }
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
+        assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        assertEquals("Unchanged startup does not republish state", generation, owner.state.currentGeneration());
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        ownerQueue().execute(() -> { entered.countDown(); try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
+            try { owner.readViews.read("/api/v1/today/review"); fail("Unsafe route cached"); }
+            catch (IllegalArgumentException expected) { }
+        } finally { release.countDown(); }
+    }
+
     private java.util.concurrent.ExecutorService ownerQueue() throws Exception {
         java.lang.reflect.Field field = LocalComputeOwner.class.getDeclaredField("queue");
         field.setAccessible(true); return (java.util.concurrent.ExecutorService) field.get(owner);
@@ -220,12 +244,14 @@ public class LocalComputeOwnerTest {
     @Test public void realOfflineInterpreterSerializesCallersAndRestoresAfterOwnerRecreation() throws Exception {
         System.out.println("StockAI test WebView=" + android.webkit.WebView.getCurrentWebViewPackage().versionName);
         assertEquals(200, result(owner.request("GET", "/api/v1/health", "null")).getInt("status"));
+        long saveStarted = android.os.SystemClock.elapsedRealtime();
         CompletableFuture<JSObject> first = owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile());
         // Independent callers use the same authoritative state. The second
         // initial revision must conflict, rather than overwriting the first.
         CompletableFuture<JSObject> competing = LocalComputeOwner.get(context, file)
             .request("POST", "/api/v1/mobile/portfolio", emptyProfile());
         JSObject saved = result(first);
+        System.out.println("StockAI synthetic_empty_profile_save_ms=" + (android.os.SystemClock.elapsedRealtime() - saveStarted));
         assertEquals(200, saved.getInt("status"));
         assertEquals(409, result(competing).getInt("status"));
         String original = saved.getJSONObject("body").toString();
@@ -239,7 +265,8 @@ public class LocalComputeOwnerTest {
         assertEquals(original, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
         result(owner.restore(backup, null));
         assertEquals(original, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
-        owner.state.database.execSQL("CREATE TRIGGER fail_compute_commit BEFORE INSERT ON state BEGIN SELECT RAISE(ABORT,'synthetic disk failure'); END");
+        // Small profile saves now update the envelope after staging an operations delta.
+        owner.state.database.execSQL("CREATE TRIGGER fail_compute_commit BEFORE UPDATE ON state BEGIN SELECT RAISE(ABORT,'synthetic disk failure'); END");
         org.json.JSONObject changed = new org.json.JSONObject().put("expected_revision_id", saved.getJSONObject("body").getString("revision_id"))
             .put("portfolio", new org.json.JSONObject(emptyProfile()));
         try { result(owner.request("POST", "/api/v1/mobile/portfolio", changed.toString())); fail("failed native commit acknowledged"); }

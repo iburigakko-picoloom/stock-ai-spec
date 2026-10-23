@@ -19,6 +19,7 @@ test.each([
   ["forecast_saved", "原予測を保存済み・株数判定待ち"],
   ["consultation_ready", "研究用の原予測を保存済み・ChatGPTへの相談準備完了"],
   ["deciding", "株数を計算しています"],
+  ["history_wait", "Androidの取得待ち・アプリで保存状態を確認してください"],
   ["compute_wait", "Androidの計算待ち・アプリで保存状態を確認してください"],
 ])("%s keeps partial progress separate from completion", async (state, label) => {
   vi.mocked(StockAI.dailyStatus).mockResolvedValue({ ...idle, enabled: true, state });
@@ -51,5 +52,22 @@ test("stop waits for native acknowledgment and keeps a resume action", async () 
   const stop = await screen.findByRole("button", { name: "自動処理を停止" });
   await waitFor(() => expect(stop).toBeEnabled()); fireEvent.click(stop);
   expect(await screen.findByRole("button", { name: "続きから再開" })).toBeEnabled();
+  expect(stop).toBeDisabled();
+});
+
+test("an older status read cannot overwrite an acknowledged stop", async () => {
+  let finishOldRead!: (value: typeof idle) => void;
+  const running = { ...idle, enabled: true, state: "history" };
+  vi.mocked(StockAI.dailyStatus).mockResolvedValueOnce(running)
+    .mockImplementationOnce(() => new Promise(resolve => { finishOldRead = resolve; }));
+  vi.mocked(StockAI.stopDaily).mockResolvedValue({ ...idle, state: "paused" });
+  render(<DailyPanel />);
+  const stop = await screen.findByRole("button", { name: "自動処理を停止" });
+  await waitFor(() => expect(stop).toBeEnabled());
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  fireEvent.click(stop);
+  await screen.findByRole("button", { name: "続きから再開" });
+  await act(async () => { finishOldRead(running); });
+  expect(screen.getByRole("button", { name: "続きから再開" })).toBeEnabled();
   expect(stop).toBeDisabled();
 });

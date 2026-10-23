@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -43,6 +43,7 @@ from stock_ai.operations.daily import (
     PredictionSnapshot,
     content_id,
     export_prediction_snapshot,
+    prediction_score,
     validate_research_link,
 )
 from stock_ai.operations.models import (
@@ -54,7 +55,10 @@ from stock_ai.operations.personal import PersonalComparisonRequest, compare_stor
 from stock_ai.operations.store import (
     OperationalConflictError,
     OperationalIntegrityError,
+    OperationalStorageBusyError,
     OperationalStore,
+    PortfolioBaseConflictError,
+    ReconciliationConflictError,
 )
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -170,7 +174,9 @@ def _daily_import(
         raw = json.loads(body.json_text)
         if not isinstance(raw, dict):
             raise ValueError("JSON object required")
-        if raw.get("schema_version") == "daily-prediction-snapshot-v1":
+        if raw.get("schema_version") in (
+            "daily-prediction-snapshot-v1", "daily-prediction-snapshot-v2"
+        ):
             return PredictionSnapshot.model_validate(raw)
         if raw.get("schema_version") == "company-research-v1":
             return CompanyResearchRecord.model_validate(raw)
@@ -396,7 +402,16 @@ def create_app(
 
     @app.exception_handler(OperationalConflictError)
     async def conflict_handler(_request: Request, exc: OperationalConflictError) -> JSONResponse:
+        if isinstance(exc, (PortfolioBaseConflictError, ReconciliationConflictError)):
+            return JSONResponse(status_code=409, content={"detail": str(exc), "code": exc.code})
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(OperationalStorageBusyError)
+    async def busy_handler(_request: Request, _exc: OperationalStorageBusyError) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"code": "STORAGE_BUSY", "detail": "保存処理中です。再試行してください。"},
+        )
 
     @app.exception_handler(OperationalIntegrityError)
     async def integrity_handler(_request: Request, _exc: OperationalIntegrityError) -> JSONResponse:
@@ -670,7 +685,27 @@ def create_app(
     def today(
         business_date: Annotated[date | None, Query(alias="businessDate")] = None,
     ) -> dict[str, object]:
-        return _today(store, business_date or current_time().date())
+        now = current_time()
+        selected_date = business_date or now.date()
+        payload = _today(store, selected_date)
+        end = now.replace(year=selected_date.year, month=selected_date.month,
+                          day=selected_date.day, hour=23, minute=59, second=59)
+        snapshot = store.latest_archived_prediction(min(now, end))
+        payload["savedAnalysis"] = None
+        if snapshot is not None:
+            symbols = snapshot.research_symbols()
+            predictions = {item.symbol: item for item in snapshot.predictions}
+            payload["savedAnalysis"] = {
+                "snapshotId": snapshot.snapshot_id,
+                "asOf": snapshot.as_of.isoformat(),
+                "generatedAt": snapshot.generated_at.isoformat(),
+                "dataAsOf": snapshot.data_as_of.isoformat(),
+                "modelVersion": snapshot.model_version,
+                "readOnly": True,
+                "holdingSymbols": snapshot.holding_symbols,
+                "predictions": [predictions[symbol].model_dump(mode="json") for symbol in symbols],
+            }
+        return payload
 
     @app.get("/api/v1/proposals/{proposal_id}")
     def get_proposal(proposal_id: str) -> dict[str, object]:
@@ -783,6 +818,8 @@ def create_app(
                 next_portfolio_id=body.next_portfolio_id,
                 created_at=now,
             )
+        except PortfolioBaseConflictError:
+            raise
         except OperationalConflictError as exc:
             raise HTTPException(
                 status_code=409,
@@ -850,6 +887,29 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
     ) -> object:
         records = store.latest_rankings(rank_type, limit=limit)
+        snapshot = store.latest_prediction_snapshot()
+        if (snapshot is not None and rank_type in ("overall", "5d", "20d")
+                and (not records or snapshot.as_of > max(item.as_of for item in records)
+                     or (snapshot.schema_version == "daily-prediction-snapshot-v2"
+                         and snapshot.as_of == max(item.as_of for item in records)))):
+            horizon: Literal[5, 20] = 5 if rank_type == "5d" else 20
+            ordered = sorted(snapshot.predictions, key=lambda item: (
+                -prediction_score(item, horizon), item.symbol,
+            ))
+            names = {item.symbol: item.company_name for item in records}
+            # Read-only projection of the original numerical snapshot. Overall
+            # uses the 20d priority; it never adds the two horizons or creates orders.
+            return [{
+                "ranking_id": content_id({"snapshot": snapshot.snapshot_id,
+                                          "rank_type": rank_type, "symbol": item.symbol}),
+                "as_of": snapshot.as_of, "symbol": item.symbol,
+                "company_name": names.get(item.symbol, item.symbol), "rank_type": rank_type,
+                "rank": index + 1, "total_universe": len(ordered),
+                "percentile": (index + 1) / len(ordered),
+                "candidate_status": "保有" if item.symbol in snapshot.holding_symbols else "候補",
+                "portfolio_action": None, "model_bundle_version": snapshot.model_version,
+                "data_snapshot_id": snapshot.data_snapshot_id,
+            } for index, item in enumerate(ordered[:limit])]
         return [
             {
                 **jsonable_encoder(item, by_alias=True),

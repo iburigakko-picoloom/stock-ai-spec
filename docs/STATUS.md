@@ -1,3 +1,361 @@
+## 2026-10-23 — 起動表示・不要保存・差分復元の4点修正（D237）
+
+- ホーム/今日/ランキングの暗号化された前回表示を独立executorで先に読み、正本照会中は日時付き閲覧用とする。正本成功で更新、失敗で表示停止。復元時の削除、遅着cacheによる新表示の上書き防止を実装。
+- startupは認証済みbase/operationsを別々に復元し、全ZIP再合成を回避。既存の初期化・整合性・復旧処理を保持し、変更なしの再export/暗号化commitを省略。migrationは必要なDBを保存する。
+- Python runtime37件、Web128件（型mock修正後の関連9件も成功）、typecheck/lint/build、実WASM11件成功。WASMでbase+operations復元、保存なし起動、profile読戻しを確認。Python初回試験の1失敗はexportによるcompaction前後を混同した試験baselineを修正。Web追加試験の初回sandbox rename拒否は未実行で、通常環境で成功。Android compile/JVM/lintとnative instrumentationは確認中。
+- 数値モデル/特徴量は変更しておらず全銘柄parityを反復しない。端末未接続、Xiaomi性能未測定。初回表示コピーがない画面は正本待ちが残る。市場ingestの全量保存は別の残件。正式採用HOLD。
+- 最終source `1f98f990d99fb5c277ee4a01a9c38462a806e757` をPR #3へpush。Android JVM31件・本体/試験compile・Lint成功。最初のoffline Lintは標準依存2点が未キャッシュで停止し、online取得後に成功。追加hooks失敗時非表示を含む7件成功。CI `39969635006` はverify/android進行中で、native instrumentation・Xiaomi合格とはしない。
+- 同署名の非公開0.1.39/code10039を既存本人Driveへ保存・非共有/サイズを読戻し確認。24,011,073 bytes、SHA256 `2c753ce6739574cfc94a16f52cf2aaafbc08c108c4bb4b1f2fc2e5b5990a301e`。署名は既存証明書と一致、非debug、46assetsの一致/生成profile/私有情報非混入検査成功、ビルド41.18秒。証拠は既存ローカル成果物領域 `update-0139-20261023/{tests,build,verified}.json`。署名APK起動と実機速度は未確認。端末へはこのAPKの上書き更新が必要で、公開自動更新先は変更していない。
+
+## 2026-10-23 — 取得の固定12.5秒待機を契約能力に応じ短縮（D236）
+
+- MarketClientはLightでも一律12.5秒待機だった。同一キーで非空TOPIX受信を確認してから1.1秒へ短縮。calendarを有料の証拠にしない。未確認/失効/認証拒否は低速維持、429は2分待機＋既存再試行。手動/Worker共通lockを保持。保存形式、データ値、モデル、ACK条件は不変。
+- JVM14件成功（pacing5/query4/burst5）、Android本体とinstrumentation compile成功16秒。最初の試行はsandbox内Gradle daemon接続失敗で未実行、通常環境で同じ範囲を実行。新規の課金/実データ取得/実機速度計測なし。1,000間隔の模擬待機1,100秒は実機全体の所要時間ではない。
+- 大きな残件：市場ingestごとのoperations/mobile両DB全量export（履歴蓄積に伴い増加）、日付別REST取得。休日はcalendarだけで短絡する実装なので「全暦日×6要求」とは数えない。Bulk日足の列差を確認済みで、単純置換せず別の実装/一致検証が必要。細かい効果の集計は行わない。
+- 同署名0.1.38/code10038を非公開候補として作成。source `da20e4a31cae743b7179115ba3d119d6dfb5a86a`、24,007,541 bytes、SHA256 `006e289d4e0bc63943633e5e7cfec33256fd01bf7d95faf7c14e8f30cf294b43`。署名/非debug/46assets/生成profile/私有情報非混入検査成功、build33.23秒。CI39938512462は進行中。前回7a9dcb5のCI39906866808は全体successで、今回の新pacing差分の証拠とは区別する。signed起動/Xiaomi速度未確認。今回の保存/推論無変更により既存数値検証を再実行しない。正式採用HOLD。
+
+## 2026-10-23 — バックグラウンド取得の再予約待ちを削減（D235）
+
+- 前回CI39896399901はverify/android-history成功、native95件成功だったが、OS配送試験でhistory_wait/failures1/retryAt+15分となりACK未完で失敗。取得のforeground拒否を通常の1slice取得へfallbackさせ、取得自体を止めないよう修正。長い計算では拒否を維持。
+- 実装上、4pageを上限に取得して日付/page sliceごとにWorkerを終了し5秒delay付き再予約していた。OS配送待ちが毎回発生し得るため、foregroundを保ったまま同じWorkerで有界連続取得する。120秒経過後は次sliceを開始せず、最大16slice。計算は新Workerに分離。API間隔12.5秒・保存後ACK・失敗時の保存済み再開は不変。Xiaomiでの停止原因を直接読んだ結果ではなく、コード上の待ち原因を修正したもの。
+- JVM関連11件（新burst5・foreground4・進捗2）成功、最終Android本体/追加instrumentation sourceのcompile成功。合成8sliceを1dispatchで処理、時間/回数上限、停止直後/失敗直後の後続禁止を確認。実端末の何倍改善や完了予想時間は未測定。追加instrumentationの計算分離はCI実行待ち。Web/モデル/保存形式不変で重い数値試験は繰り返さない。
+- 同署名0.1.37/code10037を作成・本人用の非公開引継ぎ先へ保存。source `7a9dcb5406212cc1134e10ad5891e45c50924286`、24,007,053 bytes、SHA256 `8a92696bfa796ab2afa335dbb0180a1e0caef6cbe22bf03880484606679871b9`。署名/46assets/生成profile/Python同梱/私有データ非混入検査成功、build30.96秒。最新CI全体とsigned APK起動/Xiaomiの改善速度は未確認。旧history_waitの再試行期限が残る場合は自動処理を明示停止→再開し、取得済みpage/日付を再利用する。TOPIX500選択の端末読戻しは未確認。正式採用HOLD・実注文なし。
+
+## 2026-10-23 — 取得の処理間にも進捗通知を保持（D234）
+
+- 0.1.35のforeground通知は1日/page slice終了時にWorkManagerが消す。自動取得のjournalから独立した固定ID6103のongoing/private通知を更新し、次の取得待ち・通信再開待ちにも保持する。取得から先へ進む場合や停止/入力・認証エラーでは解除し、古いsessionが停止後に通知を復活させない。OSで中断した間も継続通信を保証する表示にはしない。
+- 進捗状態とforeground方針のJVM4件成功、Android追加試験コンパイル成功。通知のongoing/非autocancel/privateと再open/古いtokenの試験を追加。端末未接続・空き約2.43GBでlocal instrumentation/Xiaomi通知欄は未確認。取得/暗号化保存/モデル/DB schemaは不変。Web試験と全銘柄推論は重複実行しない。
+- 同署名0.1.36/code10036を作成・本人向け非公開引継ぎ先へ保存。source `e73c1ae71d333b1f97c47910a947045c8a2ea845`、24,005,089 bytes、SHA256 `50e39afb97f9f61c11d197fc13f37be3280daf22b1eea58a9b73f6ddd15e30d9`。署名/非debug/46assets/生成profile/Python同梱検査成功、build33.59秒。CI39897331781はpending。新APK起動/Xiaomi通知欄は未確認。通知許可が必要で、OSの通知非表示や強制停止を回避しない。正式採用HOLD・実注文なし。
+
+## 2026-10-23 — D233を非公開0.1.35 APKへ反映
+
+- source `25b014962f18e10cfbd41d396717d4c395f7952e`、versionCode10035、24,003,981 bytes。SHA256 `d91a08c8effde36dd803928b3a2d2a6c0b0a1cbff55388a91e0fecd6b90e30e3`。既存証明書一致・非debug・46assets/Python/生成profile照合・私有モデル/データ/鍵混入なし。署名build47.26秒。本人向け非公開引継ぎ先へ保存し、公開Release/アプリ内公開更新案内は更新しない。
+- CI39895611341のAndroid persistence instrumentation（今回追加のDailyAutomation/DailyPipelineを含む）はsuccess。対象eefc9fdと候補25b0149の差分は文書/ブラウザ試験selectorだけで、native製品と試験の同一性を確認して再利用。CI全体は未完了。今回のsigned APK起動・Xiaomi背景継続/通知は未確認。追加のモデル取込や履歴の取り直しは必要としない。
+
+
+- 前回はD233をGitHubへpushしただけで、本人端末の0.1.34には含まれていなかった。0.1.35非公開候補へ反映する。現在ADB端末なしのため、本人端末の停止原因/実OS継続は未確認。
+- 旧0.1.34 CI39876702332のverify失敗は、保持した非表示画面も`.app-brand`検査が拾いstrict違反となった3件。可視headerが厳密に1件であることを先に確認し、ノッチ/横cutout/native paddingの座標assertをすべて維持。修正後の当該3件成功16.1秒。android-historyはverify未完による入力artifact不足で未実行。旧android jobは成功だが、新Workerの合格証拠へは流用しない。
+- D233のWeb13/JVM方針2件・最終native compile成功を再利用（今回製品source変更なし）。CI39895611341は進行中。必要な候補の署名/同梱検査と引継ぎを進め、CI全体やXiaomi成功と偽らない。
+
+## 2026-10-23 — 初回履歴のバックグラウンド取得を補強（D233）
+
+- 既存の自動取得はWorkManagerで画面から独立していたが、history/membershipでforeground通知を開始していなかった。両段階の取得前にdataSync foreground開始を待つよう修正。OS拒否ではhistory_waitと上限付き再試行に戻り、通信/保存を開始済み・完了済みと扱わない。暗号化commit後ACK・一日単位の予約・停止/再開・取得済みページは従来どおり。
+- 手動の画面内取得とは区別し、市場設定に既存の自動更新設定への導線を追加。自動更新は初回取得も含み、その後の日次処理も有効になることを明示。画面遷移だけでは開始しない。
+- 関連Web13件成功、型/lint成功。最初のsandbox試行はtemp rename EPERMで試験開始前に失敗し、通常環境で同じ範囲を実行。Android本体/最終instrumentation sourceのコンパイル成功、既存JVM suite成功、追加foreground方針/拒否区分2件成功。通知構築・取得前拒否・再開のinstrumentation試験を追加したが、端末実行は未実施。
+- 現在ADB接続端末なし、PC空き約2.45GBで追加AVD実行は見合わせ。Xiaomi/消灯時の実OS継続と通知は未確認。新APKへの反映は未実施（配布済み0.1.34にこの差分なし）。モデル/推論/保存形式/600秒制限は不変。正式採用HOLD・実注文なし。
+
+## 2026-10-23 — タブ復帰時の白紙読込を修正（D232）
+
+- 製品commit `8636ddc263c328df0ad325921f1d57669c6a8918`をPR #3へpushし、同署名0.1.34-candidate/code10034を本人向けに引渡し。24,003,741 bytes、SHA256 `4c386ce082a827854d0aebbcee9f6386f22c280b23ea1689baa4733be9a5094b`。署名/非debug/46assets/生成profile/Python同梱検査成功、build23.3秒。CI39876702332は実行待ちのため成功とはしない。Xiaomi実測・署名APK追加起動は未確認。配布先URL/IDは公開文書に含めない。
+
+- 0.1.33は同じ画面内の再取得で表示を保持するが、route切替で画面をunmountしていた。Androidのホーム/今日/ランキング/検証を既存React Activityで保持し、タブ/銘柄詳細/設定から戻ると前回の参照表示を残して再確認する。隠れた画面のeffect/timerは停止し、未表示タブのAPI先読みは発生しない。
+- navigation keyの相違を同期的にloadingへ反映し、最新照会前の提案の確定導線は無効。取得失敗では古い値を消す。設定入力/確定画面の寿命、Web版route、Python/native/保存/推論は不変。全GETのcache・整合性検査の省略は行っていない。
+- Web全124件/20ファイル成功7.39秒。検証画面の最後の表示条件修正後に関連28件成功4.45秒、lint/型/build成功。最初の新試験失敗は非表示DOMまで検索したselectorであり、可視のhome regionへ絞って白紙不在・旧値可視・確定禁止・fresh更新・error時消去を検査した。API呼出し数で非表示tab/focusの余分な取得なしを確認。
+- 初回起動/初めて開く画面、SQLite全体の整合性確認、計算待ち行列、Xiaomi実測は今回未改善/未測定。タブ復帰の修正を「全操作が高速化」と扱わない。0.1.34非公開更新へ反映する。
+
+## 2026-10-23 — 0.1.33非公開更新APKとPR反映
+
+- D229/D230/D231の修正を製品commit `9aa572ddcb16d096071a9611fdce88243e2d8f26`としてPR #3へpush。関連Python148/Web123/Android43件の既存成功範囲は、変更した製品/試験31ファイルのhash一致を確認して再利用。モデル・依存・推論定義は変更しない。
+- 署名0.1.33-candidate / code10033を作成（Gradle約80.3秒）。24,003,661 bytes、SHA256 `7ce49b0c6e7293761e43a247246a35e143470cef7cb37f0ebab9d0099a0fed7f`。旧0.1.32と証明書一致・package ID一致・版番号増加・非debugを確認。46 assetsと凍結sourceを照合し、私有モデル/市場/鍵/試験機構の混入なし。生成ART profileは旧版byte固定ではなく、今回のcompileReleaseArtProfile出力との完全一致で検査した。
+- 本人向けAPKの引渡しを確認。旧APKとbundleは保全し、モデル再取込は不要。配布先のURL/IDと私有引継ぎ記録は公開文書へ含めない。
+- [CI39874569871](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39874569871)は記録時点で進行中。過去の「CI待ちよりAPK引渡し優先」の本人指示を継続し、CI成功とは表示しない。正式署名APKの追加起動/Xiaomi受入・実データ速度は未確認。main merge/公開Releaseは未実施で、アプリ内の公開更新案内には今回版は出ない。正式採用HOLD・実注文なし。
+
+## 2026-10-23 — 台帳競合・入力保持・保存負荷の修正完了（D231、ローカル検証）
+
+- 基点commit `12d52e18bf360689ff7083da7e4090d1c442dd24`＋ローカル差分。D230のselectorに加え、positions CSVの基点ID/hash・関連約定・日時検証、原子的確定、同一結果への安全な再試行を実装。約定CSVも途中失敗を全rollbackし、追加/未追加件数receiptを再試行で維持する。旧previewは書換えず必要時に再作成。BUSY/LOCKEDは破損と区別する。
+- 入力中の設定/初回台帳/提案draftを背景refreshで上書きしない。初期読込失敗時は再試行でき、保存中の重複操作を防ぐ。409は旧previewを無効化し、不明な保存結果は同じID/bodyで再試行。読込はhook内で実行中1件＋後続1件へ集約し、再取得中の既存表示を維持する。検証済みモデルの二重parseを除去。全GET cacheやPython並行読込は導入していない。
+- Androidの小さな個人設定/台帳4 POSTはoperationsだけを暗号化保存し、市場DBの暗号文を保全する。差分は復元/export時に合成し、全状態保存時に原子的置換。世代競合・容量不足・中断/破損時の元データ保護を維持。初回復元や市場更新、その他POSTの全状態保存は残る。
+- Python関連147件成功49.82秒＋追加BUSY試験1件成功0.21秒（計148件の範囲）。Web全123件/19ファイル成功9.63秒、lint/型/build成功。Ruff変更範囲・mypy変更3source成功。モデル/特徴量/依存版は不変で、全銘柄数値照合と再学習は繰り返さない。
+- API35隔離AVDで保存関連24件の範囲を確認：初回の原子的inline読込/欠損chunk分類を修正後23/24成功、残る旧例外期待値をSecurityExceptionと具体コードへ修正して関連17件全成功3.661秒。未変更のStatePersistence7件成功を再利用。正常保存・競合/commit失敗復旧・portable backup復旧・cancel・日次保存後再開の結合4件全成功138.587秒、native JVM15件成功。日次fixtureは休場calendarであり、新モデル実市場推論やOS Worker配送の証拠ではない。
+- 性能参考：API35/4GiB/2core、Python初期化後・市場履歴なし/空保有の合成profile POSTは96ms。実市場730日やXiaomiの速度・最大RSSは今回未測定。debug APKは検証専用で、既存署名0.1.32を差替えていない。今回CI・APK配布・push・Drive書込なし。正式採用HOLD、実注文なし。
+- 私有証拠/復元用差分：`.demo-artifacts/reconciliation-20261023/receipt.json`、同ディレクトリのnativeログとcheckpoint。外部条件として残るのは新修正の署名配布APK作成/反映、Xiaomiでの実データ保存速度・入力操作の受入と真正日次更新。今回の修正完了をA/B全完了と読み替えない。
+
+## 2026-10-22 — 初回台帳の価格読込削減（D229、APK未反映）
+
+- 原因照合: 初回台帳の価格取得で全日付の型確認読込が残り、POST保存はoperations/mobile両DBのarchiveを待つ。今回まず台帳参照専用経路を追加し直近確定日から検証読込。特徴量読込は不変。
+- 合成4日分で直近確定日の1batchのみ読込み、参照価格とsource hashが従来と一致。特徴量読込39件・個人台帳23件、Ruff成功。訂正によるpreview無効化・欠損/古い価格拒否・復元等の既存試験を維持。最初のsandbox実行は失敗表示後に進行停止し中断、通常実行で各対象を完走した。初回uvはPATHに存在せず未実行、既存venvを使用。
+- 全DB暗号化保存の分離、表示の共通待ち列、再取得中の表示維持、保存後readiness待ちは未修正。実SQLite/Xiaomiの秒数は未測定。0.1.32にはこの変更を含めず、APK/CI未反映。正式採用HOLD。
+## 2026-10-22 — 非公開0.1.32 APK引継ぎ
+
+- source `d45124e68a61eb6be77295448606c252da628bd2`、CI `39699685667` のverify/android/android-history成功、release skipped。D227/D228を反映し、11:30前・更新中も日付付き保存済み分析を閲覧できる。未保存なら初回準備表示。
+- 正式署名0.1.32-candidate / code10032、23,995,029 bytes。SHA256 `afcc7cadcc1cc00df2c32a5d89b1c4be49582a4d3a8705f863018a949bdd6f87`。既存証明書一致、957 source / 43 assets照合、私有データ・試験機構混入なし。build 3分1秒。本人指定の非共有Driveへ保存しサイズ・親・非共有を読戻し確認。
+- 必須CIと変更範囲の検査を実行。推論・モデル不変の数値一致証拠は再利用し、再学習・全量数値試験を重複実行していない。追加の署名APK起動・Xiaomi更新後操作は未確認。実機速度改善は未測定。モデル再取込不要。正式採用HOLD、公開配布なし。Drive保存だけではアプリ内更新案内は出ない。
+- 私有証拠: `candidate-0132/release/private-candidate-verified.json`、`candidate-0132/handoff.json`。以下の旧未完記録のうちCI・候補作成は本項で更新。
+## 2026-10-22 — 保存済み分析の朝・更新中閲覧（D228）
+
+- 今日APIへreadOnlyのsavedAnalysisを追加。active選択が当日blocked/nullでも、hash照合済み確定archiveから対象時点以前の直近を読み出す。過去の予測日・生成時刻・モデル版、上位20＋全保有、順位score/5日20日return/nullを保持。現在のproposal/判断/口座/保存形式は不変。
+- 今日画面に日付付き保存結果を表示し、当日完了後に切替え。初回未保存、11:30前、照会中を区別。古い株数案のreview拒否は維持。更新状況ボタンがCSV照合へ進む問題も市場設定への導線に修正。
+- API20試験のうち初回19成功、破損注入commit漏れのfixtureを修正して追加2試験成功（合計20の範囲を確認）。未来の生成結果拒否、再起動、active未選択時の履歴閲覧、最新確定への切替、破損503、履歴不変を確認。mypy変更2sourceとRuff成功。Web全115中114成功後、変更した画面文言の期待値を更新し対象24試験成功。古い提案の確定禁止assertは維持。lint/型/build成功。
+- これは実装・合成検証。新sourceのCI、候補APK、Xiaomiの表示確認は未完で、既存0.1.31へ反映済みとはしない。実時計・受領時刻の変更、再学習、実holdout、正式採用、実注文なし。
+
+## 2026-10-22 — 設定の不要な先読みと説明重複を削減（D227）
+
+- 非表示のSettingsPanelが全てmountされ、市場4API・モデル3API・個人設定2API等を一覧表示時に要求していた。初回表示までmountを遅延し、一度開いた画面は保持する。資金/下落率編集だけで個人補足設定を読み込まない。入力・進行中保存・復元previewを閉じるだけで破棄しない。予測cache・計算・DB・nativeは変更しない。
+- モデル件数をファイル数と明記。停止理由の重複を除き、未完了の数値予測を保存成功に見せない。保存中の重複文章、通知・保存完了の冗長文を削減。正式採用前、出力単位、拒否理由は保持。
+- Web113件/16ファイル成功、lint/型/build成功。画面E2E14件成功＋文言更新後の保存中遷移1件再試験成功。削除した旧文言を期待した試験失敗は新しいスピナー可視性・単一表示・保存無効化・入力クリア・呼出し1回の確認へ修正。初回sandboxのEPERMは試験実行前の環境失敗であり、同一試験を通常環境で再実行した。
+- 未表示パネルの読込0回、初回1回、再表示で追加読込0回と入力保持を合成試験。Xiaomiの短縮秒数、全アプリの起動/計算改善は未測定。今回差分は0.1.31 APKに未反映、次候補のCI/署名検査は別途必要。
+
+## 2026-10-22 — UI修正を非公開0.1.31 APKへ反映
+
+- 製品source `1ee1a20936670b17af49c58d4122a645ff1dfb0c`、CI `39615024289` のverify/android/android-history成功。公開releaseはskipped。保存中の設定画面再生成を防ぎ、進捗表示・白背景・説明用折りたたみ削除を反映。関連Web111件、画面操作15件と最終変更後の対象画面確認を再利用。
+- 正式署名の非公開 `0.1.31-candidate` / code10031を作成・検査。23,994,317 bytes、APK SHA256 `3ce6b6983aad72618e4b60cf9889d610fcaf9306898bb93e29da743dc7f9be93`。既存certificate一致、私有モデル・市場データ・試験専用機構なし。ビルド2分51秒。本人指定の非共有Driveへ保存し、サイズ・保存先・非共有を読戻し確認した。
+- 署名APKの追加起動確認は、ホスト空きRAMが6GiB未満（再確認5,974,772KiB）のためエミュレーター起動前にBLOCKED。制限は緩和せず、本人アプリを終了していない。CIでのdebug経路成功をこの署名APKやXiaomi成功に読み替えない。本人端末への0.1.31更新・保存操作は未確認。
+- Python/native/モデル/依存関係は7ac228fから不変のため、既存の実モデル489銘柄×3出力照合を再利用。新たな学習・実holdout・正式採用は実施せずHOLD。既存一括受入票を更新。私有記録 `candidate-0131/handoff.json`、`release/private-candidate-verified.json`。
+- 公開最新版は0.1.27のまま。Drive保存では更新案内は出ない。0.1.31のupdate.jsonは実APKのhash/sizeで準備したが未公開。main merge・新規公開配布・実注文は行っていない。
+
+## 2026-10-21 — 白背景と簡潔な設定画面（D226）
+
+- 本人の追加指摘により「折りたたみに移すだけ」を撤回。入力・保存について/初回台帳とは/予測について/株数計算方法の説明用折りたたみを削除。重複説明と一覧説明文をコードから削除し、計算方式入力と必要注意は直接表示。保存中の重複文章も削除。再試験Web111件とlint/build成功。税費用の実入力、承認に必要な研究条件、失敗理由は維持。
+
+- 本人のQuiz Make参考指示に従い、手元quiz-makeの白surface・区切り線・簡潔な行構成を参照。全画面の背景を白へ変更し、Android設定一覧は項目名/値/アイコンだけを視覚表示。説明は読み上げ用に保持。
+- 開いた先の入力/保存/エラーは表示を維持し、残高説明・口座税NISA・計算方式・モデル補足はdetailsへ整理。残高登録を入力→確認の2段階に表記。D225の保存フォーム維持/spinner/本人確認/API/台帳は不変。
+- Web111試験・lint/typecheck/build成功、既存settings-layout15件全成功（320/390px・文字100/150%、cutout、操作間隔、保存中の設定遷移）。実ブラウザーの390px設定スクリーンショットで白背景/余白を確認。Xiaomi/新APKへは未反映、必要CIは新commitで確認する。
+
+## 2026-10-21 — 設定保存中のフォーム破棄を修正（D225）
+
+- 本人から初回台帳入力・保存中に画面が更新される報告。SettingsPageの共通useApiDataが60秒/focus/visibility/onlineでloadingへ戻り、MobileDevicePanelと下書き・保存待ち・初回previewをunmountしていた。Android編集入口を参照専用設定ページから分離し、参照ページの鮮度保護は変更しない。
+- 口座保存と補足設定・初回台帳処理に進行表示（spinner/端末に保存中）を追加。失敗時の入力保持と二重送信防止を確認。暗号化/native/API/台帳内容/モデルは変更していない。端末の保存破損が確認されたという意味ではない。
+- 今回のWeb全15file/111試験、lint、typecheck、production build成功。追加回帰は120秒とfocus/visibility/online後の編集保持、保存待ち表示・重複クリック・失敗時入力保持。最初のsandbox実行は一時ファイルrenameのEPERMで試験開始前失敗、通常環境で同試験成功。旧CIを今回差分のPASSに流用しない。
+- 端末の0.1.30には未反映。新しい候補APK/必要CIとXiaomi再確認が残る。本人の初回残高確認は代行せず、正式HOLD/C未実施を維持。
+
+## 2026-10-21 — A/B限定の通常取込・保存検証、0.1.30とXiaomi上書き（D224）
+
+- 最新範囲はA研究用アプリ・B同一APK/bundleのXiaomi受入。Cの正式Selection/追加研究/実holdout/正式採用は実行せず、HOLDを維持。製品sourceは`7ac228f8b0a915e6e0f04a63ecf8c08501b9eff7`のまま。CI [39591437353](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39591437353)はverify/android/android-history全成功、release skip。今回の記録差分は文書/証拠だけで、製品/依存/assets不変を確認してこのCIと既存128関連試験を再利用する。
+- API35の通常APIで実3head bundleを取込→保存モデルから489銘柄×3出力/上位20のPC差0→非取引研究snapshot保存→暗号化再起動読戻しを確認。中断前の登録を巻き戻さず、再取込の冪等性も成功。全47 typed tableを12.734秒で比較し、新規3行（bundle/selection/研究snapshot）以外の44tableと全旧行は不変。これは後日作成モデルによる過去入力の技術projectionで、通常日次成功ではない。
+- 同じ実bundle/実weight＋明示した合成日時/3銘柄の合成特徴量で、通常予測公開/ホーム・今日・ランキング/固定回答JSON検算・保存/不正bundle・JSON拒否/同日cache/入力変更時無効化/復旧を9.79秒で一連確認。資産・税・実約定・旧予測は不変。新予測/相談/選択metadataと、未提供riskによる日次状態1行を内容付き許可差分とした。実市場/実営業日/外部ChatGPT品質の証拠とはしない。
+- 同CI資産から非公開の正式署名0.1.30-candidate/code10030を114.701秒でbuild/検査。`jp.stockai.app`、23,994,429B、SHA256=`2f9ff1bf5d0a88062bb7f985cb9665b560fb35ff980f5c619ba16460b92d9f0e`。旧版と同じ証明書`97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979`、非debug、モデル/市場/私有試験機構非同梱。bundleは別の13,012,309B、SHA256=`f595cebc6f0bfabe1e10714a24d6b4323feeda03cd2fb12886fb63d01b1daa4e`。
+- Xiaomi 14T Pro/Android16/API36/HyperOS3.0を識別。本人のバックアップ保存確認と旧APK署名照合後、0.1.27→同じ0.1.30の`install -r`に成功。アンインストール/データ消去0。入力注入のOS拒否とUSB debug offline後は手動へ切替え、本人指定の非共有Drive「株AI」にbundleを保存/親・byte数・ownerのみを再確認した。本人画面では研究用表示と通常計算の停止応答を確認。理由は口座/保有・初回台帳の未確認と、それに続く数値予測未完。本人の入力/初回台帳確認が必要で、本人確認の代行はしない。
+- API35の技術試験全体446.000秒、再取込＋AES52.523秒、保存モデルprojection＋AES82.457秒、app＋WebView RSS標本最大2,171,650,048B。新構成の通常初回/真正差分/同日再表示の全体性能は未測定。600秒はComputeHostの1要求応答（初期化read lease120秒）、DailyWorkerのowner待機660秒とは別。旧cold593.209秒や今回projectionを日次全体へ流用しない。
+- [既存証拠へのA/B追記](evidence/model-completion-20261020/selected-three-integration-20261021.json)。本人端末のbundle選択ID/取込件数・実予測・相談・再起動/通知は未確認。今日11:30後に作成/取込したモデルの当日利用拒否を維持し、真正な次営業日更新を個別BLOCKEDとする。A/B全完了とはしない。検査ツールのAPK役割別versionCode/JSON転送/host URI指定を直して既存結果だけ再検査し、数値assert/許容差/必須CIは変更していない。署名エミュレーターprobeの旧package不在による設置前FAILも保全。新規課金/実注文/main merge/新規公開配布/実holdoutは0。
+
+## 2026-10-21 — 必要3モデルの同fit書出し・実Android数値照合（D223）
+
+- D222の研究用構成を訓練入力/設定/列順/seed17へ固定し、不足3本だけを1本ずつfitした。5日CatBoost回帰403.297秒、20日CatBoost回帰495.204秒、20日LightGBM順位574.219秒、合計1,472.720秒。同じfitからnative/fullprocessor/portableを書出し、全面再学習/書出し専用再fitは0。全訓練date/label_end/label_availableは2026-03-04未満。後日取得版の出所時刻は保持し、実holdoutは開いていない。
+- 私有 `selected-model-fitting-receipt-v1.json` SHA256=`fe18f135e289a19a960057ca760f199b81f104f8283ffbf208d88b1f5aaed7ba`、bundle SHA256=`f595cebc6f0bfabe1e10714a24d6b4323feeda03cd2fb12886fb63d01b1daa4e`、13,012,309bytes。5日/20日returnと20日rankのidentity3headであり、合成改善や未採用risk/校正を追加していない。PCの全489銘柄×3head/前処理/上位20/逆順/nullable snapshot読戻しは差0、3.458秒。
+- 既存API35隔離AVD/暗号化状態/Keystoreを再利用し、公開parity APIの新3モデル全1,467基本出力と全1,467合成出力・上位20・逆順がPCと差0。native試験368.260秒、最初のowner POST53.308秒、app＋WebView RSS標本最大2,270,015,488bytes。暗号化再起動後を含む47 typed tableは10.437秒のhost検査で全件不変。保有/現金/税/旧予測/cacheを削除・初期化していない。
+- 私有 `selected-model-device-proof-v1.json` SHA256=`ac0f352ef84c75614d764e6b60e3bb3a5d4b2fac4ca62be1f56261271c7ec92c` を根拠に、このbundleだけを既存research policyへ追加。正式approved欄は空のまま。実行APKのruntimeはb11b97で、d64との数値/保存kernel差分0を検査した範囲に限る。旧入力を後日作成モデルで数学的に照合したもので、当時利用可能な予測・通常日次・新bundle通常取込/新予測保存・Xiaomiの成功とはしない。
+- policy変更後の取込/ensemble/nullable snapshot/母集団/相談/復旧の関連128合成試験は101.35秒で全成功。実13MB bundleのPC隔離DB取込/選択/読戻しも成功し、pinなし/改変byte/正式取込/過去cutoffは拒否した。PCでは同一feature-selectionのasset配置だけを適合し、実Android通常取込は別工程。Ruff全体とdiff検査は成功。d64のCI39582760928は必要3job全成功だが新policyの証拠へ流用しない。初回制限環境のTestClient停止と私有helper修正の履歴を保全した。
+- [実測・hash記録](evidence/model-completion-20261020/selected-three-integration-20261021.json)。旧cold593.209秒を新モデルの日次実測へ読み替えない。今回policyのCI、通常取込/新研究projection保存、非公開候補APKを仕上げる。正式HOLD/strict最終の後日受領障害と本人指定のXiaomi後回しは維持する。
+
+## 2026-10-21 — 全18構成の共通条件付き費用比較を完走（D222、先行記録）
+
+- 全18構成/72taskの保存OOFに基づく単体回帰9・単体順位9・等重み/学習重みreturn/rank4・保存momentum・全現金HOLDを、5/20日×片道20/40bpsで比較した。**新96ケースは96完走/不完全0、合計1,426.390秒**。初期1,000万円/上位20/90%/100株/既存資金解放と同じstateful NAVを再利用し、別の損益エンジンやGBDT再学習は0。全96の圧縮原本/読戻しreceiptのhashを照合し、日次台帳・未約定/費用/turnover定義を保全した。
+- 私有 `conditional-nav-v1/comparison-receipt-v1.json` SHA256=`c1ccc75607a6950d6416c2a3709dd27953a5ba3e486b8d3e0e0147609abc9b52` に全ケース・3seed平均/ばらつき・対照差・原本を対応付け、`comparison-v1.csv`へ保存。評価日は5日177日（2025-04-24〜2026-01-15）、20日140日（2025-04-14〜2025-11-06）。異なるhorizon期間の単純な優劣比較はしない。
+- **旧152条件の56完走/96不完全を修復した意味ではない**。今回のCは成熟ラベル/保存出力の共通部分であり、Pからの15/96行除外に由来する条件付き選択バイアスを明記する。保有/未収権利/損失を除外していないが、fullP/当時の全対象による実運用成績・正式採用の証拠にはしない。配当除外/税引前・後日取得単一版・日足proxy/費用/分割/資金解放の仮定は維持した。
+- 20日weighted rankは最強個別ICを上回らず、回帰ensembleの改善も保存済み20営業日blockのpaired区間で安定を確認できなかった。研究配備は20日LightGBM順位seed17と、両horizonのCatBoost回帰seed17を候補とする。全seed平均/固定seed規則で選び、成績のよいseedだけを選ばない。20日主候補のMDDはmomentumより悪く、5日回帰も40bpsで対照差を満たさないため、**正式採用HOLD/基準据置**。risk/未検証校正はnull、5日を主売買へ加えない。
+- 同fit保持モデルの最終評価入口を実装し、変更後の関連56合成試験が70.58秒で成功。Ruff全体/mypy76source非incrementalも成功。空prefitのlegacy ID互換、異なる訓練/モデル/processor/snapshot拒否、特徴量だけのprovider、成功checkpoint再fit/再推論0、保持sinkの未設定/未実行拒否、境界exclusive filterを確認した。初回fixture型/Windows禁止文字とmypy型の失敗は保全して修正し、NumPy/Pandas fixture警告12＋既存negative-schema警告1を残す。[検証記録](evidence/model-completion-20261020/checks-20261021-prefit-inlet.json)。新sourceのCIは後続であり、2be9bce/CI39573724466の必要3成功と区別する。
+- strict最終評価に必要な独立所属/利用可能時刻は別障害。保存dated master/calendarの実受領が過去の判断より後であり、過去時点へ受領時刻を戻して厳密評価を通さない。最終holdout/owner_manualは未実行。本人の端末確認は後回しとし、この工程だけを待つ。0.1.29私有候補と一括受入票を保持し、新公開/main merge/実注文はしない。
+
+## 2026-10-21 — 本人の完成優先指示を反映し全補修queueを停止（D221、進行中）
+
+- 20日主軸/5日補助、ChatGPT上位20銘柄＋全保有（重複除外）を本人回答で確定。20％化/新しい期間混合/広範な重み探索はしない。同じlocalのPR #3を継続し、モデル固定→最終holdout→APK→Xiaomiを優先する。
+- 実行中だったXGBoost20日順位seed17/fold2は735.047秒で完了。元共通225,308行差0、追加ラベルなし3,018行を含む全228,326行を別identityへ保存。同じfitのnative/portable/fullprocessorを保持した。worker240816/supervisor90368は不存在を確認し、後続fit0、boundary markerを保持。復元18/126、残108は必須queueではない。私有index SHA256=`2a9cdeebeb57d582dbf29e4276e3ee5ce84a55f66f72f7418ccb27addadb2622`、72task `inventory-006.json` SHA256=`99b99a005437073d7a3e6d79f4bea9daff0c1bc7f2f743afd63ac3c0f60d6207`。
+- 旧全18の認証済みdaily-forward-crossfit-v1/単体・ensemble・baselineの共通後半比較を再発見し再利用する。全市場を母数にした順位をTOPIX500内順位へ同じものとして移植しない。必要な同一母数の条件付き比較だけを追加し、元152/96不完全/新P250比較を分ける。欠損の条件付き除外で失われる順位/実運用への一般化を明示する。
+- この全18比較は共通Cを先に保存して実行済み。元OOF354/279日全prefixを使い、既存3 forward fold/purge/校正の数式を変えず、評価177/140日を維持。5日E176,036/P175,410/C175,395、20日E138,879/P138,453/C138,357で、Cは成熟ラベルと全9候補×4taskの保存予測の共通部分。採点後半は87,563/69,255行。Pから落ちる15/96行もE/P/C membershipへ理由付き保存し、fullP順位/NAVの証明にしない。4工程すべてCPU1/RSS3500MiB/600秒のguard成功、outer合計139.162秒・RSS最大952,086,528 bytes、GBDT fit0。私有 `conditional-all18-comparison-v1.json` に原本/新receipt/hashを対応付けた。v1初回はfold int32/int64だけの型差で停止し、633時点の値差0を確認して整数型だけ正規化したv2で実行。元失敗/plan/OOFは保全。
+- 条件付き順位ICは5日等重み0.071445/学習重み0.084501、20日等重み0.096004/学習重み0.109397。20日LightGBM順位の3seed平均0.103190・代表seed17は0.111802で、学習重みが単体を常に上回るとは判定しない。回帰MSE/MAE/RMSE、全3seed、校正前後、保存momentum/zero基準も同じCで出力した。zero予測と全現金HOLDは別。費用比較/最終構成固定はこの後であり、正式採用/実holdout完了とはしない。
+- 最終評価の初期loaderだけを既存の全logical hash認証付きcolumns読込へ変更した。固定特徴量・rawラベル状態・compositionの受領時刻を保持し、予測行をラベルで事前除外しない。変更後のlocked holdout/composition/予測母集団/research memory関連45試験は34.34秒で成功（2既存警告）。全列読込とのsnapshot ID・保持列の型/値・ラベル欠損行・6成分の全30予測行を合成試験で確認した。私有 `holdout-projection-001/results.xml` に保存。大規模な評価器再構築や別損益エンジンは作らず、実holdoutはまだ実行していない。
+- 同じ差分の最終戦略/NAV接続19試験も27.32秒で成功し、Ruff全体とmypy76source（非incremental）が成功。関連計64試験。最初の19試験呼出しはrootがbasetemp親を用意せず18 setup errorだったため、失敗logを残して別directoryで修正実行した。[今回の検証記録](evidence/model-completion-20261020/checks-20261021-projected-inputs.json)。checkpoint65219fcのCI39565041769も必要3系統成功したが、この未commit source差分のCI成功証拠とはしない。
+- 追加warm計測は私有handoff/合成反例34件まで保全し、build/VM/実データ実行は0で保留。初回593.209秒と検査済み0.1.29は維持。本人の正式採用はHOLD、owner_manualなし、新APK公開/main merge/実注文なし。
+
+## 2026-10-21 — 実SQLiteから実ensemble・暗号化保存・再起動まで照合（D220、進行中）
+
+- 製品source2b0f361/成功CI39549216577の同じ数式を使う隔離API35試験で、現版cache再構築→特徴量/P250→実3component/合成→研究snapshot保存→暗号化publish→再起動読戻しを完走した。SQLite219,598,848 bytes、全市場485営業日の価格/マスタ計970日別snapshot・4,291,120 source rows、候補493/予測可能489/保有0。PCと全特徴量/欠損・1,467基本出力・合成後/上位20が完全一致。通常APKと違う唯一のprivate runtime appendixで凍結入力を検査する技術経路であり、通常予測/採用/Xiaomiの成功にはしない。
+- 入力再構築532.273秒、特徴量/P証拠11.196秒、portable合成0.857秒、計算とsnapshot544.904秒。queueから状態export/AES永続publishを含むownerPOSTは **593.209秒**。製品1要求600秒は維持したが余裕は6.791秒であり、十分な性能余裕や日次3分を達成済みとはしない。旧399秒の入力より速くなったとも主張しない。warm再利用の実測を別に進める。
+- fixture準備125.081秒、検査/再起動126.430秒、native一連844.724秒（JUnit844.785秒、host観測851.812秒）。試験準備/検査と製品1要求を分離し、前者の時間を製品の600秒へ混ぜない。app＋WebViewのRSS標本最大 **3,203,035,136 bytes**、host空きRAM最小1,582,391,296 bytes。既存CPU/RAM/600秒を緩めていない。旧renderer単独3.3GBの観測とは定義をそろえず削減率を作らない。
+- nativeはOK(1 test)/時間枠PASSだったが、初回controllerは私有host照合helperのfile URIにuri=Trueがなく失敗した。旧helper/FAILED report/全出力を保全し、2つのreadonly接続だけを修正。日本語/空白path・書込拒否・既存snapshot改変・余分な挿入・期待行欠落の5試験を確認し、保存出力から全47table（mobile20/operations27）を再照合して成功した。callerの相対outputによる別失敗も保全し、絶対pathで再検証。nativeの重い全量処理は再実行していない。途中のrootの「要求600秒超」推測は、実測593.209秒に訂正し、追加004のlogging/teardown案は未実装とした。
+- 私有 `current-cache-ensemble-android/execution-003/combined-verified-v1.json` SHA256=`6d41483f5c991acdc06922c744f877c521d25f317c09d05f363eac5f620d65d9` に成功native/host再照合と元FAILEDを対応付けた。元capsule不変、cacheと新研究snapshot1件以外の全typed内容不変、再起動後全table一致。元のactive selection/通常daily latestは維持され、新projectionはID指定で確認した。本人の非空保有確認・通常モデル配備とは区別する。
+- 暗号化保存前のencoded stateは248,814,264文字で、既存256MiB上限まで19,621,192文字の余裕。本人台帳/履歴を削らず、上限を増やしていない。この1回の成功を無期限の継続余裕とせず、真正な日次とXiaomiは引き続き未確認。使い捨てVM/重複した展開作業ファイルだけを、元capsule/出力/検証hashを保持して整理する。
+- 全36回帰/順位系列の次比較も元18report/同P250/crossfit条件からmetadataだけ固定した。私有 `p250-ensemble-preparation/future-original36-plan-v1.json` SHA256=`1131ae7864c6e85f7cbe1a6e54da5dd4c0d0df1dba6499024d093ffe20c2e0ad`。未復元のcomponentを省略して成功表示せず、全体比較は引き続き未完。正式HOLD、実holdout未実行、本人審査なし、Xiaomiは本人指定で後回し。新規課金/注文/main merge/新APK公開なし。
+
+## 2026-10-21 — 順位ensembleの実比較・72タスク診断・検査済み候補（D219、進行中）
+
+- 製品source `2b0f36192b7386253c8c0b831cf91d1c2bcbbd3c` のCI [39549216577](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39549216577)はverify/android/android-history全成功、release skipped。tested merge `b11b97fc1a4d005066ac58b97b252811176a62b2` とsourceのtree `1088499814a00dd8783a9ac6af9b298852440688` が一致。D218の全体試験と、このpolicy差分の関連63件・対象CIを区別する。
+- LightGBM seed17の回帰/順位×5/20日を、独立P250の全予測母集団で再生成してcrossfitした（4/36系列、32系列は未比較）。全母集団内の順位化後にだけlabel maskを適用し、未来ラベル不明15/96行を保持。回帰は1成分だけなので等重み/学習重みreturnは単体の別名参照であり、独立ensembleの成功数へ加えない。順位ensembleは回帰と順位の2成分。元OOF/学習条件/未使用holdoutは不変。
+- 既存12 NAV条件に新しい順位単体/等重み順位/学習重み順位×5/20日×20/40bpsの12条件を追加した。新smoke2本は各6.016秒、新full12本は131.224秒。全24 unique full結果と8別名参照を明確に分け、同じ期間・候補・資金/売買/費用条件・全日次ledgerを認証した。私有 `p250-rank-nav/comparison-receipt-v1.json` SHA256=`7e22435dec08a123917eb116d7f3645b8417d341d0408e9c72eb4cb643a48b36`、比較CSV SHA256=`a40ebc6225b88d9d66f9a505a18b07835d76058eb26261db5fe8a4d211d11643`。集約guardも成功（9.270秒、RSS544,047,104 bytes）。未約定・費用・turnover定義・原本hashを保持した。
+
+| 期間/片道費用 | 回帰単体 | 順位単体 | 等重み順位 | 学習重み順位 | momentum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 5日/20bps | 16.2584% | 17.9627% | 15.0643% | 14.7307% | 18.6658% |
+| 5日/40bps | 10.6608% | 14.6053% | 10.4017% | 9.9612% | 16.1214% |
+| 20日/20bps | 17.5730% | 12.3445% | 23.8999% | 21.0468% | 12.2585% |
+| 20日/40bps | 16.3517% | 11.4966% | 22.8031% | 19.6720% | 10.4840% |
+
+- 上表は費用後の期間収益。全現金HOLDは0%、初期保有継続とは別。20日20bpsの等重み/学習重み順位MDDは3.6102%/3.7627%、momentumは2.2672%。5日側は全候補がmomentum以下。片seedの探索的結果であり、学習重みが最良とも正式採用とも判定しない。配当除外・税引前・日足終値proxy・事後会計の限界を保持し、旧152/旧96不完全の修復とは扱わない。
+- 同じ凍結snapshotのTOPIX価格指数187日をraw/normalizedのDecimal厳密一致で照合した。各NAVの177/140日gridとfirst/last closeを結合し、初日終値→末日終値の参考リターンは5日側41.5196%/20日側33.1500%、終値MDD4.0258%/3.7995%。費用なし・配当除外の非投資可能な価格指数参考値で、初日以前の値動きを加えず、採否基準への後付けもしない。私有 `reference-index/boundary-binding-v1.json` SHA256=`3d97b2d3d6d61769eb930cc54d3eca0e20aaea97172fe9cd068eb7f176b5c034`。
+- 保存済み18構成/72タスクを同じP250採点集合（5日87,563/20日69,255行）で診断した。全18工程guard成功、計454.743秒、最大RSS488,505,344 bytes。3seed平均/標準偏差・代表seed17・回帰誤差/zero基準・Rank IC/有効日数・Brier/log loss/校正bin・pinball/包含率を保存。私有 `p250-task-metrics/comparison-receipt-v1.json` SHA256=`2d8e2c887b6d293a742f7249e18861f4b00ac95788f28030f425af3f4fe47e0f`、72行の最終CSVは `task-comparison-v2.csv` SHA256=`04aeff326b9f805961622ab3f287270be8708b4f0eb4b1621df61c1e70bcac95`。ラベルがある行の精度診断であり、全予測母集団/上位20/NAVの18構成比較は未完。予測欠落数も別保存し、採点可能集合と予測母集団を同一視しない。
+- 現sourceのcache再構築を実SQLiteの新しい派生DBで実行した。旧c9ce→現e44eの版変更を認証し、全市場485営業日・価格/マスタの計970日別snapshot/4,291,120 source rowsから個別236,803行・市場485行・業種16,490行を構築。入力178.130秒/特徴量とP250 proof5.167秒/portable合成0.381秒、全guard186.484秒、RSS1,775,886,336 bytes。全4入力の列順/型/値/欠損、特徴量、P証拠、実3成分/合成値は既存基準と完全一致、元DB hash不変・派生cache以外の全table内容不変。私有 `real-model-technical/cache-rebuild-003/receipt.json` SHA256=`8e8bfefc80fecc2ad8100e4b338408dc1e79ef605ebfaf0e62f01791151f2e61`。001/002の試験adapter不一致とログを保全した。現在のPC実測であり、Android入力再構築時間や真正日次/Xiaomiの成功ではない。
+- 入力照合で読んだ2024-10-21〜2026-10-19の価格履歴は最終期間calendarと重なる。運用特徴量の照合目的として記録し、未来目的変数・最終成績・単回holdout ledger・最終選定へのアクセスと区別する。単回最終評価は実行していない。
+- 非公開 `0.1.29-candidate / code10029` を181.514秒で同じ既存署名からbuildし、署名/948 source files/CI全46資産と内容を監査した。release専用ART profile2件は既存9 AndroidX依存の規則・今回compile出力・旧署名候補との完全一致を追加認証し、未知の資産は引き続き拒否。APK **23,994,021 bytes**、SHA256=`af719de47e1bb789fc1b76ffedf95b1c9f6f001c1ae5e821406fe1a8afade9df`。APIキー・市場データ・私有モデル・test clockを含めない。私有 `candidate-0129-final/private-handoff-v1.json` にAPK/技術bundle/検査receipt/一括Xiaomi票を対応付けた。公開/本人端末への書込は0。ADBの実inventoryは接続端末0。本人から「端末確認は後で行う」と回答を受領し、Xiaomi工程だけを待ちにする。PC/隔離Androidの作業は継続する。
+- fold復元は17/126完了（回帰8/順位9、元共通行との差0）。seed29の20日順位fold3/4は473.891/504.703秒、元共通225,150/224,266行と完全一致し、未来ラベルなし2,863/2,669行を含む全foldを別identityで保存した。最大4fitのwaveは2件完了後、Android試験の資源確保のため境界yieldした。残109件。旧legacy2件をunits/のみの計数から落とさず、成功済みは再fitしない。18構成72taskの対応台帳も旧台帳・元18reportを再利用して更新し、396元task-fold slot/17復元weight/元final-fit2を区別した。私有 `candidate-task-inventory/inventory-005.json` SHA256=`2cb973100df95b8231d88168624877c7b653cef1ed721ecbe7b09ac760815b4b`。legacy2件の未保存fullprocessorはnullのまま、存在しないrisk weightも作らない。原本/計画/holdoutは不変で、Android全入力→実ensemble→保存の最新sourceの一連と、他family/seedの不足予測を引き続き完了させる。
+- 他familyの最初のXGBoost20日回帰seed17/fold2も241.766秒で復元し、元共通225,308行との差0、追加ラベルなし3,018行を含む全228,326行を別identityへ保存した。同fitのnative/portable/fullprocessorを保持。portable対nativeの1,000 probeは既存許容内の最大差5.83824e-8で、元OOF対再生成の差0とは区別する。私有 `recovery-receipt-index-20261021T0746.json` SHA256=`38ff9205ad7e59a873aae0746e57dcdd220eb4f605ecfb34662d35ecdd2bd65d`。
+- 最新sourceの全SQLite→cache再構築→実ensemble→保存をつなぐ隔離Android attempt002は、fixture復元/事前暗号化exportも含めた試験全体600秒で停止しFAILEDのまま保存した。アプリ＋WebView RSS標本最大3,075,452,928 bytes、host空き最小1,981,927,424 bytesで、観測上OOMではない。製品の初期化120秒・1要求600秒を確認し、試験専用の準備240秒/ownerPOST600秒/検査と再起動240秒へ分けて再測定する。ownerPOSTはqueue/入力/特徴量/実モデル/状態export/AES commit完了を含み、600秒超を成功扱いにしない。製品制限・CPU/RAM・数値一致/保護table検査は緩めない。
+- A研究アプリ/B正式評価/C本人正式利用は引き続きPARTIAL。正式採用HOLD、owner審査なし、実holdout未実行。歴史構成の外部根拠不足/旧企業行動の未確定は依存工程のみBLOCKED_EXTERNALとし、内部の復元/比較/Android接続は止めない。新規課金・実注文・main merge・新APK公開は行わない。
+
+## 2026-10-21 — 修正母集団の費用比較と実モデル接続（D218、進行中）
+
+- source `8a1f7b35789318fc610ba179468fdf30d8ba202f` のローカル全体pytest--covは **1,907件成功、1,950.01秒、coverage87.23%**。Ruff全体、mypy76sourceの通常/win32、source/package監査も成功。CI [39539125268](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39539125268)はverify/android/android-history全成功、releaseはskip。実APKのtested merge `d564bed316552986f668875d6876fd60d27244a4` とsourceのGit tree一致を確認した。後続差分全体の成功へ読み替えない。
+- 独立E314,915/P250313,863を使うLightGBM seed17回帰の5/20日を再接続。未来ラベルのない111行も予測を保持し、明示棄権はEに残す。全OOFのcrossfitを実行し、比較は2/36回帰・順位系列限定、全18構成/3seed/実ensembleの比較は未完。5日MSEのzero-return差は改善せず、校正Rank ICには定数予測日の未定義値があるため、異なる有効日数の平均を改善の証拠にしない。
+- 新P250の先頭10日smokeは5日9.013/20日10.014秒で成功。共通開発期間5日177/20日140営業日の回帰・momentum・全現金HOLD×20/40bpsの12条件を149.194秒で完走。私有 `p250-nav/comparison-receipt-v1.json`（SHA256 `41e4b8a2c0df3d74aa83a542ab168b6b6e0c1da5dc86a61353f070d856d05f19`）に全入力/結果/guardを保存。14成功工程は168.221秒、最大RSS1,086,656,512 bytes、私有出力約548MB。初回の任意bytes項目の工程エラーは結果生成前に停止・保存し、同じ売買条件のv4へ版を分けた。
+
+| 期間/費用 | 回帰の費用後収益 | momentum | 回帰MDD | momentum MDD |
+| --- | ---: | ---: | ---: | ---: |
+| 5日/20bps | 16.2584% | 18.6658% | 3.1138% | 3.5687% |
+| 5日/40bps | 10.6608% | 16.1214% | 4.0726% | 3.7492% |
+| 20日/20bps | 17.5730% | 12.2585% | 3.4657% | 2.2672% |
+| 20日/40bps | 16.3517% | 10.4840% | 3.4949% | 2.1655% |
+
+- 全現金HOLDは0%。20日20bpsの資金不足による未約定1件を保持し、価格や費用を補正して約定させていない。12条件の未確定mark/権利入金は0だが、配当除外・税引前・日足proxy・事後会計を含む探索的研究である。20日は対照よりMDDが悪化し、単一seedの正収益だけで採用しない。旧317組の結果と新P250の結果を区別し、元152/旧96不完全は不変。
+- 公式構成表・変更一覧・整理指定履歴と4営業日規則を突合し、過去633組中384組を補足的なHISTORICALLY_RECONSTRUCTEDとして照合。残249組は初期anchor不足58/同日公表時刻不明4/個別除外根拠不足187。個別の残りは8905/6594/3141。原manifestを差し替えず、真正PIT/strict採用の認証にはしていない。限定検索を終了し、同じ資料不足を無期限に再調査しない。
+- 私有の技術bundleは3基本モデル・1,921,442 bytes。保存済み実特徴量493候補/489予測可能に対し、PC native/portableの1,467基本出力・合成後・上位20が差0。回帰5日fold6/回帰20日fold5/順位20日fold3を使う混在foldの接続試験用で、選定構成ではない。risk/5日rankはnull、検証用口座の保有0は非空の本人保有確認を意味しない。作成は当日12:49以降で、過去の通常予測へ遡及使用しない。
+- 同じsource/成功CI資産の私有debug APK一式を171.880秒でbuildし、独立したlocal署名・全資産・sourceのbyte一致を監査。API35の実Android emulatorで3基本モデル1,467出力・合成後・上位20がPCと一致し、欠落母集団拒否・optional risk null・暗号化保存/復元・保護table不変を確認（instrumentation61.99秒、controller73.45秒、app＋WebViewのRSS標本最大1,154,019,328 bytes）。私有 `real-ensemble-android/execution-006/proof/report.json` SHA256=`5078f81f79e6cc9639501c015735ceffa9d2f26efc7110b97d3d15de391805aa`。保存済み実特徴量の技術接続試験であり、全市場入力作成/本人の全owner経路/Xiaomiの成功ではない。失敗した空VMの生成物と成功pytestの一時物だけを記録して整理し、既存市場データ/モデル/本人バックアップは触れていない。
+- 1,921,442 bytesの混在fold技術bundleを別research pinへ接続し、実bundleのreviewed取込と不一致6条件の拒否を確認。私有 `real-model-technical/import-review-002/receipt.json` SHA256=`03f229f31a8843a5c2e982724ee1431359de31ceeaf9d5127bd3ec7bba0436b8`。approved_models/bundlesは空、owner_manual/正式採用は作らない。新policyの対象CIと最終署名候補APK、Xiaomi、真正な次締切の通常予測は未完。
+- research/ensemble取込・手動相談・保存の関連63件は51.40秒で成功。sandbox内の初回は応答待ちを中断して記録し、同じ試験を制約外で実行して切り分けた。Ruff全体/mypy76sourceは成功。数学の製品sourceは8a1f7b3から変更せず、全体1,907件の証拠と新policyの関連63件を区別する。
+- A研究アプリ/B正式評価/C本人正式利用はPARTIAL。必要fold復元は8/126、残118。次のLightGBM17順位6単位と他family/seedを一つずつ実行し、全18比較を省略しない。実holdout未開封、owner承認なし、新APK公開/main merge/実注文なし。
+
+## 2026-10-21 — 履歴条件の独立証拠と事後株数会計（D217、検証中）
+
+- `531d2b16eda0ae7559446ef61be6081427d8bdad`をPR #3へ保存。CI [39532063890](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39532063890)はverify/android/android-historyの3job成功、releaseはskip。実ComputeHostの合成ensembleは216基本出力/合成後/上位20/全保有/暗号化再読込でPC差0、45.700秒。Java heap標本はrenderer peakではなく、実モデル/Xiaomi/本項の追加変更の証拠とも区別する。
+- 全OOFの独立集合633日/horizon・314,915候補キーを確認。元317組は全件一致、追加16不足は20日4921/7518の前半fold。旧108計画を変更せず追加18単位の別計画へ固定した。復元は計8単位（回帰7/順位1）が完了し、各元共通行との差0。追加20日LightGBM17回帰fold2は194.390秒、順位fold3は422.406秒・共通225,150行。全126単位の完了ではない。
+- 最初のLightGBM17回帰の共通期間NAVは5日177日/20日140日、各20/40bpsと全現金HOLDの計8条件を完走した。私有 `full-recovered-nav/` に全入力/結果/時刻/hashを保存。旧momentum4条件の履歴不足を保存した後、履歴不足の明示棄権と7013の事後株数会計を別の探索的policyへ固定し、`baseline-v4/v5-retry1/` の4条件は完走、未約定/未評価/未入金なし。5日単体は対照より劣り20日単体は上回ったが、結果確認後のpolicy修復かつ旧feature-row予測可能規則の研究である。250日規則の新比較・全18比較・正式採用へ昇格しない。元152結果/旧96不完全は不変。
+- 履歴250日を維持した独立predictability proof、明示的な `predictable_decision_symbols`、保有不足/片horizon不足/component欠落の拒否を追加。特徴量の値/定義は変更せず、旧bundleと同一入力のbyte互換を確認した。実保存493候補/489予測可能の差を新規候補の明示棄権として残す。歴史独立計数は37.810秒で完了、候補314,915キーの差0。旧feature-row予測可能314,911→250営業日の研究用予測可能313,863、追加棄権1,048＋元入力不足4を別保存。元115不足中111の予測再生成は依然必要で、条件付き126単位は不変。後日訂正版の研究再構成であり、真正PIT/現在Android入力との一致は未認証。cache code hash変更により一度再構築が必要。
+- 7013の公式分割根拠に法的効力/権利落ち/実受領を分けた事後会計専用型を追加。既存NAVを再利用し、strict/従来assumed/実最終NAVへの混入は拒否。未知端数・未入金は未確定のまま保持する。新旧関連試験は245件成功/1件の新fixture-context不一致を検出。原因を旧新serializer同一入力で検証後、generatorのcommit条件を固定した当該1件は再試験成功。Ruff全体・mypy76source（通常/win32）成功。現変更の全体試験/CI/APKは未完。
+- 参考：531d2b1のローカル全体pytest--covは1,868成功/1失敗、1,896.40秒、coverage87.19%（85%以上）。CLIの正しい拒否文が長い試験pathで改行される環境要因で、同一未変更testを短いworkspace pathで再実行して成功。後続sourceの合格証拠には流用しない。
+- A研究アプリ/B正式評価/C本人正式利用はいずれもPARTIAL。実holdoutは未開封、本人審査なし。新版私有bundle/候補APK・実モデルPC/Android比較・Xiaomi/真正な翌営業日は未完。新しい公開配布、main merge、実注文は行っていない。
+
+## 2026-10-21 — 独立母集団・欠損fold復元・研究ensembleの接続（D216、先行記録）
+
+- 開始232b4d3と元PR #2差分/SQLite/0.1.23 APKのhashを保全。rawマスタから317日/horizon・157,717キーをOOF/ラベルと独立生成し、不足5日17/20日82を再確認。2組だけ公式構成表と全件一致の歴史復元、315組は未確認。PIT認証済みとはしない。5集合を別Parquet/正規化model-mapへ保存し、執行/保有評価unknownをラベル欠損と区別した。
+- 初回観測前の4キーは8729/417Aの入力不足として明示棄権。残95は予測入力があり、raw/normalizedの出口記録なしを確認。LightGBM17回帰の必要6foldを実復元し、各foldの元共通行の予測差0を確認。同fitのnative/portable/前処理を保存した。最初2件の全体207.219/212.781秒、次4件は私有workerの開始/完了receiptに実測を保存。独立対象の新版予測は5日88,059/20日69,654行、ラベルなし15/80行も予測を維持し、各2行の入力不足を別記した。私有`lightgbm17-regression-recovered-001/`へ指標と全対象panelを保存。全108単位や全18候補の比較完了ではない。
+- 事前固定の最初10判断日で5日/20日各1本の費用込み研究NAVを実行。入力8.999/14.178秒、NAV0.148/0.461秒、全eligible予測欠落0、再生した全日NAV/全現金HOLD一致。私有`.demo-artifacts/completion-20261021/topix-nav-smoke/`へ条件/入力/結果/hashを保存。接続確認であり採用比較や20日保有完了ではない。旧96原因30件は新対象unionに0だが旧修復済みとはしない。
+- 全共通開発期間の最初の5日/LightGBM17回帰/20bpsは177日を48.686秒で完走。40bpsも保存済み入力で3.641秒、全現金HOLDも完走。結果は私有`full-recovered-nav/`に保存し、元152は不変。momentumの新規上場直後40キーには20日履歴がなく、0/平均補完や銘柄除外をせずINCOMPLETEと記録した。対照戦略超過の判定はまだできない。
+- 元317組はforward-crossfit後半の評価domainであり、meta学習/校正の全OOFは5日354日/20日279日だった。追加前半177/139日に必要なdated raw/normalized masterは全日保存済み。18report/72taskの日付/fold一致を確認したが、前半の独立候補復元と予測coverageは内部残件として別途進める。新`crossfit_population_panel`は全予測で順位化後にfit/校正/採点maskを分離し、比較範囲と不足成分を保存する。新23/旧24の計47試験が成功。元v1/strict/20日以上の校正条件は維持した。
+- 研究ensembleの別schema・全母集団順位化・optional null・schema4/snapshotv2・ランキング/手動相談/復元を接続。保存合成を再検算し、未提供headを生成せず株数自動提案は従来通り拒否。全市場順位recipeは候補限定入力で停止し、固定した順位対象の1候補だけ特徴量が欠けても母集団を縮小して成功扱いにしない。両horizonのreturn/rankingなしbundleを取込時に拒否し、同刻の旧rankingより新snapshotを優先する。株式交換の数量/原価移管、未知端数、未入金、二重計上防止と旧hash互換を追加。
+- `FrozenCompositionManifest` sidecar→既存単回holdout→宣言成分の保存予測/明示合成→最終NAV→審査用receiptを合成で接続。raw-returnとrank-spaceを分離し、riskなしを許す。最終候補の前固定・受領時刻・独立日別対象・同条件再開を検査し、後出し重み/異なる入力を拒否する。本人審査の代行や`adoption_eligible=False`の変更はない。新経路7件/10.31秒、関連76件/53.66秒は成功。実manifest/実holdoutは未実行。
+- 統合関連117件/50.60秒、レビュー修正後のmobile49件/52.81秒、export23件/4.87秒、最終合成関連40件/44.09秒、Web109件/41.59秒が成功。全Python試験は1,827成功/2失敗/1,266.59秒。旧ranking拒否契約は不正head拒否＋3family ranking同fit一致へ修正済み。残1件は未commitのML変更を拒否するWindows runnerの正常な保護で、commit固定後の再確認が必要。初回14失敗はAndroid試験の隔離先未指定であり同15件は正しい指定で成功。Ruff、mypy通常/Win32、Web lint/型/build成功。追加修正後のPC/同梱WASM合成2件/44.995秒で216基本出力と全合成が差0、保存読戻し/順位/全保有を確認。新Android専用Javaはオフラインcompile成功/98秒、実行は未確認。source/package auditは秘密・私有市場・モデルの混入0。
+- 先行UI source232b4d3のCI39518960780はverify/android/android-history全成功、今回の未commitモデル変更のCI証拠には流用しない。新CI/実Android一致/新APKは未完。0.1.28非公開と最新UIを保全。10/21銘柄一覧は実9:35受領/493対象を私有保存したが、当日Android日次完了とはしない。
+- A研究用アプリ/B正式評価/C本人利用は未完。元評価domainの残102復元単位に加え前半coverageから必要数を確認し、共通開発期間の単体・ensembleの6分類/baseline比較、影響企業行動の接続、選定/基準固定と本人確認、研究bundle/新APK/PC端末一致・Xiaomiを進める。旧96条件は30原因/7企業行動の私有ledgerへ整理し、未解決価格/権利/入金を補修済みにしない。正式HOLD、実holdout未開封、新APK公開/注文/main mergeなし。
+
+## 2026-10-21 — 参考画像の青い表示を5画面と開いた先へ統一（D215）
+
+- 開始8c56c72と非公開0.1.28/元PR #2の差分・データを保全。淡青背景/白いカード/青い操作と「株AI | 画面名」へ揃え、ホーム/今日/ランキング/検証/設定、銘柄詳細/判断確認/保存/実行入力/相談/設定編集へ反映。枠の重複を減らし、銘柄詳細から元の画面へ戻り、元ナビの選択も維持。読込・失敗・未登録でも同じ見出し/戻り道を使う。
+- ホーム/今日の確認操作をサマリーカードへ置き、ランキングの上位3件に装飾を追加。順位/母集団は実際の既存API値であり493や参考画像の値を固定しない。未観測の検証はカード/空チャート/「—」を表示し、診断/週次月次は開いて読める。日次カードは現在使う操作を表示し、認証再開時は再開/停止を残す。停止確認・入力保存・原予測/提案/実約定の分離は不変。
+- Web108件/7.10秒・lint/型/build成功。関連画面は設定/相談/backup19件、市場2件、主要/詳細/戻る9件27.3秒、企業分析2件、実行入力/税現金4件8.2秒の計36件成功。320/390pxと文字150%、360/430/1280pxも確認。ノッチ/横cutout・拡大navと固定保存操作・古い提案拒否・入力エラー復旧を維持。旧試験の失敗と原因は保全し、修正後の結果を保存した。[検証記録と画面例](evidence/reference-ui-20261021/checks.json)。合成入力の画面試験で、Xiaomi実機成功ではない。
+- 金融計算/ML/市場データ/DB/nativeコードは変更なし。既存の合成goldenをhash一致で試験入力として再利用し、過去の合格を最新結果へ流用せず、実モデル再fitなし。新しい画面のCIとAPKは未完。非公開0.1.28はノッチ修正までの旧画面であり、今回の見た目を含むAPKとはしない。公開承認待ちは継続し、画像依頼を公開承認と読み替えない。main merge/公開/本人端末install/実注文なし。
+
+## 2026-10-21 — ノッチ修正版0.1.28のCI・署名APK・実Android確認完了、公開承認待ち（D214）
+
+- source `3f5dc8b3a87f4c2ecd4751778937ce4525d9b421` の[CI39448906494](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39448906494)は必要3job全成功（release skip）。tested merge `a237e3eb9422e6c93871277ac69451563fbc981b`とGit tree一致。native89件は失敗/error/skip0、Web mobile34/compute11/E2E6件成功。[CI記録](evidence/notch-safe-area-20261021/ci-result.json)。
+- 既存署名の0.1.28-candidate/code10028を作成（73.286秒）。SHA256=`026221c40c767d9509065bd317cf8ee8ea9c7e827da6706bc6070a5ae590fd71`、23,980,737bytes。185製品file/成功CI43資産、非debug・秘密/市場/私有モデル非同梱を照合。[APK検査](evidence/notch-safe-area-20261021/candidate-apk.json)。私有APKは`.demo-artifacts/notch-safe-area-20261021/candidate-0128/StockAI-0.1.28-candidate.apk`。計算用51 Python/model policy/nativeは0.1.27とbyte一致。PC研究変更はAPK対象外。
+- 同じ署名APKのAPI35/WebView124隔離emulatorで、tall cutoutの縦→横→縦と設定/資金/モデル編集・画面内戻るを確認。回転設定/help終了値/AVD容量不足/横向き副題selectorの試験側失敗を保全。005は今回作成した未設定AVDのみを再利用し、APK再build/データ削除なしで完走。[実Android記録](evidence/notch-safe-area-20261021/android-cutout.json)。CSS安全領域の合成試験とnative paddingの実Androidを区別。Xiaomi未確認。
+- 更新用draftへ全4assetを置き、読戻しbyte/hash一致まで確認。公開切替は自動承認審査が「今回の版の新規公開配布には明示承認が必要」と拒否したため未実行。本人へ確認中。最新公開は0.1.27のままで、本人端末にはノッチ修正未反映。拒否の迂回/main merge/自動install/実注文/holdout採点なし。元PR #2差分hash・実SQLite・0.1.23 APKは不変。以下は作成前の記録。
+
+## 2026-10-21 — ノッチと上部更新案内の重なりを修正（D214）
+
+- 開始85f41d0のモデル評価差分を保全し、UIの安全領域だけを修正。Capacitorの4辺inset/Web fallbackを使い、画面上左右、sticky更新通知、下部nav/固定操作、skip linkへ反映。scroll中もstatus barを背景で保護し、広幅のnavと更新案内も重ねない。native padding済みWebViewは0pxで二重余白を防ぐ。
+- 関連画面15件/28.2秒成功。縦notch、横cutout、native paddingの0px、scroll後の更新ボタン、左右・下部nav、keyboard相当のinset変更、既存320/390pxと文字150%を含む。Web108件成功。初回の横向き試験で広幅本文paddingが安全領域に追従しないことを検出し、修正後に15件を再実行した。合成bridge/安全領域であり、Xiaomi未確認。
+- 今回のAPK更新・公開はまだ行っていない。既存0.1.27/0.1.23候補と保存データ、モデル、正式HOLDを保持。進行中CIを中断せず、修正commitのCIと候補作成を別途追跡する。[検証記録](evidence/notch-safe-area-20261021/checks.json)。実注文なし。
+
+## 2026-10-21 — モデル選定と最終推論の対象漏れを修正（D213）
+
+- 開始c70ab9b/PR #3を保全し、[完成範囲/基準案/実際の経路と残件](FINISHING_PLAN.md)を冒頭へ固定。元PR #2のtracked差分hash、SQLite、0.1.23APKは不変。18構成/72タスクと152結果を再照合し、私有台帳・24種類/役割の既存比較・当日付ScaleCatと全18OOFの対応を保存した。元152件56完走/96不完全、旧不足30キーの内訳も一致。市場の再取得や全面評価の再実行なし。
+- 新たに、元OOF由来の対象集合が将来の出口ラベルを持つ行に限定される問題を実データで特定。TOPIX500の不足キーは5日17/20日82、95は出口価格なし、4は元dataset行なし。現在493銘柄や後日のモデルで補完しない。既知の旧OOF対象を新規NAVへ通す入口を`LABEL_CONDITIONED_UNIVERSE`で停止。元56結果を当時の対象集合の運用成績へ昇格しない。
+- 日次回帰の選定を3seed平均MSEへ変更し固定代表17を維持。MAE/RMSE/bias/zero_returnとの同一行誤差を追加。最終予測器も未来ラベルで予測銘柄を落とさず、v2 reportへ予測/採点/欠損件数と理由を保存。labelなしの指標はnull、rank ensembleは全予測を順位化してから採点する。単回ledger/再開/旧v1読取と採用不可literalを維持し、実holdoutは開いていない。
+- 関連92件/55.50秒、Ruff全体、mypy75source通常/win32成功。合成の最終推論・保存/再読込・欠損処理であり、実最終評価ではない。新CIの成功はまだ主張しない。現行0.1.27 APKの492 entryとruntime一致/私有非混入を再検査した。今回のPC研究コードはAPKに入らず、追加配布しない。
+- 採用はHOLD。基準案は本人確認待ち。独立した当時の対象と不足OOF、権利/価格評価、候補/戦略固定、専用最終NAVと予測reportの結合、本人審査/配備証拠、選定したoptional head/ensembleのbundle接続は内部残件。Xiaomi/真正な翌営業日は別工程であり、それだけを停止理由としない。既存研究bundle2weightを再認証し、追加fit/owner_manual記録/実注文/main mergeなし。
+- 追加でML/export/registry61件16.59秒、既存workflow9件4.86秒も成功（関連92件と異なる計162件）。sandbox内の既存ASGI応答待ちは中断を保存し、同じ試験を制約外で完走して切り分けた。Starlette/httpxの既存非推奨警告1件は保留。[今回の検証記録](evidence/model-completion-20261020/checks.json)。
+
+## 2026-10-20 — 青基調と短い上部通知を0.1.27へ配信完了（D212）
+
+- 製品source `3209604c84fb84fb82827a63a7163a3626d85c5e` の[必須CI39431174408](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39431174408)はverify/android/android-history全成功（release skip）。tested merge `878ffa24fd7bec05ad60517849d8b9af9c3293f0`とGit tree一致。ローカルWeb108/画面18・lint/TypeScript/build、現CIのnative89件/失敗error skip0を確認。[CI記録](evidence/blue-update-20261020/ci-result.json)。合成CI/画面をXiaomi成功へ読み替えない。
+- 既存署名の0.1.27-candidate/code10027を作成。SHA256=`e88b4e610e6186095c759afef36b31be4ab39a1e72bb3c298269771ed55bc88e`、23,980,521bytes、署名build 161.291秒。185製品file/成功CI43資産・同証明書/非debug・秘密/市場/私有モデル/診断code非同梱を検査。[候補記録](evidence/blue-update-20261020/candidate-apk.json)。旧0.1.23/0.1.25/0.1.26を保持。
+- 承認済み更新経路の[android-v0.1.27](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.27)へ公開しlatestを更新。draftの全4assetを読み戻して照合した後、公開URLを認証なしで取得して全HTTP 200・元byte/hash一致を確認。[配信検証](evidence/blue-update-20261020/published-update.json)。旧版が長文を展開する場合にも備え、アプリ向けの変更説明は短くし、詳しい内容はRelease本文へ残す。起動時の新版案内→本人の更新タップ→Android確認で進む。
+- 計算/モデルpolicyの51 Python file・native/packagerは791dfa5と同一。数値性能の再測定・追加fit・holdout採点・実注文・外部AI送信・main mergeなし。正式HOLD、旧300既定、XiaomiのUI/実更新未確認と端末戻るキーの既存問題は維持。[一括受入](evidence/topix500-20261020/xiaomi-acceptance.md)。以下はAPK作成前の記録。
+
+## 2026-10-20 — 青基調と画面最上部の更新案内を実装（D212）
+
+- 設定のアイコン/保存状態/ON switchを既存の青へ変更し、brand/選択navの緑上書きを除いた。5分類・保存済み値・個別編集・保有/台帳・旧候補を維持する。[合成画面](evidence/blue-update-20261020/settings-blue.png)・[320px/文字150%](evidence/blue-update-20261020/settings-large-text.png)。
+- 更新案内を「新しいバージョンがあります」/実際の版/更新ボタンの上部sticky帯へ整理し、長い変更内容は初期折りたたみにした。本人タップを維持し、native応答待ちの重複取得を防止。許可要求/失敗時も更新完了とは表示せず再試行できる。native側の署名・サイズ・hash・applicationId・増加code検査は不変。
+- 最終差分のWeb108件/14file、lint、TypeScript/本番build、関連画面18件（新しい上部通知4・既存設定8・市場/手動相談/バックアップ各2）が成功。320/390px・文字100/150%、操作48px/間隔12px・scroll中の上部保持・横はみ出しなし・青色一致を確認。[試験記録](evidence/blue-update-20261020/checks.json)。初回buildは追加試験でPlaywright用のexact検索optionをTesting Libraryへ誤用した型エラーで停止し、正規表現へ修正した。失敗ログを保全。
+- 新commitの必須CI・0.1.27署名APK/配信はこれから。0.1.26は公開を保持し、旧CIを今回の合格へ読み替えない。Xiaomi未確認/正式HOLD/holdout未採点・実注文なしを維持。私有原本は`.demo-artifacts/blue-update-20261020/`。
+
+## 2026-10-20 22:05 JST — 0.1.26をアプリ内更新先へ公開（D211）
+
+- 本人の公開承認「よい」を受け、検証済みの同一APKを[android-v0.1.26](https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.26)へ公開し、GitHub latestを0.1.12から更新した。source `18fb6d83f3c6517007979c9ce840ee99d6294717`、code10026/実versionName `0.1.26-candidate`、SHA256=`699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603`。再build・main mergeは行っていない。
+- draftへAPK/更新JSON/ハッシュ/公開署名情報の4fileを揃え、取得し直した全byte hashを照合してから公開。公開後はアプリと同じ認証なしHTTPSのlatest API・update.json・APK等がすべてHTTP 200、23,980,369bytesとhashが元候補に一致した。[配信確認](evidence/settings-reference-20261020/published-update.json)。秘密情報・市場・私有モデルは非同梱、旧Release/候補/本人データは保持。
+- 既存アプリは起動時に新版を確認し、本人が「確認して更新」→必要な提供元許可→Androidインストール確認へ進む。完全無操作の更新ではない。研究用候補/正式HOLD・Xiaomi未確認・画面内「設定一覧へ」を変更内容に明記した。端末での更新成功は未確認、実注文・外部AI送信なし。以下の承認待ちは公開前の記録。
+
+## 2026-10-20 — 既存アプリ内更新経路を確認、0.1.26配信準備
+
+- 起動時の`MobileUpdateNotice`→native `checkUpdate`→本人タップ→`installUpdate`→Android確認は既にある。公開latestは0.1.12/code10012で、0.1.26候補を未配信のため新版表示が出ない。無操作のsilent更新とは区別する。
+- 検査済み0.1.26 APKを再buildせず、`StockAI.apk`/`update.json`/`SHA256SUMS`/公開署名情報/変更内容を私有`.demo-artifacts/settings-reference-20261020/update-distribution/`へ準備。元APK hash、旧公開版と現在のnative URL/tag制約、増加code10026を照合。更新tagは既存検査に合う`android-v0.1.26`、APKの実versionNameは`0.1.26-candidate`のまま。既存clientはprereleaseを検出しないため、配信時にも研究用候補・正式HOLD/Xiaomi未確認を変更内容へ明記する。
+- 配信先は公開GitHubのため公開承認待ち。Release作成/公開・main merge・端末更新は未実施。既存の必要CI・署名パッケージ検査を使い、製品source変更や重い再試験は追加しない。
+
+## 2026-10-20 — 設定画面を0.1.26候補APKへ反映（D210）
+
+- 製品source `18fb6d83f3c6517007979c9ce840ee99d6294717`、必要CI [39417285273](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39417285273) のverify/android/android-historyが全成功（release skip）。tested merge `e33b7eb8054ee28c4eb731f5fb98a4741bdb76f4`とGit treeが一致。[CI結果](evidence/settings-reference-20261020/ci-result.json)。
+- 本人用0.1.26-candidate/code10026を既存署名で作成。SHA256=`699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603`、23,980,369bytes、署名build 204.626秒。成功CIの43資産、184製品file、非debug/既存証明書を照合し、私有モデル・市場データ・秘密情報・診断codeの非同梱を確認。旧0.1.23/0.1.25候補を保持。[候補検査](evidence/settings-reference-20261020/candidate-apk.json)。私有ファイルは`.demo-artifacts/settings-reference-20261020/candidate-0126/StockAI-0.1.26-candidate.apk`。
+- 同sourceのCI debug APKを空のAPI35 emulatorで表示し、新設定一覧・資金/モデル編集・画面内の「設定一覧へ」を確認。端末の戻るキーはActivityを閉じる既存shell動作が未解決。最初のUI取得失敗とキー試験失敗を保全し、画面内操作の成功と区別する。署名releaseの実機UI/更新試験やXiaomi成功とはしない。
+- 今回は設定画面の変更であり、51 Python file/モデルpolicy・native/packagerは791dfa5と同一。過去の実数値・全量処理時間は不変部分の証拠としてのみ再利用し、今回の再測定としない。旧300既定、正式HOLD、152条件と未使用holdoutを保持。Xiaomi・真正な次営業日は[一括受入票](evidence/topix500-20261020/xiaomi-acceptance.md)へ残す。実注文・外部AI送信・main merge・公開配布なし。
+
+## 2026-10-20 — 提示画像のシンプル設定一覧へ変更（D210）
+
+- [表示例（合成値）](evidence/settings-reference-20261020/settings-overview.png)・[320px/文字150%](evidence/settings-reference-20261020/settings-large-text.png)。緑アイコン・白いgroupと5見出し、行末に保存済みの値/状態・右矢印を配置し、フォームは個別編集へ移した。画像の仮値は本番へ設定しない。未入力は未設定、APIキーは保存状態、期間は5日・20日を示す。
+- 画面内の戻る・ブラウザー履歴・再編集で下書き/保存中を保持。口座/運用資金/許容下落率は保存対象だけを既存portfolioとrevisionへ反映し、別編集の下書きは送信しない。既存のバックアップ/復元確認・ChatGPT手動/連携・データ/モデル/参照routeを維持する。
+- 自動更新のswitchと詳細は同じ制御状態を使用し、native応答待ち・失敗表示・連打抑止・古い状態応答の拒否を確認。通知は実際のAndroid許可表示と既存許可確認への行とし、偽の通知switchや新native APIは追加しない。
+- 最終の固定sourceでWeb101件/13file、lint/TypeScript/本番build、関連画面14件（設定8・既存市場/手動ChatGPT/バックアップ各2）が成功。全編集の48px以上/操作間隔12px以上、320/390px・文字100/150%、金額/期間の非分断、rootの横はみ出しなし・現在値・保存分離を確認。[試験記録](evidence/settings-reference-20261020/checks.json)。私有ログは`.demo-artifacts/settings-reference-20261020/`。
+- 途中sourceを調整した回はbrowser reloadのERR_ABORTEDで1件停止（13件成功）。中断は成功扱いせずログを保全し、製品/試験sourceを固定した別の回で全14件を確認した。最初の150%描画で金額の改行を発見し、許容誤差を変えずnowrap/狭幅の下段配置と検査を追加した。
+- この画面実装後のAndroid CI・署名0.1.26候補は冒頭のAPK化記録を参照。Xiaomi画面は未完。過去791dfa5/e5d11abのCIを現source全体の合格へ流用しない。データ/研究/モデル/旧0.1.23・0.1.25を保持し、実注文・外部AI送信・main merge・公開配布なし。
+
+## 2026-10-20 — Android設定の情報量を削減（D209）
+
+- 設定の全フォーム常時表示を7項目の一覧へ整理。税・費用・初回台帳、アカウント連携、参照用詳細は必要時に開く。Web用タブの重複表示をAndroidで除き、既存の設定値参照routeは維持する。[表示例（合成画面）](evidence/settings-20261020/settings-overview.png)。
+- 画面の開閉でcomponentを破棄せず、下書き・処理状態・復元確認を保持。APIキー・口座の読込失敗は一覧に表示する。手動取得の説明から、既に実装済みの日次更新が「準備中」と読める記述も修正した。
+- 最終差分でローカルWeb100件、lint、TypeScript/本番build、合成Android画面11件（新設定5・既存市場/手動ChatGPT/バックアップ各2）が成功。320/390px・文字100/150%、操作高48px以上・ボタン間隔12px以上、横はみ出しなし、入力保持、保存中開閉・1回だけの保存呼出を確認。[試験記録](evidence/settings-20261020/checks.json)。原本ログは非公開`.demo-artifacts/settings-20261020/`へ保全する。
+- 最初のsandbox試験は一時file renameのEPERMにより13suiteとも試験開始前に停止。専用一時領域で再実行し、手動取得文言の旧文字列に関する1件の失敗は正確な説明を保って修正した。失敗ログを成功へ読み替えない。
+- 製品変更はWeb設定画面・CSSだけ。既存モデル/評価/原DB/0.1.23・0.1.25候補とXiaomi試験は保持。今回のAndroid CI・新候補APK・Xiaomi画面確認は別途であり、791dfa5の合格を本変更の全体CIへ流用しない。実注文・AI送信・main merge・公開配布なし。
+
+## 2026-10-20 — TOPIX500：現commit検証・0.1.25候補まで完了（D208）
+
+- 製品791dfa5の同時刻リスト訂正を修正し、現commitの必要CI39387328864はverify/android/android-history全成功。Python1256合格呼出（重複あり）/Linux上のWindows専用1skip、Web100/画面36、native89/JVM15。tested merge1c46bb6とGit tree一致。[現CI](evidence/topix500-20261020/ci-current.json)。
+- 実730日/493対象/既存研究2回帰の通常Android予測→暗号化保存121.241秒、起動owner読込89.088秒は別。同日GET0.708秒、同じ保存AVD/Keystoreの別VM冷間起動102.602秒。全978予測/特徴量/出所/共通統計/上位20はPCと完全一致、再起動後20mobile/27operations tableも一致。成功区間のsampled app+renderer最大1,996,398,592bytes。元in-place再起動の5400MiB host guard停止は失敗のまま保存し、上限を緩めず同じ保存内容を別VM起動で確認した。
+- 私有観測版の実入力53.977秒/詳細特徴量16.323秒/推論0.612+0.181秒。SQLite55,306返却行/27,410,461bytes、長期価格/master frame展開0。通常APKとは別で、同日cache再利用を実新営業日の性能へ読み替えない。現在の初回全量は再測定せず、計算50file/実リスト/cache版不変の範囲だけD207初回562.541秒/B1証拠を再利用する。
+- 追加日/月次/構成入替/全保有追加/同締切8訂正/価格訂正/分割/中断rollback/再開/再起動の合成11経路、56予測と全入力・版・cacheがPCと一致。実前日再生は当時未受領の履歴に対する`next session is not authenticated`で停止。受領時刻を遡らせず、実際の次営業日・イベント・Xiaomiを残す。
+- 既存署名の非公開0.1.25-candidate/code10025を現source/成功CI43資産から作成、SHA256=774777113438c16aec4c66aca05b8e102d743107603af328d191a3eaac2c8e3c、23,976,593bytes。私有モデル/市場/認証/診断codeは非同梱。既存認証済み研究bundle（5日CatBoost/20日LightGBM）を本人取込用に別保存し、再fitなし。旧候補/PR #2/191行差分/原DBを保持する。
+- 通常署名の未変更0.1.23→0.1.25を隔離API35 emulatorで実更新。同署名/同UID、元44table・保存済み590予測/設定/保有/モデル/試験用credentialを更新前後と追加の冷間読戻しで厳密照合した。起動読込78.206→72.273秒、冷間83.411秒。元の冷間試験は私有参照JSON消失で停止し、取得済み参照だけを復元した別読戻しで保存capsule全量の世代/hashも検証。DB/Keystore/APKの再投入なし。host ADB rootは私有AVDの搬送のみ、アプリは非debug/非root、SELinuxと制限不変。[署名更新の証拠と途中失敗](evidence/topix500-20261020/release-upgrade.json)。Xiaomi/新営業日の成功とはしない。
+- 実J-Quants差分を6requestすべてHTTP 200/再試行0で受領し、隔離DBを730→731日へ更新（19.391秒、PC経路）。20日分5data＋21日calendar、実受領20日18:42 JSTを保持しキー非出力。追加後の20日11:30の全入力/特徴量/978予測/source IDは凍結PC参照と完全一致（29.857秒/peak672,342,016bytes、長期raw展開0）。通常同日generateは24.062秒で同じpayload/receipt/snapshotを返し、拒否hookを入れたpredictも未呼出。原本/既存版/本人台帳/model/forecastを保全。[実受領と時点分離](evidence/topix500-20261020/live-delta.json)。21日当日master/所属と、実時刻Android日次・通知/Xiaomiは未確認であり、PC受領時間を端末の日次性能としない。
+- その実731日状態を通常StateExportで944分割/247,235,240文字へ書出し、既存上限268,435,456文字内と全47tableの復元一致を確認（PCの書出/独立検査12.406秒）。元のstateは不変、私有capsule/model/市場dataは非公開。[差分後の保存容量](evidence/topix500-20261020/live-delta.json)。Android暗号化保存/翌営業日性能の実測とは区別する。
+- [完成状況と残件](evidence/topix500-20261020/d208-completion.md)・[結果JSON](evidence/topix500-20261020/d208-completion.json)・[候補/モデル記録](evidence/topix500-20261020/candidate-current.json)・[Xiaomi一括票](evidence/topix500-20261020/xiaomi-acceptance.md)。旧300が既定、正式HOLD/152条件/holdout未採点は不変。実注文・外部AI送信・公開配布なし。本人実機、真正な新営業日と起動込み3分は未確認。
+
+## 2026-10-20 — TOPIX500事前選定：D207の通常Android保存・再利用を確認
+
+- 製品a9e3bfaの通常runtime APKで、実730暦日/485営業日・493対象の初回予測→暗号化保存が562.541秒で完走。起動時のowner読込77.111秒は別。sampled app+renderer最大2,992,934,912bytes、既存600秒/4GiB guest/2cores/Java192MiB/RAM guardを維持した。978予測・全特徴量hash/source ID/上位20/共通統計はPCと完全一致。初回余裕37.459秒を十分な余裕や日次3分の達成とはしない。
+- 同じ端末のB1書出33.960秒/検査85.548秒/復元101.712秒、kernel再起動後cold GET100.100秒が成功。独立PC検査で保存/復元/再起動後の20mobile/27operations tableが型付きで一致し、元の保有/現金/実台帳/市場/modelを保持した。
+- そのAndroid自身が作ったcacheを、同じAVD/Keystoreの再起動後に再利用した通常再計算は106.142秒、owner読込107.137秒は別。sampled app+renderer最大1,969,451,008bytes、同じ978予測/全特徴量/入力版/receipt/snapshotを返し、全47tableが不変。再seed/clock変更/通常main APK再installなし。翌営業日の性能試験ではない。
+- a9e3bfaの必要CI39380572689はverify/android/android-historyすべてsuccess、release skip。tested merge3249083とGit tree一致。Python関連群1255合格（複数呼出の重複を含む）/Windows専用1skip、Ruff/mypy75file両platform、Web100/画面36、native89/JVM15、合成全量B1復元222.201秒が成功。通常0.1.24-candidate/code10024を既存署名で非公開作成し、184製品file/43資産/秘密・市場・weight・診断非混入を照合。SHA256=be6a09be7009c9d7c137ac89f31bebdccb59e32053ba0365b90571de0f3c8a28、23976505bytes、署名build111.289秒。旧0.1.23/PR #2/191行の私有差分/データ原本のhash不変を再確認した。[CI集約](evidence/topix500-20261020/ci-result.json)・[候補記録](evidence/topix500-20261020/candidate-apk.json)。
+- 実際の新営業日・月次/訂正/保有追加のAndroid測定とXiaomiは未完。これらの分岐の合成試験と区別する。[集約報告](evidence/topix500-20261020/implementation-summary.md)・[Android JSON](evidence/topix500-20261020/android-comparison.json)・[一括受入票](evidence/topix500-20261020/xiaomi-acceptance.md)へまとめる。旧300を既定に保持し、全役割HOLD/152条件/holdout未採点を維持する。
+
+### D205〜D207の途中経過（失敗・先行証拠を保持）
+
+- D207：共通計算に不要な過去会社名/interval列を新context経路だけで省き、原v1 hashのUTF-8 tokenを既存128件LRU内で再利用。同じ初回内で検証済みの財務/暦/TOPIXを二度読み込まない。Ruff/mypy75file・97関連試験が成功。実730日/493対象で旧基準の全入力/特徴量・978予測・全source IDが完全一致。初回入力192.956秒/全体200.238秒/peak1,981,194,240bytes、別process再利用19.308秒/25.419秒/672,968,704bytes。coldのSQLite返却は92,417行/394,212,861bytesへ減少。新fingerprint c9ce9104で通常Android初回/保存・再利用と必要CIを続ける。
+- D206/source5b07f3eのAndroid初回も600秒停止で不合格。sampled app+renderer3,049,295,872bytes。初回input563.745秒/うち全source読込478.041秒・raw v1行hash129.620秒、詳細特徴量11.790秒を私有の時間観測版で確認した（包含時間であり単純合算しない）。診断版は通常候補にしない。原本はnative-profile-cold-001/timing-summary.json、PC新比較はpc-003。自分のCI39374367653だけ追加修正前に停止し、旧0.1.23/PR #2の試験は不変。
+- D206のcopy/走査修正後、Ruff全体/mypy75file、127関連試験と最終filter修正後10件が成功（重複あり）。実730日/同493対象のPCで全入力・共通統計・全特徴量/978予測/source IDが旧基準と再一致。初回入力215.630秒/全体221.976秒/peak2,117,304,320bytes、別process再利用20.320秒/28.207秒/669,847,552bytes。旧初回の2,393,624,576bytesから減少したが、新Android初回/再利用と必要CIはこの変更後に再確認する。原本はpc-002、工程profileは入力計測まで有効で最終比較は補助file不足により未完のまま保存した。
+- 初回Android/source203f42bは600秒のcompute timeoutで不合格。停止前のsampled app+renderer最大3,328,581,632bytes、background processのlow-memory killあり、計算rendererはJUnit終了まで動作。再利用成功と分け、通常新候補の作成を待つ。D206としてprivate mergeの余分な全量copyと銘柄ごとの全履歴文字列走査だけを除き、関連試験→実730日PC→同制限のAndroid初回を再確認する。既存0.1.23と原本は不変。
+- 製品203f42bの隔離Android35で、実730日/既存2回帰/締切前の試験口座を使った通常owner予測→暗号化保存128.941秒、同日GET0.942秒を確認。起動時の暗号化状態読込113.495秒は別。sampled app+renderer最大2,016,321,536bytes。600秒/Java192MiB/4GiB guest/2cores/既存RAM guardを維持し、978予測・全特徴量hash・source ID・同scope proof・上位20はPCと一致した。
+- 同じAndroidのB1書出40.191秒/検査92.244秒/復元128.673秒と、kernel再起動後のcold GET113.839秒が成功。VM停止後の独立host検査で保存直後/B1復元後/再起動後の20mobile/27operations tableが型付きで完全一致し、元の口座/現金/実台帳/市場/modelは不変。これは新実営業日やXiaomiの検証ではない。[Android比較と未確認範囲](evidence/topix500-20261020/android-comparison.json)。初回cacheなしの全量Androidは別AVDで直列測定中。
+- D205の必要CI39367905793/source203f42bはverify/android/android-history全成功、release skip。tested merge68e7de7と同じGit treeを確認。新報告89端末/15 JVM試験は失敗・error・skip0、復旧/配送・同署名更新と合成全量B1復元234.206秒が成功。ただし実データ初回は上記600秒停止。D206の必要CI/候補はこの変更後に別確認し、旧成功を流用しない。
+- backend checkpoint08a8f0cを固定し、同じ実730日/493銘柄/既存2headでPC比較が成功。旧入力207.981秒・全体216.170秒・peak2,355,056,640bytes、新初回222.470秒・228.682秒・2,393,624,576bytes、別processの再利用17.863秒・23.888秒・668,450,816bytes。初回の負荷は改善しておらず、再利用の効果と分ける。
+- 対象の全入力/特徴量/978予測・市場485行/業種16,490行・source IDが一致。保存済みの旧300 PC参照と共通260銘柄×2 horizonも特徴量/予測の差0。母集団変更で上位20が変わることを計算誤差と混同しない。
+- SQLite返却値は旧358.8MB→新初回405.2MB→再利用27.4MB。再利用は価格/所属の長期batchを0行decode、財務等の小さな全体sourceは引き続き読む。物理disk page IOではない。DB219,598,848bytes、通常archive185,022,803bytes/base64 246,697,072文字で既存上限内。原17/27tableの型付き内容が不変、追加後20mobile table。PC容量だけの確認でnative暗号化の成功ではない。
+- [PC比較と限界](evidence/topix500-20261020/pc-comparison.json)。新しい実1営業日の日次時間、Androidの旧入力399秒との同条件比較、初回cache構築の暗号化保存、必要CI全体、新候補/Xiaomiは未確認。PC再利用23.9秒やAndroid同一入力再計算128.9秒を新営業日・起動込み3分以内の達成値へ読み替えない。
+- 対象方式は既存の折りたたみ詳細へ1項目だけ追加し、初期値従来300、保存失敗時の旧設定保持、非対応理由、予測自身の方式を表示。Web typecheck/lint、100 unit、320/390px・文字150%の2 layoutが成功。48px/12px条件と横はみ出しなしを確認。初回layoutのlabel locator失敗を残し、実際のaccessible comboboxで同じ値/間隔を検証した。UIの合成成功をAndroidの実データ確認へ読み替えない。
+
+- 独立worktree `stock-ai-topix500` / branch `feature/topix500-preselection`、開始9fe568e。元の3file/191行の私有差分・PR #2・通常0.1.23・実時刻試験・Xiaomi一括票を保持する。旧300方式が既定。
+- ScaleCatの3区分/国内普通株による対象リスト、全保有の追加、月次/構成変更時の不変版・差分・受領/cutoff・hashを実装。現行の実受領がなければ理由付き停止。売買代金は選定の足切りではなく既存の費用/株数検算用に保持する。
+- 共通統計を全市場で作った後、財務日次結合は対象だけで実施する再利用口を追加。銘柄別価格履歴、共通統計、v1 source hash列のcacheを追加し、warm/通常追加日で全市場長期frameを再構築しない。初回/訂正等の再構築はまだ全市場価格を使う。
+- 関連139件、cache境界/方式設定/保存復旧79件、最後の版証拠/同一予測再利用9件が成功（重複を含む）。先行の特徴量/全source ID54件も成功。Ruff全体・mypy src全75file成功。Windows sandboxでの復元先置換拒否と最初の中断実行は別記録を保持し、専用host試験領域で同じ復元が成功した。過去/部分試験を現source全体CIの証拠にしない。
+- 保存実データから対応国内普通株493銘柄のリストと検算用20営業日参照を生成済み。730日/実headのPC比較とAndroid cache再利用/保存/復元/再起動は上記の範囲で成功。初回Android、実データの日次/月次/変更再計算、必要CI全体、別候補/Xiaomiは未完。この途中の結果で通常方式を切り替えない。
+- 私有原本/作業開始記録と計測準備は`.demo-artifacts/topix500-20261020/pc-001/`。sourceは実730日/485営業日の保存版で、本人の口座操作ではない。正式採用HOLD、152条件とholdout採点なしを維持。実注文・外部AI送信・公開配布なし。
+
 ## 2026-10-20 — 実時刻のOS日次・通知・保存・再起動照合（D204）
 
 - 製品c2fa278と同じ通常43資産の私有instrumentation APKで、実730日/実native HTTPS受領履歴/研究2回帰と試験口座を使用。OS/Worker時計を変更せず、11:22の予約・締切前拒否→11:37ごろの通常WorkManager配送→11:47の相談準備完了/通知投稿まで確認した。scheduler強制配送・画面wake・power policy変更は行わない。新たなHTTP取得はこの試験では行わず、既検証のnative実受領時刻を維持したcacheを使った。
@@ -2009,3 +2367,10 @@ Androidの別pluginへ公開OAuth client、loopback/PKCE、JWKS/issuer/audience/
 ローカルTypeScript/Lint/build成功、React24件PASS、Pythonの配布検証10件PASS。最初のReact試験はWindowsのsandbox一時directoryのrename EPERMで試験収集前に停止し、作業領域内TEMP/TMPで同じ試験を再実行して成功。Androidコンパイル/機器試験と実アカウント認証・検索はまだ未確認。PCにJDK/SDKがないため既存Android CIを使用する。制限環境でghの接続確認が失敗し、接続済みGitHubアプリもbranch作成403だった。許可された読み取り接続で既存ghのrepository push/admin権限を確認し、既存CLI経路へ戻した。認証情報の変更や取得・表示は行わない。
 
 これは連携入口の段階であり、独立調査の自動保存/表示、背景実行、履歴一括取得、実市場評価、モデル採用、最新予測/個人株数の接続、実機性能は未完。Goal active、実注文なし。
+
+## 2026-10-23 — 台帳選択の安全性を先行修正（D230、ローカル差分）
+
+- 本人指定文書に従い、保存先の取り違え防止を高速化より先行。最新台帳の選択を同一connectionの共通処理へ集約し、全行のhash/model/catalog検証後にUTC・microsecond精度で比較する。最新同時刻の複数IDはPORTFOLIO_BASE_AMBIGUOUS、未来台帳はPORTFOLIO_BASE_IN_FUTUREとして拒否。apply-executions APIも理由コードを保持する。
+- 新規6ケース成功。関連4ファイルの試験は103成功・1失敗後、残る同日fixtureの未来時刻依存を修正して当該1件成功（合計104ケース確認、最終一括再実行は省略）。別の未来日fixtureも試験内時計をその合成日時に固定した。assert・本番時刻検査は緩和していない。Ruff、変更sourceのmypy成功。
+- これはPatch1Aのみ。positions CSVのbase_reference・確認時競合防止・原子的保存は未実装であり、CSV更新競合の解決完了とは扱わない。入力draft保全、hook内読込整理、作業中のnative保存分離は別の未完差分として保全。実DB変更、APK更新、CI、push、Driveへの追加保存、Xiaomi試験は今回未実施。正式採用HOLD。
+

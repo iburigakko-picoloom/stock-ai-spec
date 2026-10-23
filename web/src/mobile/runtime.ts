@@ -1,12 +1,12 @@
 import { StockAI } from "./native";
+import { responseError } from "../apiError";
 
 // Android owns the serialized interpreter and durable writer. Activity changes
 // never create another Python state or a second generation counter in the UI.
 export async function mobileRequest<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
   const reply = await StockAI.compute({ method, path, body: JSON.stringify(body ?? null) });
   if (reply.status >= 400) {
-    const detail = (reply.body as { detail?: unknown } | null)?.detail;
-    throw new Error(typeof detail === "string" ? detail : "入力または端末の状態を確認してください。");
+    throw responseError(reply.status, reply.body);
   }
   const result = reply.body as T;
   if (path === "/api/v1/settings" && result && typeof result === "object") {

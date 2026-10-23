@@ -1,0 +1,79 @@
+{
+  "scope": "D213 model selection and prediction-population safety; not adoption or owner-device acceptance",
+  "starting_commit": "c70ab9bf0604c666e8922041d03a13c514e57315",
+  "source_sha256": {
+    "src/stock_ai/cli.py": "927b1134b6931a0fa85029ce5beb023a378eef7fede33567fca2baae913bd0ca",
+    "src/stock_ai/ml/holdout.py": "6a6c8ec7449cb1d5922558b2573fd168a3fc72698e010176d26fcaeedb708de8",
+    "src/stock_ai/ml/selection.py": "472dbea7fae5e422b606b3b3f59cd696b0178c660903fecd6760991ee4c3d71b",
+    "src/stock_ai/ml/assumed_market.py": "5f2561729776901f60fdfa7d98f65fb905302a8d7cdce9e58a60c5519aa036b7",
+    "src/stock_ai/ml/evaluation_metrics.py": "746fe893ea62f82d42fd839a6d56bad93a1636e92de471c606e77adfa42cc498"
+  },
+  "local_suites": [
+    {
+      "name": "milestone-05",
+      "tests": 92,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "junit_sha256": "b6b3289eb29d13e7b3d8012372095cf9bdde8849328c8090513a47e4a32f9f61"
+    },
+    {
+      "name": "regression-07",
+      "tests": 61,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "junit_sha256": "68c23f5b46d0477e23c064446c72916bb6ba2894480c80f0b1f44b4908d86027"
+    },
+    {
+      "name": "workflow-09",
+      "tests": 9,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "junit_sha256": "179ea403beb8478b7b55783f24e73345667ea1918a434a7351bf18b210087a9d"
+    }
+  ],
+  "static_checks": {
+    "ruff": "all passed",
+    "mypy_sources": 75,
+    "mypy": [
+      "default PASS",
+      "win32 PASS"
+    ]
+  },
+  "real_artifact_audit": {
+    "configurations": 18,
+    "tasks": 72,
+    "original_NAV_receipts_rehashed": 152,
+    "new_real_fits": 0,
+    "new_cost_backtest_run": false,
+    "real_holdout_opened": false,
+    "portable_research_heads_reauthenticated": 2,
+    "private_artifact_hashes": {
+      "existing-artifacts.json": "3d10fa9a8f5022c1eb94d0764ae6359a61f3fb3892fe2862ff4ee935c59229af",
+      "candidate-task-ledger-v2.json": "4bf76d7a62e94b7cb433422118b8ecada1f400aee37aa97380ab1456633aaf38",
+      "role-comparison-reused-v2.json": "868de15b395250703a736be21d20bf579dda81293df7910f0e63162f3b1f37a4",
+      "topix-oof-coverage-v2.json": "e3d6b4871254b8b3a7dfcea7b5157b67380c5f318bbd05b12065a065f0ac6d54",
+      "missing-oof-diagnosis.json": "d5b6a32b73598f22e5413d79a3cd50da6a872f371f894c2f6522d2164298c394",
+      "preservation.json": "48333565ef6fe792860a19b3e8468db487b00a61f1ab838fba252b6cf8bd8a41"
+    }
+  },
+  "apk": {
+    "version": "0.1.27-candidate",
+    "current_runtime_content_match": true,
+    "entries": 492,
+    "new_publication": false,
+    "Xiaomi_verified": false
+  },
+  "preservation": {
+    "original_tracked_diff_unchanged": true,
+    "original_SQLite_and_APK_unchanged": true
+  },
+  "CI": "not yet reported for the new commit",
+  "formal_adoption": "HOLD",
+  "final_strategy_NAV_and_owner_evidence_join_complete": false,
+  "criteria_owner_confirmation": "pending",
+  "owner_manual_created": false,
+  "no_order_sent": true
+}

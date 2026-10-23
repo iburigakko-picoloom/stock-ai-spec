@@ -138,7 +138,7 @@ def evaluate_fixed_rule(
         prior = accounting.initial_as_of if index == 0 else accounting.sessions[index - 1].close_at
         if signal.reference_price_at < prior:
             raise ValueError("stale reference price")
-        affected = {a.event_id: a for a in accounting.actions}
+        affected = {a.event_id: a for a in accounting.accounting_actions}
         if any(
             affected[e].symbol in prices
             and affected[e].kind != "dividend"

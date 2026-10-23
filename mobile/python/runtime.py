@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import inspect
 import io
 import json
@@ -51,10 +52,12 @@ def _async_call(fn):
     return invoke
 
 
-def _restore_archive(archive: zipfile.ZipFile) -> None:
+def _restore_archive(archive: zipfile.ZipFile, *, operations_only=False) -> None:
     names = archive.namelist()
     if set(names) - {"operations.sqlite3", "mobile.sqlite3"} or len(names) != len(set(names)):
         raise ValueError("Unexpected backup file")
+    if operations_only and names != ["operations.sqlite3"]:
+        raise ValueError("Invalid operations overlay")
     # Validate both snapshots on disk before replacing either current database.
     with tempfile.TemporaryDirectory(prefix="state-import-", dir=STATE) as folder:
         staged = Path(folder)
@@ -109,7 +112,7 @@ class StateImport:
             self.close()
             raise
 
-    def finish(self) -> dict:
+    def finish(self, *, initialize_runtime=True, operations_only=False) -> dict:
         try:
             if self._closed or self._received != self.length:
                 raise ValueError("Incomplete native state")
@@ -117,8 +120,10 @@ class StateImport:
             if self.length:
                 self._archive.seek(0)
                 with zipfile.ZipFile(self._archive) as archive:
-                    _restore_archive(archive)
-            return initialize()
+                    _restore_archive(archive, operations_only=operations_only)
+            elif operations_only:
+                raise ValueError("Missing operations overlay")
+            return initialize() if initialize_runtime else {}
         finally:
             self.close()
 
@@ -171,6 +176,41 @@ def mobile_db():
     return connect(STATE / "mobile.sqlite3")
 
 
+def _startup_fingerprints() -> dict:
+    """Bounded reads; never allocate or recompress a complete market snapshot."""
+    result = {}
+    for name in ("operations.sqlite3", "mobile.sqlite3"):
+        path = STATE / name
+        if not path.exists():
+            result[name] = None
+            continue
+        with closing(sqlite3.connect(path)) as db:
+            # This interpreter is the sole writer. Include committed WAL pages.
+            if db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0] != 0:
+                raise ValueError("Startup checkpoint busy")
+            if name == "operations.sqlite3":
+                digest = hashlib.sha256()
+                # Small ledger: ignore physical page/header churn, not logical changes.
+                for line in db.iterdump():
+                    digest.update(line.encode("utf-8"))
+                    digest.update(b"\n")
+                result[name] = digest.hexdigest()
+                continue
+        with path.open("rb") as content:
+            result[name] = hashlib.file_digest(content, "sha256").hexdigest()
+    return result
+
+
+def initialize_checked() -> dict:
+    before = _startup_fingerprints()
+    initialize()
+    after = _startup_fingerprints()
+    mode = ("full" if before["mobile.sqlite3"] != after["mobile.sqlite3"]
+            else "operations" if before["operations.sqlite3"] != after["operations.sqlite3"]
+            else "none")
+    return {"persistence": mode}
+
+
 class _BoundedArchive(io.BytesIO):
     def __init__(self, limit: int):
         super().__init__()
@@ -182,12 +222,16 @@ class _BoundedArchive(io.BytesIO):
         return super().write(content)
 
 
-def _export_archive(limit: int | None = None) -> io.BytesIO:
-    market.compact_legacy(STATE / "mobile.sqlite3")
+def _export_archive(limit: int | None = None, *, operations_only=False) -> io.BytesIO:
+    if not operations_only:
+        market.compact_legacy(STATE / "mobile.sqlite3")
     output = io.BytesIO() if limit is None else _BoundedArchive(limit)
     try:
         with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name in ("operations.sqlite3", "mobile.sqlite3"):
+            names = ("operations.sqlite3",) if operations_only else (
+                "operations.sqlite3", "mobile.sqlite3",
+            )
+            for name in names:
                 backup_path = STATE / "export.sqlite3"
                 try:
                     with closing(sqlite3.connect(STATE / name)) as connection:
@@ -218,8 +262,10 @@ _STATE_CHUNK_CHARACTERS = 256 * 1024
 class StateExport:
     """Native-only base64 stream, with one archive and bounded encoded fragments."""
 
-    def __init__(self):
-        self._archive = _export_archive(_MAX_NATIVE_STATE_CHARACTERS // 4 * 3)
+    def __init__(self, operations_only=False):
+        self._archive = _export_archive(
+            _MAX_NATIVE_STATE_CHARACTERS // 4 * 3, operations_only=operations_only,
+        )
         self._view = self._archive.getbuffer()
         self.length = (len(self._view) + 2) // 3 * 4
         self._offset = 0
@@ -334,6 +380,15 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             return {"status": 422, "body": {
                 "detail": "取得範囲は昨日までの最大2年分で指定してください。"
             }}
+    if path == "/api/v1/mobile/market/universe-policy" and method in ("GET", "POST"):
+        from .preselection import policy
+
+        try:
+            return {"status": 200, "body": policy(
+                STATE / "mobile.sqlite3", json.loads(body)["mode"] if method == "POST" else None,
+            )}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {"detail": "対象銘柄方式を確認してください。"}}
     if method == "GET" and path in (
         "/api/v1/mobile/market/universe", "/api/v1/mobile/market/current-universe"
     ):
@@ -444,6 +499,7 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             value = strict_json(body)
             return {"status": 200, "body": bundle_parity(
                 value["content"], value["rows"], bundled_selection(),
+                rank_universes=value.get("rank_universes"),
             )}
         except (ValueError, KeyError, TypeError, IndexError):
             return {"status": 422, "body": {"detail": "モデル一式の一致確認用データが不正です。"}}

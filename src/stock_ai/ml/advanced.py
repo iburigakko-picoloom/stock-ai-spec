@@ -476,7 +476,7 @@ class FoldPreprocessor:
         return self._retained
 
     def fit(self, frame: pd.DataFrame) -> FoldPreprocessor:
-        numeric = _finite_numeric(frame.loc[:, list(self.feature_names)])
+        numeric = _finite_numeric(frame, self.feature_names)
         lower = numeric.quantile(self.lower_quantile).astype(np.float32)
         upper = numeric.quantile(self.upper_quantile).astype(np.float32)
         numeric.clip(lower=lower, upper=upper, axis="columns", inplace=True)
@@ -503,7 +503,7 @@ class FoldPreprocessor:
     def transform(self, frame: pd.DataFrame) -> pd.DataFrame:
         if self._lower is None or self._upper is None or self._median is None:
             raise RuntimeError("fold preprocessor must be fitted before transform")
-        numeric = _finite_numeric(frame.loc[:, list(self.feature_names)])
+        numeric = _finite_numeric(frame, self.feature_names)
         numeric.clip(lower=self._lower, upper=self._upper, axis="columns", inplace=True)
         numeric.fillna(self._median, inplace=True)
         dropped = [name for name in numeric.columns if name not in self.retained_features]
@@ -584,9 +584,18 @@ def generate_oof_predictions(
     progress_sink: list[pd.DataFrame] | None = None,
     checkpoint_store: ResearchCheckpointStore | None = None,
     checkpoint_scope: str = "oof",
+    inference_frame: pd.DataFrame | None = None,
+    fold_numbers: frozenset[int] | None = None,
+    fitted_model_sink: Callable[[int, Any, FoldPreprocessor], None] | None = None,
     _collect_parts_only: bool = False,
 ) -> pd.DataFrame:
-    """Generate one model's OOF predictions using only each fold's training rows."""
+    """Generate OOF using the original training population and split.
+
+    Recovery may supply an independent, outcome-free inference population. Its
+    entire validation fold is predicted, including rows with unknown endpoints.
+    The old checkpoint identity is never reused for this expanded population.
+    Metrics must mask labels afterwards; this does not certify universe provenance.
+    """
 
     required = {
         "symbol",
@@ -598,6 +607,25 @@ def generate_oof_predictions(
     missing = sorted(required - set(frame.columns))
     if missing:
         raise ValueError(f"advanced OOF frame is missing columns: {', '.join(missing)}")
+    inference_hash = None
+    if inference_frame is not None:
+        inference_required = {"symbol", "trading_date", *feature_names}
+        if missing := sorted(inference_required - set(inference_frame.columns)):
+            raise ValueError(f"OOF inference frame is missing columns: {', '.join(missing)}")
+        if inference_frame.duplicated(["symbol", "trading_date"]).any():
+            raise ValueError("OOF inference population has duplicate symbol/date keys")
+        inference_frame = inference_frame.copy(deep=False)
+        if target_column not in inference_frame:
+            inference_frame = inference_frame.assign(**{target_column: np.nan})
+        if label_end_column not in inference_frame:
+            inference_frame = inference_frame.assign(**{
+                label_end_column: pd.Series(pd.NaT, index=inference_frame.index,
+                                            dtype="datetime64[ns]"),
+            })
+        # Include all feature values, keys and label masks, not only row counts.
+        inference_hash = _frame_hash(inference_frame)
+    if fold_numbers is not None and (not fold_numbers or min(fold_numbers) < 0):
+        raise ValueError("OOF recovery requires explicit non-negative fold numbers")
     splitter = PurgedExpandingWindowSplitter(
         initial_train_periods=config.initial_train_periods,
         validation_periods=config.validation_periods,
@@ -610,14 +638,31 @@ def generate_oof_predictions(
     fold_source = frame.loc[:, columns]
     evidence_source = frame.loc[:, ["symbol", "trading_date", target_column, label_end_column]]
     outputs: list[pd.DataFrame] = []
+    completed_folds: set[int] = set()
     for fold in splitter.split(frame, label_end_column=label_end_column):
+        if fold_numbers is not None and fold.fold_number not in fold_numbers:
+            continue
         train = _prepare_fold_rows(evidence_source, fold.train_indices, target_column=target_column)
+        original_validation = _prepare_fold_rows(
+            evidence_source, fold.validation_indices, target_column=target_column,
+            validation_not_before=validation_not_before,
+        ) if inference_frame is not None else None
         validation = _prepare_fold_rows(
             evidence_source,
             fold.validation_indices,
             target_column=target_column,
             validation_not_before=validation_not_before,
+        ) if inference_frame is None else _prepare_inference_fold_rows(
+            inference_frame, fold.validation_start, fold.validation_end,
+            validation_not_before=validation_not_before,
         )
+        if inference_frame is not None:
+            assert original_validation is not None
+            expected = pd.MultiIndex.from_frame(original_validation[["symbol", "trading_date"]])
+            actual = pd.MultiIndex.from_frame(validation[["symbol", "trading_date"]])
+            if not expected.isin(actual).all():
+                raise ValueError("OOF recovery must retain the whole original validation fold")
+        del original_validation
         if train.empty or validation.empty:
             continue
         checkpoint_evidence = _fold_checkpoint_evidence(
@@ -638,6 +683,12 @@ def generate_oof_predictions(
             config=config,
             validation_not_before=validation_not_before,
         )
+        if inference_frame is not None:
+            checkpoint_evidence.update({
+                "prediction_population_schema": "label-independent-inference-v1",
+                "inference_frame_sha256": inference_hash,
+                "original_training_population_unchanged": True,
+            })
         output = (
             checkpoint_store.load_fold(checkpoint_evidence, frame_hash=_frame_hash)
             if checkpoint_store is not None
@@ -653,6 +704,9 @@ def generate_oof_predictions(
                 fold_source,
                 fold.validation_indices,
                 target_column=target_column,
+                validation_not_before=validation_not_before,
+            ) if inference_frame is None else _prepare_inference_fold_rows(
+                inference_frame, fold.validation_start, fold.validation_end,
                 validation_not_before=validation_not_before,
             )
             if checkpoint_store is not None:
@@ -672,6 +726,14 @@ def generate_oof_predictions(
                 validation.drop(columns=finished_features, inplace=True)
                 train_target = train[target_column].astype(float)
                 check_fit_headroom()
+
+                def retain(
+                    model: Any, number: int = fold.fold_number,
+                    processor: FoldPreprocessor = preprocessor,
+                ) -> None:
+                    assert fitted_model_sink is not None
+                    fitted_model_sink(number, model, processor)
+
                 prediction = _fit_predict(
                     family=family,
                     task=task,
@@ -682,6 +744,7 @@ def generate_oof_predictions(
                     seed=seed,
                     parameters=parameters,
                     config=config,
+                    fitted_model_sink=None if fitted_model_sink is None else retain,
                 )
                 prediction_array = np.asarray(prediction, dtype=float)
                 if prediction_array.ndim != 1 or len(prediction_array) != len(validation):
@@ -719,9 +782,13 @@ def generate_oof_predictions(
                     )
                 raise
         outputs.append(output)
+        completed_folds.add(fold.fold_number)
         if progress_sink is not None:
             progress_sink.append(output)
         del train, validation
+    if fold_numbers is not None and completed_folds != fold_numbers:
+        raise ValueError("OOF recovery requested folds with no complete predictions: "
+                         + str(sorted(fold_numbers - completed_folds)))
     if not outputs:
         raise ValueError(f"BLOCKED_BY_VALIDATION: no OOF rows for {family}/{task}/{horizon}d")
     key = ["symbol", "trading_date", "horizon", "model_family", "task", "seed"]
@@ -1003,6 +1070,82 @@ def _fit_predict(
     model = _regressor(family, task=task, seed=seed, parameters=parameters, config=config)
     model.fit(train_x, train_target)
     return predict_fitted(model)
+
+
+def frozen_training_identity(
+    training: pd.DataFrame,
+    *,
+    feature_names: Sequence[str],
+    target_column: str,
+    horizon: int,
+) -> dict[str, Any]:
+    """Authenticate the exact fit input one column at a time, without a wide copy.
+
+    Dates are calendar-day ns; receipt/decision clocks are UTC ns. Feature values
+    use the existing float32/Inf-to-NaN input coercion, before train-only fitting.
+    Extra unrelated columns and the caller's index do not change this identity.
+    """
+    from stock_ai.data.production import _source_row_hashes
+
+    raw = (
+        "symbol",
+        "trading_date",
+        "as_of",
+        target_column,
+        f"label_status_{horizon}d",
+        f"label_end_date_{horizon}d",
+        f"label_available_at_{horizon}d",
+    )
+    names = tuple(feature_names)
+    if not names or len(set(names)) != len(names) or set(raw) & set(names):
+        raise ValueError("invalid frozen training feature order")
+    if missing := set((*raw, *names)) - set(training.columns):
+        raise ValueError(f"frozen training identity lacks: {sorted(missing)}")
+    order = training.loc[training[target_column].notna(), ["trading_date", "symbol"]]
+    if order.empty or order.isna().any().any() or order.duplicated().any():
+        raise ValueError("frozen training requires nonempty unique ordered keys")
+    # Positions, not arbitrary caller index labels, identify the rows for each column.
+    positions = np.flatnonzero(training[target_column].notna().to_numpy())
+    order = order.assign(_position=positions).sort_values(["trading_date", "symbol"], kind="stable")
+    positions = order._position.to_numpy(dtype=np.int64)
+    columns = []
+    for name in (*raw, *names):
+        column = training[name].iloc[positions].reset_index(drop=True)
+        if name in names:
+            column = _finite_numeric(column.to_frame(), (name,))[name]
+        elif name in ("symbol", f"label_status_{horizon}d"):
+            column = column.astype("string")
+        elif name in ("trading_date", f"label_end_date_{horizon}d"):
+            column = pd.to_datetime(column).astype("datetime64[ns]")
+            if column.isna().any() or not column.eq(column.dt.normalize()).all():
+                raise ValueError("frozen training calendar date is invalid")
+        elif name in ("as_of", f"label_available_at_{horizon}d"):
+            column = pd.to_datetime(column, utc=True).astype("datetime64[ns, UTC]")
+        else:
+            column = pd.to_numeric(column, errors="raise").astype("float64")
+        if name in raw and column.isna().any():
+            raise ValueError("frozen training raw identity column is missing")
+        values = _source_row_hashes(column.to_frame()).astype("<u8", copy=False)
+        columns.append(
+            {
+                "name": name,
+                "dtype": str(column.dtype),
+                "sha256": hashlib.sha256(values.tobytes()).hexdigest(),
+            }
+        )
+    payload: dict[str, Any] = {
+        "version": "frozen-training-column-digest-v1",
+        "rows": len(positions),
+        "feature_names": list(names),
+        "feature_names_hash": hashlib.sha256(
+            json.dumps(names, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "column_digests": columns,
+    }
+    payload["identity_sha256"] = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return payload
 
 
 def fit_predict_frozen_model(
@@ -2744,7 +2887,31 @@ def _prepare_fold_rows(
     return _take_rows_columnwise(frame, indices)
 
 
-def _finite_numeric(frame: pd.DataFrame) -> pd.DataFrame:
+def _prepare_inference_fold_rows(
+    frame: pd.DataFrame,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    *,
+    validation_not_before: pd.Timestamp | None,
+) -> pd.DataFrame:
+    """Select by the original fold's feature dates, never by a future outcome."""
+    dates = pd.to_datetime(frame["trading_date"])
+    allowed = dates.between(start, end)
+    if validation_not_before is not None:
+        allowed &= dates >= validation_not_before
+    indices = np.flatnonzero(allowed.to_numpy())
+    # Source indices may be non-unique after concatenation; sort positions instead.
+    positions = pd.DataFrame({
+        "trading_date": dates.iloc[indices].to_numpy(),
+        "symbol": frame["symbol"].iloc[indices].to_numpy(),
+        "position": indices,
+    }).sort_values(["trading_date", "symbol"], kind="stable")["position"].to_numpy()
+    return _take_rows_columnwise(frame, positions)
+
+
+def _finite_numeric(
+    frame: pd.DataFrame, feature_names: Sequence[str] | None = None,
+) -> pd.DataFrame:
     """Coerce a wide fold directly into a bounded-memory float32 matrix.
 
     Building the intermediary with ``DataFrame.astype(float)`` duplicates the complete
@@ -2754,7 +2921,9 @@ def _finite_numeric(frame: pd.DataFrame) -> pd.DataFrame:
     while avoiding the full-size float64 intermediary.
     """
 
-    columns = list(frame.columns)
+    # Project column-by-column; frame.loc[:, names] would first duplicate the
+    # entire wide source block even though the owned numeric matrix follows.
+    columns = list(frame.columns if feature_names is None else feature_names)
     values = allocate_array((len(frame), len(columns)), dtype=np.float32)
     for position, name in enumerate(columns):
         column = pd.to_numeric(frame[name], errors="coerce").to_numpy(

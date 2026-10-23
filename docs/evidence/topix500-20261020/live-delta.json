@@ -1,0 +1,146 @@
+{
+  "status": "ACTUAL_NEXT_DAY_INPUT_PREPARATION_AND_POST_CUTOFF_EXCLUSION_VERIFIED",
+  "scope": "Existing PC V2 client, actual market data/research models and a synthetic personal account in a private copy; not native Android acquisition or Xiaomi",
+  "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+  "source_day": "2026-10-20",
+  "received_at": "2026-10-20T09:42:47.938038+00:00",
+  "declared_existing_plan": "light",
+  "credential_not_exported": true,
+  "HTTP_requests": 6,
+  "all_HTTP_200": true,
+  "automatic_retries": 0,
+  "receive_and_private_ingest_seconds": 19.391000000061467,
+  "datasets": [
+    {
+      "dataset": "security_master",
+      "source_date": "2026-10-20",
+      "rows": 4443,
+      "received_at": "2026-10-20T09:42:41.879560+00:00"
+    },
+    {
+      "dataset": "daily_prices",
+      "source_date": "2026-10-20",
+      "rows": 4443,
+      "received_at": "2026-10-20T09:42:44.744726+00:00"
+    },
+    {
+      "dataset": "trading_calendar",
+      "source_date": "2026-10-20",
+      "rows": 1,
+      "received_at": "2026-10-20T09:42:44.948057+00:00"
+    },
+    {
+      "dataset": "topix",
+      "source_date": "2026-10-20",
+      "rows": 1,
+      "received_at": "2026-10-20T09:42:45.950784+00:00"
+    },
+    {
+      "dataset": "financial_summary",
+      "source_date": "2026-10-20",
+      "rows": 13,
+      "received_at": "2026-10-20T09:42:46.950980+00:00"
+    },
+    {
+      "dataset": "trading_calendar",
+      "source_date": "2026-10-21",
+      "rows": 1,
+      "received_at": "2026-10-20T09:42:47.938038+00:00"
+    }
+  ],
+  "before": {
+    "latest_data_date": "2026-10-19",
+    "completed_days": 730
+  },
+  "after": {
+    "latest_data_date": "2026-10-20",
+    "completed_days": 731
+  },
+  "existing_batch_versions_personal_models_forecasts_and_source_files_preserved": true,
+  "cutoff_and_cache_checks": {
+    "status": "ACTUAL_POST_CUTOFF_DELTA_EXCLUDED_AND_EXISTING_FORECAST_REUSED",
+    "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "actual_checked_at": "2026-10-20T09:48:16.558141+00:00",
+    "prediction_cutoff": "2026-10-20T11:30:00+09:00",
+    "new_delta_received_at": "2026-10-20T09:42:47.938038+00:00",
+    "all_selected_input_frames_features_978_predictions_and_source_IDs_exact_with_frozen_PC_reference": true,
+    "full_same_forecast_payload_scope_receipt_snapshot_returned": true,
+    "model_predict_replaced_with_rejecting_test_hook_never_called": true,
+    "all_original_market_model_personal_ledger_and_prediction_snapshot_tables_exact": true,
+    "allowed_selection_and_operational_metadata_only": true,
+    "same_day_generate_seconds": 24.06200000003446,
+    "independent_feature_prediction_check_seconds": 29.857096699997783,
+    "cache_mode": "warm",
+    "long_price_master_rows_decoded": 0,
+    "future_day_forecast_executed": false,
+    "Android_daily_measured": false,
+    "Xiaomi_verified": false,
+    "clock_modified": false,
+    "receipt_times_modified": false,
+    "new_fits": 0,
+    "holdout_scored": false,
+    "formal_adoption": "HOLD",
+    "real_orders": 0,
+    "external_AI_requests": 0
+  },
+  "independent_PC_check": {
+    "seconds": 29.857096699997783,
+    "peak_bytes": 672342016,
+    "predictions_exact": 978,
+    "candidates": 493,
+    "sqlite_reads": {
+      "rows": 55306,
+      "returned_value_bytes": 27410461,
+      "by_table": {
+        "market_batches": [
+          7043,
+          4755891
+        ],
+        "mobile_input_cache": [
+          499,
+          15430290
+        ],
+        "market_columns": [
+          47764,
+          7224280
+        ]
+      }
+    }
+  },
+  "private_evidence_directory": ".demo-artifacts/topix500-20261020/live-delta-20261020-001/",
+  "not_native_Android_HTTPS_or_daily_performance": true,
+  "future_forecast_executed": false,
+  "Xiaomi_verified": false,
+  "remaining": [
+    "Receive the actual current-day master/membership on 2026-10-21 by the existing native path before the 11:30 cutoff; do not backdate it",
+    "Run the real next-business-day Android receive/update/forecast/encrypted-save/OS-notification path and measure it",
+    "Complete the unchanged Xiaomi acceptance ticket; preserve the ongoing 0.1.23 test if any"
+  ],
+  "new_fits": 0,
+  "holdout_scored": false,
+  "formal_adoption": "HOLD",
+  "real_orders": 0,
+  "external_AI_requests": 0,
+  "state_transfer_check": {
+    "status": "ACTUAL_731_DAY_STATE_NATIVE_STREAM_LIMIT_AND_ALL_TYPED_TABLES_VERIFIED",
+    "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "characters": 247235240,
+    "maximum_characters": 268435456,
+    "remaining_characters": 21200216,
+    "chunks": 944,
+    "chunk_limit": 262144,
+    "sha256": "8590b87d07766f060c3f9bd24a8683aab888843386a85f67183cd126b1067112",
+    "archive_bytes": 185426430,
+    "wall_seconds": 12.405999999959022,
+    "typed_table_counts": {
+      "mobile.sqlite3": 20,
+      "operations.sqlite3": 27
+    },
+    "all_typed_tables_exact": true,
+    "source_state_tables_unchanged": true,
+    "scope": "Existing PC bounded native serialization; not new Android encryption/phone/day21 execution",
+    "Android_measured": false,
+    "Xiaomi_verified": false,
+    "limits_unchanged": true
+  }
+}

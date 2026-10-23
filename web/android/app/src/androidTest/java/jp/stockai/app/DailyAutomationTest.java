@@ -76,8 +76,46 @@ public class DailyAutomationTest {
         assertEquals(1, manager.getWorkInfosForUniqueWork(DailyAutomation.PUMP).get().size());
     }
 
+    @Test public void acquisitionUsesPrivateOngoingForegroundNotice() {
+        for (String phase : new String[]{"history", "membership", "calculating", "deciding"})
+            assertTrue(DailyWorker.requiresForeground(phase));
+        for (String phase : new String[]{"waiting_cutoff", "closed", "forecast_saved", "inputs"})
+            assertFalse(DailyWorker.requiresForeground(phase));
+        for (String phase : new String[]{"history", "membership"}) {
+            android.app.Notification notice = DailyWorker.foregroundInfo(context, phase).getNotification();
+            assertEquals("市場データを取得・保存しています。アプリから停止できます。",
+                notice.extras.getString(android.app.Notification.EXTRA_TEXT));
+            assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);
+            assertTrue((notice.flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0);
+        }
+    }
+
+    @Test public void historyProgressIsOngoingAndDurableAcrossSlicesAndReopen() throws Exception {
+        journal.enable("2026-01-05"); String token = journal.row().getString("token");
+        journal.state(token, "history", "2026-01-05");
+        android.app.Notification notice = DailyAutomation.progressNotification(context,
+            DailyAutomation.progressText(true, "history"), "2026-01-05");
+        assertTrue((notice.flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0);
+        assertEquals(0, notice.flags & android.app.Notification.FLAG_AUTO_CANCEL);
+        assertTrue((notice.flags & android.app.Notification.FLAG_ONLY_ALERT_ONCE) != 0);
+        assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);
+        assertTrue(notice.extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT).toString().contains("2026-01-05"));
+        assertEquals("stockai-history-progress", notice.getChannelId());
+        // There is no Activity or next Worker here: persisted progress survives
+        // the handoff. Denied notification permission cannot damage the journal.
+        db.close(); db = SQLiteDatabase.openOrCreateDatabase(file, null);
+        journal = new DailyAutomation(context, db); journal.refreshProgressNotice();
+        assertEquals("history", journal.status().getString("state"));
+        journal.state(token, "waiting_cutoff", "2026-01-06");
+        assertNull(DailyAutomation.progressText(true, journal.status().getString("state")));
+        db.execSQL("UPDATE daily_automation SET enabled=0,token='stopped',state='paused' WHERE id=1");
+        journal.state(token, "history", "2026-01-06");
+        assertEquals("paused", journal.status().getString("state"));
+        assertNull(DailyAutomation.progressText(false, "history"));
+    }
+
     @Test public void longCalculationNoticeAndMergedManifestDeclareDataSyncWithoutPrivateData() throws Exception {
-        androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(context);
+        androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(context, "calculating");
         assertEquals(6102, info.getNotificationId());
         android.app.Notification notice = info.getNotification();
         assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);

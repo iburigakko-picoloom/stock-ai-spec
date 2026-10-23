@@ -1,0 +1,56 @@
+{
+  "status": "PRIVATE_CANDIDATE_PACKAGE_VERIFIED_REQUIRED_CI_SUCCESS",
+  "sha256": "774777113438c16aec4c66aca05b8e102d743107603af328d191a3eaac2c8e3c",
+  "bytes": 23976593,
+  "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+  "ci_run": 39387328864,
+  "required_CI_success": true,
+  "application_id": "jp.stockai.app",
+  "version_code": 10025,
+  "version_name": "0.1.25-candidate",
+  "certificate_sha256": "97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979",
+  "signature_matches_existing_public_release": true,
+  "release_not_debuggable": true,
+  "success_CI_public_asset_files_exact": 43,
+  "models_packaged": 0,
+  "private_market_data_packaged": false,
+  "private_instrumentation_or_clock_packaged": false,
+  "build_seconds": 84.5713977,
+  "worker_limit": 1,
+  "java_heap_mib": 768,
+  "previous_candidate_preserved": true,
+  "prior_initial_B1_evidence_scope": "unchanged components only; component-reuse-791.json",
+  "installed_on_owner_device": false,
+  "public_distribution": false,
+  "legacy300_remains_default": true,
+  "formal_adoption": "HOLD",
+  "private_relative_path": ".demo-artifacts/topix500-20261020/candidate-0125/StockAI-0.1.25-candidate.apk",
+  "older_0124_preserved_by_hash": true,
+  "owner_model": {
+    "status": "EXISTING_AUTHENTICATED_RESEARCH_BUNDLE_COPIED_FOR_OWNER",
+    "filename": "StockAI-research-5d20d-bundle.json",
+    "sha256": "5e901794fc7c66b54b2f03c2ae4b9e37dd1afda0607302792dd6ee34041d2bb5",
+    "bytes": 7066264,
+    "bundle_id": "fcfca56783dfa5cec2e36e3ccd2563645c9c63090a564b128be2d0e634e926e6",
+    "feature_selection_id": "13c8676f84f24eaceaa2015395794cda0e1b2e249dfe5412640a31b6e8e9c81d",
+    "selection_id": "b5fce329395bb1994e755ffb156c8bd45cbc3e721d150a02ceecfbc025de488c",
+    "schema_version": "stockai-mobile-research-bundle-v1",
+    "roles": [
+      {
+        "horizon": 5,
+        "task": "regression"
+      },
+      {
+        "horizon": 20,
+        "task": "regression"
+      }
+    ],
+    "research_only": true,
+    "adopted": false,
+    "risk_or_calibration_fabricated": false,
+    "retrained": false,
+    "original_database_opened_read_only": true,
+    "APK_or_public_Git_inclusion": false
+  },
+  "normal_release_signature_upgrade": "release-upgrade.json"
+}

@@ -30,6 +30,21 @@ from stock_ai.ml.research_funding import build_funding_schedule
 from tests.test_daily_nav import DATES, INITIAL, at
 
 
+def test_known_label_conditioned_universe_stops_before_opening_market(prepared, monkeypatch):
+    request = prepared()
+    domain = json.loads(request.eligible_universe.path.read_text())
+    domain["schema_version"] = "common-domestic-OOF-domain-v1"
+    request.eligible_universe.path.write_text(json.dumps(domain))
+    request = request.model_copy(update={"eligible_universe": pin(request.eligible_universe.path)})
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("must reject the known future-label-conditioned cohort first")
+
+    monkeypatch.setattr(module, "read_market_receipts", forbidden)
+    with pytest.raises(ValueError, match="LABEL_CONDITIONED_UNIVERSE"):
+        evaluate_assumed_market(request)
+
+
 def pin(path):
     return PinnedEvidence(path=path, sha256=module._sha(path))
 

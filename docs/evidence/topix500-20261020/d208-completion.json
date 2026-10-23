@@ -1,0 +1,329 @@
+{
+  "product_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+  "status": "IMPLEMENTED_EMULATOR_VERIFIED_XIAOMI_AND_REAL_NEXT_DAY_PENDING",
+  "current_required_CI": "ci-current.json",
+  "normal_real_data_Android": {
+    "status": "REAL_CURRENT_NORMAL_FORECAST_SAVE_EXACT_REBOOT_VERIFIED",
+    "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "scope": "Complete actual 730-day saved market data/current valid cache and research heads, pre-cutoff synthetic account, manual owner API; NOT a new business-day update or Xiaomi",
+    "passive_observer": false,
+    "normal_runtime_exact_CI": true,
+    "candidate_count": 493,
+    "forecastable_count": 489,
+    "excluded_history_count": 4,
+    "exact_prediction_values": 978,
+    "all_features_and_source_ids_and_full_market_sector_context_exact": true,
+    "same_target_set_order_and_top20_exact": {
+      "5": 20,
+      "20": 20
+    },
+    "protected_original_typed_tables_and_cache_payloads_unchanged": true,
+    "all_20_mobile_27_operations_tables_exact_after_kernel_reboot": true,
+    "restart_method": "Same saved AVD/Keystore, separate fresh VM process; no install/reseed/recalculation",
+    "in_place_VM_reboot_exceeded_unchanged_host_guard": true,
+    "successful_memory_sample_scope": "forecast/save and separate cold reopen; failed in-place VM reboot is recorded separately",
+    "metrics": {
+      "calculate": {
+        "owner_load_seconds": 89.088,
+        "forecast_encrypted_save_seconds": 121.241,
+        "prediction_values_exact": 978,
+        "all_features_hash_exact": true,
+        "same_day_GET_seconds": 0.708
+      },
+      "reopen": {
+        "cold_GET_seconds": 102.602,
+        "prediction_values_exact": 978,
+        "all_features_hash_exact": true
+      }
+    },
+    "passive_component_observations": null,
+    "sampled_app_renderer_peak_bytes": 1996398592,
+    "sampled_VM_peak_bytes": 5221437440,
+    "sampled_host_free_min_bytes": 2165207040,
+    "clock_modified": false,
+    "limits_unchanged": true,
+    "actual_new_business_day_measured": false,
+    "Xiaomi_verified": false,
+    "formal_adoption": "HOLD",
+    "new_fits": 0,
+    "holdout_scored": false,
+    "real_orders": 0,
+    "external_AI_requests": 0
+  },
+  "passive_observer_real_data_Android": {
+    "status": "REAL_CURRENT_OBSERVER_FORECAST_SAVE_EXACT",
+    "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "scope": "Complete actual 730-day saved market data/current valid cache and research heads, pre-cutoff synthetic account, manual owner API; NOT a new business-day update or Xiaomi",
+    "passive_observer": true,
+    "normal_runtime_exact_CI": false,
+    "candidate_count": 493,
+    "forecastable_count": 489,
+    "excluded_history_count": 4,
+    "exact_prediction_values": 978,
+    "all_features_and_source_ids_and_full_market_sector_context_exact": true,
+    "same_target_set_order_and_top20_exact": {
+      "5": 20,
+      "20": 20
+    },
+    "protected_original_typed_tables_and_cache_payloads_unchanged": true,
+    "all_20_mobile_27_operations_tables_exact_after_kernel_reboot": false,
+    "metrics": {
+      "calculate": {
+        "owner_load_seconds": 94.936,
+        "forecast_encrypted_save_seconds": 117.976,
+        "prediction_values_exact": 978,
+        "all_features_hash_exact": true,
+        "same_day_GET_seconds": 0.647
+      }
+    },
+    "passive_component_observations": {
+      "inputs": [
+        {
+          "seconds": 53.9769,
+          "cache": {
+            "mode": "warm",
+            "sqlite_cache_rows": 498,
+            "sqlite_cache_bytes": 15398410,
+            "raw_snapshot_days": 0,
+            "raw_source_rows": 0,
+            "common_population": "full_historical_eligible_market",
+            "code_version": "c9ce910408fdebb0dadf8b6124e42cf37486b783d80cb0e97bf0a03707ae0ef4",
+            "cache_schema_version": "preselected-price-context-v1"
+          },
+          "sqlite": {
+            "rows": 55306,
+            "returned_value_bytes": 27410461,
+            "by_table": {
+              "market_batches": [
+                7043,
+                4755891
+              ],
+              "mobile_input_cache": [
+                499,
+                15430290
+              ],
+              "market_columns": [
+                47764,
+                7224280
+              ]
+            }
+          },
+          "byte_definition": "returned BLOB/UTF8/scalars; not physical page IO"
+        }
+      ],
+      "features": [
+        {
+          "seconds": 16.323199999999986
+        }
+      ],
+      "inference": [
+        {
+          "call": 1,
+          "seconds": 0.6123000000000047
+        },
+        {
+          "call": 2,
+          "seconds": 0.1810000000000116
+        }
+      ]
+    },
+    "sampled_app_renderer_peak_bytes": 2168774656,
+    "sampled_VM_peak_bytes": 5029523456,
+    "sampled_host_free_min_bytes": 2340573184,
+    "clock_modified": false,
+    "limits_unchanged": true,
+    "actual_new_business_day_measured": false,
+    "Xiaomi_verified": false,
+    "formal_adoption": "HOLD",
+    "new_fits": 0,
+    "holdout_scored": false,
+    "real_orders": 0,
+    "external_AI_requests": 0
+  },
+  "synthetic_Android_changes": {
+    "status": "SYNTHETIC_ANDROID_TRANSITIONS_EXACT_AND_RESTART_VERIFIED",
+    "product_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "scope": "Private entrypoint, four synthetic market symbols/283 sessions and existing two research heads; not real-market daily performance or Xiaomi",
+    "cases": [
+      "cold",
+      "warm",
+      "append-monthly",
+      "member-replaced",
+      "holding-added",
+      "same-cutoff-revisions",
+      "price-corrected",
+      "split-rebuild",
+      "interrupted-rebuild",
+      "resume-rebuild",
+      "restart-warm"
+    ],
+    "exact_prediction_values": 56,
+    "all_input_frames_exact_with_local_full_baseline": true,
+    "all_feature_hashes_and_PC_prediction_values_exact": true,
+    "same_cutoff_revision_links_checked": 8,
+    "complete_PC_and_Android_source_tables_and_list_versions_exact": true,
+    "cache_content_source_hashes_and_existing_input_serialization_exact": true,
+    "interrupted_cache_transaction_kept_old_cache": true,
+    "all_typed_tables_exact_after_kernel_restart": true,
+    "model_and_personal_and_operations_tables_unchanged": true,
+    "sampled_app_renderer_peak_bytes": 982523904,
+    "sampled_VM_peak_bytes": 5388599296,
+    "sampled_host_free_min_bytes": 2097483776,
+    "normal_main_APK": false,
+    "clock_modified": false,
+    "limits_unchanged": true,
+    "real_orders": 0,
+    "external_AI_requests": 0,
+    "new_fits": 0,
+    "holdout_scored": false,
+    "actual_new_business_day_measured": false,
+    "Xiaomi_verified": false
+  },
+  "current_PC": {
+    "source_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "kind": "warm",
+    "characters": 246701944,
+    "sha256": "d2b2d663f60b1d5936c397a3ba6137bfe0e93b047622b3d61d931b2f97811c26",
+    "scope": "Fresh normal forecast on complete actual saved data/current valid cache; NOT a one-day update",
+    "normal_PC_forecast_seconds": 29.004967399989255,
+    "normal_PC_components": {
+      "inputs": [
+        {
+          "seconds": 19.432442800025456,
+          "cache": {
+            "mode": "warm",
+            "sqlite_cache_rows": 498,
+            "sqlite_cache_bytes": 15398410,
+            "raw_snapshot_days": 0,
+            "raw_source_rows": 0,
+            "common_population": "full_historical_eligible_market",
+            "code_version": "c9ce910408fdebb0dadf8b6124e42cf37486b783d80cb0e97bf0a03707ae0ef4",
+            "cache_schema_version": "preselected-price-context-v1"
+          },
+          "sqlite": {
+            "rows": 55306,
+            "returned_value_bytes": 27410461,
+            "by_table": {
+              "market_batches": [
+                7043,
+                4755891
+              ],
+              "mobile_input_cache": [
+                499,
+                15430290
+              ],
+              "market_columns": [
+                47764,
+                7224280
+              ]
+            }
+          },
+          "byte_definition": "returned BLOB/UTF8/scalars; not physical page IO"
+        }
+      ],
+      "features": [
+        {
+          "seconds": 6.996117600006983
+        }
+      ],
+      "inference": [
+        {
+          "call": 1,
+          "seconds": 0.4310628999955952
+        },
+        {
+          "call": 2,
+          "seconds": 0.11221349996048957
+        }
+      ]
+    },
+    "original_raw_and_ledger_tables_exact": true,
+    "features_and_978_predictions_exact": true,
+    "actual_business_day_rollover_measured": false,
+    "clock_modified": false,
+    "new_fits": 0,
+    "holdout_scored": false
+  },
+  "prior_component_reuse": {
+    "product_commit": "791dfa516859c5fa6b6d5d57a32b904ab8618411",
+    "prior_real_initial_source_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
+    "changed_app_files": [
+      "mobile/python/preselection.py"
+    ],
+    "changed_packaged_modules": [
+      "stock_ai/mobile/preselection.py"
+    ],
+    "other_packaged_Python_files_exact": 50,
+    "cache_math_fingerprint_unchanged": "c9ce910408fdebb0dadf8b6124e42cf37486b783d80cb0e97bf0a03707ae0ef4",
+    "actual_saved_single_list_selected_identically": true,
+    "old_list_and_hash_not_rewritten": true,
+    "initial_and_B1_metrics_reused_only_for_unchanged_components": true,
+    "current_source_real_normal_warm_and_changed_path_checks_required_separately": true,
+    "current_source_initial_performance_remeasured": false
+  },
+  "candidate": "candidate-current.json",
+  "initial_current_source_remeasured": false,
+  "prior_initial_normal_Android": {
+    "product_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
+    "owner_load_seconds": 77.111,
+    "forecast_encrypted_save_seconds": 562.541,
+    "sampled_app_renderer_peak_bytes": 2992934912,
+    "scope": "Unchanged components only; initial still expands full-market price/master, not remeasured on current commit"
+  },
+  "failures_retained": [
+    {
+      "kind": "same-cutoff provenance bug",
+      "fixed": true,
+      "details": "4 of 8 revisions previously skipped predecessor; rowid only breaks equal-effective_at ties"
+    },
+    {
+      "kind": "in-place emulator VM reboot",
+      "fixed": false,
+      "reason": "Unchanged 5400MiB host VM guard",
+      "alternative_verified": "Same saved AVD/Keystore cold boot in a fresh VM process; no reinstall/reseed/recalculation"
+    },
+    {
+      "kind": "real previous-day replay",
+      "fixed": false,
+      "reason": "next session is not authenticated at the previous cutoff; complete intervening saved data were actually received later",
+      "guard_bypassed": false,
+      "timestamps_modified": false
+    }
+  ],
+  "remaining": [
+    {
+      "status": "実時刻・当日所属・端末確認待ち",
+      "item": "真正な翌営業日入力による差分受領・計算・暗号化保存・OS通知の実測",
+      "condition": "20日分の5dataと21日calendarを実受領し、隔離DBへ反映済み。21日当日のmaster/所属受領→11:30以後の通常Android差分予測・保存・通知を実測する。時計/受領時刻は変更しない。3分目標は未判定"
+    },
+    {
+      "status": "本人確認待ち",
+      "item": "Xiaomiの既存0.1.23試験状況・機種/OSと0.1.25一括受入",
+      "condition": "既存試験中なら記録を完了後に同署名更新。未着手なら新候補で開始可能"
+    },
+    {
+      "status": "実イベント待ち",
+      "item": "実際の月次構成変更・訂正・保有追加での処理時間",
+      "condition": "対応分岐は合成11経路で確認済み。本人台帳に合成約定を入れない"
+    },
+    {
+      "status": "保留",
+      "item": "通常方式の既定切替と正式モデル採用",
+      "condition": "Xiaomi/必要検証後に切替判断。正式採用HOLD、未使用holdoutを消費しない"
+    }
+  ],
+  "research_preserved": {
+    "cost_conditions": 152,
+    "complete_assumption_research": 56,
+    "incomplete": 96,
+    "TOPIX500_return_evaluation_performed": false,
+    "formal_adoption": "HOLD",
+    "new_fits": 0,
+    "holdout_scored": false,
+    "real_orders": 0,
+    "external_AI_requests": 0
+  },
+  "private_evidence_root": ".demo-artifacts/topix500-20261020/",
+  "normal_release_signature_upgrade": "release-upgrade.json",
+  "actual_next_day_input_preparation": "live-delta.json"
+}

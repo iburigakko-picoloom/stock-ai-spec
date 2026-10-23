@@ -1,64 +1,87 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { apiGet } from "./api";
-import { isAndroid } from "./mobile/native";
+import { isAndroid, StockAI } from "./mobile/native";
+import { ReadViewActivation } from "./readViewActivation";
 
 export function useApiData<T>(path: string): {
-  data: T | null;
-  error: string | null;
-  loading: boolean;
-  reload: () => void;
+  data: T | null; error: string | null; loading: boolean; savedAt: string | null; reload: () => void;
 } {
-  const [data, setData] = useState<T | null>(null);
+  const activation = useContext(ReadViewActivation);
+  const [result, setResult] = useState<{ path: string; activation: string; value: T | null }>({ path, activation, value: null });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const reload = useCallback(() => setRevision((value) => value + 1), []);
-
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const trigger = useRef<() => void>(() => undefined);
+  const reload = useCallback(() => trigger.current(), []);
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(null);
-    apiGet<T>(path)
-      .then((value) => {
-        if (active) setData(value);
-      })
-      .catch((reason: unknown) => {
-        if (active) {
-          setData(null);
+    let epoch = 0;
+    let occupied = false;
+    let pending = false;
+    const available = () => isAndroid() || navigator.onLine;
+    const drain = (): void => {
+      if (!active || occupied || !pending || !available()) return;
+      pending = false;
+      occupied = true;
+      const started = epoch;
+      let freshCompleted = false;
+      setLoading(true); setError(null);
+      setResult(previous => previous.path === path
+        ? previous : { path, activation, value: null });
+      if (isAndroid() && typeof StockAI.readSavedView === "function"
+          && /^(\/api\/v1\/(home|today)|\/api\/v1\/ranking\?rankType=(overall|5d|20d|morning)&limit=50)$/.test(path)) {
+        void StockAI.readSavedView({ path }).then(saved => {
+          if (active && started === epoch && !freshCompleted && saved.available && saved.readOnly === true
+              && saved.savedAt && Number.isFinite(Date.parse(saved.savedAt)) && Date.parse(saved.savedAt) <= Date.now()) {
+            setResult({ path, activation, value: saved.body as T });
+            setSavedAt(saved.savedAt);
+          }
+        }).catch(() => { /* A missing/invalid display copy never bypasses the authoritative read. */ });
+      }
+      void apiGet<T>(path).then(value => {
+        freshCompleted = true;
+        if (active && started === epoch && available()) { setResult({ path, activation, value }); setSavedAt(null); }
+      }).catch((reason: unknown) => {
+        freshCompleted = true;
+        if (active && started === epoch) {
+          setSavedAt(null);
+          setResult({ path, activation, value: null });
           setError(reason instanceof Error ? reason.message : "データを取得できませんでした");
         }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+      }).finally(() => {
+        occupied = false;
+        if (!active) return;
+        if (pending && available()) drain();
+        else setLoading(false);
       });
+    };
+    const refresh = (): void => { epoch++; pending = true; drain(); };
+    const visible = (): void => {
+      if (document.visibilityState === "visible" && available()) refresh();
+    };
+    const offline = (): void => {
+      if (isAndroid()) { refresh(); return; }
+      epoch++; pending = false;
+      setResult({ path, activation, value: null });
+      setError("オフラインです。古い提案は表示しません。"); setLoading(false);
+    };
+    trigger.current = refresh;
+    if (available()) refresh(); else offline();
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", visible);
+    window.addEventListener("online", visible);
+    window.addEventListener("offline", offline);
+    const timer = window.setInterval(visible, 60_000);
     return () => {
       active = false;
-    };
-  }, [path, revision]);
-
-  useEffect(() => {
-    const refreshVisible = (): void => {
-      if (document.visibilityState === "visible" && (isAndroid() || navigator.onLine)) reload();
-    };
-    const invalidateOffline = (): void => {
-      if (isAndroid()) { reload(); return; }
-      setData(null);
-      setError("オフラインです。古い提案は表示しません。");
-      setLoading(false);
-    };
-    document.addEventListener("visibilitychange", refreshVisible);
-    window.addEventListener("online", refreshVisible);
-    window.addEventListener("focus", refreshVisible);
-    window.addEventListener("offline", invalidateOffline);
-    const timer = window.setInterval(refreshVisible, 60_000);
-    return () => {
-      document.removeEventListener("visibilitychange", refreshVisible);
-      window.removeEventListener("online", refreshVisible);
-      window.removeEventListener("focus", refreshVisible);
-      window.removeEventListener("offline", invalidateOffline);
+      if (trigger.current === refresh) trigger.current = () => undefined;
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("focus", visible);
+      window.removeEventListener("online", visible);
+      window.removeEventListener("offline", offline);
       window.clearInterval(timer);
     };
-  }, [reload]);
-
-  return { data, error, loading, reload };
+  }, [path, activation]);
+  return { data: result.path === path ? result.value : null, error, savedAt: result.path === path ? savedAt : null,
+    loading: loading || result.path !== path || result.activation !== activation, reload };
 }

@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { StockDetail } from "../types";
@@ -7,10 +7,12 @@ import { CompanyResearchPanel } from "../mobile/CompanyResearchPanel";
 
 export function StockDetailPage(): ReactNode {
   const { symbol = "" } = useParams();
+  const location = useLocation();
+  const from: unknown = location.state?.from;
+  const backTo = from === "/" || from === "/ranking" ? from : "/today";
   const { data, error, loading, reload } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
   const [selectedBucket, setSelectedBucket] = useState("ALL");
-  if (loading) return <StatePanel title="銘柄情報を読み込んでいます" />;
-  if (error || !data) return <StatePanel tone="error" title="銘柄情報を取得できません" detail={error} />;
+  if (loading || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /></div>;
 
   const bucketIds = Array.from(new Set([
     ...data.positions.map((item) => item.account_bucket_id),
@@ -33,7 +35,7 @@ export function StockDetailPage(): ReactNode {
 
   return (
     <div className="page">
-      <Link className="back-link" to="/today">← 戻る</Link>
+      <Link className="back-link" to={backTo}>← 戻る</Link>
       <PageHeader eyebrow={symbol} title={company} meta={selectedLines.length === 1 ? yen(selectedLines[0].referencePrice) : undefined} />
       {bucketIds.length > 1 && <div className="account-tabs" role="tablist">
         <button role="tab" aria-selected={selectedBucket === "ALL"} className={selectedBucket === "ALL" ? "active" : ""} onClick={() => setSelectedBucket("ALL")}>合計</button>
@@ -80,8 +82,15 @@ export function StockDetailPage(): ReactNode {
           <Metric label="5営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_5d)} />
           <Metric label="20営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_20d)} />
         </div>
+        {(data.forecast.prediction.rank_score_5d != null || data.forecast.prediction.rank_score_20d != null) && <>
+          <div className="metric-grid metric-grid--2">
+            <Metric label="5日順位スコア" value={data.forecast.prediction.rank_score_5d?.toFixed(4) ?? "未提供"} />
+            <Metric label="20日順位スコア" value={data.forecast.prediction.rank_score_20d?.toFixed(4) ?? "未提供"} />
+          </div>
+          <p className="explain">順位スコアは銘柄間の優先順位を示す値で、期待リターン率ではありません。</p>
+        </>}
         {data.forecast.mode !== "owner_approved" && <p className="explain">検証用の予測です。採用済みの運用提案として扱いません。</p>}
-        {data.forecast.prediction.large_loss_probability === null && <p className="explain">下振れ・下落確率・確信度は未提供です。リスクがないという意味ではありません。</p>}
+        {data.forecast.prediction.large_loss_probability === null && <p className="explain">下落確率は未提供です。リスクがないという意味ではありません。</p>}
         {data.forecast.blockingReasons.length > 0 && <details className="research-disclosure"><summary>予測の未解決事項</summary><ul>{data.forecast.blockingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></details>}
       </section>}
       <CompanyResearchPanel symbol={symbol} forecast={data.forecast ?? null} runs={data.researchRuns ?? []} records={data.chatgptResearch ?? []} onChanged={reload} />

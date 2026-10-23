@@ -9,7 +9,7 @@ let python: {
 } | null = null;
 let stage = "interpreter";
 
-async function initialize(state: string | ArrayBuffer, progress: (phase: string) => void): Promise<void> {
+async function initialize(state: string | ArrayBuffer, progress: (phase: string) => void, restoreOnly = false): Promise<void> {
   stage = "interpreter";
   progress(stage);
   // Vite must leave the offline interpreter module URL unchanged.
@@ -46,7 +46,7 @@ async function initialize(state: string | ArrayBuffer, progress: (phase: string)
         await python.runPythonAsync("_native_import.append(state_index, state_fragment)");
       }
       python.globals.set("state_fragment", null);
-      await python.runPythonAsync("_native_import.finish()");
+      await python.runPythonAsync(`_native_import.finish(initialize_runtime=${restoreOnly ? "False" : "True"})`);
     } finally {
       python.globals.set("state_fragment", null);
       await python.runPythonAsync("_native_import.close()\n_native_import = None");
@@ -64,13 +64,13 @@ function sendState(id: number, index: number, message: Record<string, unknown>):
     self.postMessage({ id, ...message });
   });
 }
-async function exportNative(id: number, progress: (phase: string) => void): Promise<void> {
+async function exportNative(id: number, progress: (phase: string) => void, operationsOnly: boolean): Promise<void> {
   if (!python) throw new Error("Runtime unavailable");
   const interpreter = python;
   await interpreter.runPythonAsync("_native_export = None");
   try {
     progress("export-archive");
-    const length = Number(await interpreter.runPythonAsync("_native_export = runtime.StateExport()\n_native_export.length"));
+    const length = Number(await interpreter.runPythonAsync(`_native_export = runtime.StateExport(operations_only=${operationsOnly ? "True" : "False"})\n_native_export.length`));
     if (!Number.isSafeInteger(length) || length < 0 || length > 256 * 1024 * 1024) throw new Error("Invalid state length");
     await sendState(id, -1, { state_begin: length });
     progress("export-chunks");
@@ -88,7 +88,7 @@ async function exportNative(id: number, progress: (phase: string) => void): Prom
     await interpreter.runPythonAsync("_native_export.close() if _native_export is not None else None\n_native_export = None");
   }
 }
-self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; method?: string; path?: string; body?: string }>) => {
+self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; operations_only?: boolean; optimized_startup?: boolean; defer_initialize?: boolean; method?: string; path?: string; body?: string }>) => {
   const input = event.data;
   if (input.command === "state_ack") {
     if (awaitingAck?.id === input.id && (input.ok !== true || awaitingAck.index === input.index)) {
@@ -100,12 +100,36 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
   queue = queue.then(async () => {
     const progress = (phase: string) => { if (input.trace === true) self.postMessage({ id: input.id, progress: phase }); };
     try {
-      if (input.command === "initialize") {
+      let startup: { persistence: string } | null = null;
+      if (input.command === "initialize" || input.command === "initialize_operations") {
         if (input.state_bytes !== undefined) {
           stage = "state";
           if (!(input.state_bytes instanceof ArrayBuffer) || input.state_bytes.byteLength > 256 * 1024 * 1024 || input.state !== undefined) throw new TypeError("Invalid state transfer");
         }
-        try { await initialize(input.state_bytes ?? input.state ?? "", progress); }
+        try {
+          if (input.command === "initialize_operations") {
+            if (!python || input.optimized_startup !== true || !(input.state_bytes instanceof ArrayBuffer)) throw new Error("Invalid startup overlay");
+            const bytes = new Uint8Array(input.state_bytes);
+            python.globals.set("state_length", bytes.length);
+            await python.runPythonAsync("_native_import = runtime.StateImport(state_length)");
+            try {
+              const decoder = new TextDecoder("utf-8", { fatal: true });
+              for (let offset = 0, index = 0; offset < bytes.length; offset += 256 * 1024, index++) {
+                python.globals.set("state_fragment", decoder.decode(bytes.subarray(offset, offset + 256 * 1024)));
+                python.globals.set("state_index", index);
+                await python.runPythonAsync("_native_import.append(state_index, state_fragment)");
+              }
+              await python.runPythonAsync("_native_import.finish(initialize_runtime=False, operations_only=True)");
+            } finally { python.globals.set("state_fragment", null); await python.runPythonAsync("_native_import.close()\n_native_import = None"); }
+          } else {
+            if (input.optimized_startup && !(input.state_bytes instanceof ArrayBuffer)) throw new Error("Native startup state required");
+            await initialize(input.state_bytes ?? input.state ?? "", progress, input.optimized_startup === true);
+          }
+          if (input.optimized_startup && python) {
+            startup = input.defer_initialize ? { persistence: "deferred" }
+              : JSON.parse(String(await python.runPythonAsync("runtime.json.dumps(runtime.initialize_checked())")));
+          }
+        }
         finally { delete input.state; delete input.state_bytes; }
       }
       if (!python) throw new Error("端末内の計算環境が未起動です。");
@@ -120,14 +144,19 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
           result = JSON.parse(String(await python.runPythonAsync("import json\njson.dumps(await runtime.request(method, request_path, request_body), ensure_ascii=False)")));
         } finally { python.globals.set("request_body", null); delete input.body; }
       }
-      const saves = input.command === "initialize" || input.method === "POST";
+      const saves = startup ? ["full", "operations"].includes(startup.persistence) : input.command === "initialize" || input.method === "POST";
       if (saves && input.stream_state === true) {
-        await exportNative(input.id, progress);
-        self.postMessage({ id: input.id, result, state: true });
+        const operationsOnly = startup?.persistence === "operations" || input.operations_only === true;
+        if (operationsOnly && !startup && (input.method !== "POST" || ![
+          "/api/v1/mobile/portfolio", "/api/v1/mobile/personal/settings",
+          "/api/v1/mobile/personal/initial/preview", "/api/v1/mobile/personal/initial/confirm",
+        ].includes(input.path ?? ""))) throw new Error("Invalid partial save request");
+        await exportNative(input.id, progress, operationsOnly);
+        self.postMessage({ id: input.id, result: startup ?? result, state: true });
       } else {
         if (saves) progress("export");
         const state = saves ? String(await python.runPythonAsync("runtime.export_state()")) : null;
-        self.postMessage({ id: input.id, result, state });
+        self.postMessage({ id: input.id, result: startup ?? result, state });
       }
     } catch (error) {
       const kind = error instanceof WebAssembly.CompileError || error instanceof WebAssembly.LinkError || error instanceof WebAssembly.RuntimeError ? "wasm" : error instanceof TypeError ? "type" : error instanceof Error && error.name === "PythonError" ? "python" : "other";

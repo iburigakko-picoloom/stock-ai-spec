@@ -24,6 +24,7 @@ from stock_ai.operations.store import OperationalConflictError
 from . import decision_market, forecasts, models, personal
 from .market import receipt_time
 from .model_bundle import ResearchModelBundle
+from .research_ensemble import ResearchEnsembleBundle
 from .storage import connect
 
 
@@ -360,7 +361,7 @@ def generate(path: Path, store, now: datetime, numerical=None) -> dict:
             or pin["sha256"] != numerical["scope"]["bundle_sha256"]):
         return blocked("MODEL_SELECTION_DIFFERS_FROM_NUMERICAL")
     scope["bundle_pin_sha256"] = content_id(pin)
-    if isinstance(bundle, ResearchModelBundle):
+    if isinstance(bundle, (ResearchModelBundle, ResearchEnsembleBundle)):
         # A fresh explicit calculation can renew the consultation context while
         # preserving the original forecast, prices and expired exchanges.
         elapsed = now - datetime.fromisoformat(numerical["checked_at"])

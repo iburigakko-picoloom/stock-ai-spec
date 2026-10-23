@@ -70,6 +70,8 @@ def build_production_data(
     minimum_market_coverage: float = 0.95,
     revision_policy: HistoricalRevisionPolicy = HistoricalRevisionPolicy.SINGLE_VINTAGE_AS_REVISED,
     proposal_as_of: datetime | None = None,
+    detail_symbols: frozenset[str] | None = None,
+    price_context_only: bool = False,
 ) -> ProductionDataBundle:
     """Build causally timestamped research inputs from one immutable source vintage."""
 
@@ -132,28 +134,22 @@ def build_production_data(
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: next session is not authenticated")
         availability[business_dates[-1]] = pd.Timestamp(proposal_as_of).tz_convert("UTC")
     del calendar
-    universe = build_point_in_time_universe(master, business_dates=business_dates)
+    universe = build_point_in_time_universe(
+        master, business_dates=business_dates, context_only=price_context_only,
+    )
     del master
     daily = _canonical_daily(
         prices,
         universe=universe,
         availability=availability,
         revision_policy=revision_policy,
+        reuse_working_frame=price_context_only,
     )
     del prices
-    financials, shares = _daily_financial_features(
-        disclosures,
-        daily=daily,
-        revision_policy=revision_policy,
-    )
-    del disclosures
-    daily = daily.merge(
-        shares,
-        on=["symbol", "trading_date", "available_at"],
-        how="left",
-        validate="one_to_one",
-    )
-    del shares
+    financials = pd.DataFrame()
+    if detail_symbols is None and not price_context_only:
+        # Keep the original research/default validation and merge order.
+        daily, financials = complete_daily_financials(daily, disclosures, revision_policy)
     market_context, sector_context = _aggregate_context(
         daily,
         universe=universe,
@@ -163,6 +159,16 @@ def build_production_data(
         revision_policy=revision_policy,
     )
     del topix
+    # Common contexts always use the full historical market. Individual daily
+    # financial expansion need not run for securities outside the decision set.
+    if detail_symbols is not None:
+        if not detail_symbols:
+            raise ValueError("Empty individual calculation scope")
+        daily = daily.loc[daily.symbol.isin(detail_symbols)].reset_index(drop=True)
+        disclosures = disclosures.loc[disclosures.symbol.isin(detail_symbols)]
+    if detail_symbols is not None and not price_context_only:
+        daily, financials = complete_daily_financials(daily, disclosures, revision_policy)
+    del disclosures
     corporate_actions = _corporate_actions(daily)
     return ProductionDataBundle(
         source_snapshot_as_of=source_snapshot_as_of,
@@ -176,6 +182,21 @@ def build_production_data(
         financials=financials,
         corporate_actions=corporate_actions,
     )
+
+
+def complete_daily_financials(
+    daily: pd.DataFrame,
+    disclosures: pd.DataFrame,
+    revision_policy: HistoricalRevisionPolicy,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Use the same PIT financial formulas for either original or cached prices."""
+    financials, shares = _daily_financial_features(
+        disclosures, daily=daily, revision_policy=revision_policy,
+    )
+    return daily.merge(
+        shares, on=["symbol", "trading_date", "available_at"],
+        how="left", validate="one_to_one",
+    ), financials
 
 
 def _source_row_hashes(frame: pd.DataFrame) -> NDArray[np.uint64]:
@@ -230,6 +251,7 @@ def build_point_in_time_universe(
     master: pd.DataFrame,
     *,
     business_dates: pd.DatetimeIndex,
+    context_only: bool = False,
 ) -> pd.DataFrame:
     """Retain exact historical master membership and derive non-backfilled intervals."""
 
@@ -278,7 +300,7 @@ def build_point_in_time_universe(
     outside_symbols = frame.loc[positions.isna(), "symbol"]
     member = frame.loc[
         frame["symbol"].notna() & ~frame["symbol"].isin(outside_symbols)
-    ].sort_values(["symbol", "effective_date"])
+    ]
     # Preserve the previous empty result for unused categorical groups.
     if member.empty and not (
         isinstance(frame["symbol"].dtype, pd.CategoricalDtype)
@@ -286,6 +308,13 @@ def build_point_in_time_universe(
     ):
         raise ValueError("BLOCKED_BY_DATA_CAPABILITY: universe interval construction is empty")
     del frame, outside_symbols
+    if context_only:
+        # Coverage and the canonical price join need the same historical rows,
+        # but never consume listing intervals or repeated company descriptions.
+        # Keep all eligibility/date-gap checks before this projection.
+        columns = ["effective_date", "provider_code", "symbol", "sector_33_code", "sector_33_name"]
+        return member[columns].sort_values(["effective_date", "symbol"], ignore_index=True)
+    member = member.sort_values(["symbol", "effective_date"])
     member = member.reset_index(drop=True)
     positions = member["effective_date"].map(date_position).astype(int)
     same_symbol = member["symbol"].eq(member["symbol"].shift()).fillna(False)
@@ -413,6 +442,7 @@ def _canonical_daily(
     universe: pd.DataFrame,
     availability: dict[pd.Timestamp, pd.Timestamp],
     revision_policy: HistoricalRevisionPolicy,
+    reuse_working_frame: bool = False,
 ) -> pd.DataFrame:
     required = {
         "trading_date",
@@ -470,13 +500,15 @@ def _canonical_daily(
         & frame.reindex(columns=["raw_volume", "trading_value"]).isna().all(axis=1)
     )
     del raw_ohlc, adjusted_ohlcv
-    frame = _reconstruct_bulk_adjusted_prices(frame)
-    frame = frame.loc[~no_trade].copy()
+    frame = _reconstruct_bulk_adjusted_prices(frame, owned_input=reuse_working_frame)
+    if not reuse_working_frame or no_trade.any():
+        frame = frame.loc[~no_trade].copy(deep=not reuse_working_frame)
     frame["revision_available_at"] = pd.to_datetime(frame["available_at"], utc=True)
     frame["available_at"] = frame["trading_date"].map(availability)
     session_position = {day: index for index, day in enumerate(sorted(availability))}
     frame["trading_session_index"] = frame["trading_date"].map(session_position)
-    frame = frame.loc[frame["available_at"].notna()].copy()
+    if not reuse_working_frame or frame["available_at"].isna().any():
+        frame = frame.loc[frame["available_at"].notna()].copy(deep=not reuse_working_frame)
     if revision_policy is HistoricalRevisionPolicy.STRICT_AS_KNOWN:
         frame["available_at"] = frame[["available_at", "revision_available_at"]].max(axis=1)
 
@@ -526,10 +558,15 @@ def _canonical_daily(
     return frame.sort_values(["trading_date", "symbol"], ignore_index=True)
 
 
-def _reconstruct_bulk_adjusted_prices(frame: pd.DataFrame) -> pd.DataFrame:
+def _reconstruct_bulk_adjusted_prices(
+    frame: pd.DataFrame, *, owned_input: bool = False,
+) -> pd.DataFrame:
     """Apply the official file-download AdjFactor formula when adjusted fields are absent."""
 
-    output = frame.copy()
+    # The opt-in mobile context path supplies a private merge result. It is no
+    # longer shared with the original source, so another full deep copy only
+    # increases WASM heap pressure. Standalone/default callers keep copy safety.
+    output = frame if owned_input else frame.copy()
     adjusted = (
         "research_open",
         "research_high",

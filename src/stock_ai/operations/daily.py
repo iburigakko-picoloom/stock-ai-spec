@@ -11,7 +11,13 @@ from typing import Any, Final, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
-from stock_ai.domain.models import DomainModel, Prediction, ReturnOnlyPrediction, _require_aware
+from stock_ai.domain.models import (
+    DomainModel,
+    Prediction,
+    ResearchEnsemblePrediction,
+    ReturnOnlyPrediction,
+    _require_aware,
+)
 
 RESEARCH_CRITERIA = (
     "earnings_quality",
@@ -59,10 +65,25 @@ def content_id(value: object) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def prediction_score(item: Prediction | ReturnOnlyPrediction | ResearchEnsemblePrediction,
+                     horizon: Literal[5, 20] = 20) -> float:
+    """Priority for one horizon, never an addition of rank and return units."""
+    if isinstance(item, ResearchEnsemblePrediction):
+        rank = item.rank_score_5d if horizon == 5 else item.rank_score_20d
+        if rank is not None:
+            return rank
+    value = item.expected_return_5d if horizon == 5 else item.expected_return_20d
+    if value is None:
+        raise ValueError("Prediction has no priority output for this horizon")
+    return value
+
+
 class PredictionSnapshot(DomainModel):
     """Original model output. Human research can only reference, never replace it."""
 
-    schema_version: Literal["daily-prediction-snapshot-v1"] = "daily-prediction-snapshot-v1"
+    schema_version: Literal["daily-prediction-snapshot-v1", "daily-prediction-snapshot-v2"] = (
+        "daily-prediction-snapshot-v1"
+    )
     snapshot_id: str = Field(pattern=r"^[0-9a-f]{64}$")
     as_of: datetime
     generated_at: datetime
@@ -82,7 +103,7 @@ class PredictionSnapshot(DomainModel):
     downside_quantile_alpha: float | None = Field(gt=0, lt=0.5)
     candidate_symbols: tuple[str, ...]
     holding_symbols: tuple[str, ...]
-    predictions: tuple[Prediction | ReturnOnlyPrediction, ...]
+    predictions: tuple[Prediction | ReturnOnlyPrediction | ResearchEnsemblePrediction, ...]
     blocking_reasons: tuple[str, ...] = ()
 
     _aware = field_validator("as_of", "generated_at", "data_as_of")(_require_aware)
@@ -105,15 +126,34 @@ class PredictionSnapshot(DomainModel):
             raise ValueError("predictions must exactly cover candidates and all holdings")
         for prediction in self.predictions:
             if (
-                prediction.schema_version not in (2, 3)
+                prediction.schema_version not in (2, 3, 4)
                 or prediction.as_of != self.as_of
                 or prediction.model_version != self.model_version
                 or prediction.feature_version != self.feature_version
                 or prediction.data_snapshot_id != self.data_snapshot_id
             ):
                 raise ValueError("prediction does not match snapshot provenance")
+        ensemble = all(isinstance(p, ResearchEnsemblePrediction) for p in self.predictions)
         returns_only = all(isinstance(p, ReturnOnlyPrediction) for p in self.predictions)
-        if returns_only:
+        if any(isinstance(p, ResearchEnsemblePrediction) for p in self.predictions):
+            if (not ensemble or self.schema_version != "daily-prediction-snapshot-v2"
+                    or self.mode != "research" or self.adoption_review_id is not None):
+                raise ValueError("Research ensemble snapshot requires v2 unadopted research")
+            heads = {(p.expected_return_5d is not None, p.expected_return_20d is not None,
+                      p.rank_score_5d is not None, p.rank_score_20d is not None,
+                      p.downside_quantile is not None, p.large_loss_probability is not None)
+                     for p in self.predictions if isinstance(p, ResearchEnsemblePrediction)}
+            if len(heads) != 1:
+                raise ValueError("Research ensemble head availability must match across symbols")
+            quantile = any(p.downside_quantile is not None for p in self.predictions)
+            probability = any(p.large_loss_probability is not None for p in self.predictions)
+            if ((self.downside_quantile_alpha is not None) != quantile
+                    or (self.large_loss_threshold is not None) != probability
+                    or (self.risk_horizon == 20) != (quantile or probability)):
+                raise ValueError("Research risk definitions must match provided heads")
+        elif self.schema_version != "daily-prediction-snapshot-v1":
+            raise ValueError("Snapshot v2 is reserved for research ensemble outputs")
+        elif returns_only:
             if (self.mode != "research" or self.adoption_review_id is not None
                     or any(x is not None for x in (
                         self.risk_horizon, self.large_loss_threshold, self.downside_quantile_alpha,
@@ -144,7 +184,7 @@ class PredictionSnapshot(DomainModel):
 
     def research_symbols(self) -> tuple[str, ...]:
         ordered = sorted(
-            self.predictions, key=lambda item: (-item.expected_return_20d, item.symbol)
+            self.predictions, key=lambda item: (-prediction_score(item), item.symbol)
         )
         candidates = set(self.candidate_symbols)
         top = [item.symbol for item in ordered if item.symbol in candidates][:20]
@@ -262,6 +302,7 @@ def validate_research_link(record: CompanyResearchRecord, snapshot: PredictionSn
 
 def export_prediction_snapshot(snapshot: PredictionSnapshot, *, format: str = "json") -> str:
     """All exports describe the same immutable original snapshot, including missing 1d."""
+    ensemble = snapshot.schema_version == "daily-prediction-snapshot-v2"
     if format == "json":
         return canonical_json(snapshot.model_dump(mode="json")) + "\n"
     if format == "csv":
@@ -285,6 +326,7 @@ def export_prediction_snapshot(snapshot: PredictionSnapshot, *, format: str = "j
                 "data_snapshot_id",
                 "mode",
             ]
+            + (["rank_score_5d", "rank_score_20d", "rank_unit"] if ensemble else [])
         )
         for item in snapshot.predictions:
             writer.writerow(
@@ -305,6 +347,8 @@ def export_prediction_snapshot(snapshot: PredictionSnapshot, *, format: str = "j
                     snapshot.data_snapshot_id,
                     snapshot.mode,
                 ]
+                + ([item.rank_score_5d, item.rank_score_20d, item.rank_unit]
+                   if isinstance(item, ResearchEnsemblePrediction) else [])
             )
         return stream.getvalue()
     if format == "markdown":
@@ -317,17 +361,25 @@ def export_prediction_snapshot(snapshot: PredictionSnapshot, *, format: str = "j
              if snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL else
              "入力株価日終値を起点とする別ラベルです。原本を保持し、新しい判断入力には使用できません。"),
             "",
-            "| 銘柄 | 1日 | 5日 | 20日 | 20日下振れ | 20日下落確率 |",
-            "|---|---|---:|---:|---:|---:|",
+            ("| 銘柄 | 1日 | 5日リターン | 20日リターン | 20日下振れ | 20日下落確率 | "
+             "5日順位score | 20日順位score |" if ensemble else
+             "| 銘柄 | 1日 | 5日 | 20日 | 20日下振れ | 20日下落確率 |"),
+            "|---|---|---:|---:|---:|---:|" + ("---:|---:|" if ensemble else ""),
         ]
+        def display(value: float | None) -> str:
+            return "未提供" if value is None else f"{value:.6g}"
         for item in snapshot.predictions:
             downside = ("未提供" if item.downside_quantile is None
                         else f"{item.downside_quantile:.6g}")
             probability = ("未提供" if item.large_loss_probability is None
                            else f"{item.large_loss_probability:.6g}")
             lines.append(
-                f"| {item.symbol} | 未提供 | {item.expected_return_5d:.6g} | "
-                f"{item.expected_return_20d:.6g} | {downside} | {probability} |"
+                f"| {item.symbol} | 未提供 | {display(item.expected_return_5d)} | "
+                f"{display(item.expected_return_20d)} | {downside} | {probability} |"
+                + (f" {display(item.rank_score_5d)} | {display(item.rank_score_20d)} |"
+                   if isinstance(item, ResearchEnsemblePrediction) else "")
             )
+        if ensemble:
+            lines.append("順位scoreの単位はrank_scoreであり、期待リターン率ではありません。")
         return "\n".join(lines) + "\n"
     raise ValueError("snapshot export format must be json, csv or markdown")

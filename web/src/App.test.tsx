@@ -147,6 +147,29 @@ afterEach(() => {
 });
 
 describe("Goal 5 PWA", () => {
+  it("preserves edited targets on identical refresh and blocks save until their review completes", async () => {
+    const pending: ((value: Response) => void)[] = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input) === "/api/v1/today") return Promise.resolve(jsonResponse(structuredClone(today)));
+      if (String(input).endsWith("/review")) return new Promise<Response>(resolve => pending.push(resolve));
+      throw new Error(`unexpected ${input}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const review = { estimated_cash_after: {}, estimated_buy_value: "0", estimated_sell_value: "0",
+      estimated_transaction_cost: "0", estimated_tax_effect: "0", resulting_positions: 0, constraint_violations: [] };
+    render(<MemoryRouter><DecisionReviewPage /></MemoryRouter>);
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await act(async () => pending[0](jsonResponse(review)));
+    expect(screen.getByRole("button", { name: "判断を保存" })).toBeEnabled();
+    await userEvent.selectOptions(screen.getByLabelText("購入会社の目標株数"), "0");
+    expect(screen.getByRole("button", { name: "判断を保存" })).toBeDisabled();
+    await waitFor(() => expect(pending).toHaveLength(2));
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(screen.getByLabelText("購入会社の目標株数")).toHaveValue("0"));
+    expect(pending).toHaveLength(2);
+    await act(async () => pending[1](jsonResponse(review)));
+    expect(screen.getByRole("button", { name: "判断を保存" })).toBeEnabled();
+  });
   it("shows a completed cash-only day without a fictitious proposal or review", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, pipelineState: "CASH_ONLY", proposal: null })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
@@ -168,10 +191,10 @@ describe("Goal 5 PWA", () => {
   it("hides a stale proposal and does not offer review", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, isStale: true })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    await screen.findByText("今日は提案を表示できません");
+    await screen.findByText("初回の分析を準備中");
     expect(screen.queryByText("購入会社")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "判断を確認" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings/data");
+    expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings?edit=market");
   });
 
   it("also blocks a stale proposal on the direct review route without posting", async () => {

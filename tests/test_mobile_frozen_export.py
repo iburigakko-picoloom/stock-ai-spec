@@ -45,11 +45,19 @@ def options(names, family="lightgbm", task="regression", horizon=5):
 
 
 @pytest.mark.parametrize("family", ["lightgbm", "xgboost", "catboost"])
-@pytest.mark.parametrize("task", ["regression", "quantile", "large_loss"])
+@pytest.mark.parametrize("task", ["regression", "ranking", "quantile", "large_loss"])
 def test_same_frozen_fit_exports_once_without_refitting_or_touching_inputs(
     inputs, family, task, monkeypatch,
 ):
     training, probes, names = inputs
+    if task == "ranking":
+        # Ranking needs a cross-section: one symbol per date would turn every
+        # within-date relevance target into the same constant.
+        training = training.copy(deep=True)
+        training["symbol"] = [f"TEST_ONLY_{i % 4}" for i in training.index]
+        training["trading_date"] = [
+            pd.Timestamp("2020-01-01") + pd.Timedelta(days=i // 4) for i in training.index
+        ]
     original_training, original_probes = training.copy(deep=True), probes.copy(deep=True)
     args = options(names, family, task, 20 if task != "regression" else 5)
     native_fit = advanced._fit_predict
@@ -120,7 +128,7 @@ def test_single_class_probability_does_not_invent_a_fitted_estimator(inputs):
 
 @pytest.mark.parametrize("changed,error", [
     ({"horizon": 1}, "daily 5d/20d"),
-    ({"task": "ranking"}, "non-ranking"),
+    ({"task": "unsupported_task"}, "scalar head"),
     ({"seed": 29}, "frozen model identity"),
     ({"family": "xgboost"}, "frozen model identity"),
 ])

@@ -61,18 +61,21 @@ def seed(path, *, legacy=False):
 
 @pytest.mark.parametrize("kind", KINDS)
 @pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("context_only", [False, True])
 def test_projection_preserves_every_value_dtype_order_and_complete_source_identity(
-    tmp_path, kind, legacy
+    tmp_path, kind, legacy, context_only
 ):
     path = tmp_path / "source.sqlite3"
     _, cutoff = seed(path, legacy=legacy)
     before = hashlib.sha256(path.read_bytes()).hexdigest()
     original = market.SQLiteSource(path).point_in_time(kind, cutoff)
-    reader = market.FeatureSource(path)
+    reader = market.FeatureSource(path, context_only=context_only)
     actual = reader.point_in_time(kind, cutoff)
     pd.testing.assert_frame_equal(actual, original[actual.columns], check_exact=True)
     assert len(actual) == len(original) == 12
     assert "source_record_hash" not in actual and "available_at" in actual
+    if kind is DatasetName.SECURITY_MASTER:
+        assert ("company_name" in actual) is (not context_only)
     assert reader.source_frame_id(kind, actual) == _source_frame_id(kind, original)
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
 
@@ -171,17 +174,20 @@ def test_latest_complete_correction_removes_a_row_and_cannot_change_an_earlier_c
         assert reader.source_frame_id(kind, actual) == _source_frame_id(kind, original)
 
 
-def test_unused_source_fields_still_change_the_complete_source_id(tmp_path):
+@pytest.mark.parametrize("context_only", [False, True])
+def test_unused_source_fields_still_change_the_complete_source_id(tmp_path, context_only):
     path = tmp_path / "source.sqlite3"
     values, cutoff = seed(path)
     kind = DatasetName.SECURITY_MASTER
-    first = market.FeatureSource(path)
+    first = market.FeatureSource(path, context_only=context_only)
     previous = first.point_in_time(kind, cutoff)
     previous_id = first.source_frame_id(kind, previous)
     corrected = copy.deepcopy(values[0])
-    corrected["datasets"][kind.value][0]["CoNameEn"] = "changed unused source field"
+    corrected["datasets"][kind.value][0]["CoName" if context_only else "CoNameEn"] = (
+        "changed unused source field"
+    )
     market.ingest(path, corrected)
-    second = market.FeatureSource(path)
+    second = market.FeatureSource(path, context_only=context_only)
     current = second.point_in_time(kind, cutoff)
     pd.testing.assert_frame_equal(previous, current, check_exact=True)
     assert second.source_frame_id(kind, current) != previous_id
@@ -360,6 +366,45 @@ def test_latest_closed_prices_empty_source_and_aware_cutoff_requirement(tmp_path
     assert reader.latest_closed_prices(datetime(2025, 1, 1, tzinfo=UTC)).empty
     with pytest.raises(ValueError, match="Aware cutoff required"):
         reader.latest_closed_prices(datetime(2025, 1, 1))
+
+
+def test_ledger_reference_reads_only_latest_closed_batch(tmp_path, monkeypatch):
+    from decimal import Decimal
+
+    from mobile.python import personal
+
+    path = tmp_path / "source.sqlite3"
+    market.initialize(path)
+    now = datetime(2025, 1, 10, 2, 30, tzinfo=UTC)
+    rng = random.Random(20261017)
+    for index, day in enumerate((6, 7, 8, 10)):
+        value = make_payload(date(2025, 1, day), index, 4, rng,
+                             initial_receipt=now - timedelta(minutes=30))
+        value.pop("acquisitionId")
+        value.pop("source_pages")
+        market.ingest(path, value)
+    expected = market.SQLiteSource(path).latest_closed_prices(now)
+    symbols = expected.symbol.tolist()[:2]
+    original = market.market_codec.frame
+    reads = []
+
+    def counted(*args, **kwargs):
+        result = original(*args, **kwargs)
+        reads.append(result)
+        return result
+
+    monkeypatch.setattr(market.market_codec, "frame", counted)
+    actual = personal.reference_prices(path, symbols, now)
+    assert len(reads) == 1
+    assert actual["date"] == "2025-01-08"
+    for symbol in symbols:
+        price = expected.loc[expected.symbol == symbol].iloc[0].raw_close
+        assert Decimal(actual["prices"][symbol]) == Decimal(str(price))
+    assert actual["source_hash"] == personal.content_id([
+        [symbol, str(expected.loc[expected.symbol == symbol].iloc[0].source_record_hash),
+         str(expected.loc[expected.symbol == symbol].iloc[0].available_at)]
+        for symbol in symbols
+    ])
 
 
 @pytest.mark.parametrize("kind", KINDS)

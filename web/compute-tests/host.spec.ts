@@ -9,17 +9,18 @@ test("production compute entry boots offline under the native CSP and returns du
   await page.addInitScript(() => {
     const host = window as unknown as { StockAICompute: unknown; ready: boolean; replies: Record<string, unknown>; transferMetrics: { maximumChunk: number; maximumReply: number } };
     host.replies = {}; host.ready = false;
-    const source = sessionStorage.getItem("native-test-input") ?? "";
-    let nextInput = 0;
+    const nextInput = new Map<string, number>();
     host.transferMetrics = { maximumChunk: 0, maximumReply: 0 };
     const states = new Map<string, { length: number; received: number; pieces: string[] }>();
     host.StockAICompute = {
       ready: () => { host.ready = true; },
-      inputChunk: (_id: string, index: number) => {
-        if (index !== nextInput++ || index * 256 * 1024 >= source.length) throw new Error("invalid input chunk");
+      inputChunk: (id: string, index: number) => {
+        const source = sessionStorage.getItem("native-test-input") ?? "";
+        if (index !== (nextInput.get(id) ?? 0) || index * 256 * 1024 >= source.length) throw new Error("invalid input chunk");
+        nextInput.set(id, index + 1);
         return source.slice(index * 256 * 1024, (index + 1) * 256 * 1024);
       },
-      inputDone: () => nextInput === Math.ceil(source.length / (256 * 1024)),
+      inputDone: (id: string) => (nextInput.get(id) ?? 0) === Math.ceil((sessionStorage.getItem("native-test-input") ?? "").length / (256 * 1024)),
       beginState: (id: string, length: number) => { states.set(id, { length, received: 0, pieces: [] }); return true; },
       stateChunk: (id: string, index: number, fragment: string) => {
         const transfer = states.get(id);
@@ -79,6 +80,23 @@ test("production compute entry boots offline under the native CSP and returns du
   expect(restored.error).toBeUndefined();
   const afterReload = await send(9, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
   expect(afterReload.result).toEqual(saved.result);
+  const delta = await send(13, { command: "request", method: "POST", operations_only: true, path: "/api/v1/mobile/portfolio", body: JSON.stringify({ schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: null, maximum_drawdown_percent: null, accounts: [], holdings: [] }) });
+  expect(delta.error).toBeUndefined();
+  expect(delta.state).toBeTruthy();
+  // Native startup restores the authenticated base and operations overlay separately.
+  await page.evaluate(payload => sessionStorage.setItem("native-test-input", payload), initialized.state!);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { ready: boolean }).ready)).toBe(true);
+  const base = await send(10, { command: "initialize", optimized_startup: true, defer_initialize: true, state_length: initialized.state!.length });
+  expect(base.error).toBeUndefined();
+  expect(base.result).toEqual({ persistence: "deferred" });
+  expect(base.state).toBeNull();
+  await page.evaluate(payload => sessionStorage.setItem("native-test-input", payload), delta.state!);
+  const overlay = await send(11, { command: "initialize_operations", optimized_startup: true, state_length: delta.state!.length });
+  expect(overlay.error).toBeUndefined();
+  expect(overlay.result).toEqual({ persistence: "none" });
+  expect(overlay.state).toBeNull();
+  expect((await send(12, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" })).result).toEqual(saved.result);
 });
 
 for (const failure of ["none", "input-short", "input-auth", "input-nonascii", "input-oversize", "output-rejected", "output-legacy-string", "output-order", "output-early-complete", "output-nonascii"] as const) {
