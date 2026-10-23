@@ -3,7 +3,7 @@
 - 前回CI39896399901はverify/android-history成功、native95件成功だったが、OS配送試験でhistory_wait/failures1/retryAt+15分となりACK未完で失敗。取得のforeground拒否を通常の1slice取得へfallbackさせ、取得自体を止めないよう修正。長い計算では拒否を維持。
 - 実装上、4pageを上限に取得して日付/page sliceごとにWorkerを終了し5秒delay付き再予約していた。OS配送待ちが毎回発生し得るため、foregroundを保ったまま同じWorkerで有界連続取得する。120秒経過後は次sliceを開始せず、最大16slice。計算は新Workerに分離。API間隔12.5秒・保存後ACK・失敗時の保存済み再開は不変。Xiaomiでの停止原因を直接読んだ結果ではなく、コード上の待ち原因を修正したもの。
 - JVM関連11件（新burst5・foreground4・進捗2）成功、最終Android本体/追加instrumentation sourceのcompile成功。合成8sliceを1dispatchで処理、時間/回数上限、停止直後/失敗直後の後続禁止を確認。実端末の何倍改善や完了予想時間は未測定。追加instrumentationの計算分離はCI実行待ち。Web/モデル/保存形式不変で重い数値試験は繰り返さない。
-- 0.1.37非公開候補へ反映する。TOPIX500選択の端末読戻しは未確認。正式採用HOLD・実注文なし。
+- 同署名0.1.37/code10037を作成・本人用の非公開引継ぎ先へ保存。source `7a9dcb5406212cc1134e10ad5891e45c50924286`、24,007,053 bytes、SHA256 `8a92696bfa796ab2afa335dbb0180a1e0caef6cbe22bf03880484606679871b9`。署名/46assets/生成profile/Python同梱/私有データ非混入検査成功、build30.96秒。最新CI全体とsigned APK起動/Xiaomiの改善速度は未確認。旧history_waitの再試行期限が残る場合は自動処理を明示停止→再開し、取得済みpage/日付を再利用する。TOPIX500選択の端末読戻しは未確認。正式採用HOLD・実注文なし。
 
 ## 2026-10-23 — 取得の処理間にも進捗通知を保持（D234）
 
