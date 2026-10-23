@@ -7,7 +7,7 @@ import { useApiData } from "./hooks";
 import { RetainedReadViews } from "./RetainedReadViews";
 
 vi.mock("./api", () => ({ apiGet: vi.fn() }));
-vi.mock("./mobile/native", () => ({ isAndroid: () => true }));
+vi.mock("./mobile/native", () => ({ isAndroid: () => true, StockAI: {} }));
 function TestPage({ path }: { path: string }) {
   const { data, loading, error } = useApiData<{ text: string }>(path);
   return <section aria-label={path}>

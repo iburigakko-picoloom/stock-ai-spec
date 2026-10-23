@@ -36,6 +36,8 @@ final class ComputeHost {
     private LocalStateStore.PendingWrite outgoing;
     private long expectedGeneration;
     private boolean stateExpected;
+    private boolean optimizedStartup;
+    private boolean deferredStartup;
     private String transferPhase = "idle";
     private volatile long requestId;
     private volatile boolean closed;
@@ -131,7 +133,8 @@ final class ComputeHost {
 
     Reply request(JSONObject command, LocalStateStore.ReadLease source, long generation) throws Exception {
         if (closed) throw new IllegalStateException("COMPUTE_HOST_CLOSED");
-        if (command.has("state") || ("initialize".equals(command.optString("command")) != (source != null)))
+        boolean initialization = command.optString("command").matches("initialize|initialize_operations");
+        if (command.has("state") || (initialization != (source != null)))
             throw new IllegalArgumentException("STATE_TRANSFER_REQUIRED");
         long identity;
         CompletableFuture<JSONObject> response = new CompletableFuture<>();
@@ -141,6 +144,8 @@ final class ComputeHost {
             pending = response; incoming = source; expectedGeneration = generation;
             transferPhase = "dispatch";
             stateExpected = source != null || "POST".equals(command.optString("method"));
+            optimizedStartup = initialization && command.optBoolean("optimized_startup");
+            deferredStartup = optimizedStartup && command.optBoolean("defer_initialize");
         }
         try {
             command.put("id", identity);
@@ -255,7 +260,16 @@ final class ComputeHost {
                     return;
                 }
                 if (value.getLong("id") != requestId || (incoming != null && !incoming.finished())) throw new SecurityException();
-                if (stateExpected) {
+                if (optimizedStartup) {
+                    String mode = value.getJSONObject("result").getString("persistence");
+                    if (deferredStartup ? !mode.equals("deferred") : !mode.matches("none|operations|full"))
+                        throw new SecurityException();
+                    boolean saves = mode.equals("operations") || mode.equals("full");
+                    if (saves) {
+                        if (!Boolean.TRUE.equals(value.opt("state")) || outgoing == null) throw new SecurityException();
+                        outgoing.seal();
+                    } else if (!value.has("state") || !value.isNull("state") || outgoing != null) throw new SecurityException();
+                } else if (stateExpected) {
                     if (!Boolean.TRUE.equals(value.opt("state")) || outgoing == null) throw new SecurityException();
                     outgoing.seal();
                 } else if (!value.has("state") || !value.isNull("state") || outgoing != null) throw new SecurityException();

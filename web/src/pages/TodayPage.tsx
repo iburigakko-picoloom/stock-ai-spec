@@ -47,7 +47,7 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
 }
 
 export function TodayPage(): ReactNode {
-  const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today");
+  const { data, error, loading, savedAt } = useApiData<TodayResponse>("/api/v1/today");
   if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
   const proposal = loading || data.isStale ? null : data.proposal;
   const visible = proposal?.lines
@@ -62,8 +62,9 @@ export function TodayPage(): ReactNode {
     <div className="page">
       <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} actions={<Link className="button button--secondary consultation-link" to="/today/chatgpt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 18 3 22l5-2a9 9 0 1 0-4-2Z" /></svg>ChatGPTと相談</Link>} />
       <RuntimeBanner mode={data.runtimeMode} />
+      {savedAt && <p role="status">{dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。最新情報を確認中…</p>}
       <DailyPanel />
-      {!data.isStale && data.pipelineState === "CASH_ONLY" ? (
+      {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? (
         <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
       ) : !proposal ? (
         <><StatePanel

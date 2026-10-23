@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import inspect
 import io
 import json
@@ -51,10 +52,12 @@ def _async_call(fn):
     return invoke
 
 
-def _restore_archive(archive: zipfile.ZipFile) -> None:
+def _restore_archive(archive: zipfile.ZipFile, *, operations_only=False) -> None:
     names = archive.namelist()
     if set(names) - {"operations.sqlite3", "mobile.sqlite3"} or len(names) != len(set(names)):
         raise ValueError("Unexpected backup file")
+    if operations_only and names != ["operations.sqlite3"]:
+        raise ValueError("Invalid operations overlay")
     # Validate both snapshots on disk before replacing either current database.
     with tempfile.TemporaryDirectory(prefix="state-import-", dir=STATE) as folder:
         staged = Path(folder)
@@ -109,7 +112,7 @@ class StateImport:
             self.close()
             raise
 
-    def finish(self) -> dict:
+    def finish(self, *, initialize_runtime=True, operations_only=False) -> dict:
         try:
             if self._closed or self._received != self.length:
                 raise ValueError("Incomplete native state")
@@ -117,8 +120,10 @@ class StateImport:
             if self.length:
                 self._archive.seek(0)
                 with zipfile.ZipFile(self._archive) as archive:
-                    _restore_archive(archive)
-            return initialize()
+                    _restore_archive(archive, operations_only=operations_only)
+            elif operations_only:
+                raise ValueError("Missing operations overlay")
+            return initialize() if initialize_runtime else {}
         finally:
             self.close()
 
@@ -169,6 +174,41 @@ def initialize(encoded: str = "") -> dict:
 
 def mobile_db():
     return connect(STATE / "mobile.sqlite3")
+
+
+def _startup_fingerprints() -> dict:
+    """Bounded reads; never allocate or recompress a complete market snapshot."""
+    result = {}
+    for name in ("operations.sqlite3", "mobile.sqlite3"):
+        path = STATE / name
+        if not path.exists():
+            result[name] = None
+            continue
+        with closing(sqlite3.connect(path)) as db:
+            # This interpreter is the sole writer. Include committed WAL pages.
+            if db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0] != 0:
+                raise ValueError("Startup checkpoint busy")
+            if name == "operations.sqlite3":
+                digest = hashlib.sha256()
+                # Small ledger: ignore physical page/header churn, not logical changes.
+                for line in db.iterdump():
+                    digest.update(line.encode("utf-8"))
+                    digest.update(b"\n")
+                result[name] = digest.hexdigest()
+                continue
+        with path.open("rb") as content:
+            result[name] = hashlib.file_digest(content, "sha256").hexdigest()
+    return result
+
+
+def initialize_checked() -> dict:
+    before = _startup_fingerprints()
+    initialize()
+    after = _startup_fingerprints()
+    mode = ("full" if before["mobile.sqlite3"] != after["mobile.sqlite3"]
+            else "operations" if before["operations.sqlite3"] != after["operations.sqlite3"]
+            else "none")
+    return {"persistence": mode}
 
 
 class _BoundedArchive(io.BytesIO):

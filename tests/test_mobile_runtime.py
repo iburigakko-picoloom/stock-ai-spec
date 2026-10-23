@@ -23,6 +23,55 @@ def run(device, method, path, body=None):
     return asyncio.run(device.request(method, path, json.dumps(body)))
 
 
+def test_checked_startup_skips_unchanged_and_saves_only_changed_database(device, monkeypatch):
+    assert device.initialize_checked() == {"persistence": "none"}
+    initialize = device.initialize
+
+    def ledger_migration():
+        initialize()
+        with closing(sqlite3.connect(device.STATE / "operations.sqlite3")) as db:
+            db.execute("INSERT OR REPLACE INTO operational_metadata VALUES('startup_probe','v1')")
+            db.commit()
+
+    monkeypatch.setattr(device, "initialize", ledger_migration)
+    assert device.initialize_checked() == {"persistence": "operations"}
+    assert device.initialize_checked() == {"persistence": "none"}
+
+    def market_migration():
+        initialize()
+        with closing(sqlite3.connect(device.STATE / "mobile.sqlite3")) as db:
+            db.execute("CREATE TABLE startup_probe(id INTEGER PRIMARY KEY)")
+            db.commit()
+
+    monkeypatch.setattr(device, "initialize", market_migration)
+    assert device.initialize_checked() == {"persistence": "full"}
+
+
+def test_split_startup_overlay_preserves_market_and_rejects_market_in_overlay(device):
+    from scripts.mobile_native_history_fixture import table_snapshot
+
+    market_before = table_snapshot(device.STATE / "mobile.sqlite3")
+    operations = device.StateExport(operations_only=True)
+    fragments = []
+    while (fragment := operations.read_next()) is not None:
+        fragments.append(fragment)
+    stream = device.StateImport(sum(map(len, fragments)))
+    for index, fragment in enumerate(fragments):
+        stream.append(index, fragment)
+    assert stream.finish(initialize_runtime=False, operations_only=True) == {}
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == market_before
+    assert device.initialize_checked()["persistence"] == "none"
+    full = device.export_state()
+    # Legacy compaction is part of export, before the rejected import starts.
+    before_rejected_import = table_snapshot(device.STATE / "mobile.sqlite3")
+    stream = device.StateImport(len(full))
+    for index, start in enumerate(range(0, len(full), 256 * 1024)):
+        stream.append(index, full[start:start + 256 * 1024])
+    with pytest.raises(ValueError, match="operations overlay"):
+        stream.finish(initialize_runtime=False, operations_only=True)
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == before_rejected_import
+
+
 def test_operations_export_does_not_copy_or_compact_market_database(device, monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError("A small ledger save must not compact market history")

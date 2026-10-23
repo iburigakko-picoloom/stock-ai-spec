@@ -243,6 +243,39 @@ final class LocalStateStore {
         } finally { database.endTransaction(); }
     }
 
+    StartupLease openStartupLease() throws Exception {
+        ReadLease base = openBaseLease();
+        ReadLease delta = null;
+        try {
+            try (Cursor row = database.rawQuery("SELECT payload FROM operations_state WHERE id=1", null)) {
+                if (row.moveToFirst()) {
+                    JSONObject info = new JSONObject(decrypt(row.getBlob(0)));
+                    int length = info.getInt("length"), chunks = info.getInt("chunks");
+                    String hash = info.getString("sha256");
+                    if (info.getLong("generation") != base.generation || length < 0 || length > MAX_CHARACTERS
+                            || chunks != (length + CHUNK_CHARACTERS - 1) / CHUNK_CHARACTERS
+                            || !hash.matches("[a-f0-9]{64}")) throw new SecurityException();
+                    delta = new ReadLease(base.generation, length, chunks, hash, true, null);
+                    delta.operations = true;
+                }
+            }
+            if (delta == null) {
+                if (base.cipherGeneration != base.generation) throw new SecurityException();
+                return new StartupLease(base, null);
+            }
+            return new StartupLease(base, delta);
+        } catch (Exception error) {
+            base.close(); if (delta != null) delta.close();
+            throw error;
+        }
+    }
+
+    static final class StartupLease implements AutoCloseable {
+        final ReadLease base, operations;
+        StartupLease(ReadLease base, ReadLease operations) { this.base = base; this.operations = operations; }
+        @Override public void close() { base.close(); if (operations != null) operations.close(); }
+    }
+
     ReadLease openReadLease() throws Exception {
         ReadLease base = openBaseLease();
         ReadLease delta = null;

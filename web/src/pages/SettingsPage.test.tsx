@@ -6,7 +6,7 @@ import { SettingsPage } from "./SettingsPage";
 import { apiGet } from "../api";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
-vi.mock("../mobile/native", () => ({ isAndroid: () => true }));
+vi.mock("../mobile/native", () => ({ isAndroid: () => true, StockAI: {} }));
 vi.mock("../mobile/MobileDevicePanel", () => ({ MobileDevicePanel: function Editor() {
   const [draft, setDraft] = useState("");
   return <input aria-label="draft" value={draft} onChange={e => setDraft(e.target.value)} />;

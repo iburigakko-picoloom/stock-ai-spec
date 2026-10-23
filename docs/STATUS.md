@@ -1,3 +1,10 @@
+## 2026-10-23 — 起動表示・不要保存・差分復元の4点修正（D237）
+
+- ホーム/今日/ランキングの暗号化された前回表示を独立executorで先に読み、正本照会中は日時付き閲覧用とする。正本成功で更新、失敗で表示停止。復元時の削除、遅着cacheによる新表示の上書き防止を実装。
+- startupは認証済みbase/operationsを別々に復元し、全ZIP再合成を回避。既存の初期化・整合性・復旧処理を保持し、変更なしの再export/暗号化commitを省略。migrationは必要なDBを保存する。
+- Python runtime37件、Web128件（型mock修正後の関連9件も成功）、typecheck/lint/build、実WASM11件成功。WASMでbase+operations復元、保存なし起動、profile読戻しを確認。Python初回試験の1失敗はexportによるcompaction前後を混同した試験baselineを修正。Web追加試験の初回sandbox rename拒否は未実行で、通常環境で成功。Android compile/JVM/lintとnative instrumentationは確認中。
+- 数値モデル/特徴量は変更しておらず全銘柄parityを反復しない。端末未接続、Xiaomi性能未測定。初回表示コピーがない画面は正本待ちが残る。市場ingestの全量保存は別の残件。正式採用HOLD。
+
 ## 2026-10-23 — 取得の固定12.5秒待機を契約能力に応じ短縮（D236）
 
 - MarketClientはLightでも一律12.5秒待機だった。同一キーで非空TOPIX受信を確認してから1.1秒へ短縮。calendarを有料の証拠にしない。未確認/失効/認証拒否は低速維持、429は2分待機＋既存再試行。手動/Worker共通lockを保持。保存形式、データ値、モデル、ACK条件は不変。

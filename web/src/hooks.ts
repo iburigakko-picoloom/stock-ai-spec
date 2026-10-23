@@ -1,15 +1,16 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { apiGet } from "./api";
-import { isAndroid } from "./mobile/native";
+import { isAndroid, StockAI } from "./mobile/native";
 import { ReadViewActivation } from "./readViewActivation";
 
 export function useApiData<T>(path: string): {
-  data: T | null; error: string | null; loading: boolean; reload: () => void;
+  data: T | null; error: string | null; loading: boolean; savedAt: string | null; reload: () => void;
 } {
   const activation = useContext(ReadViewActivation);
   const [result, setResult] = useState<{ path: string; activation: string; value: T | null }>({ path, activation, value: null });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const trigger = useRef<() => void>(() => undefined);
   const reload = useCallback(() => trigger.current(), []);
   useEffect(() => {
@@ -23,13 +24,27 @@ export function useApiData<T>(path: string): {
       pending = false;
       occupied = true;
       const started = epoch;
+      let freshCompleted = false;
       setLoading(true); setError(null);
       setResult(previous => previous.path === path
         ? previous : { path, activation, value: null });
+      if (isAndroid() && typeof StockAI.readSavedView === "function"
+          && /^(\/api\/v1\/(home|today)|\/api\/v1\/ranking\?rankType=(overall|5d|20d|morning)&limit=50)$/.test(path)) {
+        void StockAI.readSavedView({ path }).then(saved => {
+          if (active && started === epoch && !freshCompleted && saved.available && saved.readOnly === true
+              && saved.savedAt && Number.isFinite(Date.parse(saved.savedAt)) && Date.parse(saved.savedAt) <= Date.now()) {
+            setResult({ path, activation, value: saved.body as T });
+            setSavedAt(saved.savedAt);
+          }
+        }).catch(() => { /* A missing/invalid display copy never bypasses the authoritative read. */ });
+      }
       void apiGet<T>(path).then(value => {
-        if (active && started === epoch && available()) setResult({ path, activation, value });
+        freshCompleted = true;
+        if (active && started === epoch && available()) { setResult({ path, activation, value }); setSavedAt(null); }
       }).catch((reason: unknown) => {
+        freshCompleted = true;
         if (active && started === epoch) {
+          setSavedAt(null);
           setResult({ path, activation, value: null });
           setError(reason instanceof Error ? reason.message : "データを取得できませんでした");
         }
@@ -67,6 +82,6 @@ export function useApiData<T>(path: string): {
       window.clearInterval(timer);
     };
   }, [path, activation]);
-  return { data: result.path === path ? result.value : null, error,
+  return { data: result.path === path ? result.value : null, error, savedAt: result.path === path ? savedAt : null,
     loading: loading || result.path !== path || result.activation !== activation, reload };
 }

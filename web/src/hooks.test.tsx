@@ -1,16 +1,58 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { apiGet } from "./api";
-import { isAndroid } from "./mobile/native";
+import { isAndroid, StockAI } from "./mobile/native";
 import { useApiData } from "./hooks";
 
 vi.mock("./api", () => ({ apiGet: vi.fn() }));
-vi.mock("./mobile/native", () => ({ isAndroid: vi.fn() }));
+vi.mock("./mobile/native", () => ({ isAndroid: vi.fn(), StockAI: { readSavedView: vi.fn() } }));
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({ available: false });
   vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
   vi.mocked(apiGet).mockResolvedValue({ saved: 1 });
 });
+
+test("saved display arrives while authoritative computation is pending, then is replaced", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let resolve!: (value: unknown) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise(done => { resolve = done; }));
+  const savedAt = "2026-01-01T00:00:00Z";
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({ available: true, readOnly: true, savedAt, body: { saved: 7 } });
+  const { result } = renderHook(() => useApiData("/api/v1/today"));
+  await waitFor(() => expect(result.current.data).toEqual({ saved: 7 }));
+  expect(result.current.loading).toBe(true);
+  expect(result.current.savedAt).toBe(savedAt);
+  await act(async () => resolve({ saved: 8 }));
+  expect(result.current.data).toEqual({ saved: 8 });
+  expect(result.current.savedAt).toBeNull();
+});
+
+test("late saved display cannot overwrite fresh data and is never read for decision routes", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let resolve!: (value: { available: boolean; readOnly: boolean; savedAt: string; body: unknown }) => void;
+  vi.mocked(StockAI.readSavedView).mockReturnValue(new Promise(done => { resolve = done; }));
+  const { result, unmount } = renderHook(() => useApiData("/api/v1/home"));
+  await waitFor(() => expect(result.current.data).toEqual({ saved: 1 }));
+  await act(async () => resolve({ available: true, readOnly: true, savedAt: "2026-01-01T00:00:00Z", body: { saved: 0 } }));
+  expect(result.current.data).toEqual({ saved: 1 });
+  unmount(); vi.mocked(StockAI.readSavedView).mockClear();
+  renderHook(() => useApiData("/api/v1/today/review"));
+  expect(StockAI.readSavedView).not.toHaveBeenCalled();
+});
+test("authoritative failure removes a previously displayed saved view", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let reject!: (error: Error) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise((_done, fail) => { reject = fail; }));
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({ available: true, readOnly: true, savedAt: "2026-01-01T00:00:00Z", body: { saved: 7 } });
+  const { result } = renderHook(() => useApiData("/api/v1/today"));
+  await waitFor(() => expect(result.current.data).toEqual({ saved: 7 }));
+  await act(async () => reject(new Error("integrity failure")));
+  expect(result.current.data).toBeNull();
+  expect(result.current.savedAt).toBeNull();
+  expect(result.current.error).toBe("integrity failure");
+});
+
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 test("Android rereads authoritative local results when offline or returning from a notification", async () => {

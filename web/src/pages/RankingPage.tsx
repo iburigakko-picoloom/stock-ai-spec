@@ -14,7 +14,7 @@ const tabs = [
 export function RankingPage(): ReactNode {
   const [rankType, setRankType] = useState("overall");
   const [search, setSearch] = useState("");
-  const { data, error, loading } = useApiData<RankingRow[]>(`/api/v1/ranking?rankType=${rankType}&limit=50`);
+  const { data, error, loading, savedAt } = useApiData<RankingRow[]>(`/api/v1/ranking?rankType=${rankType}&limit=50`);
   const query = search.trim().toLowerCase();
   const rows = (data || []).filter((row) => `${row.symbol}${row.company_name}`.toLowerCase().includes(query));
   return (
@@ -23,7 +23,7 @@ export function RankingPage(): ReactNode {
       <TabBar label="ランキング期間" options={tabs} value={rankType} onChange={setRankType} panelId="ranking-panel" />
       <div id="ranking-panel" role="tabpanel" aria-labelledby={`ranking-panel-${rankType}`}>
       <label className="search"><span className="sr-only">銘柄名・コードで検索</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7" /><path d="m15 15 6 6" /></svg><input type="search" placeholder="表示中の上位50件から検索" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-      {loading && data && <p role="status">前回の表示です・更新を確認中…</p>}
+      {loading && data && <p role="status">{savedAt ? `${new Date(savedAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} JSTの保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
       <p className="explain">予測順位です。売買の提案は「今日」で確認。</p>
       {!loading && !error && !!data?.length && <p className="list-count" role="status">{rows.length}件を表示 <span>取得した上位{data.length}件が対象</span></p>}
       {loading && !data ? <StatePanel title="ランキングを読み込んでいます" /> : error ? <StatePanel tone="error" title="ランキングを取得できません" detail={error} /> : rows.length === 0 ? <StatePanel title={query && data?.length ? "検索に一致する銘柄がありません" : "このランキングはまだありません"} detail={query && data?.length ? "表示対象の上位50件を検索しています。銘柄名またはコードを変えてください。" : "保存済みの分析は「今日」で確認できます。"} /> : (

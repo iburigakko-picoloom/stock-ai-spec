@@ -6,7 +6,7 @@ import type { HoldingView, HomeResponse } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
 
 export function HomePage(): ReactNode {
-  const { data, error, loading } = useApiData<HomeResponse>("/api/v1/home");
+  const { data, error, loading, savedAt } = useApiData<HomeResponse>("/api/v1/home");
   const groups = useMemo(() => {
     const result = new Map<string, HoldingView[]>();
     for (const holding of data?.holdings || []) {
@@ -20,6 +20,7 @@ export function HomePage(): ReactNode {
     return (
       <div className="page">
         <PageHeader eyebrow="実際の状態" title="ホーム" />
+        {savedAt && <p role="status">{dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。最新情報を確認中…</p>}
         <RuntimeBanner mode={data?.runtimeMode || "UNCONFIGURED"} />
         <DailyPanel />
         <StatePanel title="資産データが未登録です" detail={data?.blockingReason || "保有株・口座区分・現金残高を登録すると、実資産を表示します。"} />
@@ -31,7 +32,7 @@ export function HomePage(): ReactNode {
   return (
     <div className="page">
       <PageHeader eyebrow="実際の状態" title="ホーム" meta={`更新 ${dateTime(data.portfolio.asOf)} JST`} />
-      {loading && <p role="status">前回の表示です・更新を確認中…</p>}
+      {loading && <p role="status">{savedAt ? `${dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
       <RuntimeBanner mode={data.runtimeMode} />
       <DailyPanel />
       {data.initialLedger && <p className="explain">初回台帳の残高です。口座・保有の入力欄を編集しても、この台帳は更新されません。{data.initialLedger.referencePriceDate && `株価は${data.initialLedger.referencePriceDate}の日足終値を参照しています。`}</p>}

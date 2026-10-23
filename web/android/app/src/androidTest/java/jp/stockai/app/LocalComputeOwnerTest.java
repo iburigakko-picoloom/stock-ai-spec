@@ -35,6 +35,30 @@ public class LocalComputeOwnerTest {
 
     static <T> T result(CompletableFuture<T> value) throws Exception { return value.get(300, TimeUnit.SECONDS); }
 
+    @Test public void splitStartupSkipsCommitAndSavedDisplayBypassesBusyOwner() throws Exception {
+        JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
+        JSObject home = result(owner.request("GET", "/api/v1/home", "null"));
+        long generation = owner.state.currentGeneration();
+        assertTrue(owner.readViews.read("/api/v1/home").getBoolean("readOnly"));
+        assertEquals(home.getJSONObject("body").toString(), owner.readViews.read("/api/v1/home").getJSONObject("body").toString());
+        try (LocalStateStore.StartupLease leases = owner.state.openStartupLease()) {
+            assertNotNull("Personal save stays an independent operations overlay", leases.operations);
+        }
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
+        assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        assertEquals("Unchanged startup does not republish state", generation, owner.state.currentGeneration());
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        ownerQueue().execute(() -> { entered.countDown(); try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
+            try { owner.readViews.read("/api/v1/today/review"); fail("Unsafe route cached"); }
+            catch (IllegalArgumentException expected) { }
+        } finally { release.countDown(); }
+    }
+
     private java.util.concurrent.ExecutorService ownerQueue() throws Exception {
         java.lang.reflect.Field field = LocalComputeOwner.class.getDeclaredField("queue");
         field.setAccessible(true); return (java.util.concurrent.ExecutorService) field.get(owner);

@@ -17,7 +17,7 @@ const data: TodayResponse = {
     predictions: [{ symbol: "1234", expected_return_5d: null, expected_return_20d: .02, rank_score_20d: .8 }] },
 };
 function response(value: TodayResponse, loading = false) {
-  vi.mocked(useApiData).mockReturnValue({ data: value, loading, error: null, reload: vi.fn() });
+  vi.mocked(useApiData).mockReturnValue({ data: value, loading, savedAt: null, error: null, reload: vi.fn() });
 }
 test("previous saved analysis stays read-only through refresh and switches with new archive", () => {
   response(data);
