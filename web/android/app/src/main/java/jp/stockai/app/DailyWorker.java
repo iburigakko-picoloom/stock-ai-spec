@@ -90,6 +90,7 @@ public final class DailyWorker extends Worker {
                     catch (Exception ignored) { return true; }
                 };
                 MarketClient client = new MarketClient(context, owner.state.database);
+                final boolean[] acquisition = {false};
                 DailyPipeline pipeline = new DailyPipeline(
                     (method, path, body) -> coreRequest(owner, method, path, body),
                     new DailyPipeline.Market() {
@@ -99,12 +100,19 @@ public final class DailyWorker extends Worker {
                         public void acknowledge(boolean membership, String day, String id) throws Exception { client.download(membership).acknowledge(day, id); }
                     }, new DailyPipeline.Progress() {
                         public void state(String value, String day) throws Exception {
+                            acquisition[0] = value.equals("history") || value.equals("membership");
                             if (requiresForeground(value)) beginForeground(value);
                             durable.state(session, value, day);
                         }
                         public void notice(String key, String text) throws Exception { durable.notice(session, key, text); }
                     }, stopped, Instant::now);
-                boolean more = pipeline.tick(state.getString("firstDay"));
+                final boolean[] continuedAcquisition = {false};
+                boolean more = DailyAcquisitionBurst.run(() -> {
+                    acquisition[0] = false;
+                    boolean result = pipeline.tick(state.getString("firstDay"), continuedAcquisition[0]);
+                    continuedAcquisition[0] = true;
+                    return result;
+                }, () -> acquisition[0], stopped, android.os.SystemClock::elapsedRealtime);
                 if (!more && !stopped.getAsBoolean() && durable.row().optString("state").equals("numerical_saved")) {
                     ChatGPTClient chatgpt = ChatGPTClient.get(context);
                     NativeSecrets secrets = new NativeSecrets(context);

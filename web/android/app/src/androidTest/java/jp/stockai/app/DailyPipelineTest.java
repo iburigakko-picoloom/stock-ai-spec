@@ -248,6 +248,15 @@ public class DailyPipelineTest {
         assertFalse(events.stream().anyMatch(e -> e.equals("state:numerical_saved") || e.startsWith("notice:")));
     }
 
+    @Test public void acquisitionContinuationLeavesCalculationForFreshWorker() throws Exception {
+        complete = true;
+        assertTrue(pipeline().tick(prior, true));
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ") || e.equals("state:calculating")));
+        assertNull(forecast);
+        assertTrue(pipeline().tick(prior));
+        assertNotNull(forecast);
+    }
+
     @Test public void refusedHistoryForegroundDoesNotDownloadOrCommit() throws Exception {
         rejectForeground = true;
         try { pipeline().tick(prior); fail("foreground refusal ignored"); }

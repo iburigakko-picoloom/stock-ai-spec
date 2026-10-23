@@ -80,6 +80,10 @@ final class DailyPipeline {
 
     /** true requests another bounded slice; false leaves the durable periodic wake-up. */
     boolean tick(String firstDay) throws Exception {
+        return tick(firstDay, false);
+    }
+
+    boolean tick(String firstDay, boolean acquisitionOnly) throws Exception {
         ZonedDateTime now = clock.get().atZone(JST);
         String today = now.toLocalDate().toString();
         JSONObject membership = api("GET", "market/membership", null);
@@ -107,6 +111,9 @@ final class DailyPipeline {
                 return true;
             }
         }
+        // A continued acquisition burst must not consume the next long
+        // calculation's execution budget. Let a fresh Worker handle it.
+        if (acquisitionOnly) return true;
         check(); now = clock.get().atZone(JST);
         if (!today.equals(now.toLocalDate().toString())) return true;
         if (Boolean.FALSE.equals(membership.opt("is_business_day"))) { progress.state("closed", today); return false; }
