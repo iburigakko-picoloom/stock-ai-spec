@@ -4,6 +4,8 @@
 - startupは認証済みbase/operationsを別々に復元し、全ZIP再合成を回避。既存の初期化・整合性・復旧処理を保持し、変更なしの再export/暗号化commitを省略。migrationは必要なDBを保存する。
 - Python runtime37件、Web128件（型mock修正後の関連9件も成功）、typecheck/lint/build、実WASM11件成功。WASMでbase+operations復元、保存なし起動、profile読戻しを確認。Python初回試験の1失敗はexportによるcompaction前後を混同した試験baselineを修正。Web追加試験の初回sandbox rename拒否は未実行で、通常環境で成功。Android compile/JVM/lintとnative instrumentationは確認中。
 - 数値モデル/特徴量は変更しておらず全銘柄parityを反復しない。端末未接続、Xiaomi性能未測定。初回表示コピーがない画面は正本待ちが残る。市場ingestの全量保存は別の残件。正式採用HOLD。
+- 最終source `1f98f990d99fb5c277ee4a01a9c38462a806e757` をPR #3へpush。Android JVM31件・本体/試験compile・Lint成功。最初のoffline Lintは標準依存2点が未キャッシュで停止し、online取得後に成功。追加hooks失敗時非表示を含む7件成功。CI `39969635006` はverify/android進行中で、native instrumentation・Xiaomi合格とはしない。
+- 同署名の非公開0.1.39/code10039を既存本人Driveへ保存・非共有/サイズを読戻し確認。24,011,073 bytes、SHA256 `2c753ce6739574cfc94a16f52cf2aaafbc08c108c4bb4b1f2fc2e5b5990a301e`。署名は既存証明書と一致、非debug、46assetsの一致/生成profile/私有情報非混入検査成功、ビルド41.18秒。証拠は既存ローカル成果物領域 `update-0139-20261023/{tests,build,verified}.json`。署名APK起動と実機速度は未確認。端末へはこのAPKの上書き更新が必要で、公開自動更新先は変更していない。
 
 ## 2026-10-23 — 取得の固定12.5秒待機を契約能力に応じ短縮（D236）
 
