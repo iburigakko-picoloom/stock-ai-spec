@@ -53,7 +53,25 @@ test("authoritative failure removes a previously displayed saved view", async ()
   expect(result.current.error).toBe("integrity failure");
 });
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+
+test("periodic checks do not discard a cold read lasting longer than two minutes", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  vi.mocked(isAndroid).mockReturnValue(true);
+  const finishes: ((value: unknown) => void)[] = [];
+  vi.mocked(apiGet).mockImplementation(() => new Promise(resolve => finishes.push(resolve)));
+  const { result } = renderHook(() => useApiData("/api/v1/today"));
+  await act(async () => { await vi.advanceTimersByTimeAsync(125_000); });
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  await act(async () => finishes[0]({ savedAnalysis: { snapshotId: "saved-analysis" } }));
+  expect(result.current.data).toEqual({ savedAnalysis: { snapshotId: "saved-analysis" } });
+  expect(result.current.loading).toBe(false);
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(55_000); });
+  expect(apiGet).toHaveBeenCalledTimes(2);
+  await act(async () => finishes[1]({ savedAnalysis: null }));
+  expect(result.current.data).toEqual({ savedAnalysis: null });
+});
 
 test("Android rereads authoritative local results when offline or returning from a notification", async () => {
   vi.mocked(isAndroid).mockReturnValue(true);

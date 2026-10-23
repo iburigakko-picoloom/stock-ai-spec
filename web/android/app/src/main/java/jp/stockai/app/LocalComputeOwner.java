@@ -21,6 +21,7 @@ final class LocalComputeOwner {
     private final String identity;
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
     private final AtomicInteger queued = new AtomicInteger();
+    private final AtomicInteger operationSequence = new AtomicInteger();
     final LocalStateStore state;
     final SavedReadViews readViews;
     private volatile ComputeHost host;
@@ -66,18 +67,30 @@ final class LocalComputeOwner {
         // interpreter wait. A stopped Worker must not leave an orphan ahead
         // of its replacement. Count queued/running work exactly once.
         AtomicInteger phase = new AtomicInteger(); // queued=0, running=1, released=2
+        int operationId = operationSequence.incrementAndGet();
+        long enqueuedAt = android.os.SystemClock.elapsedRealtime();
         FutureTask<Void> task = new FutureTask<>(() -> {
             if (!phase.compareAndSet(0, 1)) return null;
+            long startedAt = android.os.SystemClock.elapsedRealtime();
+            android.util.Log.i("StockAIComputeTiming", "operation=" + operationId
+                + " event=start queue_ms=" + (startedAt - enqueuedAt));
+            boolean succeeded = false;
             try {
                 if (!result.isCancelled()) {
                     if (Looper.myLooper() == Looper.getMainLooper()) throw new IllegalStateException("COMPUTE_ON_MAIN_THREAD");
                     result.complete(operation.run());
+                    succeeded = true;
                 }
             } catch (Exception error) {
                 // The plugin always exposes a fixed error. Internal causes aid
                 // isolated native tests; worker diagnostics contain only enums.
                 result.completeExceptionally(new IllegalStateException("COMPUTE_OPERATION_FAILED", error));
-            } finally { phase.set(2); queued.decrementAndGet(); }
+            } finally {
+                android.util.Log.i("StockAIComputeTiming", "operation=" + operationId
+                    + " event=finish success=" + succeeded + " run_ms="
+                    + (android.os.SystemClock.elapsedRealtime() - startedAt));
+                phase.set(2); queued.decrementAndGet();
+            }
             return null;
         });
         result.whenComplete((value, error) -> {

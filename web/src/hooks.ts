@@ -71,7 +71,11 @@ export function useApiData<T>(path: string): {
     window.addEventListener("focus", visible);
     window.addEventListener("online", visible);
     window.addEventListener("offline", offline);
-    const timer = window.setInterval(visible, 60_000);
+    // A periodic check must not invalidate an unfinished authoritative read.
+    // Cold Android restoration can exceed one minute; superseding it on every
+    // tick otherwise discards its result and immediately queues another read.
+    // Explicit reload/focus still invalidates work after a possible change.
+    const timer = window.setInterval(() => { if (!occupied) visible(); }, 60_000);
     return () => {
       active = false;
       if (trigger.current === refresh) trigger.current = () => undefined;

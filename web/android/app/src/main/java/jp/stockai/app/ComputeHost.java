@@ -197,6 +197,9 @@ final class ComputeHost {
                 if (!active(identity) || phase == null
                         || !phase.matches("reading-input|posting-input|decoding-input|interpreter|packages|archive|state|request|export|export-archive|export-chunks|staging-output")) return;
                 transferPhase = phase;
+                // Allowlisted stage only: no request bodies, provider URLs,
+                // credentials, holdings, or exception messages in release logs.
+                android.util.Log.i("StockAIComputeTiming", "request=" + requestId + " phase=" + phase);
                 if ((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                     android.app.ActivityManager.MemoryInfo memory = new android.app.ActivityManager.MemoryInfo();
                     ((android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
