@@ -1,3 +1,9 @@
+## 2026-10-23 — D233を更新APKへ反映する準備
+
+- 前回はD233をGitHubへpushしただけで、本人端末の0.1.34には含まれていなかった。0.1.35非公開候補へ反映する。現在ADB端末なしのため、本人端末の停止原因/実OS継続は未確認。
+- 旧0.1.34 CI39876702332のverify失敗は、保持した非表示画面も`.app-brand`検査が拾いstrict違反となった3件。可視headerが厳密に1件であることを先に確認し、ノッチ/横cutout/native paddingの座標assertをすべて維持。修正後の当該3件成功16.1秒。android-historyはverify未完による入力artifact不足で未実行。旧android jobは成功だが、新Workerの合格証拠へは流用しない。
+- D233のWeb13/JVM方針2件・最終native compile成功を再利用（今回製品source変更なし）。CI39895611341は進行中。必要な候補の署名/同梱検査と引継ぎを進め、CI全体やXiaomi成功と偽らない。
+
 ## 2026-10-23 — 初回履歴のバックグラウンド取得を補強（D233）
 
 - 既存の自動取得はWorkManagerで画面から独立していたが、history/membershipでforeground通知を開始していなかった。両段階の取得前にdataSync foreground開始を待つよう修正。OS拒否ではhistory_waitと上限付き再試行に戻り、通信/保存を開始済み・完了済みと扱わない。暗号化commit後ACK・一日単位の予約・停止/再開・取得済みページは従来どおり。

@@ -84,7 +84,9 @@ for (const layout of [
         if (["top", "right", "bottom", "left"].includes(side)) document.documentElement.style.setProperty(`--safe-area-inset-${side}`, `${value}px`);
       }
     }, { layout, bottom });
-    const brand = page.locator(".app-brand");
+    // Retained tabs remain mounted but hidden. Measure the one visible header.
+    const brand = page.locator(".app-brand:visible");
+    await expect(brand).toHaveCount(1);
     const baseline = (await brand.boundingBox())!;
     const basePadding = await page.locator(".app-main").evaluate(node => Number.parseFloat(getComputedStyle(node).paddingBottom));
     await setInsets(layout.bottom);
