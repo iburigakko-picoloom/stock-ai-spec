@@ -1,3 +1,9 @@
+## 2026-10-23 — 取得の処理間にも進捗通知を保持（D234）
+
+- 0.1.35のforeground通知は1日/page slice終了時にWorkManagerが消す。自動取得のjournalから独立した固定ID6103のongoing/private通知を更新し、次の取得待ち・通信再開待ちにも保持する。取得から先へ進む場合や停止/入力・認証エラーでは解除し、古いsessionが停止後に通知を復活させない。OSで中断した間も継続通信を保証する表示にはしない。
+- 進捗状態とforeground方針のJVM4件成功、Android追加試験コンパイル成功。通知のongoing/非autocancel/privateと再open/古いtokenの試験を追加。端末未接続・空き約2.43GBでlocal instrumentation/Xiaomi通知欄は未確認。取得/暗号化保存/モデル/DB schemaは不変。Web試験と全銘柄推論は重複実行しない。
+- 本人用0.1.36候補へ反映する。通知許可が必要で、OSの通知非表示や強制停止を回避しない。正式採用HOLD・実注文なし。
+
 ## 2026-10-23 — D233を非公開0.1.35 APKへ反映
 
 - source `25b014962f18e10cfbd41d396717d4c395f7952e`、versionCode10035、24,003,981 bytes。SHA256 `d91a08c8effde36dd803928b3a2d2a6c0b0a1cbff55388a91e0fecd6b90e30e3`。既存証明書一致・非debug・46assets/Python/生成profile照合・私有モデル/データ/鍵混入なし。署名build47.26秒。本人向け非公開引継ぎ先へ保存し、公開Release/アプリ内公開更新案内は更新しない。

@@ -28,6 +28,7 @@ final class DailyAutomation {
     static final String PUMP = "stockai-daily-pump-v1", WATCH = "stockai-daily-watch-v1";
     static final Object RUN_LOCK = new Object();
     private static final Object STATE_LOCK = new Object();
+    static final int PROGRESS_NOTIFICATION_ID = 6103;
     final Context context;
     final SQLiteDatabase db;
 
@@ -51,6 +52,7 @@ final class DailyAutomation {
     }
 
     JSONObject status() throws Exception {
+        refreshProgressNotice();
         JSONObject result = row();
         for (String name : new String[]{"token", "notice", "failures", "failureDay"}) result.remove(name);
         return result.put("notificationsEnabled", NotificationManagerCompat.from(context).areNotificationsEnabled());
@@ -69,6 +71,7 @@ final class DailyAutomation {
             LocalDate.parse(first);
             db.execSQL("INSERT OR REPLACE INTO daily_automation VALUES(1,?,1,?,'queued',NULL,?,NULL,0,NULL,NULL)",
                 new Object[]{UUID.randomUUID().toString(), first, Instant.now().toString()});
+            refreshProgressNotice();
         }
     }
 
@@ -90,6 +93,7 @@ final class DailyAutomation {
     static Constraints connected() { return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(); }
 
     void wake() throws Exception {
+        refreshProgressNotice();
         if (row().optBoolean("enabled")) WorkManager.getInstance(context).enqueueUniqueWork(PUMP, ExistingWorkPolicy.KEEP,
             new OneTimeWorkRequest.Builder(DailyWorker.class).setConstraints(connected()).build()).getResult().get();
     }
@@ -103,6 +107,7 @@ final class DailyAutomation {
         synchronized (STATE_LOCK) {
             db.execSQL("UPDATE daily_automation SET enabled=0,token=?,state='paused',updated_at=? WHERE id=1",
                 new Object[]{UUID.randomUUID().toString(), Instant.now().toString()});
+            refreshProgressNotice();
         }
         WorkManager manager = WorkManager.getInstance(context);
         manager.cancelUniqueWork(WATCH).getResult().get(); manager.cancelUniqueWork(PUMP).getResult().get();
@@ -112,6 +117,7 @@ final class DailyAutomation {
         synchronized (STATE_LOCK) {
             db.execSQL("UPDATE daily_automation SET state=?,day=?,updated_at=? WHERE id=1 AND enabled=1 AND token=?",
                 new Object[]{state, day, Instant.now().toString(), token});
+            refreshProgressNotice();
         }
     }
 
@@ -124,6 +130,51 @@ final class DailyAutomation {
             Instant retry = count >= 3 ? now.atZone(ZoneId.of("Asia/Tokyo")).toLocalDate().plusDays(1).atStartOfDay(ZoneId.of("Asia/Tokyo")).toInstant() : now.plusSeconds(900L * count);
             db.execSQL("UPDATE daily_automation SET state=?,day=?,updated_at=?,failures=?,failure_day=?,retry_at=? WHERE id=1 AND enabled=1 AND token=?",
                 new Object[]{credential ? "credentials" : "retry", day, now.toString(), count, day, retry.toString(), token});
+            refreshProgressNotice();
+        }
+    }
+
+    // Separate from WorkManager's foreground ID: that notification is removed
+    // after each bounded day/page slice. This reflects durable work, not proof
+    // that a network request is executing while Android postpones the next job.
+    static String progressText(boolean enabled, String state) {
+        if (!enabled) return null;
+        switch (state) {
+            case "queued": return "自動更新の開始待ち";
+            case "history": return "履歴の取得・保存中／次の取得待ち";
+            case "membership": return "銘柄一覧の取得・保存中／次の処理待ち";
+            case "history_wait": return "履歴取得の再開待ち・Androidの実行待ち";
+            case "retry": return "自動更新の再開待ち・通信状態などを確認してください";
+            default: return null;
+        }
+    }
+
+    static android.app.Notification progressNotification(Context context, String text, String day) {
+        Intent open = new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pending = PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        String detail = day == null || day.isEmpty() ? text : text + "\n対象日：" + day;
+        return new NotificationCompat.Builder(context, "stockai-history-progress")
+            .setSmallIcon(R.drawable.ic_stat_stockai).setContentTitle("株AI・データ取得")
+            .setContentText(text).setStyle(new NotificationCompat.BigTextStyle().bigText(detail))
+            .setContentIntent(pending).setOnlyAlertOnce(true).setOngoing(true).setAutoCancel(false).setShowWhen(false)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build();
+    }
+
+    void refreshProgressNotice() throws Exception {
+        synchronized (STATE_LOCK) {
+            JSONObject current = row();
+            String text = progressText(current.optBoolean("enabled"), current.optString("state"));
+            NotificationManager manager = context.getSystemService(NotificationManager.class);
+            if (text == null) { manager.cancel(PROGRESS_NOTIFICATION_ID); return; }
+            manager.createNotificationChannel(new NotificationChannel("stockai-history-progress", "履歴取得の進捗", NotificationManager.IMPORTANCE_LOW));
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return;
+            if (android.os.Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context,
+                    android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+            try {
+                boolean acquiring = current.optString("state").equals("history") || current.optString("state").equals("membership");
+                manager.notify(PROGRESS_NOTIFICATION_ID, progressNotification(context, text,
+                    acquiring && !current.isNull("day") ? current.optString("day") : null));
+            } catch (SecurityException ignored) { /* Notification denial must not interrupt acquisition. */ }
         }
     }
 
