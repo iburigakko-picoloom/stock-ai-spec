@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components";
+import { RetainedReadViews } from "./RetainedReadViews";
 import { DataOperationsPage } from "./pages/DataOperationsPage";
 import { DecisionReviewPage } from "./pages/DecisionReviewPage";
 import { DecisionSavedPage } from "./pages/DecisionSavedPage";
@@ -17,6 +18,7 @@ export function App(): ReactNode {
   return (
     <Routes>
       <Route element={<AppShell />}>
+        <Route element={<RetainedReadViews />}>
         <Route index element={<HomePage />} />
         <Route path="today" element={<TodayPage />} />
         <Route path="today/review" element={<DecisionReviewPage />} />
@@ -32,6 +34,7 @@ export function App(): ReactNode {
         <Route path="stocks/:symbol" element={<StockDetailPage />} />
         <Route path="models/:modelId" element={<ValidationPage />} />
         <Route path="*" element={<Navigate to="/today" replace />} />
+        </Route>
       </Route>
     </Routes>
   );

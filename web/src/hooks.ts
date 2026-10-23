@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { apiGet } from "./api";
 import { isAndroid } from "./mobile/native";
+import { ReadViewActivation } from "./readViewActivation";
 
 export function useApiData<T>(path: string): {
   data: T | null; error: string | null; loading: boolean; reload: () => void;
 } {
-  const [result, setResult] = useState<{ path: string; value: T | null }>({ path, value: null });
+  const activation = useContext(ReadViewActivation);
+  const [result, setResult] = useState<{ path: string; activation: string; value: T | null }>({ path, activation, value: null });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const trigger = useRef<() => void>(() => undefined);
@@ -23,12 +25,12 @@ export function useApiData<T>(path: string): {
       const started = epoch;
       setLoading(true); setError(null);
       setResult(previous => previous.path === path
-        ? previous : { path, value: null });
+        ? previous : { path, activation, value: null });
       void apiGet<T>(path).then(value => {
-        if (active && started === epoch && available()) setResult({ path, value });
+        if (active && started === epoch && available()) setResult({ path, activation, value });
       }).catch((reason: unknown) => {
         if (active && started === epoch) {
-          setResult({ path, value: null });
+          setResult({ path, activation, value: null });
           setError(reason instanceof Error ? reason.message : "データを取得できませんでした");
         }
       }).finally(() => {
@@ -45,7 +47,7 @@ export function useApiData<T>(path: string): {
     const offline = (): void => {
       if (isAndroid()) { refresh(); return; }
       epoch++; pending = false;
-      setResult({ path, value: null });
+      setResult({ path, activation, value: null });
       setError("オフラインです。古い提案は表示しません。"); setLoading(false);
     };
     trigger.current = refresh;
@@ -64,7 +66,7 @@ export function useApiData<T>(path: string): {
       window.removeEventListener("offline", offline);
       window.clearInterval(timer);
     };
-  }, [path]);
+  }, [path, activation]);
   return { data: result.path === path ? result.value : null, error,
-    loading: loading || result.path !== path, reload };
+    loading: loading || result.path !== path || result.activation !== activation, reload };
 }

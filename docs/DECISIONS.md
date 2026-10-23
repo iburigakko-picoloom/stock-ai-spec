@@ -2044,3 +2044,9 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - 設定・初回台帳・提案の編集中draftを背景refreshから分離する。profile revision変更はpreviewを無効化し、入力を捨てない。同一hookの読込は実行中1件＋必要時の後続1件へ集約し、古いfinallyでも自分のslotを解放する。再取得中の同じ画面は既存表示を保持し、path変更・Web offline・失敗では古い結果を利用しない。全GET共通の永続cacheやPythonの並行実行は導入しない。
 - Androidのportfolio・personal settings・initial preview・initial confirmの4 POSTだけ、operations DBを暗号化差分として保存する。市場DBの暗号文は毎回書換えない。世代照合・原子的commit・容量上限を維持し、復元/バックアップ時だけ共通archiveへ合成する。全状態保存は差分を原子的に置換する。他POST・初回復元・市場更新の全処理を高速化済みとはしない。
 - 全状態inline読込は従来の一貫したtransactionを維持する。欠損chunkは同世代なら破損、世代変更なら競合として拒否する。テストの期待例外も欠損のSecurityException/MISSING_STATE_CHUNKを正確に検証し、例外の握り潰しやassert緩和で合格させない。
+
+### D232 — Androidのタブ移動で参照画面を破棄しない（2026-10-23）
+
+- 0.1.33後の「毎回読み込みで時間がかかる」報告に対応。D231は同一mount内の再取得だけを対象としており、route移動時のstate破棄が残っていた。Androidのホーム/今日/ランキング/検証だけを既存React Activityで保持し、非表示中はeffectとtimerを停止する。初めて開く前のAPI取得は行わない。設定編集・確定操作画面の生存期間は変更しない。
+- 戻った直後は前回の参照表示を残して最新状態を照会する。navigation keyが違う間は同期的にloading扱いとし、古い提案から判断確定へ接続しない。照会失敗/破損拒否時は表示を消す。別API pathの結果は混用しない。アプリ再起動/復元でstateは破棄される。全GETの永続cache/検証省略/TTL/DB世代の推測は導入しない。
+- 今回はタブに戻るたびに白紙で待つ問題の修正であり、初回起動の復元や全GETの整合性確認・Python待ち行列の速度改善を達成済みとはしない。数値計算/保存/native/kernelは不変。既存のAPK反映承認に基づき同署名の非公開更新候補へ反映する。

@@ -36,7 +36,8 @@ export function ValidationPage(): ReactNode {
       <PageHeader eyebrow="提案と実績を振り返る" title="検証" />
       <TabBar label="検証の種類" options={[["paper", "提案Paper"], ["live", "実運用"], ["historical", "過去検証"]]} value={mode} onChange={setMode} panelId="validation-panel" />
       <div id="validation-panel" role="tabpanel" aria-labelledby={`validation-panel-${mode}`}>
-      {loading ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : mode === "paper" && data ? <>
+      {loading && data && <p role="status">前回の表示です・更新を確認中…</p>}
+      {loading && !data ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : mode === "paper" && data ? <>
         <section className="validation-hero">
           <span>提案戦略（1営業日・記録済み将来観測）</span>
           <strong>{pct(observed ? data.proposal_return : null)}</strong>
