@@ -4,6 +4,7 @@
 - 実機の自動処理はenabled/11:30待ち。モデル1件取込済み。予測設定には10月23日11:30を判定時点とする締切前停止の記録が表示された。ホームの保有未登録と設定の口座登録済みを区別し、初回台帳・完成archiveの有無は引き続き調査する。11:30待ちを過去分析非表示の説明にしない。
 - `useApiData`の定期60秒確認が進行中要求を無効化する経路を修正。125秒の読み込みでも結果を反映し、完了後は定期確認を再開。明示reload/focus・route変更・エラー時非表示は維持。関連Web33件、typecheck/lint成功。最初のsandbox試験はtemp rename EPERMで未実行、通常環境で成功。
 - releaseにも個人情報を含まない計算queue待ち/実行時間、固定allowlistの復元stageログを追加。Androidコンパイル/単体試験成功（53秒）。初回はWindowsの非ASCII path制限で停止し、同一workspaceの既存Y:パスで実行。新APK作成・本人端末更新・修正後実測は未実施で、全体原因特定/修正完了とはしない。端末はADB入力注入を拒否しているため画面移動は本人操作。実注文なし。
+- 続報：製品source `c06136292b2bf39afdcc77ee50ddc4737b600a6b`をcheckpoint保存。Web関連33/JVM31件・型/lint/Android compile/build成功。同署名非debug 0.1.40/code10040を非公開作成し、署名/46資産/生成ART profile/source hash/私有情報非混入を検査済み。24,011,305 bytes、SHA256 `a0223c6ff6eac4f277a24d8ecc242741ed28a2146f8bc35a2fff42c2c49c5bd0`。証拠は`.demo-artifacts/update-0140-20261024/verified.json`。本人へbackup作成・読込確認の有無を質問中。端末更新・修正後性能/分析完了は未検証、公開Release/実注文なし。
 
 ## 2026-10-23 — 起動表示・不要保存・差分復元の4点修正（D237）
 
