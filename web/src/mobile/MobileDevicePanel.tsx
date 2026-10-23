@@ -250,7 +250,7 @@ export function MobileDevicePanel(): ReactNode {
       </div>
       {messageGroup === "data" && message && <p role="status">{message}</p>}
     </section>
-    <MobileMarketPanel configured={configured === true} disabled={busy} onBusy={setBusy} />
+    <MobileMarketPanel configured={configured === true} disabled={busy} onBusy={setBusy} onBackground={() => open("daily")} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "model"}>
     <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} onBusy={setBusy} />

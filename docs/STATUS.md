@@ -1,3 +1,10 @@
+## 2026-10-23 — 初回履歴のバックグラウンド取得を補強（D233）
+
+- 既存の自動取得はWorkManagerで画面から独立していたが、history/membershipでforeground通知を開始していなかった。両段階の取得前にdataSync foreground開始を待つよう修正。OS拒否ではhistory_waitと上限付き再試行に戻り、通信/保存を開始済み・完了済みと扱わない。暗号化commit後ACK・一日単位の予約・停止/再開・取得済みページは従来どおり。
+- 手動の画面内取得とは区別し、市場設定に既存の自動更新設定への導線を追加。自動更新は初回取得も含み、その後の日次処理も有効になることを明示。画面遷移だけでは開始しない。
+- 関連Web13件成功、型/lint成功。最初のsandbox試行はtemp rename EPERMで試験開始前に失敗し、通常環境で同じ範囲を実行。Android本体/最終instrumentation sourceのコンパイル成功、既存JVM suite成功、追加foreground方針/拒否区分2件成功。通知構築・取得前拒否・再開のinstrumentation試験を追加したが、端末実行は未実施。
+- 現在ADB接続端末なし、PC空き約2.45GBで追加AVD実行は見合わせ。Xiaomi/消灯時の実OS継続と通知は未確認。新APKへの反映は未実施（配布済み0.1.34にこの差分なし）。モデル/推論/保存形式/600秒制限は不変。正式採用HOLD・実注文なし。
+
 ## 2026-10-23 — タブ復帰時の白紙読込を修正（D232）
 
 - 製品commit `8636ddc263c328df0ad325921f1d57669c6a8918`をPR #3へpushし、同署名0.1.34-candidate/code10034を本人向けに引渡し。24,003,741 bytes、SHA256 `4c386ce082a827854d0aebbcee9f6386f22c280b23ea1689baa4733be9a5094b`。署名/非debug/46assets/生成profile/Python同梱検査成功、build23.3秒。CI39876702332は実行待ちのため成功とはしない。Xiaomi実測・署名APK追加起動は未確認。配布先URL/IDは公開文書に含めない。

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGet, apiPost } from "../api";
 import { acquireMembership, acquireRange, defaultPlan, type AcquisitionMode, type MarketPlan, type MarketStatus, type MembershipStatus, type UniversePolicy, type UniversePreview } from "./market";
 
-export function MobileMarketPanel({ configured, disabled, onBusy }: {
-  configured: boolean; disabled: boolean; onBusy: (value: boolean) => void;
+export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }: {
+  configured: boolean; disabled: boolean; onBusy: (value: boolean) => void; onBackground?: () => void;
 }): ReactNode {
   const [status, setStatus] = useState<MarketStatus | null>(null);
   const [plan, setPlan] = useState<MarketPlan>(defaultPlan);
@@ -45,8 +45,9 @@ export function MobileMarketPanel({ configured, disabled, onBusy }: {
     <h2>市場データ</h2>
     <p>保存済みの最終日：{status?.latest_data_date ?? "未取得"}</p>
     <p>{plan.first_day}〜{plan.last_day}。保存済みの日付を除いて取得し、通信中断後は取得済みページから再開します。APIの速度制限があるため、初回は数時間かかる場合があります。</p>
-    <p>手動では画面を開いて取得します。毎営業日の自動更新は「日次更新・通知」で設定できます。</p>
+    <p>手動では画面を開いて取得します。画面を閉じて続ける場合は、初回取得も含む自動更新を開始してください。</p>
     <div className="button-stack">
+      {onBackground && <button className="button button--primary" disabled={disabled || running || !configured} onClick={onBackground}>バックグラウンド取得の設定へ</button>}
       <button className="button button--primary" disabled={disabled || !configured || !loaded || running} onClick={() => void run(plan)}>履歴の取得を開始・再開</button>
       {running && <button className="button button--secondary" onClick={() => { stop.current = true; setMessage("今の日付の保存が終わったら停止します。"); }}>この日付の取得後に停止</button>}
     </div>

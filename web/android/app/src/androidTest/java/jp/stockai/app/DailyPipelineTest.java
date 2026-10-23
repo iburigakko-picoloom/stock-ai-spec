@@ -77,7 +77,7 @@ public class DailyPipelineTest {
         }, new DailyPipeline.Progress() {
             public void state(String value, String day) throws Exception {
                 events.add("state:" + value);
-                if (rejectForeground && (value.equals("calculating") || value.equals("deciding"))) throw new DailyWorker.ForegroundUnavailable();
+                if (rejectForeground && DailyWorker.requiresForeground(value)) throw new DailyWorker.ForegroundUnavailable();
             }
             public void notice(String key, String text) { events.add("notice:" + key); }
         }, stopped::get, () -> now);
@@ -246,6 +246,26 @@ public class DailyPipelineTest {
         events.clear();
         assertTrue(pipeline().tick(prior));
         assertFalse(events.stream().anyMatch(e -> e.equals("state:numerical_saved") || e.startsWith("notice:")));
+    }
+
+    @Test public void refusedHistoryForegroundDoesNotDownloadOrCommit() throws Exception {
+        rejectForeground = true;
+        try { pipeline().tick(prior); fail("foreground refusal ignored"); }
+        catch (DailyWorker.ForegroundUnavailable expected) { }
+        assertFalse(complete);
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("fetch:") || e.startsWith("POST ") || e.startsWith("ack:")));
+        rejectForeground = false;
+        assertTrue(pipeline().tick(prior));
+        assertTrue(complete);
+        assertEquals(1, events.stream().filter(e -> e.equals("fetch:false:" + prior)).count());
+    }
+
+    @Test public void refusedMembershipForegroundDoesNotDownloadOrCommit() throws Exception {
+        late = true; rejectForeground = true; now = Instant.parse("2026-01-06T01:45:00Z");
+        try { pipeline().tick(prior); fail("foreground refusal ignored"); }
+        catch (DailyWorker.ForegroundUnavailable expected) { }
+        assertTrue(events.contains("state:membership"));
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("fetch:") || e.startsWith("POST ")));
     }
 
     @Test public void refusedForegroundDoesNotEnterEitherLongComputation() throws Exception {

@@ -39,16 +39,27 @@ public final class DailyWorker extends Worker {
         synchronized (this) { if (activeCore != null) activeCore.cancel(true); }
     }
 
-    static final class ForegroundUnavailable extends Exception { }
+    static final class ForegroundUnavailable extends Exception {
+        final boolean acquisition;
+        ForegroundUnavailable() { this(false); }
+        ForegroundUnavailable(boolean acquisition) { this.acquisition = acquisition; }
+    }
 
-    static ForegroundInfo foregroundInfo(Context context) {
+    static boolean requiresForeground(String phase) {
+        return phase.equals("history") || phase.equals("membership")
+            || phase.equals("calculating") || phase.equals("deciding");
+    }
+
+    static ForegroundInfo foregroundInfo(Context context, String phase) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
-        manager.createNotificationChannel(new NotificationChannel("stockai-compute", "端末内の計算", NotificationManager.IMPORTANCE_LOW));
+        manager.createNotificationChannel(new NotificationChannel("stockai-compute", "データ取得・計算", NotificationManager.IMPORTANCE_LOW));
         Intent open = new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pending = PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         android.app.Notification notice = new NotificationCompat.Builder(context, "stockai-compute")
             .setSmallIcon(R.drawable.ic_stat_stockai).setContentTitle("StockAI")
-            .setContentText("端末内のデータを計算・保存しています。アプリから停止できます。")
+            .setContentText(phase.equals("history") || phase.equals("membership")
+                ? "市場データを取得・保存しています。アプリから停止できます。"
+                : "端末内のデータを計算・保存しています。アプリから停止できます。")
             .setContentIntent(pending).setOnlyAlertOnce(true).setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build();
         return android.os.Build.VERSION.SDK_INT >= 29
@@ -56,10 +67,10 @@ public final class DailyWorker extends Worker {
             : new ForegroundInfo(6102, notice);
     }
 
-    void beginLongCalculation() throws InterruptedException, ForegroundUnavailable {
-        try { setForegroundAsync(foregroundInfo(getApplicationContext())).get(30, TimeUnit.SECONDS); }
+    void beginForeground(String phase) throws InterruptedException, ForegroundUnavailable {
+        try { setForegroundAsync(foregroundInfo(getApplicationContext(), phase)).get(30, TimeUnit.SECONDS); }
         catch (InterruptedException error) { throw error; }
-        catch (Exception error) { throw new ForegroundUnavailable(); }
+        catch (Exception error) { throw new ForegroundUnavailable(phase.equals("history") || phase.equals("membership")); }
     }
 
     @NonNull @Override public Result doWork() {
@@ -88,7 +99,7 @@ public final class DailyWorker extends Worker {
                         public void acknowledge(boolean membership, String day, String id) throws Exception { client.download(membership).acknowledge(day, id); }
                     }, new DailyPipeline.Progress() {
                         public void state(String value, String day) throws Exception {
-                            if (value.equals("calculating") || value.equals("deciding")) beginLongCalculation();
+                            if (requiresForeground(value)) beginForeground(value);
                             durable.state(session, value, day);
                         }
                         public void notice(String key, String text) throws Exception { durable.notice(session, key, text); }
@@ -126,8 +137,8 @@ public final class DailyWorker extends Worker {
                     if (journal != null && token != null && !isStopped()) {
                         if (error instanceof ForegroundUnavailable) {
                             journal.failed(token, false, Instant.now());
-                            journal.state(token, "compute_wait", java.time.LocalDate.now(DailyPipeline.JST).toString());
-                            journal.notice(token, java.time.LocalDate.now(DailyPipeline.JST) + ":compute", "Androidで長い計算を開始できません。アプリを開いて保存状態を確認してください。");
+                            journal.state(token, ((ForegroundUnavailable) error).acquisition ? "history_wait" : "compute_wait", java.time.LocalDate.now(DailyPipeline.JST).toString());
+                            journal.notice(token, java.time.LocalDate.now(DailyPipeline.JST) + ":compute", "Androidでバックグラウンド処理を開始できません。アプリを開いて保存状態を確認してください。");
                         } else if (error instanceof DailyPipeline.CoreFailure) {
                             journal.state(token, "inputs", java.time.LocalDate.now(DailyPipeline.JST).toString());
                             journal.notice(token, java.time.LocalDate.now(DailyPipeline.JST) + ":inputs", "保存内容を確認できません。本人設定と取得情報を確認してください。");

@@ -55,3 +55,13 @@ test("universe policy is opt in and a failed save keeps the last saved choice", 
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("保存できません"));
   expect(choice).toHaveValue("topix500-preview");
 });
+
+
+test("background settings is explicit and does not start a page-owned download", async () => {
+  const open = vi.fn();
+  render(<MobileMarketPanel configured disabled={false} onBusy={vi.fn()} onBackground={open} />);
+  fireEvent.click(screen.getByRole("button", { name: "バックグラウンド取得の設定へ" }));
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(acquireRange).not.toHaveBeenCalled();
+  await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(4));
+});

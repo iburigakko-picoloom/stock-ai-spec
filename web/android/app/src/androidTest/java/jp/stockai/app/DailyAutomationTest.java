@@ -76,8 +76,22 @@ public class DailyAutomationTest {
         assertEquals(1, manager.getWorkInfosForUniqueWork(DailyAutomation.PUMP).get().size());
     }
 
+    @Test public void acquisitionUsesPrivateOngoingForegroundNotice() {
+        for (String phase : new String[]{"history", "membership", "calculating", "deciding"})
+            assertTrue(DailyWorker.requiresForeground(phase));
+        for (String phase : new String[]{"waiting_cutoff", "closed", "forecast_saved", "inputs"})
+            assertFalse(DailyWorker.requiresForeground(phase));
+        for (String phase : new String[]{"history", "membership"}) {
+            android.app.Notification notice = DailyWorker.foregroundInfo(context, phase).getNotification();
+            assertEquals("市場データを取得・保存しています。アプリから停止できます。",
+                notice.extras.getString(android.app.Notification.EXTRA_TEXT));
+            assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);
+            assertTrue((notice.flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0);
+        }
+    }
+
     @Test public void longCalculationNoticeAndMergedManifestDeclareDataSyncWithoutPrivateData() throws Exception {
-        androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(context);
+        androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(context, "calculating");
         assertEquals(6102, info.getNotificationId());
         android.app.Notification notice = info.getNotification();
         assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);

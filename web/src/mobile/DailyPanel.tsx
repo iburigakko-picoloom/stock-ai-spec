@@ -6,6 +6,7 @@ const labels: Record<string, string> = {
   waiting_cutoff: "11:30の締切待ち", calculating: "予測を計算しています", closed: "今日は休場日です",
   forecast_saved: "原予測を保存済み・株数判定待ち", deciding: "株数を計算しています",
   consultation_ready: "研究用の原予測を保存済み・ChatGPTへの相談準備完了",
+  history_wait: "Androidの取得待ち・アプリで保存状態を確認してください",
   compute_wait: "Androidの計算待ち・アプリで保存状態を確認してください",
   numerical_saved: "数値判定を保存済み・ChatGPT調査は別途確認", inputs: "モデル・本人設定の確認が必要です",
   late: "11:30までの当日情報が不足しています", credentials: "APIキー・契約を確認して再開してください",
@@ -73,6 +74,7 @@ export function DailyControls({ status, busy, message, onChange }: {
   return <section className="section daily-panel" aria-label="毎日の自動処理">
     <h2>毎日の自動処理</h2>
     <p role="status">{status ? delayed ? "締切後の実行待ち・Androidの予約処理を待っています" : labels[status.state] ?? "保存状態を確認してください" : "状態を確認しています…"}</p>
+    {status?.state === "history" && <p>画面を閉じても取得を続けます。中断時は保存済みの続きから再開します。</p>}
     {status?.day && <p>対象日：{status.day}</p>}
     <div className="button-stack">
       <button className="button button--primary" hidden={!!status?.enabled && status.state !== "credentials"} disabled={busy || !status || (status.enabled && status.state !== "credentials")} onClick={() => onChange(true)}>{status?.state === "paused" || status?.state === "credentials" ? "続きから再開" : "開始"}</button>
