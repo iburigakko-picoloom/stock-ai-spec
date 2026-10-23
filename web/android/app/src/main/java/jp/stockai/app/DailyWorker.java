@@ -50,6 +50,18 @@ public final class DailyWorker extends Worker {
             || phase.equals("calculating") || phase.equals("deciding");
     }
 
+    interface ForegroundStart { void start(String phase) throws InterruptedException, ForegroundUnavailable; }
+
+    static boolean tryForeground(String phase, ForegroundStart start) throws InterruptedException, ForegroundUnavailable {
+        try { start.start(phase); return true; }
+        catch (ForegroundUnavailable error) {
+            // Acquisition already supports a bounded ordinary WorkManager
+            // slice. OS refusal must not turn that valid path into no progress.
+            if (phase.equals("history") || phase.equals("membership")) return false;
+            throw error; // Long numerical work still requires foreground admission.
+        }
+    }
+
     static ForegroundInfo foregroundInfo(Context context, String phase) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel("stockai-compute", "データ取得・計算", NotificationManager.IMPORTANCE_LOW));
@@ -91,6 +103,7 @@ public final class DailyWorker extends Worker {
                 };
                 MarketClient client = new MarketClient(context, owner.state.database);
                 final boolean[] acquisition = {false};
+                final boolean[] foregroundAcquisition = {false};
                 DailyPipeline pipeline = new DailyPipeline(
                     (method, path, body) -> coreRequest(owner, method, path, body),
                     new DailyPipeline.Market() {
@@ -101,7 +114,8 @@ public final class DailyWorker extends Worker {
                     }, new DailyPipeline.Progress() {
                         public void state(String value, String day) throws Exception {
                             acquisition[0] = value.equals("history") || value.equals("membership");
-                            if (requiresForeground(value)) beginForeground(value);
+                            if (requiresForeground(value)) foregroundAcquisition[0] =
+                                tryForeground(value, DailyWorker.this::beginForeground);
                             durable.state(session, value, day);
                         }
                         public void notice(String key, String text) throws Exception { durable.notice(session, key, text); }
@@ -112,7 +126,7 @@ public final class DailyWorker extends Worker {
                     boolean result = pipeline.tick(state.getString("firstDay"), continuedAcquisition[0]);
                     continuedAcquisition[0] = true;
                     return result;
-                }, () -> acquisition[0], stopped, android.os.SystemClock::elapsedRealtime);
+                }, () -> acquisition[0] && foregroundAcquisition[0], stopped, android.os.SystemClock::elapsedRealtime);
                 if (!more && !stopped.getAsBoolean() && durable.row().optString("state").equals("numerical_saved")) {
                     ChatGPTClient chatgpt = ChatGPTClient.get(context);
                     NativeSecrets secrets = new NativeSecrets(context);

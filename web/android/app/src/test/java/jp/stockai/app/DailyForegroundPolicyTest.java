@@ -15,4 +15,24 @@ public class DailyForegroundPolicyTest {
         assertTrue(new DailyWorker.ForegroundUnavailable(true).acquisition);
         assertFalse(new DailyWorker.ForegroundUnavailable().acquisition);
     }
+
+    @Test public void deniedAcquisitionFallsBackButLongCalculationDoesNot() throws Exception {
+        for (String phase : new String[]{"history", "membership"}) {
+            assertFalse(DailyWorker.tryForeground(phase, ignored -> { throw new DailyWorker.ForegroundUnavailable(true); }));
+            assertTrue(DailyWorker.tryForeground(phase, ignored -> { }));
+        }
+        for (String phase : new String[]{"calculating", "deciding"}) {
+            try {
+                DailyWorker.tryForeground(phase, ignored -> { throw new DailyWorker.ForegroundUnavailable(); });
+                fail("long computation admission bypassed");
+            } catch (DailyWorker.ForegroundUnavailable expected) { }
+        }
+    }
+
+    @Test public void interruptedAcquisitionNeverFallsBack() throws Exception {
+        try {
+            DailyWorker.tryForeground("history", ignored -> { throw new InterruptedException(); });
+            fail("interruption swallowed");
+        } catch (InterruptedException expected) { }
+    }
 }
