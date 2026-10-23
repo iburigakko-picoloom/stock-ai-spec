@@ -1,5 +1,7 @@
 ## 2026-10-23 — タブ復帰時の白紙読込を修正（D232）
 
+- 製品commit `8636ddc263c328df0ad325921f1d57669c6a8918`をPR #3へpushし、同署名0.1.34-candidate/code10034を本人向けに引渡し。24,003,741 bytes、SHA256 `4c386ce082a827854d0aebbcee9f6386f22c280b23ea1689baa4733be9a5094b`。署名/非debug/46assets/生成profile/Python同梱検査成功、build23.3秒。CI39876702332は実行待ちのため成功とはしない。Xiaomi実測・署名APK追加起動は未確認。配布先URL/IDは公開文書に含めない。
+
 - 0.1.33は同じ画面内の再取得で表示を保持するが、route切替で画面をunmountしていた。Androidのホーム/今日/ランキング/検証を既存React Activityで保持し、タブ/銘柄詳細/設定から戻ると前回の参照表示を残して再確認する。隠れた画面のeffect/timerは停止し、未表示タブのAPI先読みは発生しない。
 - navigation keyの相違を同期的にloadingへ反映し、最新照会前の提案の確定導線は無効。取得失敗では古い値を消す。設定入力/確定画面の寿命、Web版route、Python/native/保存/推論は不変。全GETのcache・整合性検査の省略は行っていない。
 - Web全124件/20ファイル成功7.39秒。検証画面の最後の表示条件修正後に関連28件成功4.45秒、lint/型/build成功。最初の新試験失敗は非表示DOMまで検索したselectorであり、可視のhome regionへ絞って白紙不在・旧値可視・確定禁止・fresh更新・error時消去を検査した。API呼出し数で非表示tab/focusの余分な取得なしを確認。
