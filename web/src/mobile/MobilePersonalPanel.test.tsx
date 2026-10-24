@@ -132,7 +132,7 @@ test("overview distinguishes saved inputs, missing supplements and confirmed bal
     : { saved: null, current_portfolio: profile });
   const onStep = vi.fn();
   render(<MobilePersonalPanel profile={profile} disabled={false} step="overview" onStep={onStep} portfolioStatus="入力済み" />);
-  await waitFor(() => expect(screen.getByRole("button", { name: /補足情報/ })).toHaveTextContent("未入力"));
+  await waitFor(() => expect(screen.getByRole("button", { name: /取引の確認/ })).toHaveTextContent("未入力"));
   expect(screen.getByRole("button", { name: /口座・保有/ })).toHaveTextContent("入力済み");
   expect(screen.getByRole("button", { name: /残高登録/ })).toHaveTextContent("登録済み");
   expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
@@ -142,10 +142,11 @@ test("overview distinguishes saved inputs, missing supplements and confirmed bal
 
 test("new unsaved supplements survive list navigation and cannot confirm a balance", async () => {
   const view = render(<MobilePersonalPanel profile={profile} disabled={false} step="conditions" />);
+  fireEvent.click(await screen.findByRole("button", { name: "計算条件の確認・変更 →" }));
   const year = await screen.findByRole("spinbutton", { name: "損益の対象年" });
   fireEvent.change(year, { target: { value: "2026" } });
   view.rerender(<MobilePersonalPanel profile={profile} disabled={false} step="overview" />);
-  expect(screen.getByRole("button", { name: /補足情報/ })).toHaveTextContent("未保存");
+  expect(screen.getByRole("button", { name: /取引の確認/ })).toHaveTextContent("未保存");
   view.rerender(<MobilePersonalPanel profile={profile} disabled={false} step="balances" />);
   expect(screen.queryByRole("spinbutton", { name: "損益の対象年" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "初回残高の確認内容を作る" })).toBeDisabled();
@@ -158,6 +159,6 @@ test("overview never labels failed reads as missing or completed", async () => {
   vi.mocked(apiGet).mockRejectedValue(new Error("offline"));
   render(<MobilePersonalPanel profile={profile} disabled={false} step="overview" />);
   await screen.findByRole("alert");
-  expect(screen.getByRole("button", { name: /補足情報/ })).toHaveTextContent("確認できません");
+  expect(screen.getByRole("button", { name: /取引の確認/ })).toHaveTextContent("確認できません");
   expect(screen.getByRole("button", { name: /残高登録/ })).toHaveTextContent("確認できません");
 });

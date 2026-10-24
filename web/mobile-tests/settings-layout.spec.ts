@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { PersonalSettings } from "../src/mobile/personal";
 
 // Actual Android settings route with an isolated, synthetic native bridge.
 // No interpreter, credential store, provider request or personal database is used.
@@ -68,6 +69,34 @@ test.beforeEach(async ({ page }) => {
   });
   await page.goto("/#/settings");
   await expect(page.getByRole("heading", { name: "設定", exact: true })).toBeVisible();
+});
+
+test("SBI simple setup saves explicit confirmations without typing supplemental amounts", async ({ page }, info) => {
+  let received: { settings: PersonalSettings } | undefined;
+  await page.route("**/api/v1/mobile/personal/settings", async route => {
+    if (route.request().method() !== "POST") return route.fallback();
+    received = route.request().postDataJSON();
+    await route.fulfill({ json: { saved: { revision_id: "b".repeat(64), saved_at: "2026-10-24T10:00:00Z", settings: received!.settings } } });
+  });
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.evaluate(() => document.documentElement.style.fontSize = "150%");
+  await page.getByRole("button", { name: /^証券口座/ }).click();
+  await page.getByRole("button", { name: /^取引の確認/ }).click();
+  await page.getByRole("button", { name: "標準の計算条件を使う" }).click();
+  await page.getByLabel("国内株式の「ゼロ革命」").selectOption("free");
+  await page.getByLabel("口座・保有に入力した現金額").selectOption("deployable_after_reserved");
+  await page.getByLabel("注文用・出金用などに確保している現金").selectOption("none");
+  await page.getByLabel("残高に未反映の売買・入出金や、未決済の取引").selectOption("none");
+  await page.getByLabel("今年の売却による利益・損失").selectOption("none");
+  await page.getByLabel("前年以前から繰り越して使う損失").selectOption("none");
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+  await page.getByRole("button", { name: "補足設定を保存", exact: true }).click();
+  await expect(page.getByText("保存しました。", { exact: true })).toBeVisible();
+  expect(received!.settings).toMatchObject({ cash_basis: "deployable_after_reserved", budget_basis: "maximum_total_equity_market_value", research_conditions_reviewed: true,
+    accounts: [{ reserved_cash_yen: "0", pending_activity: "none", realized_gain_ytd: "0", realized_loss_ytd: "0", loss_carryforward_user_input: "0", nisa_annual_capacity_user_input: null }],
+    cost_assumptions: { zero_commission_confirmed: true, commission_fixed_yen: "0", full_spread_bps: "10" }, tax_assumptions: { taxable_rate_percent: "20.315" } });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await page.screenshot({ path: info.outputPath("sbi-simple-saved.png"), fullPage: true });
 });
 
 // Synthetic inset values exercise the same CSS properties injected by
@@ -302,11 +331,11 @@ for (const width of [320, 390]) {
     await page.evaluate(() => document.documentElement.style.fontSize = "150%");
     await page.getByRole("button", { name: /^証券口座/ }).click();
     await expect(page.getByRole("button", { name: /^口座・保有/ })).toContainText("入力済み");
-    await expect(page.getByRole("button", { name: /^補足情報/ })).toContainText("未入力");
+    await expect(page.getByRole("button", { name: /^取引の確認/ })).toContainText("未入力");
     await expect(page.getByRole("button", { name: /^残高登録/ })).toContainText("未登録");
     await expect(page.getByRole("textbox", { name: "口座の呼び名" })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`account-overview-${width}.png`), fullPage: true });
-    for (const title of ["口座・保有", "補足情報", "残高登録"]) {
+    for (const title of ["口座・保有", "取引の確認", "残高登録"]) {
       await page.getByRole("button", { name: new RegExp(`^${title}`) }).click();
       await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

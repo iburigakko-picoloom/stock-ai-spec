@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "../api";
 import { SaveProgress } from "./SaveProgress";
+import { SbiConditions } from "./SbiConditions";
 import { blankAccount, costLabels, emptySettings, gapLabel, taxLabels, type AccountSettings,
   type InitialLedgerPreview, type PersonalSettings, type Readiness, type SavedPortfolio,
   type SavedSettings, type SettingsResponse } from "./personal";
@@ -9,7 +10,7 @@ function Amount({ label, value, change }: { label: string; value: string | null;
   return <label>{label}<input inputMode="decimal" placeholder="未確認なら空欄" value={value ?? ""} onChange={event => change(event.target.value || null)} /></label>;
 }
 
-export const accountStepTitles = { portfolio: "口座・保有", conditions: "補足情報", balances: "残高登録" };
+export const accountStepTitles = { portfolio: "口座・保有", conditions: "取引の確認", balances: "残高登録" };
 export type AccountStep = keyof typeof accountStepTitles;
 
 export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, portfolioStatus = "確認中" }: {
@@ -26,6 +27,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   const acting = useRef(false);
   const [message, setMessage] = useState("");
   const [reload, setReload] = useState(0);
+  const [manualConditions, setManualConditions] = useState(false);
   const refreshEpoch = useRef(0);
   const [refreshError, setRefreshError] = useState("");
   const invalidateRefresh = useCallback(() => { refreshEpoch.current++; }, []);
@@ -87,7 +89,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   if (step === "overview") return <section className="account-setup-menu" aria-label="証券口座の登録項目">
     {([
       ["portfolio", "口座・保有", "口座区分・現金・保有株", portfolioStatus],
-      ["conditions", "補足情報", "現金の内訳・税金・取引コスト", settingsStatus],
+      ["conditions", "取引の確認", "SBIの手数料・残高の確認", settingsStatus],
       ["balances", "残高登録", "保存した内容を初回残高に確定", ledgerStatus],
     ] as const).map(([id, title, hint, status]) => <button key={id} type="button" className="account-setup-row" onClick={() => onStep?.(id)}>
       <span className="account-setup-copy"><strong>{title}</strong><small>{hint}</small></span>
@@ -104,7 +106,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   return <section className="section account-editor" aria-label="補足設定と初回台帳">
     {step === "all" && <h2>残高の登録</h2>}
     {busy && <SaveProgress label="端末で確認・保存中…" />}
-    {step !== "balances" && <p className="setting-footnote">分からない項目は空欄で保存できます。</p>}
+    {(step === "all" || manualConditions) && step !== "balances" && <p className="setting-footnote">分からない項目は空欄で保存できます。</p>}
     {!loaded && <button className="button button--secondary" disabled={busy || disabled} onClick={() => {
       setLoaded(false); setPreview(null); setConfirm(false); setReload(value => value + 1);
     }}>補足設定を読み直す</button>}
@@ -115,7 +117,9 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         accounts: profile.portfolio.accounts.map(x => draft.accounts.find(old => old.account_id === x.id) ?? blankAccount(x.id)),
       })}>最新の口座・保有に合わせて見直す</button></div>}
     <fieldset className="account-form" hidden={step === "balances"} disabled={blocked}>
-      <legend>現金・税金・費用の入力</legend>
+      <legend className={step !== "all" && !manualConditions ? "sr-only" : undefined}>現金・税金・費用の入力</legend>
+      {step !== "all" && !manualConditions ? <SbiConditions profile={profile} draft={draft} change={change} onManual={() => setManualConditions(true)} /> : <>
+      {step !== "all" && <button type="button" className="settings-back" onClick={() => setManualConditions(false)}>← かんたん設定へ</button>}
       <div className="account-form-card"><h3>現金の扱い</h3>
       <label>口座に入力した現金の意味<select value={draft.cash_basis ?? ""} onChange={event => change({ ...draft, cash_basis: event.target.value as PersonalSettings["cash_basis"] || null })}>
         <option value="">未確認</option><option value="total_including_reserved">確保中の金額を含む総現金</option><option value="deployable_after_reserved">確保中の金額を除いた買付余力</option>
@@ -139,7 +143,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         </fieldset>;
       })}
       </div>
-      <div className="account-form-card"><h3>取引コスト・税の計算条件</h3><p>bpsは1万分の1です。税率や手数料は自動補完しません。</p>
+      <div className="account-form-card"><h3>取引コスト・税の計算条件</h3><p>bpsは1万分の1です。価格差10・ずれ5・価格影響25bpsはアプリの計算仮定で、SBIの手数料ではありません。</p>
         {(Object.entries(costLabels) as [keyof typeof costLabels, string][]).map(([key, label]) => <Amount key={key} label={label} value={draft.cost_assumptions[key]} change={next => change({ ...draft, cost_assumptions: { ...draft.cost_assumptions, [key]: next } })} />)}
         <label><input type="checkbox" checked={draft.cost_assumptions.zero_commission_confirmed} onChange={event => change({ ...draft, cost_assumptions: { ...draft.cost_assumptions, zero_commission_confirmed: event.target.checked } })} />手数料を0とする場合、無料の適用条件を確認しました</label>
         <label>税の条件の適用開始日<input type="date" value={draft.tax_assumptions.effective_from ?? ""} onChange={event => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, effective_from: event.target.value || null } })} /></label>
@@ -157,6 +161,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         : "計算上限を超える場合は停止します。"}</p>
       <label><input type="checkbox" checked={draft.research_conditions_reviewed} onChange={event => change({ ...draft, research_conditions_reviewed: event.target.checked })} />探索方法を含む研究用の比較条件を確認しました</label>
       </div>
+      </>}
       <button className="button button--primary" onClick={() => void act(async () => {
         const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
         setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false);
@@ -167,7 +172,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
     <div hidden={step === "conditions"} className="account-form-card">
     <h3>残高を確認して登録</h3>
     <p className="setting-footnote">最初の残高を登録します。登録後は入力欄の編集では変更されません。</p>
-    {step === "balances" && loaded && (!saved || dirty || stale) && <p>先に補足情報を確認・保存してください。{onStep && <button type="button" className="settings-back" onClick={() => onStep("conditions")}>補足情報を開く →</button>}</p>}
+    {step === "balances" && loaded && (!saved || dirty || stale) && <p>先に取引の確認を確認・保存してください。{onStep && <button type="button" className="settings-back" onClick={() => onStep("conditions")}>取引の確認を開く →</button>}</p>}
     <button className="button button--secondary" disabled={blocked || !saved || dirty || !!readiness?.comparison.ledger_portfolio_id} onClick={() => void act(async () => {
       setPreview(await apiPost<InitialLedgerPreview>("/api/v1/mobile/personal/initial/preview", {})); setConfirm(false);
     })}>初回残高の確認内容を作る</button>
