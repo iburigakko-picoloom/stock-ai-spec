@@ -15,10 +15,11 @@ test("profile revision changes preserve edits and require explicit rebase", asyn
   rerender(<MobilePersonalPanel profile={{ ...profile, revision_id: "d".repeat(64) }} disabled={false} />);
   expect(year).toHaveValue(2025);
   expect(screen.getByRole("button", { name: "補足設定を保存" })).toBeDisabled();
-  expect(apiGet).toHaveBeenCalledTimes(reads);
+  expect(apiGet).toHaveBeenCalledTimes(reads + 2);
+  await waitFor(() => expect(screen.getByRole("button", { name: "最新の口座・保有に合わせて見直す" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "最新の口座・保有に合わせて見直す" }));
   expect(year).toHaveValue(2025);
-  expect(screen.getByRole("button", { name: "補足設定を保存" })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole("button", { name: "補足設定を保存" })).toBeEnabled());
 });
 
 test("pending save keeps the form, shows progress and retains input on failure", async () => {
@@ -122,4 +123,41 @@ test("saved exact policy stays selected and changing search requires renewed rev
   fireEvent.change(select, { target: { value: "daily-decision-engine-v3-bounded" } });
   expect(review).not.toBeChecked();
   expect(screen.getByText(/最良の組合せは保証しません/)).toBeInTheDocument();
+});
+
+
+test("overview distinguishes saved inputs, missing supplements and confirmed balance", async () => {
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("readiness")
+    ? { ...ready, comparison: { ...ready.comparison, ledger_portfolio_id: "confirmed" } }
+    : { saved: null, current_portfolio: profile });
+  const onStep = vi.fn();
+  render(<MobilePersonalPanel profile={profile} disabled={false} step="overview" onStep={onStep} portfolioStatus="入力済み" />);
+  await waitFor(() => expect(screen.getByRole("button", { name: /補足情報/ })).toHaveTextContent("未入力"));
+  expect(screen.getByRole("button", { name: /口座・保有/ })).toHaveTextContent("入力済み");
+  expect(screen.getByRole("button", { name: /残高登録/ })).toHaveTextContent("登録済み");
+  expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /残高登録/ }));
+  expect(onStep).toHaveBeenCalledWith("balances");
+});
+
+test("new unsaved supplements survive list navigation and cannot confirm a balance", async () => {
+  const view = render(<MobilePersonalPanel profile={profile} disabled={false} step="conditions" />);
+  const year = await screen.findByRole("spinbutton", { name: "損益の対象年" });
+  fireEvent.change(year, { target: { value: "2026" } });
+  view.rerender(<MobilePersonalPanel profile={profile} disabled={false} step="overview" />);
+  expect(screen.getByRole("button", { name: /補足情報/ })).toHaveTextContent("未保存");
+  view.rerender(<MobilePersonalPanel profile={profile} disabled={false} step="balances" />);
+  expect(screen.queryByRole("spinbutton", { name: "損益の対象年" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "初回残高の確認内容を作る" })).toBeDisabled();
+  view.rerender(<MobilePersonalPanel profile={profile} disabled={false} step="conditions" />);
+  expect(screen.getByRole("spinbutton", { name: "損益の対象年" })).toHaveValue(2026);
+  expect(screen.queryByRole("button", { name: "初回残高の確認内容を作る" })).not.toBeInTheDocument();
+});
+
+test("overview never labels failed reads as missing or completed", async () => {
+  vi.mocked(apiGet).mockRejectedValue(new Error("offline"));
+  render(<MobilePersonalPanel profile={profile} disabled={false} step="overview" />);
+  await screen.findByRole("alert");
+  expect(screen.getByRole("button", { name: /補足情報/ })).toHaveTextContent("確認できません");
+  expect(screen.getByRole("button", { name: /残高登録/ })).toHaveTextContent("確認できません");
 });

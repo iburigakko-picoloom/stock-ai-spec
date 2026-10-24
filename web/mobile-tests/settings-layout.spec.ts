@@ -275,7 +275,9 @@ test("saving capital keeps other editors' unsaved account changes out of the sav
     return route.fulfill({ json: { revision_id: "b".repeat(64), saved_at: "2026-10-20T10:00:00+09:00", portfolio: received!.portfolio } });
   });
   await page.getByRole("button", { name: /^証券口座/ }).click();
+  await page.getByRole("button", { name: /^口座・保有/ }).click();
   await page.getByLabel("口座の呼び名").fill("未保存の口座名");
+  await page.getByRole("button", { name: "← 証券口座へ" }).click();
   await page.getByRole("button", { name: "← 設定一覧へ" }).click();
   await page.getByRole("button", { name: /^運用資金/ }).click();
   await page.getByLabel("投資上限（円・未定は空欄）").fill("600000");
@@ -289,5 +291,27 @@ test("saving capital keeps other editors' unsaved account changes out of the sav
   await page.getByRole("button", { name: "← 設定一覧へ" }).click();
   await expect(page.getByRole("button", { name: /^運用資金/ })).toContainText("¥600,000");
   await page.getByRole("button", { name: /^証券口座/ }).click();
+  await page.getByRole("button", { name: /^口座・保有/ }).click();
   await expect(page.getByLabel("口座の呼び名")).toHaveValue("未保存の口座名");
 });
+
+
+for (const width of [320, 390]) {
+  test(`account setup list and separate editors at ${width}px with large text`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(() => document.documentElement.style.fontSize = "150%");
+    await page.getByRole("button", { name: /^証券口座/ }).click();
+    await expect(page.getByRole("button", { name: /^口座・保有/ })).toContainText("入力済み");
+    await expect(page.getByRole("button", { name: /^補足情報/ })).toContainText("未入力");
+    await expect(page.getByRole("button", { name: /^残高登録/ })).toContainText("未登録");
+    await expect(page.getByRole("textbox", { name: "口座の呼び名" })).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`account-overview-${width}.png`), fullPage: true });
+    for (const title of ["口座・保有", "補足情報", "残高登録"]) {
+      await page.getByRole("button", { name: new RegExp(`^${title}`) }).click();
+      await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: info.outputPath(`account-editor-${title}-${width}.png`), fullPage: true });
+      await page.getByRole("button", { name: "← 証券口座へ" }).click();
+    }
+  });
+}

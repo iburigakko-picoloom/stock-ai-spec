@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { MobileBackupPanel } from "./MobileBackupPanel";
-import { MobilePersonalPanel } from "./MobilePersonalPanel";
+import { MobilePersonalPanel, accountStepTitles, type AccountStep } from "./MobilePersonalPanel";
 import { SaveProgress } from "./SaveProgress";
 import { ChatGPTPanel } from "./ChatGPTPanel";
 import { MobileMarketPanel } from "./MobileMarketPanel";
@@ -52,7 +52,7 @@ export function MobileUpdateNotice(): ReactNode {
 
 const blank: LocalPortfolio = { schema_version: "manual-portfolio-v1", holdings_status: "unrecorded", investment_budget_yen: null, maximum_drawdown_percent: null, accounts: [], holdings: [] };
 
-const panelTitles = { accounts: "証券口座・保有", capital: "運用資金", risk: "許容下落率", market: "J-Quants・市場データ", model: "予測期間・モデル", daily: "自動更新・通知", chatgpt: "ChatGPT", backup: "バックアップ・復元", about: "アプリ情報・詳細" };
+const panelTitles = { accounts: "証券口座", capital: "運用資金", risk: "許容下落率", market: "J-Quants・市場データ", model: "予測期間・モデル", daily: "自動更新・通知", chatgpt: "ChatGPT", backup: "バックアップ・復元", about: "アプリ情報・詳細" };
 type SettingsPanelId = keyof typeof panelTitles;
 const iconPaths = {
   database: "M4 6c0-4 16-4 16 0S4 10 4 6Zm0 0v12c0 4 16 4 16 0V6M4 12c0 4 16 4 16 0",
@@ -95,6 +95,8 @@ export function MobileDevicePanel(): ReactNode {
   const navigate = useNavigate();
   const requested = params.get("edit");
   const selected = requested && Object.hasOwn(panelTitles, requested) ? requested as SettingsPanelId : null;
+  const requestedStep = params.get("step");
+  const accountStep = selected === "accounts" && requestedStep && Object.hasOwn(accountStepTitles, requestedStep) ? requestedStep as AccountStep : null;
   const heading = useRef<HTMLHeadingElement>(null);
   const daily = useDailyAutomation();
   const [configured, setConfigured] = useState<boolean | null>(null);
@@ -107,7 +109,7 @@ export function MobileDevicePanel(): ReactNode {
   const [messageGroup, setMessageGroup] = useState("account");
   const [busy, setBusy] = useState(false);
   const acting = useRef(false);
-  useEffect(() => { heading.current?.focus(); window.scrollTo(0, 0); }, [selected]);
+  useEffect(() => { heading.current?.focus(); window.scrollTo(0, 0); }, [selected, accountStep]);
   useEffect(() => {
     if (!isAndroid()) return;
     void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setLoadError(value => `${value}APIキーの保存状態を確認できません。再起動してください。`));
@@ -119,7 +121,13 @@ export function MobileDevicePanel(): ReactNode {
   }, []);
   if (!isAndroid()) return null;
   function open(panel: SettingsPanelId): void { setParams({ edit: panel }, { state: { settingsList: true } }); }
+  function openAccount(step: AccountStep): void { setParams({ edit: "accounts", step }, { state: { accountList: true } }); }
   function back(): void {
+    if (accountStep) {
+      if (location.state?.accountList) void navigate(-1);
+      else setParams({ edit: "accounts" }, { replace: true });
+      return;
+    }
     if (location.state?.settingsList) void navigate(-1);
     else setParams({}, { replace: true });
   }
@@ -145,13 +153,22 @@ export function MobileDevicePanel(): ReactNode {
       : selected === "risk" ? { ...draft, maximum_drawdown_percent: value.portfolio.maximum_drawdown_percent }
         : { ...draft, accounts: value.portfolio.accounts, holdings: value.portfolio.holdings, holdings_status: value.portfolio.holdings_status });
   }
+  const accountDirty = JSON.stringify([portfolio.accounts, portfolio.holdings, portfolio.holdings_status]) !== JSON.stringify([
+    savedPortfolio?.portfolio.accounts ?? blank.accounts, savedPortfolio?.portfolio.holdings ?? blank.holdings,
+    savedPortfolio?.portfolio.holdings_status ?? blank.holdings_status,
+  ]);
+  const recorded = savedPortfolio?.portfolio;
+  const accountComplete = recorded && recorded.accounts.length > 0 && recorded.holdings_status !== "unrecorded"
+    && recorded.accounts.every(account => account.name.trim() && account.account_type !== "unknown_manual" && account.withholding_mode !== "unknown" && account.available_cash_yen !== null)
+    && recorded.holdings.every(holding => holding.average_acquisition_price_yen !== null);
+  const accountStatus = !portfolioLoaded ? loadError ? "確認できません" : "確認中" : accountDirty ? "未保存" : !recorded ? "未入力" : accountComplete ? "入力済み" : "要確認";
   const budget = savedPortfolio?.portfolio.investment_budget_yen;
   const budgetValue = budget && Number.isFinite(Number(budget)) ? `¥${Math.round(Number(budget)).toLocaleString("ja-JP")}` : "未設定";
   const drawdown = savedPortfolio?.portfolio.maximum_drawdown_percent;
-  return <div className="device-settings settings-screen">
+  return <div className={`device-settings settings-screen${selected === "accounts" ? " account-settings-screen" : ""}`}>
     <header className="settings-page-header app-brand">
-      {selected && <button type="button" className="settings-back" onClick={back}>← 設定一覧へ</button>}
-      <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{selected ? panelTitles[selected] : "設定"}</h1></div>
+      {selected && <button type="button" className="settings-back" onClick={back}>← {accountStep ? "証券口座へ" : "設定一覧へ"}</button>}
+      <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{accountStep ? accountStepTitles[accountStep] : selected ? panelTitles[selected] : "設定"}</h1></div>
     </header>
     {loadError && <p role="alert">{loadError}</p>}
     {loadError && !portfolioLoaded && <button className="button" disabled={busy} onClick={() => void action(async () => {
@@ -181,9 +198,9 @@ export function MobileDevicePanel(): ReactNode {
         <SettingsRow icon="info" title="アプリ情報・詳細" onClick={() => open("about")} />
       </div></section>
     </div>
-    <SettingsPanel visible={selected === "accounts" || selected === "capital" || selected === "risk"}>
-    <section className="section">
-      <fieldset disabled={busy || !portfolioLoaded}>
+    <SettingsPanel visible={(selected === "accounts" && accountStep === "portfolio") || selected === "capital" || selected === "risk"}>
+    <section className="section account-editor">
+      <fieldset className="account-form" disabled={busy || !portfolioLoaded}>
 
       <div hidden={selected !== "capital"}>
       <label>投資上限（円・未定は空欄）<input inputMode="decimal" value={portfolio.investment_budget_yen ?? ""} onChange={event => setPortfolio({ ...portfolio, investment_budget_yen: event.target.value || null })} /></label>
@@ -219,7 +236,7 @@ export function MobileDevicePanel(): ReactNode {
       </fieldset>)}
       </div>
       <div className="button-stack">
-      <button className="button" disabled={busy || !portfolioLoaded} onClick={() => void action(savePortfolio, `${selected ? panelTitles[selected] : "口座・保有"}を端末に保存しました。`)}>{selected === "capital" ? "運用資金を保存" : selected === "risk" ? "許容下落率を保存" : "口座・保有を保存"}</button>
+      <button className="button button--primary" disabled={busy || !portfolioLoaded} onClick={() => void action(savePortfolio, `${selected ? panelTitles[selected] : "口座・保有"}を端末に保存しました。`)}>{selected === "capital" ? "運用資金を保存" : selected === "risk" ? "許容下落率を保存" : "口座・保有を保存"}</button>
       </div>
       <details className="settings-disclosure"><summary>入力を保存済みの値へ戻す</summary>
       <p className="setting-footnote">ほかの設定で編集中の内容も、すべて最後に保存した値へ戻します。</p>
@@ -231,11 +248,10 @@ export function MobileDevicePanel(): ReactNode {
       </fieldset>
     </section>
     {messageGroup === "account" && message && <p role="status">{message}</p>}
-    <SettingsPanel visible={selected === "accounts"}>
-    <details className="settings-disclosure"><summary>税金・費用・残高登録</summary>
-      <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || JSON.stringify(portfolio) !== JSON.stringify(savedPortfolio?.portfolio)} />
-    </details>
     </SettingsPanel>
+    <SettingsPanel visible={selected === "accounts"}>
+      <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || accountDirty}
+        step={accountStep ?? "overview"} onStep={openAccount} portfolioStatus={accountStatus} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "market"}>
     <section className="section">
