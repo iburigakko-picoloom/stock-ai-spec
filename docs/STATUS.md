@@ -2,7 +2,8 @@
 
 - StockAIPlugin/SavedReadViews/LocalComputeOwnerを変更し、保存済み表示の読出しを計算所有者・SQLite準備から独立。DB path単位の共有instanceで既存の暗号化・消去同期を保持。Todayは確認中の前回提案を隠さず閲覧用表示し、判断確認は新鮮な応答まで抑止。保存済み分析がある場合の読込カードも除去。
 - Web166件（前回内容→最新切替、判断操作抑止、保存copy/画面保持の既存回帰含む）、npm build/typecheck/lint成功。Android JVM31件成功、本体とinstrumentation試験compile成功。DBを開かず保存copyを読める/同一instance消去の試験を追加したが、instrumentation実行は未実施。本人端末の表示時間・インストールは未確認。
-- 予測計算・台帳・実データは変更なし。モデル実験・実注文なし。更新APKの作成と私有Drive配布を続行。
+- 予測計算・台帳・実データは変更なし。モデル実験・実注文なし。
+- 同署名0.1.47-candidate/code10047作成・署名/非debug/46assets/私有情報非混入検査成功。source 16d8b0edc1587f1c0ced94bab7809d9c3a3a2c1e、24,019,209 bytes、SHA256 c3dd1eb12788882190f581fd4bd0b9558cb918d29a9087c867ec15c6e2be7868。承認済み非共有StockAIに保存、サイズとshared=false読戻し確認。Drive id 1OKu81rI8XESuHMC6qx1ivX5K5Jz7_tyu。検査証拠は.demo-artifacts/update-0147-20261025/。本人端末の更新と表示時間は未確認。
 
 ## 2026-10-24 — 初回・休場日の参考分析（D244）
 
