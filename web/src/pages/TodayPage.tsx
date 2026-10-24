@@ -4,6 +4,8 @@ import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, y
 import { useApiData } from "../hooks";
 import type { ProposalLine, SavedAnalysis, TodayResponse } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
+import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";
+import { isAndroid } from "../mobile/native";
 
 const priority = new Map([
   ["SELL", 0],
@@ -61,17 +63,17 @@ export function TodayPage(): ReactNode {
   return (
     <div className="page">
       <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} actions={<Link className="button button--secondary consultation-link" to="/today/chatgpt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 18 3 22l5-2a9 9 0 1 0-4-2Z" /></svg>ChatGPTと相談</Link>} />
-      <RuntimeBanner mode={data.runtimeMode} />
+      {(proposal || data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY") && <RuntimeBanner mode={data.runtimeMode} />}
       {savedAt && <p role="status">{dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。最新情報を確認中…</p>}
       <DailyPanel />
       {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? (
         <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
       ) : !proposal ? (
-        <><StatePanel
+        <>{(loading || !isAndroid()) && <StatePanel
           tone={data.isStale ? "warning" : "neutral"}
-          title={data.savedAnalysis ? "保存済みの分析を表示しています" : "初回の分析を準備中"}
-          detail={loading ? "更新状況を確認中…" : data.blockingReason === "ALPHA_CUTOFF_OPEN" ? "今日の予測は11:30以降に更新します。" : "当日の分析はまだ完了していません。"}
-        />{data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}<Link className="button button--secondary" to="/settings?edit=market">データの更新状況を確認</Link></>
+          title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"}
+          detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)}
+        />}{!loading && <ProposalReadiness reason={data.blockingReason} />}{data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}{!isAndroid() && <Link className="button button--secondary" to="/settings?edit=market">データの更新状況を確認</Link>}</>
       ) : (
         <>
           <section className="proposal-hero" aria-label="今日の提案概要">

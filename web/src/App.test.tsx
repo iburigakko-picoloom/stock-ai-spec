@@ -191,7 +191,7 @@ describe("Goal 5 PWA", () => {
   it("hides a stale proposal and does not offer review", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, isStale: true })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    await screen.findByText("初回の分析を準備中");
+    await screen.findByText("今日の提案をまだ表示できません");
     expect(screen.queryByText("購入会社")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "判断を確認" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings?edit=market");
@@ -247,7 +247,7 @@ describe("Goal 5 PWA", () => {
   it("offers settings when no actual portfolio is registered", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ portfolio: null, holdings: [], runtimeMode: "LIVE" })));
     render(<MemoryRouter><HomePage /></MemoryRouter>);
-    await screen.findByText("資産データが未登録です");
+    await screen.findByText("表示できる資産台帳がありません");
     expect(screen.getByRole("link", { name: "登録・口座の設定を確認" })).toHaveAttribute("href", "/settings");
     expect(screen.queryByText("0円")).not.toBeInTheDocument();
   });

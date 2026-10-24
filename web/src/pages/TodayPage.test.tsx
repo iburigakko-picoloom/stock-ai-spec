@@ -23,7 +23,7 @@ test("previous saved analysis stays read-only through refresh and switches with 
   response(data);
   const view = render(<MemoryRouter><TodayPage /></MemoryRouter>);
   expect(screen.getByRole("heading", { name: "2026/10/21の分析" })).toBeVisible();
-  expect(screen.getByText("今日の予測は11:30以降に更新します。")).toBeVisible();
+  expect(screen.getByText("今日の予測は11:30以降に更新します。時刻までお待ちください。")).toBeVisible();
   expect(screen.getByText("1234（保有）")).toBeVisible();
   expect(screen.getByText("—")).toBeVisible();
   expect(screen.queryByRole("link", { name: /判断を確認/ })).not.toBeInTheDocument();
@@ -39,7 +39,7 @@ test("previous saved analysis stays read-only through refresh and switches with 
 test("no saved result shows preparation instead of a fictional previous analysis", () => {
   response({ ...data, savedAnalysis: null });
   render(<MemoryRouter><TodayPage /></MemoryRouter>);
-  expect(screen.getByText("初回の分析を準備中")).toBeVisible();
+  expect(screen.getByText("今日の提案をまだ表示できません")).toBeVisible();
   expect(screen.queryByRole("region", { name: "保存済み分析" })).not.toBeInTheDocument();
   expect(screen.queryByText("ALPHA_CUTOFF_OPEN")).not.toBeInTheDocument();
 });

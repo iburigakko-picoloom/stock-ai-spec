@@ -4,6 +4,8 @@ import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, y
 import { useApiData } from "../hooks";
 import type { HoldingView, HomeResponse } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
+import { ProposalReadiness } from "../mobile/ProposalReadiness";
+import { isAndroid } from "../mobile/native";
 
 export function HomePage(): ReactNode {
   const { data, error, loading, savedAt } = useApiData<HomeResponse>("/api/v1/home");
@@ -21,10 +23,11 @@ export function HomePage(): ReactNode {
       <div className="page">
         <PageHeader eyebrow="実際の状態" title="ホーム" />
         {savedAt && <p role="status">{dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。最新情報を確認中…</p>}
-        <RuntimeBanner mode={data?.runtimeMode || "UNCONFIGURED"} />
+        {data?.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
         <DailyPanel />
-        <StatePanel title="資産データが未登録です" detail={data?.blockingReason || "保有株・口座区分・現金残高を登録すると、実資産を表示します。"} />
-        <Link className="button button--secondary" to="/settings">登録・口座の設定を確認</Link>
+        {(loading || !isAndroid()) && <StatePanel title={loading ? "最新の資産状態を確認中です" : "表示できる資産台帳がありません"} detail={loading ? "登録状態を確認しています。" : "入力の保存後に、残高の確定が必要です。"} />}
+        {!loading && <ProposalReadiness />}
+        {!isAndroid() && <Link className="button button--secondary" to="/settings">登録・口座の設定を確認</Link>}
       </div>
     );
   }
