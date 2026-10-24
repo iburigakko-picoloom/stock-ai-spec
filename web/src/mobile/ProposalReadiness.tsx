@@ -3,6 +3,27 @@ import { useApiData } from "../hooks";
 import { isAndroid } from "./native";
 import { gapLabel, type Readiness } from "./personal";
 
+function unfinishedItems(data: Readiness): string[] {
+  const shortLabels: Record<string, string> = {
+    available_cash_yen: "現金残高", average_acquisition_price_yen: "取得単価",
+    investment_budget_yen: "投資上限", maximum_drawdown_percent: "許容下落率",
+    held_prices_missing: "保有株の価格", held_prices_stale: "保有株の価格更新",
+    held_prices_invalid: "保有株の価格確認", LEDGER_MISSING: "残高の確定",
+    FORECAST_MISSING: "最新予測", MARKET_MISSING: "市場データ",
+    SETTINGS_MISSING: "補足設定", MANUAL_INPUT_MISSING: "口座・保有の登録",
+    personal_settings: "補足設定", manual_input: "口座・保有の登録",
+    cost_assumptions: "取引コスト", tax_assumptions: "税の計算条件",
+  };
+  const codes = [...data.input_gaps,
+    ...(!data.comparison.ledger_portfolio_id ? [...data.initial_ledger.blocking_reasons, "LEDGER_MISSING"] : []),
+    ...data.comparison.blocking_reasons.map(item => item.code),
+  ].map(code => code.startsWith("INPUT_MISSING_") ? code.slice(14).toLowerCase() : code);
+  return [...new Set(codes.filter(code =>
+    !["ledger_already_initialized", "executions_already_recorded"].includes(code)
+    && !(code === "SETTINGS_MISSING" && data.input_gaps.length > 0)
+  ).map(code => shortLabels[code] ?? gapLabel(code)))];
+}
+
 export function proposalBlockLabel(reason: string | null): string {
   if (!reason) return "当日の提案はまだ作成されていません。";
   const labels: Record<string, string> = {
@@ -23,7 +44,8 @@ export function proposalBlockLabel(reason: string | null): string {
 
 function ReadinessDetails({ reason }: { reason: string | null }) {
   const { data, error, loading, reload } = useApiData<Readiness & { portfolio_revision_id?: string | null }>("/api/v1/mobile/personal/readiness");
-  // Present the next prerequisite, not an inventory of every downstream failure.
+  // Name unfinished items briefly; keep just one next action.
+  const unfinished = data ? unfinishedItems(data) : [];
   const gap = data?.input_gaps[0];
   const priceGap = !data?.comparison.ledger_portfolio_id
     ? data?.initial_ledger.blocking_reasons.find(code => code.startsWith("held_prices_")) : undefined;
@@ -53,6 +75,7 @@ function ReadinessDetails({ reason }: { reason: string | null }) {
       : error ? <><p role="alert">登録が消えたわけではありません。もう一度確認してください。</p><button className="button button--secondary" onClick={reload}>再確認</button></>
       : data && <>
         {data.portfolio_revision_id && <p className="explain">口座・保有は登録済みです。</p>}
+        {unfinished.length > 0 && <p aria-label="未完了の項目"><strong>未完了：</strong>{unfinished.join("・")}</p>}
         <p>{message}</p>
         {!waiting && <Link className="button button--secondary" to={`/settings?edit=${target}`}>{action}</Link>}
       </>}
