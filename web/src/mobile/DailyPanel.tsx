@@ -16,6 +16,19 @@ const labels: Record<string, string> = {
   research_attention: "数値判定を保存済み・ChatGPT調査の確認が必要です",
 };
 
+// Completed stages, not a percentage of time or individual model operations.
+const stages: Record<string, { done: number; text: string }> = {
+  history: { done: 0, text: "工程1/3：データ取得" },
+  membership: { done: 0, text: "工程1/3：データ取得" },
+  calculating: { done: 1, text: "工程2/3：予測計算・保存" },
+  forecast_saved: { done: 2, text: "工程2/3完了：株数判定待ち" },
+  deciding: { done: 2, text: "工程3/3：株数判定・保存" },
+  numerical_saved: { done: 3, text: "数値計算の3工程が完了" },
+  research_running: { done: 3, text: "数値計算の3工程が完了" },
+  research_complete: { done: 3, text: "数値計算の3工程が完了" },
+  research_attention: { done: 3, text: "数値計算の3工程が完了" },
+};
+
 export function useDailyAutomation() {
   const [status, setStatus] = useState<DailyStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,10 +84,16 @@ export function DailyControls({ status, busy, message, onChange }: {
   status: DailyStatus | null; busy: boolean; message: string; onChange: (start: boolean) => void;
 }): ReactNode {
   const delayed = status?.state === "waiting_cutoff" && status.day && Date.now() >= Date.parse(`${status.day}T11:30:00+09:00`);
+  const stage = status && status.enabled ? stages[status.state] : undefined;
   return <section className="section daily-panel" aria-label="毎日の自動処理">
     <h2>毎日の自動処理</h2>
     <p role="status">{status ? delayed ? "締切後の実行待ち・Androidの予約処理を待っています" : labels[status.state] ?? "保存状態を確認してください" : "状態を確認しています…"}</p>
-    {status?.state === "history" && <p>画面を閉じても取得を続けます。中断時は保存済みの続きから再開します。</p>}
+    {stage && <div className="daily-stage">
+      <p>{stage.text}</p>
+      <progress max={3} value={stage.done} aria-label="数値計算の完了工程" aria-valuetext={`${stage.done}/3工程完了。残り時間の割合ではありません。`} />
+      <small>データ取得 → 予測計算 → 株数判定</small>
+    </div>}
+    {status?.enabled && ["history", "membership", "calculating", "deciding"].includes(status.state) && <p>画面を閉じても続けます。省電力などで中断した場合は、保存済みの続きから再開します。</p>}
     {status?.day && <p>対象日：{status.day}</p>}
     <div className="button-stack">
       <button className="button button--primary" hidden={!!status?.enabled && status.state !== "credentials"} disabled={busy || !status || (status.enabled && status.state !== "credentials")} onClick={() => onChange(true)}>{status?.state === "paused" || status?.state === "credentials" ? "続きから再開" : "開始"}</button>

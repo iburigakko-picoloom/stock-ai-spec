@@ -83,7 +83,7 @@ public class DailyAutomationTest {
             assertFalse(DailyWorker.requiresForeground(phase));
         for (String phase : new String[]{"history", "membership"}) {
             android.app.Notification notice = DailyWorker.foregroundInfo(context, phase).getNotification();
-            assertEquals("市場データを取得・保存しています。アプリから停止できます。",
+            assertEquals("工程1/3：データ取得・保存中",
                 notice.extras.getString(android.app.Notification.EXTRA_TEXT));
             assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);
             assertTrue((notice.flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0);
@@ -121,8 +121,12 @@ public class DailyAutomationTest {
         assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);
         assertTrue((notice.flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0);
         assertEquals("StockAI", notice.extras.getString(android.app.Notification.EXTRA_TITLE));
-        assertEquals("端末内のデータを計算・保存しています。アプリから停止できます。",
+        assertEquals("工程2/3：予測計算・保存中",
             notice.extras.getString(android.app.Notification.EXTRA_TEXT));
+        assertTrue(notice.extras.getBoolean(android.app.Notification.EXTRA_PROGRESS_INDETERMINATE));
+        android.app.Notification deciding = DailyWorker.foregroundInfo(context, "deciding").getNotification();
+        assertEquals("工程3/3：株数判定・保存中", deciding.extras.getString(android.app.Notification.EXTRA_TEXT));
+        assertTrue(deciding.extras.getBoolean(android.app.Notification.EXTRA_PROGRESS_INDETERMINATE));
         if (android.os.Build.VERSION.SDK_INT >= 29) {
             assertEquals(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC, info.getForegroundServiceType());
             android.content.pm.ServiceInfo service = context.getPackageManager().getServiceInfo(

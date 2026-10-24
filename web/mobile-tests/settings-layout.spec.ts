@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
             notes: "試験用の長い変更内容です。".repeat(80), sha256: "a".repeat(64), url: "https://example.invalid/StockAI.apk", size: 123,
           } : { available: false };
           if (method === "installUpdate") return { needsPermission: true };
-          if (method === "dailyStatus") return dailyStatus;
+          if (method === "dailyStatus") return { ...dailyStatus, state: localStorage.getItem("settingsTestDailyState") ?? dailyStatus.state };
           if (method === "requestDailyNotifications") return { granted: dailyStatus.notificationsEnabled };
           if (method === "startDaily") return (dailyStatus = { ...dailyStatus, enabled: true, state: "queued" });
           if (method === "stopDaily") {
@@ -69,6 +69,21 @@ test.beforeEach(async ({ page }) => {
   });
   await page.goto("/#/settings");
   await expect(page.getByRole("heading", { name: "設定", exact: true })).toBeVisible();
+});
+
+for (const width of [320, 390]) test(`daily calculation stage at ${width}px with large text`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 844 });
+  await page.evaluate(() => localStorage.setItem("settingsTestDailyState", "calculating"));
+  await page.goto("/#/settings?edit=daily");
+  await page.evaluate(() => { document.documentElement.style.fontSize = "150%"; window.dispatchEvent(new Event("focus")); });
+  const progress = page.getByRole("progressbar", { name: "数値計算の完了工程" });
+  await expect(progress).toHaveAttribute("value", "1");
+  await expect(page.getByText("工程2/3：予測計算・保存")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.screenshot({ path: info.outputPath(`calculation-${width}.png`), fullPage: true });
+  await page.evaluate(() => { localStorage.setItem("settingsTestDailyState", "compute_wait"); window.dispatchEvent(new Event("focus")); });
+  await expect(progress).toHaveCount(0);
+  await expect(page.getByText("Androidの計算待ち・アプリで保存状態を確認してください")).toBeVisible();
 });
 
 test("SBI simple setup saves explicit confirmations without typing supplemental amounts", async ({ page }, info) => {
