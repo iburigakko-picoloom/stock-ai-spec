@@ -70,8 +70,8 @@ public final class DailyWorker extends Worker {
         android.app.Notification notice = new NotificationCompat.Builder(context, "stockai-compute")
             .setSmallIcon(R.drawable.ic_stat_stockai).setContentTitle("StockAI")
             .setContentText(phase.equals("history") || phase.equals("membership")
-                ? "工程1/3：データ取得・保存中"
-                : phase.equals("deciding") ? "工程3/3：株数判定・保存中" : "工程2/3：予測計算・保存中")
+                ? "データを取得・保存中"
+                : phase.equals("deciding") ? "株数を判定・保存中" : "予測を計算・保存中")
             .setProgress(0, 0, true)
             .setContentIntent(pending).setOnlyAlertOnce(true).setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build();

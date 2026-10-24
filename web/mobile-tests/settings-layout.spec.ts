@@ -78,7 +78,9 @@ for (const width of [320, 390]) test(`daily calculation stage at ${width}px with
   await page.evaluate(() => { document.documentElement.style.fontSize = "150%"; window.dispatchEvent(new Event("focus")); });
   const progress = page.getByRole("progressbar", { name: "数値計算の完了工程" });
   await expect(progress).toHaveAttribute("value", "1");
-  await expect(page.getByText("工程2/3：予測計算・保存")).toBeVisible();
+  expect((await progress.boundingBox())!.width).toBeGreaterThan(width * .7);
+  await expect(page.getByText("予測を計算しています", { exact: true })).toBeVisible();
+  await expect(page.getByText("工程2/3：予測計算・保存")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({ path: info.outputPath(`calculation-${width}.png`), fullPage: true });
   await page.evaluate(() => { localStorage.setItem("settingsTestDailyState", "compute_wait"); window.dispatchEvent(new Event("focus")); });
