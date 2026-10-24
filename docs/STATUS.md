@@ -3,6 +3,7 @@
 - Androidホーム/今日に既存personal/readinessの確認結果を接続。入力保存・初回台帳確定を区別し、入力不足→台帳用価格不足→残高確定→予測状態の順で次の必要事項1件と対応ボタン1つを表示。全件一覧・診断コード・折りたたみ・重複する一般警告を追加しない。読込中/失敗を未登録と扱わない。Webの停止理由も既存blockingReasonを説明へ反映。
 - 変更：web/src/mobile/ProposalReadiness.tsxとテスト、HomePage/TodayPage、既存画面テスト。npm run test（21ファイル136件）、typecheck、lint、build成功。最初のsandbox実行はtemp rename EPERMでテスト未開始、通常環境で再実行成功。git diff --check成功。
 - 既存参照APIのみ使用。予測・台帳・モデル・保存条件は変更なし。研究実験なし、実注文なし。APK作成/端末更新/実機表示確認は未実施。端末固有の不足情報はまだ断定しない。
+- 続報：source d7c62b3221270996a2bc0a1eabae83077f6aff68から同署名0.1.41-candidate/code10041を作成。24,012,449 bytes、SHA256 a762d38143638c9b6fbe44676b204c26ccfab6522ab40e3014032da315777272。非debug/署名/46assets/source/私有データ非混入検査成功。本人がAPK受取を選び、非共有StockAIフォルダへの保存を明示承認後、Google Driveへ保存。検査証拠は.demo-artifacts/update-0141-20261024/verified.json。端末は未接続でインストール・実機確認は未実施。公開更新先は変更せず、実注文なし。
 
 ## 2026-10-24 — 本人Androidの起動待ち・未完了分析を調査中（D238）
 
