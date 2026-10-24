@@ -4,10 +4,12 @@ import { afterEach, expect, test, vi } from "vitest";
 import { useApiData } from "../hooks";
 import { TodayPage } from "./TodayPage";
 import type { TodayResponse } from "../types";
+import { isAndroid } from "../mobile/native";
 
 vi.mock("../hooks", () => ({ useApiData: vi.fn() }));
 vi.mock("../mobile/DailyPanel", () => ({ DailyPanel: () => null }));
-afterEach(cleanup);
+vi.mock("../mobile/native", () => ({ isAndroid: vi.fn(() => false) }));
+afterEach(() => { cleanup(); vi.mocked(isAndroid).mockReturnValue(false); });
 const data: TodayResponse = {
   businessDate: "2026-10-22", pipelineState: "PRE_MARKET", isStale: true,
   blockingReason: "ALPHA_CUTOFF_OPEN", runtimeMode: "RESEARCH", proposal: null,
@@ -51,4 +53,33 @@ test("new reference analysis names the price date without pretending it was gene
   expect(screen.getByRole("heading", { name: "2026-10-23の終値による参考分析" })).toBeVisible();
   expect(screen.getByText(/この日付の売買提案ではありません/)).toBeVisible();
   expect(screen.queryByRole("link", { name: /判断を確認/ })).not.toBeInTheDocument();
+});
+
+test("Android keeps the saved analysis visible during refresh without a loading card", () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  response(data, true);
+  render(<MemoryRouter><TodayPage /></MemoryRouter>);
+  expect(screen.getByRole("heading", { name: "2026/10/21の分析" })).toBeVisible();
+  expect(screen.getByText(/前回の表示・閲覧用/)).toBeVisible();
+  expect(screen.queryByText("更新状況を確認中…")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /判断を確認/ })).not.toBeInTheDocument();
+});
+
+test("Android shows previous proposal during refresh but enables review only after fresh success", () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  const current: TodayResponse = { ...data, isStale: false, proposal: {
+    proposalId: "previous", asOf: data.savedAnalysis!.asOf, generatedAt: data.savedAnalysis!.generatedAt,
+    modelBundleVersion: "fixture", decisionEngineVersion: "fixture", status: "READY",
+    isResearchOnly: true, isOrderInstruction: false, estimatedSellValue: "0", estimatedBuyValue: "0",
+    estimatedTransactionCost: "0", estimatedTaxEffect: "0", estimatedTaxCashWithholding: "0",
+    estimatedCashAfter: { fixture: "1040000" }, changeCount: 0, holdExpectedValue: "0",
+    proposedExpectedValue: "0", netImprovement: "0", noTradeReason: "前回の結果", lines: [],
+  } };
+  response(current, true);
+  const view = render(<MemoryRouter><TodayPage /></MemoryRouter>);
+  expect(screen.getByText("前回の結果")).toBeVisible();
+  expect(screen.queryByRole("link", { name: /判断を確認/ })).not.toBeInTheDocument();
+  response(current);
+  view.rerender(<MemoryRouter><TodayPage /></MemoryRouter>);
+  expect(screen.getByRole("link", { name: /判断を確認/ })).toBeVisible();
 });

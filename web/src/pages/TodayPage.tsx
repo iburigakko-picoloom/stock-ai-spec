@@ -52,7 +52,8 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
 export function TodayPage(): ReactNode {
   const { data, error, loading, savedAt, reload } = useApiData<TodayResponse>("/api/v1/today");
   if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
-  const proposal = loading || data.isStale ? null : data.proposal;
+  const previous = isAndroid() && (loading || !!savedAt);
+  const proposal = (!previous && (loading || data.isStale)) ? null : data.proposal;
   const visible = proposal?.lines
     .filter((line) => line.action !== "SKIP" && line.action !== "HOLD")
     .sort((a, b) => (priority.get(a.action) ?? 9) - (priority.get(b.action) ?? 9));
@@ -65,12 +66,12 @@ export function TodayPage(): ReactNode {
     <div className="page">
       <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} actions={<Link className="button button--secondary consultation-link" to="/today/chatgpt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 18 3 22l5-2a9 9 0 1 0-4-2Z" /></svg>ChatGPTと相談</Link>} />
       {(proposal || data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY") && <RuntimeBanner mode={data.runtimeMode} />}
-      {savedAt && <p role="status">{dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。最新情報を確認中…</p>}
+      {previous && <p role="status">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
       <DailyPanel />
       {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? (
         <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
       ) : !proposal ? (
-        <>{(loading || !isAndroid()) && <StatePanel
+        <>{((loading && !data.savedAnalysis) || !isAndroid()) && <StatePanel
           tone={data.isStale ? "warning" : "neutral"}
           title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"}
           detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)}
@@ -111,7 +112,7 @@ export function TodayPage(): ReactNode {
               <p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p>
               <p className="explain">推定値です。将来の利益や実際の約定価格を保証しません。</p>
             </details>
-            <Link className="button button--primary summary-review-link" to="/today/review">判断を確認<span aria-hidden="true">›</span></Link>
+            {!previous && <Link className="button button--primary summary-review-link" to="/today/review">判断を確認<span aria-hidden="true">›</span></Link>}
             <p className="explain">保存しても証券会社への注文は行われません</p>
           </section>
           <details className="metadata-details proposal-metadata"><summary>提案の基準時刻・モデル詳細</summary>

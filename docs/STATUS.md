@@ -1,3 +1,9 @@
+## 2026-10-25 — 保存済み画面の先行表示（D245）
+
+- StockAIPlugin/SavedReadViews/LocalComputeOwnerを変更し、保存済み表示の読出しを計算所有者・SQLite準備から独立。DB path単位の共有instanceで既存の暗号化・消去同期を保持。Todayは確認中の前回提案を隠さず閲覧用表示し、判断確認は新鮮な応答まで抑止。保存済み分析がある場合の読込カードも除去。
+- Web166件（前回内容→最新切替、判断操作抑止、保存copy/画面保持の既存回帰含む）、npm build/typecheck/lint成功。Android JVM31件成功、本体とinstrumentation試験compile成功。DBを開かず保存copyを読める/同一instance消去の試験を追加したが、instrumentation実行は未実施。本人端末の表示時間・インストールは未確認。
+- 予測計算・台帳・実データは変更なし。モデル実験・実注文なし。更新APKの作成と私有Drive配布を続行。
+
 ## 2026-10-24 — 初回・休場日の参考分析（D244）
 
 - production/market/universe/forecasts/runtimeに、実行時刻までの実受信データと現在の登録で参考分析を作る独立経路を実装。11:30以後の登録で停止する問題を解消し、直近確定株価日を表示。日次selection・株数判定・台帳を変更せず、前回成功結果と保存復元を保持する。

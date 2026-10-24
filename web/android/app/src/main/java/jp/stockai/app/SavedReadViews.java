@@ -11,6 +11,16 @@ import org.json.JSONObject;
 
 /** Encrypted historical display only. Never an input to a decision or a ledger write. */
 final class SavedReadViews {
+    private static final java.util.Map<String, SavedReadViews> instances = new java.util.HashMap<>();
+    static synchronized SavedReadViews forDatabase(File database) throws Exception {
+        String path = database.getCanonicalPath();
+        SavedReadViews views = instances.get(path);
+        if (views == null) {
+            views = new SavedReadViews(new File(path + ".readviews"));
+            instances.put(path, views);
+        }
+        return views;
+    }
     private final File directory;
     private static final int MAX_BYTES = 2 * 1024 * 1024;
     SavedReadViews(File directory) { this.directory = directory; }

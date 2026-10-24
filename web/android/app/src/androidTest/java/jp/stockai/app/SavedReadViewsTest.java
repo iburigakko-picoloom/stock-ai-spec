@@ -11,6 +11,19 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class SavedReadViewsTest {
+    @Test public void displayReadDoesNotOpenDatabaseAndSharesInvalidation() throws Exception {
+        File database = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "display-only-" + System.nanoTime());
+        SavedReadViews views = SavedReadViews.forDatabase(database);
+        try {
+            views.save("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("cash", 1040000)), 1);
+            SavedReadViews reader = SavedReadViews.forDatabase(database);
+            assertSame(views, reader);
+            assertTrue(reader.read("/api/v1/home").getBoolean("available"));
+            assertFalse(database.exists());
+            reader.clear();
+            assertFalse(views.read("/api/v1/home").getBoolean("available"));
+        } finally { views.clear(); new File(database.getPath() + ".readviews").delete(); }
+    }
     @Test public void encryptedHistoricalViewsRejectTamperingAndWrongPaths() throws Exception {
         File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "read-view-test-" + System.nanoTime());
         SavedReadViews views = new SavedReadViews(dir);

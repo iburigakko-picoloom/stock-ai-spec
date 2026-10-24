@@ -88,7 +88,8 @@ public class StockAIPlugin extends Plugin {
         completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
     @PluginMethod public void readSavedView(PluginCall call) { displayExecutor.execute(() -> {
-        try { call.resolve(owner().readViews.read(call.getString("path"))); }
+        try { call.resolve(SavedReadViews.forDatabase(
+            getContext().getDatabasePath(LocalStateStore.DATABASE)).read(call.getString("path"))); }
         catch (Exception ignored) { call.reject("保存済み表示を確認できません。", "SAVED_VIEW_INVALID"); }
     }); }
     @PluginMethod public void readState(PluginCall call) { background(call, () -> {

@@ -44,12 +44,12 @@ final class LocalComputeOwner {
         return owner;
     }
 
-    private LocalComputeOwner(Context context, File file, String identity) {
+    private LocalComputeOwner(Context context, File file, String identity) throws Exception {
         this.context = context.getApplicationContext(); this.identity = identity;
         File parent = file.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) throw new IllegalStateException("STATE_UNAVAILABLE");
         state = new LocalStateStore(SQLiteDatabase.openOrCreateDatabase(file, null));
-        readViews = new SavedReadViews(new File(file.getPath() + ".readviews"));
+        readViews = SavedReadViews.forDatabase(file);
     }
 
     interface Operation<T> { T run() throws Exception; }
