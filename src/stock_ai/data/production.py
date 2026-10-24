@@ -72,6 +72,7 @@ def build_production_data(
     proposal_as_of: datetime | None = None,
     detail_symbols: frozenset[str] | None = None,
     price_context_only: bool = False,
+    reference_as_of: datetime | None = None,
 ) -> ProductionDataBundle:
     """Build causally timestamped research inputs from one immutable source vintage."""
 
@@ -122,6 +123,16 @@ def build_production_data(
         topix=topix,
     )
     availability = _next_proposal_cutoffs(business_dates)
+    if reference_as_of is not None:
+        if (proposal_as_of is not None or reference_as_of.tzinfo is None
+                or reference_as_of != source_snapshot_as_of
+                or business_dates[-1].date() >= reference_as_of.astimezone(_JST).date()):
+            raise ValueError(
+                "Reference analysis requires completed prior-session prices "
+                "and actual receipt time")
+        # Read-only analysis made NOW. Do not pretend late receipts existed at
+        # a past trading cutoff or require the next trading session to be open.
+        availability[business_dates[-1]] = pd.Timestamp(reference_as_of).tz_convert("UTC")
     if proposal_as_of is not None:
         if proposal_as_of.tzinfo is None or proposal_as_of.utcoffset() is None:
             raise ValueError("proposal_as_of must be timezone-aware")

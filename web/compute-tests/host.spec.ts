@@ -69,6 +69,12 @@ test("production compute entry boots offline under the native CSP and returns du
   const afterException = await send(7, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
   expect(afterException.result).toEqual(saved.result);
   expect(afterException.state).toBeNull();
+  const reference = await send(20, { command: "request", method: "POST", path: "/api/v1/mobile/daily/generate", body: JSON.stringify({ reference_only: true }) });
+  expect(reference.error).toBeUndefined();
+  expect(reference.result).toMatchObject({ status: 200, body: { phase: "blocked", scope: { analysis_mode: "latest_available_reference" } } });
+  expect(reference.state).toBeTruthy();
+  const daily = await send(21, { command: "request", method: "GET", path: "/api/v1/mobile/daily" });
+  expect(daily.result).toMatchObject({ status: 200, body: null });
   const metrics = await page.evaluate(() => (window as unknown as { transferMetrics: { maximumChunk: number; maximumReply: number } }).transferMetrics);
   expect(metrics.maximumChunk).toBeGreaterThan(0);
   expect(metrics.maximumChunk).toBeLessThanOrEqual(256 * 1024);

@@ -6,6 +6,7 @@ import type { ProposalLine, SavedAnalysis, TodayResponse } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
 import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";
 import { isAndroid } from "../mobile/native";
+import { ReferenceAnalysis } from "../mobile/ReferenceAnalysis";
 
 const priority = new Map([
   ["SELL", 0],
@@ -35,21 +36,21 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
   const percent = (value: number | null) => value === null ? "—" : `${(value * 100).toFixed(2)}%`;
   const dated = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric" }).format(new Date(analysis.asOf));
   const ranked = analysis.predictions.some(row => row.rank_score_20d != null);
-  return <section className="section" aria-label="保存済み分析">
-    <h2>{dated}の分析</h2>
-    <p>保存済み・閲覧用。当日の更新が完了すると切り替わります。</p>
-    <table><thead><tr><th>銘柄</th>{ranked && <th>20日順位スコア</th>}<th>5日予測</th><th>20日予測</th></tr></thead>
+  return <section className="section saved-analysis" aria-label="保存済み分析">
+    <h2>{analysis.analysisKind === "latest_available_reference" ? `${analysis.priceDate}の終値による参考分析` : `${dated}の分析`}</h2>
+    <p>{analysis.analysisKind === "latest_available_reference" ? "現在の登録内容で作成した閲覧用の分析です。この日付の売買提案ではありません。" : "保存済み・閲覧用。当日の更新が完了すると切り替わります。"}</p>
+    <table><thead><tr><th>銘柄</th>{ranked && <th>20日順位</th>}<th>5日予測</th><th>20日予測</th></tr></thead>
       <tbody>{analysis.predictions.map(row => <tr key={row.symbol}>
-        <td>{row.symbol}{analysis.holdingSymbols.includes(row.symbol) && "（保有）"}</td>
-        {ranked && <td>{row.rank_score_20d?.toFixed(4) ?? "—"}</td>}
+        <td>{row.symbol}{analysis.holdingSymbols.includes(row.symbol) && <small className="saved-analysis__holding">（保有）</small>}</td>
+        {ranked && <td>{row.rank_score_20d?.toFixed(2) ?? "—"}</td>}
         <td>{percent(row.expected_return_5d)}</td><td>{percent(row.expected_return_20d)}</td>
       </tr>)}</tbody></table>
-    <p>モデル：{analysis.modelVersion} · 生成 {dateTime(analysis.generatedAt)} JST</p>
+    <p className="setting-footnote">作成 {dateTime(analysis.generatedAt)} JST</p>
   </section>;
 }
 
 export function TodayPage(): ReactNode {
-  const { data, error, loading, savedAt } = useApiData<TodayResponse>("/api/v1/today");
+  const { data, error, loading, savedAt, reload } = useApiData<TodayResponse>("/api/v1/today");
   if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
   const proposal = loading || data.isStale ? null : data.proposal;
   const visible = proposal?.lines
@@ -73,7 +74,7 @@ export function TodayPage(): ReactNode {
           tone={data.isStale ? "warning" : "neutral"}
           title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"}
           detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)}
-        />}{!loading && <ProposalReadiness reason={data.blockingReason} />}{data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}{!isAndroid() && <Link className="button button--secondary" to="/settings?edit=market">データの更新状況を確認</Link>}</>
+        />}{data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}{!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} />}{!loading && !data.savedAnalysis && <ProposalReadiness reason={data.blockingReason} />}{!isAndroid() && <Link className="button button--secondary" to="/settings?edit=market">データの更新状況を確認</Link>}</>
       ) : (
         <>
           <section className="proposal-hero" aria-label="今日の提案概要">

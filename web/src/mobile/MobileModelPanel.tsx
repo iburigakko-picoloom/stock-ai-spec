@@ -107,6 +107,8 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
       })}>{model?.return_only_research || model?.ensemble_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
     </div>
     <p role="status">{message}</p>
+    {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
+      <p>初回・休場日は、最新データによる参考分析を作れます。<Link className="button button--secondary" to="/today">参考分析を作る</Link></p>}
     {run && <div className="forecast-state">
       <p>判定時点：{timestamp(run.scope.as_of)}</p>
       <p>推奨株数：{researchConsultation ? "自動判定なし・ChatGPTで案を検討" : decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>

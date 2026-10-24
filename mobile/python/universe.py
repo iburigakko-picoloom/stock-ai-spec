@@ -74,7 +74,58 @@ def _observations(path, dataset, first, last, cutoff):
                                  "received_at": received, "payload_hash": digest}
 
 
-def select(path: Path, as_of: datetime, holding_symbols=(), *, current_membership=False) -> dict:
+def _reference_topix500(path, as_of, holding_symbols):
+    """Use the last closed session's observed master only for read-only analysis."""
+    from .preselection import RULE, SCALES, _liquidity_window
+
+    if as_of.tzinfo is None:
+        raise ValueError("Aware reference time required")
+    held = sorted(set(holding_symbols))
+    if any(not isinstance(x, str) or not re.fullmatch(r"[0-9A-Z]{4,5}", x) for x in held):
+        raise ValueError("Invalid holding symbol")
+    window, sources = _liquidity_window(path, as_of)
+    result = {"as_of": as_of.isoformat(), "policy": RULE,
+              "membership_mode": "last_closed_reference", "membership_verified": False,
+              "latest_source_date": window[-1] if window else None,
+              "window_dates": window, "sources": sources, "new_candidates": [],
+              "decision_symbols": held, "held_only": held, "excluded": [],
+              "blocking_reasons": [], "research_only": True}
+    if not window or {x["date"] for x in sources} != set(window):
+        result["blocking_reasons"] = ["price_session_missing"]
+        return result
+    batches = list(_observations(path, "security_master", window[-1], window[-1], as_of))
+    if not batches:
+        result["blocking_reasons"] = ["latest_master_or_valuation_missing"]
+        return result
+    _, rows, source = batches[-1]
+    supported, candidates, seen = set(), [], set()
+    for row in rows:
+        code = row["Code"]
+        if code in seen:
+            raise ValueError("Duplicate reference master code")
+        seen.add(code)
+        domestic = (re.fullmatch(r"[0-9A-Z]{4}0", code) is not None
+                    and row.get("ProdCat") == "011" and row.get("Mkt") in _MARKETS)
+        if domestic:
+            supported.add(code[:-1])
+            if row.get("ScaleCat") in SCALES:
+                candidates.append({"symbol": code[:-1], "company_name": row["CoName"],
+                                   "scale_category": row["ScaleCat"]})
+    members = {x["symbol"] for x in candidates}
+    result.update(new_candidates=sorted(candidates, key=lambda x: x["symbol"]),
+                  decision_symbols=sorted(members | set(held)),
+                  held_only=sorted(set(held) - members),
+                  sources=[*sources, source], membership_source_date=window[-1],
+                  membership_received_at=source["received_at"])
+    if set(held) - supported:
+        result["blocking_reasons"] = ["held_instrument_unsupported_or_not_listed"]
+    elif not candidates:
+        result["blocking_reasons"] = ["topix500_scale_categories_unavailable"]
+    return result
+
+
+def select(path: Path, as_of: datetime, holding_symbols=(), *, current_membership=False,
+           reference_only=False) -> dict:
     # Absence of the optional policy table retains the accepted legacy path.
     with connect(path) as db:
         exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
@@ -82,6 +133,8 @@ def select(path: Path, as_of: datetime, holding_symbols=(), *, current_membershi
         mode = (db.execute("SELECT mode FROM mobile_universe_policy WHERE id=1").fetchone()
                 if exists else None)
     if mode is not None and mode[0] == "topix500-preview":
+        if reference_only:
+            return _reference_topix500(path, as_of, holding_symbols)
         from .preselection import select as preselect
 
         return preselect(path, as_of, holding_symbols)

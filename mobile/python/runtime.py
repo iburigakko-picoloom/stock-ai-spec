@@ -449,6 +449,9 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         return {"status": 200, "body": models.status(STATE / "mobile.sqlite3", _app.state.store)}
     if path == "/api/v1/mobile/daily" and method == "GET":
         return {"status": 200, "body": forecasts.latest(STATE / "mobile.sqlite3")}
+    if path == "/api/v1/mobile/daily/reference" and method == "GET":
+        return {"status": 200, "body": forecasts.latest_reference(
+            STATE / "mobile.sqlite3", datetime.now(UTC))}
     if path == "/api/v1/mobile/decision" and method == "GET":
         return {"status": 200, "body": decisions.view(STATE / "mobile.sqlite3", _app.state.store)}
     if path == "/api/v1/mobile/decision/generate" and method == "POST":
@@ -470,8 +473,13 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             }}
     if path == "/api/v1/mobile/daily/generate" and method == "POST":
         try:
+            options = strict_json(body)
+            if (not isinstance(options, dict) or set(options) - {"reference_only"}
+                    or type(options.get("reference_only", False)) is not bool):
+                raise ValueError("Invalid forecast options")
             return {"status": 200, "body": forecasts.generate(
-                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC)
+                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC),
+                **({"reference_only": True} if options.get("reference_only") else {})
             )}
         except OperationalConflictError:
             return {"status": 409, "body": {
@@ -572,4 +580,11 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             payload = {"detail": "この端末ではJSON形式で書き出してください。"}
         if path == "/api/v1/home" and response.status_code == 200:
             payload["initialLedger"] = personal.initial_reference(_app.state.store)
+        if path == "/api/v1/today" and response.status_code == 200:
+            reference = forecasts.reference_view(STATE / "mobile.sqlite3", datetime.now(UTC))
+            saved = payload.get("savedAnalysis")
+            if reference is not None and (saved is None or
+                    datetime.fromisoformat(reference["generatedAt"]) >
+                    datetime.fromisoformat(saved["generatedAt"])):
+                payload["savedAnalysis"] = reference
         return {"status": response.status_code, "body": payload}

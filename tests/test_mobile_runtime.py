@@ -23,6 +23,30 @@ def run(device, method, path, body=None):
     return asyncio.run(device.request(method, path, json.dumps(body)))
 
 
+def test_reference_request_is_explicit_and_today_projection_does_not_create_proposal(
+    device, monkeypatch,
+):
+    calls = []
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        return {"phase": "reference_saved" if kwargs else "blocked"}
+    monkeypatch.setattr(runtime.forecasts, "generate", generate)
+    endpoint = "/api/v1/mobile/daily/generate"
+    assert run(device, "POST", endpoint, {})["status"] == 200
+    assert run(device, "POST", endpoint, {"reference_only": True})["body"] == {
+        "phase": "reference_saved"}
+    for invalid in ({"reference_only": "true"}, {"reference_only": 1}, {"other": True}, None):
+        assert run(device, "POST", endpoint, invalid)["status"] == 422
+    assert calls == [{}, {"reference_only": True}]
+    original = run(device, "GET", "/api/v1/today")["body"]
+    reference = {"generatedAt": "2026-01-01T10:00:00+09:00", "readOnly": True,
+                 "analysisKind": "latest_available_reference"}
+    monkeypatch.setattr(runtime.forecasts, "reference_view", lambda *args: reference)
+    updated = run(device, "GET", "/api/v1/today")["body"]
+    assert updated == {**original, "savedAnalysis": reference}
+    assert device._app.state.store.latest_prediction_snapshot() is None
+
+
 def test_checked_startup_skips_unchanged_and_saves_only_changed_database(device, monkeypatch):
     assert device.initialize_checked() == {"persistence": "none"}
     initialize = device.initialize

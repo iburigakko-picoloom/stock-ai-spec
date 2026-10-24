@@ -1459,3 +1459,24 @@ def test_source_identity_keeps_v1_with_32_bit_nullable_missing_hashes(empty, mon
     monkeypatch.setattr(pd.util, "hash_pandas_object", wasm_hash)
     assert production_module._source_frame_id(DatasetName.DAILY_PRICES, frame) == expected
     pdt.assert_frame_equal(frame, before, check_exact=True)
+
+
+def test_reference_latest_completed_prices_do_not_require_a_trading_cutoff() -> None:
+    frames, dates = _source_frames(periods=5)
+    now = datetime.combine(
+        (dates[-1] + timedelta(days=1)).date(), datetime.min.time(), JST).replace(hour=23)
+    for frame in frames.values():
+        frame["available_at"] = pd.Timestamp(now - timedelta(minutes=5))
+    bundle = build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                                   reference_as_of=now, minimum_market_coverage=0.60)
+    latest = bundle.daily.loc[bundle.daily.trading_date == dates[-1]]
+    assert not latest.empty
+    assert (latest.available_at == pd.Timestamp(now)).all()
+    with pytest.raises(ValueError, match="Reference analysis"):
+        build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                              reference_as_of=now, proposal_as_of=now, minimum_market_coverage=0.60)
+    with pytest.raises(
+        ValueError, match="security master contains a revision after source_snapshot_as_of"
+    ):
+        build_production_data(FrameCatalog(frames), source_snapshot_as_of=now-timedelta(hours=1),
+                              reference_as_of=now-timedelta(hours=1), minimum_market_coverage=0.60)

@@ -69,6 +69,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .page-header__line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .page-header__context { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 9px; }
 .page-header__actions { margin-left: auto; }
+.page-header__line h1 { min-width: 2em; }
 .page-header__actions .button { width: auto; min-height: 48px; padding: 8px 12px; font-size: .75rem; }
 .consultation-link svg { width: 19px; height: 19px; flex-shrink: 0; }
 .page-header__meta { color: var(--muted); font-size: 0.76rem; white-space: nowrap; }
@@ -98,6 +99,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .next-action { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 14px; padding: 16px 18px; background: var(--blue-soft); color: var(--blue); border-radius: 10px; }
 
 .section { margin-top: 14px; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+.saved-analysis table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .85rem; }
+.saved-analysis th, .saved-analysis td { padding: 8px 3px; text-align: right; overflow-wrap: anywhere; border-bottom: 1px solid var(--line); }
+.saved-analysis th:first-child, .saved-analysis td:first-child { text-align: left; }
+.saved-analysis__holding { display: block; white-space: nowrap; font-size: .7rem; }
+.saved-analysis td { font-size: .75rem; }
 .section > h2 { margin: 0 0 14px; font-size: 1.05rem; line-height: 1.4; }
 .section-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .section-title div { display: flex; flex-direction: column; }

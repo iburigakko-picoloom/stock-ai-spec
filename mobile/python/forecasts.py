@@ -38,6 +38,10 @@ def initialize(path: Path) -> None:
         )
         db.execute("CREATE TABLE IF NOT EXISTS mobile_forecast_selections("
                    "sequence INTEGER PRIMARY KEY,run_id TEXT NOT NULL,selected_at TEXT NOT NULL)")
+        db.execute("CREATE TABLE IF NOT EXISTS mobile_reference_runs("
+                   "sequence INTEGER PRIMARY KEY,run_id TEXT NOT NULL UNIQUE,"
+                   "scope_hash TEXT NOT NULL "
+                   "UNIQUE,payload TEXT NOT NULL,content_hash TEXT NOT NULL,phase TEXT NOT NULL)")
 
 
 def _select(path, run_id, now):
@@ -199,6 +203,8 @@ def _check_ensemble_outputs(value, expected_symbols):
 
 
 def _publish(path: Path, store, value: dict) -> dict:
+    if value["scope"].get("analysis_mode") == "latest_available_reference":
+        raise ValueError("Reference analysis cannot become an active forecast")
     if value["snapshot"] is not None:
         snapshot = PredictionSnapshot.model_validate(value["snapshot"])
         # An intent is saved first. A crash between the two databases can retry
@@ -233,16 +239,20 @@ def _save(path: Path, store, scope: dict, now: datetime, *, snapshot=None,
     if component_outputs is not None:
         body["component_outputs"] = component_outputs
     body["run_id"] = content_id(body)
+    reference = scope.get("analysis_mode") == "latest_available_reference"
+    table = "mobile_reference_runs" if reference else "mobile_forecast_runs"
     with connect(path) as db:
-        db.execute("INSERT OR IGNORE INTO mobile_forecast_runs VALUES(NULL,?,?,?,?,?)", (
+        db.execute(f"INSERT OR IGNORE INTO {table} VALUES(NULL,?,?,?,?,?)", (
             body["run_id"], scope_hash, canonical_json(body), content_id(body),
-            "computed" if snapshot is not None else outcome,
+            ("reference_saved" if reference else "computed") if snapshot is not None else outcome,
         ))
         row = db.execute(
-            "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_forecast_runs "
+            f"SELECT run_id,scope_hash,payload,content_hash,phase FROM {table} "
             "WHERE scope_hash=?", (scope_hash,)
         ).fetchone()
     value = _checked(row)
+    if reference:
+        return value
     _select(path, value["run_id"], now)
     return _publish(path, store, value)
 
@@ -259,6 +269,39 @@ def latest(path: Path) -> dict | None:
         if selected is not None and row is None:
             raise ValueError("Selected numerical receipt missing")
     return None if row is None else _checked(row)
+
+
+def latest_reference(path: Path, now: datetime, *, saved_only=False) -> dict | None:
+    with connect(path) as db:
+        rows = db.execute(
+            "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_reference_runs "
+            + ("WHERE phase='reference_saved' " if saved_only else "")
+            + "ORDER BY sequence DESC"
+        )
+        for row in rows:
+            value = _checked(row)
+            if value["scope"].get("analysis_mode") != "latest_available_reference":
+                raise ValueError("Reference run mode changed")
+            if datetime.fromisoformat(value["checked_at"]) <= now:
+                return value
+    return None
+
+
+def reference_view(path: Path, now: datetime) -> dict | None:
+    value = latest_reference(path, now, saved_only=True)
+    if value is None:
+        return None
+    snapshot = PredictionSnapshot.model_validate(value["snapshot"])
+    predictions = {item.symbol: item for item in snapshot.predictions}
+    return {"snapshotId": snapshot.snapshot_id, "asOf": snapshot.as_of.isoformat(),
+            "generatedAt": snapshot.generated_at.isoformat(),
+            "dataAsOf": snapshot.data_as_of.isoformat(),
+            "modelVersion": snapshot.model_version, "readOnly": True,
+            "analysisKind": "latest_available_reference",
+            "priceDate": value["scope"]["universe"]["latest_source_date"],
+            "holdingSymbols": snapshot.holding_symbols,
+            "predictions": [predictions[s].model_dump(mode="json")
+                            for s in snapshot.research_symbols()]}
 
 
 def reconcile_publications(path: Path, store) -> None:
@@ -306,14 +349,17 @@ def reconcile_publications(path: Path, store) -> None:
         pass
 
 
-def generate(path: Path, store, now: datetime) -> dict:
+def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
     if now.tzinfo is None:
         raise ValueError("Aware forecast execution time required")
-    cutoff = now.astimezone(JST).replace(hour=11, minute=30, second=0, microsecond=0)
+    cutoff = (now.astimezone(JST) if reference_only else
+              now.astimezone(JST).replace(hour=11, minute=30, second=0, microsecond=0))
     manual, ledger = store.latest_manual_portfolio(), store.latest_portfolio()
     scope = {"as_of": cutoff.isoformat(),
              "manual_revision_id": None if manual is None else manual.export.revision_id,
              "ledger_portfolio_id": None if ledger is None else ledger.portfolio_id}
+    if reference_only:
+        scope["analysis_mode"] = "latest_available_reference"
     def blocked(code):
         return _save(path, store, {**scope, "blocked": code}, now, blocks=(code,))
     if now < cutoff:
@@ -331,7 +377,8 @@ def generate(path: Path, store, now: datetime) -> dict:
     if set(held) != set(manual.portfolio.holding_symbols):
         return blocked("HOLDINGS_NEED_RECONCILIATION")
     scope["holding_symbols"] = held
-    selection = universe.select(path, cutoff, held, current_membership=True)
+    selection = universe.select(path, cutoff, held, **(
+        {"reference_only": True} if reference_only else {"current_membership": True}))
     scope["universe"] = selection
     if selection["blocking_reasons"]:
         return blocked("UNIVERSE_" + selection["blocking_reasons"][0].upper())
@@ -366,8 +413,12 @@ def generate(path: Path, store, now: datetime) -> dict:
         return _save(path, store, scope, now, outcome="cash_only")
     options = ({"preselected": True}
                if selection.get("policy") == "jquants-scalecat-topix500-v1" else {})
+    if reference_only:
+        options["reference_only"] = True
     inputs = market.feature_inputs(path, now, True,
                                    decision_symbols=selection["decision_symbols"], **options)
+    if reference_only and inputs.get("reference_price_date") != selection["latest_source_date"]:
+        return blocked("REFERENCE_MARKET_DATE_MISMATCH")
     predictable_recipes = ([recipe for recipe in bundle.outputs
                            if recipe.rank_universe == "predictable_decision_symbols"]
                           if isinstance(bundle, ResearchEnsembleBundle) else [])
@@ -409,8 +460,11 @@ def generate(path: Path, store, now: datetime) -> dict:
     if (len(source_ids) != 5 or set(source_ids) != {x.value for x in market.DatasetName}
             or any(not re.fullmatch(r"[0-9a-f]{64}", x) for x in source_ids.values())):
         raise ValueError("Complete feature source lineage required")
+    membership_received = selection.get("membership_received_at")
+    if reference_only and membership_received is None:
+        membership_received = max(x["received_at"] for x in selection["sources"])
     data_as_of = max(market.receipt_time(inputs["latest_source_received_at"]),
-                     market.receipt_time(selection["membership_received_at"]))
+                     market.receipt_time(membership_received))
     if data_as_of > cutoff:
         raise ValueError("Source receipt after alpha cutoff")
     proof["latest_source_received_at"] = data_as_of.isoformat()
@@ -439,12 +493,15 @@ def generate(path: Path, store, now: datetime) -> dict:
         proof["predictability_evidence_sha256"] = evidence
         scope["predictability_contract"] = _predictability_contract(population, evidence)
     scope["data_proof_hash"] = content_id(proof)
+    table = "mobile_reference_runs" if reference_only else "mobile_forecast_runs"
     with connect(path) as db:
         existing = db.execute(
-            "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_forecast_runs "
+            f"SELECT run_id,scope_hash,payload,content_hash,phase FROM {table} "
             "WHERE scope_hash=?", (content_id(scope),)
         ).fetchone()
     if existing is not None:
+        if reference_only:
+            return _checked(existing)
         _select(path, existing[0], now)
         return _publish(path, store, _checked(existing))
     usable = set(maps[5]) & set(maps[20]) & set(selection["decision_symbols"])

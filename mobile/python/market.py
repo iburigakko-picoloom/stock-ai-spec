@@ -635,7 +635,7 @@ def master_references(path: Path, cutoff: datetime) -> list[dict]:
 
 def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
                    decision_symbols: list[str] | tuple[str, ...] | None = None,
-                   preselected: bool = False) -> dict:
+                   preselected: bool = False, reference_only: bool = False) -> dict:
     # Keep full-market verification/context construction. Only the individual
     # model frames are projected before copying/JSON precision conversion.
     selected = None
@@ -645,12 +645,12 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
                 or len(set(decision_symbols)) != len(decision_symbols)):
             raise ValueError("Invalid decision-symbol calculation scope")
         selected = frozenset(decision_symbols)
-    cutoff = datetime.combine(
+    cutoff = as_of if reference_only else datetime.combine(
         as_of.astimezone(ZoneInfo("Asia/Tokyo")).date(), time(11, 30), ZoneInfo("Asia/Tokyo")
     )
     if as_of < cutoff:
         raise ValueError("11:30 input cutoff is not closed")
-    if preselected:
+    if preselected and not reference_only:
         if selected is None or not as_frames:
             raise ValueError("Preselection requires explicit frame calculation scope")
         from .input_cache import inputs
@@ -658,7 +658,8 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
         return inputs(path, cutoff, selected)
     bundle = build_production_data(
         FeatureSource(path) if as_frames else SQLiteSource(path),
-        source_snapshot_as_of=cutoff, proposal_as_of=cutoff
+        source_snapshot_as_of=cutoff,
+        **({"reference_as_of": cutoff} if reference_only else {"proposal_as_of": cutoff})
     )
     with connect(path) as db:
         latest_receipt = db.execute(
@@ -673,6 +674,8 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
         "source_snapshot_ids": list(bundle.source_snapshot_ids),
         "revision_policy": bundle.revision_policy.value,
     }
+    if reference_only:
+        result["reference_price_date"] = str(bundle.daily.trading_date.max().date())
     for key, frame in [("daily", bundle.daily), ("market", bundle.market_context),
                        ("sector", bundle.sector_context), ("financials", bundle.financials)]:
         if selected is not None and key in ("daily", "financials"):

@@ -71,6 +71,32 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("heading", { name: "設定", exact: true })).toBeVisible();
 });
 
+for (const width of [320, 390]) test(`reference analysis from Today at ${width}px`, async ({ page }, info) => {
+  let saved = false;
+  await page.route("**/api/v1/today", route => route.fulfill({ json: {
+    businessDate: "2026-10-24", pipelineState: "BLOCKED", isStale: true,
+    blockingReason: "NUMERICAL_FORECAST_INCOMPLETE", runtimeMode: "RESEARCH", proposal: null,
+    savedAnalysis: saved ? { snapshotId: "synthetic-reference", asOf: "2026-10-24T23:00:00+09:00",
+      generatedAt: "2026-10-24T23:00:00+09:00", dataAsOf: "2026-10-24T22:00:00+09:00",
+      modelVersion: "mobile-bundle:" + "a".repeat(64), readOnly: true, holdingSymbols: ["1234"],
+      analysisKind: "latest_available_reference", priceDate: "2026-10-23",
+      predictions: [{ symbol: "1234", expected_return_5d: .01, expected_return_20d: .02, rank_score_20d: .8 }] } : null,
+  } }));
+  await page.route("**/api/v1/mobile/daily/generate", route => {
+    expect(route.request().postDataJSON()).toEqual({ reference_only: true });
+    saved = true;
+    return route.fulfill({ json: { phase: "reference_saved", blocking_reasons: [] } });
+  });
+  await page.setViewportSize({ width, height: 844 });
+  await page.evaluate(() => { localStorage.setItem("settingsTestDailyState", "closed"); document.documentElement.style.fontSize = "150%"; });
+  await page.goto("/#/today");
+  await page.getByRole("button", { name: "最新データで分析する" }).click();
+  await expect(page.getByRole("heading", { name: "2026-10-23の終値による参考分析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "提案を表示できない理由" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.screenshot({ path: info.outputPath(`reference-${width}.png`), fullPage: true });
+});
+
 for (const width of [320, 390]) test(`daily calculation stage at ${width}px with large text`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 844 });
   await page.evaluate(() => localStorage.setItem("settingsTestDailyState", "calculating"));

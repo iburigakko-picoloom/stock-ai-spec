@@ -49,6 +49,7 @@ export interface DailyProposal {
 }
 
 export interface SavedAnalysis {
+  analysisKind?: "latest_available_reference"; priceDate?: string;
   snapshotId: string; asOf: string; generatedAt: string; dataAsOf: string;
   modelVersion: string; readOnly: true; holdingSymbols: string[];
   predictions: { symbol: string; expected_return_5d: number | null;

@@ -511,3 +511,65 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
     assert manual_chatgpt.import_answer(path, restored, {
         "input_record_id": exported["input_record_id"], "answer_json": original,
     }, now + timedelta(seconds=1)) == reply
+
+
+def test_reference_after_registration_uses_actual_time_and_never_selects_daily(ready, monkeypatch):
+    device, store, path, selected, features, _ = ready
+    original = forecasts.generate(path, store, NOW)
+    active = store.latest_prediction_snapshot()
+    manual = store.latest_manual_portfolio()
+    personal.save_portfolio(store, manual.portfolio, manual.export.revision_id, NOW)
+    reference_time = NOW + timedelta(minutes=1)
+    selected["as_of"] = reference_time.isoformat()
+    features["as_of"] = reference_time.isoformat()
+    for rows in features["features"].values():
+        for row in rows:
+            row["available_at"] = reference_time.isoformat()
+    def reference_inputs(*args, **kwargs):
+        assert kwargs["reference_only"] is True
+        return {"as_of": reference_time.isoformat(), "latest_source_received_at": NOW.isoformat(),
+                "reference_price_date": selected["latest_source_date"],
+                "source_snapshot_ids": [(name.value, "4" * 64) for name in market.DatasetName],
+                "revision_policy": "synthetic-fixture-conservative"}
+    monkeypatch.setattr(forecasts.market, "feature_inputs", reference_inputs)
+    value = forecasts.generate(path, store, reference_time, reference_only=True)
+    assert value["phase"] == "reference_saved"
+    assert value["scope"]["as_of"] == reference_time.isoformat()
+    assert value["snapshot"]["data_as_of"] == NOW.isoformat()
+    assert forecasts.latest(path) == original
+    assert store.prediction_snapshot(active.snapshot_id) == active
+    with pytest.raises(ValueError, match="cannot become an active"):
+        forecasts._publish(path, store, value)
+    assert forecasts.reference_view(path, reference_time)["readOnly"] is True
+    assert forecasts.reference_view(path, NOW) is None
+    archive = device.export_state()
+    device.initialize(archive)
+    assert forecasts.latest_reference(path, reference_time) == value
+    assert forecasts.reference_view(path, reference_time)["analysisKind"] == (
+        "latest_available_reference")
+    daily = forecasts.generate(path, device._app.state.store, reference_time)
+    assert daily["blocking_reasons"] == ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF"]
+    # A new blocked reference attempt must preserve the last completed reference.
+    later = reference_time + timedelta(seconds=1)
+    selected["blocking_reasons"] = ["price_session_missing"]
+    blocked = forecasts.generate(path, device._app.state.store, later, reference_only=True)
+    assert blocked["snapshot"] is None
+    assert forecasts.reference_view(path, later)["snapshotId"] == value["snapshot"]["snapshot_id"]
+
+
+def test_reference_received_history_without_feature_doubles(tmp_path, monkeypatch):
+    _device, path, store, _cutoff, now, _, _ = received_history_ready(tmp_path, monkeypatch)
+    now += timedelta(hours=7)
+    manual = store.latest_manual_portfolio()
+    personal.save_portfolio(store, manual.portfolio, manual.export.revision_id, now)
+    now += timedelta(seconds=1)
+    result = forecasts.generate(path, store, now, reference_only=True)
+    assert result["phase"] == "reference_saved", result["blocking_reasons"]
+    assert result["scope"]["as_of"] == now.isoformat()
+    assert result["scope"]["universe"]["latest_source_date"] < now.date().isoformat()
+    assert result["snapshot"]["predictions"]
+    assert forecasts.latest(path) is None
+    assert store.latest_prediction_snapshot() is None
+    assert store.latest_archived_prediction(now) is None
+    view = forecasts.reference_view(path, now)
+    assert view["priceDate"] == result["scope"]["universe"]["latest_source_date"]

@@ -1,5 +1,7 @@
 # Data Contract
 
+2026-10-24追記（D244）：端末の参考分析は実行時刻をas_ofとし、実際にその時刻までに受信した直近確定営業日のデータを使う。元受信時刻・source hashを保持し、11:30に遡及しない。参照株価日と生成時刻を分離し、独立したmobile_reference_runsに保存。当日予測・株数判断・台帳への昇格は禁止。通常の日次提案の11:30締切とPIT条件は変更しない。
+
 2026-10-18追記（D162）：今回のデータ/予測/モデル/口座snapshot/評価結果の接続と評価区分は[DAILY_INTEGRATION_CONTRACT.md](DAILY_INTEGRATION_CONTRACT.md)で固定する。研究価格と実取引価格、当時の公開情報と後日訂正、配当の権利と入金を分ける。外部ChatGPT用射影は上位20と全保有に必要なfieldだけとし、口座番号・認証情報を含めない。原予測・ChatGPT目標株数案・本人の実約定は別保存し、回答取込で実台帳を更新しない。
 
 2026-10-18追記（D174）：日足市場射影はrawの`ExRT`を`ex_rights_type`へ引き継ぎ、`ex_rights_type_source_present`で元列の不存在と報告済みnullを区別する。1=分割、2=併合、3=ライツ。CSVの空文字はnullと扱い、未知codeは保存して未対応とする。正規化列が存在すればrawとの値/欠損の一致も認証し、古い列なしpartitionは認証済みrawから補完する。非単位/不明の調整係数、または非nullの種類は企業行動の根拠確認対象。nullや係数1から全期間の企業行動なしを推定しない。[公式日足仕様](https://jpx-jquants.com/ja/spec/eq-bars-daily)。
