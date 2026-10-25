@@ -1,3 +1,9 @@
+## 2026-10-26 — 相談改善・ランキング4欄 APK 0.1.59配布
+
+- 本人依頼で同署名0.1.59-candidate/code10059を作成し、既存の非共有Drive StockAIへ保存。source 91d3c5423faf03cececf38cfe05bcf4f1c2d1076、24,060,053 bytes、SHA256 bfd97287478b6da71c3b6134d95e212444fdb87a40dc78d9abab38870058dd20。Drive id 1WlupuglLsLHFqkUzpQOxpgMe1Z2qqUBT、親folder/size/shared=falseを再読込確認。
+- Web production build、Android assembleRelease/lintVital、署名/非debug、共有Pythonと全assetsの一致、秘密/モデル/市場/fixture非同梱検査成功。直前のD257/D258関連試験を再利用。証拠 .demo-artifacts/update-0159-20261026/ 。
+- 実機更新/署名版起動/実AI調査・CIは未確認。一般公開GitHub Releaseへの切替は行わず従来の本人用配布を維持。実注文なし。
+
 ## 2026-10-26 — ランキングの順位/値4欄（D258）
 
 - 総合・20日順位・20日値・5日値へ変更。総合未導入を明記し、20日順位の既存相談/反映を維持。値の2欄は同じ既存対象の予測リターン降順、欠損末尾で表示。API/原予測/選定/台帳を変更しない。
