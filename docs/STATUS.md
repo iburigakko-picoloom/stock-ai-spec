@@ -4,6 +4,8 @@
 - モデル設定内から参考分析を直接実行しTodayとの往復を除去。同じ設定へのリンクを抑止、0件時のモデル取込を許可。実保有の不足は保有編集へ直接案内。口座読込待ちと未保存編集、当日予測記録と参考分析を区別。Today/予測/口座/保有/市場/自動更新/ChatGPT入口と戻り先を確認し、正常な戻る操作は維持。
 - Python関連46件、最終checkpoint8件、ruff成功。Web全183件、最終関連33件、型/lint/build成功。Android JVM31件、native10件成功：checkpoint5（診断再open/不正文字拒否/保存ロック応答性）、実Python422→archive保存→owner再起動→診断一致1件、手動サービス4（消灯/継続上限含む）。本人の失敗そのものを再現した結果ではなく、制御したエラー経路の検証。
 - 元の計算式、台帳/取引/資産、モデル採用、実注文に変更なし。本人端末での元の失敗原因、全量完走、署名版起動、CIは未確認。過去の失敗内容は復元できず、新規診断は更新後の実行から記録。APK更新前の途中cacheは再利用しない。検証記録 .demo-artifacts/update-0155-20261025/ 。
+- 同署名0.1.55-candidate/code10055を承認済み非共有StockAIへ保存。Drive id 15D3pOx4ImV7wkKDV6W_o1rBzVKm34qH8、24,046,397 bytes/shared=falseを再読込確認。source 26bc38f2924de263a4283826fa6c58ca324e8cb2、SHA256 5875a42ef8e7828f5b7f7ee8f0d1335c107e6a0a565ac9f1281430a3bf29a65d。本人端末更新・実際の失敗診断は未確認。
+
 ## 2026-10-25 — 最終保存中の応答なしを防ぐ（D252）
 
 - 本人画像でOSの応答なしとblocked 99%を確認。main Handlerの通知更新がcheckpoint monitor/共有SQLite保存ロック/AES鍵を待つ経路と、renderer終了callbackがtransferLockを待つ経路を除去。確定済み小規模metadataのimmutable volatile copyを参照し、DB復元/owner構築と転送後始末はbackgroundに限定。本人端末ANR traceは未取得につき実機原因の断定とは区別する。
