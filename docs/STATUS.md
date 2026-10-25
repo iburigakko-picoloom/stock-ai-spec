@@ -4,6 +4,8 @@
 - 予測開始前と最終保存時のphase表示、暗号化metadataへの失敗理由保存、画面再表示時の理由/再開案内を追加。一般計算例外を市場データ不足へ誤誘導しない。台帳/取引/完成済み予測・原計算式・11:30制約は維持。
 - Python関連70件、最終checkpoint7件、Web関連40件、型/lint/build、ruff成功。offline WASMのworker破棄→別worker再開・PC完全結果一致1件成功。Android JVM31件、native7件成功（暗号化再open/理由保持/進捗revision、chunk差替拒否、offline単位読出し、条件付き継続/上限/進捗なし停止、実サービスActivity停止+消灯）。Android buildは日本語実パスの既知制約で初回失敗し、既存英字aliasで成功。
 - 本人端末での完走・速度・失敗原因そのもの、署名版起動、CIは未確認。APK更新をまたぐ途中cacheは再利用しない。実注文/モデル訓練なし。検証記録 .demo-artifacts/update-0153-20261025/ 。
+- 同署名0.1.53-candidate/code10053を検査し、承認済み非共有StockAIへ保存。Drive id 16yzf3TGp4j6f1gS0MmL_8aD0uyN46rmx、24,044,365 bytes/shared=falseを再読込確認。source 6f6a25bcee103b83f6b91735aab1e9fe8a359b3f、SHA256 37b92b86c345cc24d04db60dc913a8824967431d35caa329903e8951f43bc6b4。本人端末への更新と完走は未確認。
+
 ## 2026-10-25 — 予測進捗%・暗号化途中保存と再開（D250）
 
 - 完了済みの処理量に基づく%+バーをHome/Today/モデル設定、手動解析の通知へ接続。native直接読出しで計算queueを待たない。日付別source型/完全検証、入力準備、銘柄特徴量バッチ、モデル別予測を途中保存。同日/同入力/同APKで同じ分析を開始すると保存済みを再利用。未完成結果は提案に公開せず、元の計算式・全母集団・11:30制約・台帳/履歴を維持。
