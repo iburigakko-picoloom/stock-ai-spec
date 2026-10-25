@@ -3,6 +3,7 @@
 - Androidランキングに最新の完成済み予測/旧reference結果を接続。5日/20日、株価日/更新日時、銘柄名/コード、上位50件検索。時刻を問わず保存結果を表示。「参考分析」の表示名を廃止し、Today/モデル設定からランキングへ移動可能にした。
 - 同画面で相談文作成・コピー・ChatGPTへの移動・回答JSON反映。回答は元snapshot/期間/対象に固定し、重複/不足/未知銘柄/別入力/期限切れを拒否。元のモデル順位と切替でき、予測数値/台帳/取引は不変。相談入力/回答のarchive復元を確認。外部AIへの実送信や実注文はしていない。
 - Python関連46件、最終ランキング/API9件、ruff成功。Web全186件と最終関連9件、型/lint成功。Android JVM31件、native保存表示2件成功（ランキングの暗号化表示copy、DB非起動読出し、失効・改ざん拒否）。本人の実データによる全量処理・ChatGPT回答・署名版起動・CIは未確認。検証記録 .demo-artifacts/update-0157-20261026/ 。
+- 型/lint/build/署名検査成功。同署名0.1.57-candidate/code10057を非共有StockAIへ保存し24,050,633 bytes/shared=falseを再確認。Drive id 1B7n4RDTbC8icWyN0kB_qxx1bWRJI5gcf、source d812ca5a38f8e93a7dd7ddf5c4f86cb8c6055ee3、SHA256 5e7cd4f75de2c3928ddbe11aef46722fee468c958684cd2df9778066f7521cd7。本人端末更新・実相談は未確認。
 
 ## 2026-10-26 — 参考分析の時刻丸めによる保存拒否を修正（D254）
 
