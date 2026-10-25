@@ -29,7 +29,7 @@ export function useApiData<T>(path: string): {
       setResult(previous => previous.path === path
         ? previous : { path, activation, value: null });
       if (isAndroid() && typeof StockAI.readSavedView === "function"
-          && /^(\/api\/v1\/(home|today)|\/api\/v1\/ranking\?rankType=(overall|5d|20d|morning)&limit=50)$/.test(path)) {
+          && /^(\/api\/v1\/(home|today)|\/api\/v1\/mobile\/ranking\/(5d|20d)|\/api\/v1\/ranking\?rankType=(overall|5d|20d|morning)&limit=50)$/.test(path)) {
         void StockAI.readSavedView({ path }).then(saved => {
           if (active && started === epoch && !freshCompleted && saved.available && saved.readOnly === true
               && saved.savedAt && Number.isFinite(Date.parse(saved.savedAt)) && Date.parse(saved.savedAt) <= Date.now()) {

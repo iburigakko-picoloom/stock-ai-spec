@@ -50,8 +50,8 @@ test("no saved result shows preparation instead of a fictional previous analysis
 test("new reference analysis names the price date without pretending it was generated then", () => {
   response({ ...data, savedAnalysis: { ...data.savedAnalysis!, analysisKind: "latest_available_reference", priceDate: "2026-10-23", generatedAt: "2026-10-24T23:00:00+09:00" } });
   render(<MemoryRouter><TodayPage /></MemoryRouter>);
-  expect(screen.getByRole("heading", { name: "2026-10-23の終値による参考分析" })).toBeVisible();
-  expect(screen.getByText(/この日付の売買提案ではありません/)).toBeVisible();
+  expect(screen.getByRole("heading", { name: "2026-10-23の終値によるランキング" })).toBeVisible();
+  expect(screen.getByText(/ランキングからChatGPTに相談できます/)).toBeVisible();
   expect(screen.queryByRole("link", { name: /判断を確認/ })).not.toBeInTheDocument();
 });
 

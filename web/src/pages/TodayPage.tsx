@@ -37,14 +37,15 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
   const dated = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric" }).format(new Date(analysis.asOf));
   const ranked = analysis.predictions.some(row => row.rank_score_20d != null);
   return <section className="section saved-analysis" aria-label="保存済み分析">
-    <h2>{analysis.analysisKind === "latest_available_reference" ? `${analysis.priceDate}の終値による参考分析` : `${dated}の分析`}</h2>
-    <p>{analysis.analysisKind === "latest_available_reference" ? "現在の登録内容で作成した閲覧用の分析です。この日付の売買提案ではありません。" : "保存済み・閲覧用。当日の更新が完了すると切り替わります。"}</p>
-    <table><thead><tr><th>銘柄</th>{ranked && <th>20日順位</th>}<th>5日予測</th><th>20日予測</th></tr></thead>
+    <h2>{analysis.analysisKind === "latest_available_reference" ? `${analysis.priceDate}の終値によるランキング` : `${dated}の分析`}</h2>
+    <p>{analysis.analysisKind === "latest_available_reference" ? "株価日を確認し、ランキングからChatGPTに相談できます。" : "保存済み・閲覧用。当日の更新が完了すると切り替わります。"}</p>
+    <Link className="button button--secondary" to="/ranking">ランキングを見る・相談する</Link>
+    {!isAndroid() && <table><thead><tr><th>銘柄</th>{ranked && <th>20日順位</th>}<th>5日予測</th><th>20日予測</th></tr></thead>
       <tbody>{analysis.predictions.map(row => <tr key={row.symbol}>
         <td>{row.symbol}{analysis.holdingSymbols.includes(row.symbol) && <small className="saved-analysis__holding">（保有）</small>}</td>
         {ranked && <td>{row.rank_score_20d?.toFixed(2) ?? "—"}</td>}
         <td>{percent(row.expected_return_5d)}</td><td>{percent(row.expected_return_20d)}</td>
-      </tr>)}</tbody></table>
+      </tr>)}</tbody></table>}
     <p className="setting-footnote">作成 {dateTime(analysis.generatedAt)} JST</p>
   </section>;
 }
@@ -64,7 +65,7 @@ export function TodayPage(): ReactNode {
 
   return (
     <div className="page">
-      <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} actions={<Link className="button button--secondary consultation-link" to="/today/chatgpt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 18 3 22l5-2a9 9 0 1 0-4-2Z" /></svg>ChatGPTと相談</Link>} />
+      <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} actions={<Link className="button button--secondary consultation-link" to={isAndroid() ? "/ranking" : "/today/chatgpt"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 18 3 22l5-2a9 9 0 1 0-4-2Z" /></svg>ChatGPTと相談</Link>} />
       {(proposal || data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY") && <RuntimeBanner mode={data.runtimeMode} />}
       {previous && <p role="status">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
       <DailyPanel />

@@ -48,10 +48,10 @@ test("reference analysis runs in model settings and model errors do not link bac
   vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? model : path.endsWith("/daily") ? { ...run, blocking_reasons: ["ALPHA_CUTOFF_OPEN"] } : null);
   vi.mocked(apiPost).mockResolvedValue({ phase: "blocked", blocking_reasons: ["CALIBRATED_MODEL_BUNDLE_UNAVAILABLE"] });
   render(<MemoryRouter initialEntries={["/settings?edit=model"]}><MobileModelPanel disabled={false} inputsSaved onBusy={vi.fn()} /></MemoryRouter>);
-  fireEvent.click(await screen.findByRole("button", { name: "最新データで分析する" }));
+  fireEvent.click(await screen.findByRole("button", { name: "ランキングを更新" }));
   await screen.findByText("取り込んだモデルの利用条件を確認してください。");
   expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/daily/generate", { reference_only: true });
-  expect(screen.queryByRole("link", { name: "参考分析を作る" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "ランキングを作る" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "登録内容を確認する" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "モデル一式を取り込む" })).toBeEnabled();
 });

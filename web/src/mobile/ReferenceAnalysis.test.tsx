@@ -11,7 +11,7 @@ beforeEach(() => vi.resetAllMocks());
 test("unknown blocking codes do not falsely route to market data", async () => {
   vi.mocked(apiPost).mockResolvedValue({ phase: "blocked", blocking_reasons: ["UNEXPECTED_CONTRACT"] });
   render(<MemoryRouter><ReferenceAnalysis onSaved={vi.fn()} hasSaved /></MemoryRouter>);
-  fireEvent.click(screen.getByRole("button", { name: "最新データで分析する" }));
+  fireEvent.click(screen.getByRole("button", { name: "ランキングを更新" }));
   expect(await screen.findByRole("status")).toHaveTextContent("UNEXPECTED_CONTRACT");
   expect(screen.queryByRole("link")).not.toBeInTheDocument();
 });
@@ -21,7 +21,7 @@ test("first analysis uses reference mode, prevents duplicate work and reloads th
   vi.mocked(apiPost).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   const reload = vi.fn();
   render(<MemoryRouter><ReferenceAnalysis onSaved={reload} hasSaved={false} /></MemoryRouter>);
-  const button = screen.getByRole("button", { name: "最新データで分析する" });
+  const button = screen.getByRole("button", { name: "ランキングを更新" });
   fireEvent.click(button); fireEvent.click(button);
   expect(apiPost).toHaveBeenCalledTimes(1);
   expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/daily/generate", { reference_only: true });
@@ -29,7 +29,7 @@ test("first analysis uses reference mode, prevents duplicate work and reloads th
   expect(screen.getByText(/途中結果は自動保存/)).toBeVisible();
   finish({ phase: "reference_saved", blocking_reasons: [] });
   await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
-  expect(screen.getByRole("status")).toHaveTextContent("参考分析を保存しました");
+  expect(screen.getByRole("status")).toHaveTextContent("ランキングを保存しました");
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 });
 
@@ -41,7 +41,7 @@ test.each([
   vi.mocked(apiPost).mockResolvedValue({ phase: "blocked", blocking_reasons: [code] });
   const reload = vi.fn();
   render(<MemoryRouter><ReferenceAnalysis onSaved={reload} hasSaved /></MemoryRouter>);
-  fireEvent.click(screen.getByRole("button", { name: "最新データで分析する" }));
+  fireEvent.click(screen.getByRole("button", { name: "ランキングを更新" }));
   expect(await screen.findByRole("link")).toHaveAttribute("href", target === "holdings" ? "/holdings" : `/settings?edit=${target}`);
   expect(reload).not.toHaveBeenCalled();
   expect(apiPost).toHaveBeenCalledTimes(1);
@@ -50,8 +50,8 @@ test.each([
 test("preserves computation errors without falsely directing users to market inputs", async () => {
   vi.mocked(apiPost).mockRejectedValue(new Error("途中保存から再試行してください。"));
   render(<MemoryRouter><ReferenceAnalysis onSaved={vi.fn()} hasSaved={false} /></MemoryRouter>);
-  fireEvent.click(screen.getByRole("button", { name: "最新データで分析する" }));
+  fireEvent.click(screen.getByRole("button", { name: "ランキングを更新" }));
   expect(await screen.findByRole("status")).toHaveTextContent("途中保存から再試行してください。");
-  expect(screen.getByRole("button", { name: "最新データで分析する" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "ランキングを更新" })).toBeEnabled();
   expect(screen.queryByRole("link")).not.toBeInTheDocument();
 });

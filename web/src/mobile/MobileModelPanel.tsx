@@ -115,7 +115,7 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
     <p role="status">{message}</p>
     {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
       <ReferenceAnalysis hasSaved={referenceSaved} disabled={disabled || calculating} onBusy={onBusy} onSaved={() => setReferenceSaved(true)} />}
-    {referenceSaved && <Link className="button button--secondary" to="/today">保存した参考分析を見る</Link>}
+    {referenceSaved && <Link className="button button--secondary" to="/ranking">保存したランキングを見る</Link>}
     {run && <div className="forecast-state">
       <p>当日予測の記録：{timestamp(run.scope.as_of)}</p>
       <p>推奨株数：{researchConsultation ? "自動判定なし・ChatGPTで案を検討" : decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>

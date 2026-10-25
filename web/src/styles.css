@@ -490,3 +490,8 @@ label.checkbox { display: flex; flex-direction: row; align-items: flex-start; ga
 .save-progress-spinner { width: 24px; height: 24px; flex: 0 0 24px; border: 3px solid #b6d5ff; border-top-color: #0866e8; border-radius: 50%; animation: save-spin 0.9s linear infinite; }
 @keyframes save-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .save-progress-spinner { animation: none; } }
+
+.saved-ranking-row { grid-template-columns: 48px minmax(0, 1fr) 84px; align-items: start; }
+.saved-ranking-row > span { text-align: right; font-size: .9rem; }
+.saved-ranking-row small { display: block; color: var(--muted); font-size: .7rem; }
+.saved-ranking-row p { margin: 4px 0 0; font-size: .8rem; overflow-wrap: anywhere; }

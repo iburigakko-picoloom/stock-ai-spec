@@ -32,6 +32,7 @@ from . import (
     membership,
     models,
     personal,
+    rankings,
     research,
     universe,
 )
@@ -432,6 +433,22 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             }}
     if path == "/api/v1/mobile/market" and method == "GET":
         return {"status": 200, "body": market.status(STATE / "mobile.sqlite3")}
+    if path.startswith("/api/v1/mobile/ranking/"):
+        try:
+            parts = path.removeprefix("/api/v1/mobile/ranking/").split("/")
+            horizon = parts[0]
+            args = (STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC), horizon)
+            if len(parts) == 1 and method == "GET":
+                result = rankings.view(*args)
+            elif len(parts) == 2 and method == "POST" and parts[1] in ("export", "answer"):
+                operation = rankings.export if parts[1] == "export" else rankings.import_answer
+                result = operation(*args, json.loads(body))
+            else:
+                raise ValueError("ランキングの操作を確認してください")
+            return {"status": 200, "body": result}
+        except (ValueError, KeyError, TypeError) as error:
+            return {"status": 422, "body": {"detail": str(error) if type(error) is ValueError
+                    else "ランキング・回答JSONの形式を確認してください"}}
     if path.startswith("/api/v1/mobile/chatgpt-manual/"):
         try:
             store, now = _app.state.store, datetime.now(UTC)

@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { ActionBadge, PageHeader, StatePanel, TabBar } from "../components";
 import { useApiData } from "../hooks";
 import type { RankingRow } from "../types";
+import { isAndroid } from "../mobile/native";
+import { Rankings } from "../mobile/Rankings";
 
 const tabs = [
   ["overall", "総合"],
@@ -12,6 +14,10 @@ const tabs = [
 ] as const;
 
 export function RankingPage(): ReactNode {
+  return isAndroid() ? <Rankings /> : <WebRankingPage />;
+}
+
+function WebRankingPage(): ReactNode {
   const [rankType, setRankType] = useState("overall");
   const [search, setSearch] = useState("");
   const { data, error, loading, savedAt } = useApiData<RankingRow[]>(`/api/v1/ranking?rankType=${rankType}&limit=50`);

@@ -24,6 +24,12 @@ public class SavedReadViewsTest {
                 .put("body", new JSONObject().put("revision_id", "saved-fixture")), 2);
             assertEquals("saved-fixture", reader.read("/api/v1/mobile/portfolio")
                 .getJSONObject("body").getString("revision_id"));
+            views.save("/api/v1/mobile/ranking/20d", new JSONObject().put("status", 200)
+                .put("body", new JSONObject().put("id", "saved-ranking")), 3);
+            assertEquals("saved-ranking", reader.read("/api/v1/mobile/ranking/20d")
+                .getJSONObject("body").getString("id"));
+            assertTrue(SavedReadViews.allowed("/api/v1/mobile/ranking/5d"));
+            assertFalse(SavedReadViews.allowed("/api/v1/mobile/ranking/20d/export"));
             reader.clear();
             assertFalse(views.read("/api/v1/home").getBoolean("available"));
             assertFalse(views.read("/api/v1/mobile/portfolio").getBoolean("available"));
