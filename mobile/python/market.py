@@ -693,7 +693,8 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
         if selected is not None and key in ("daily", "financials"):
             frame = frame.loc[frame.symbol.isin(selected)].reset_index(drop=True)
         result[key] = (model_input_frame(key, frame) if as_frames else
-                       json.loads(frame.to_json(orient="records", date_format="iso")))
+                       json.loads(frame.to_json(
+                           orient="records", date_format="iso", date_unit="ns")))
     if selected is not None:
         result["decision_symbols"] = sorted(selected)
     return result

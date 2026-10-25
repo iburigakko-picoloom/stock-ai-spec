@@ -557,15 +557,18 @@ def test_reference_after_registration_uses_actual_time_and_never_selects_daily(r
     assert forecasts.reference_view(path, later)["snapshotId"] == value["snapshot"]["snapshot_id"]
 
 
-def test_reference_received_history_without_feature_doubles(tmp_path, monkeypatch):
+@pytest.mark.parametrize("microsecond", [0, 123000, 123456])
+def test_reference_received_history_without_feature_doubles(tmp_path, monkeypatch, microsecond):
     _device, path, store, _cutoff, now, _, _ = received_history_ready(tmp_path, monkeypatch)
-    now += timedelta(hours=7)
+    now += timedelta(hours=7, microseconds=microsecond)
     manual = store.latest_manual_portfolio()
     personal.save_portfolio(store, manual.portfolio, manual.export.revision_id, now)
     now += timedelta(seconds=1)
     result = forecasts.generate(path, store, now, reference_only=True)
     assert result["phase"] == "reference_saved", result["blocking_reasons"]
     assert result["scope"]["as_of"] == now.isoformat()
+    saved = forecasts.latest_reference(path, now)
+    assert saved == result
     assert result["scope"]["universe"]["latest_source_date"] < now.date().isoformat()
     assert result["snapshot"]["predictions"]
     assert forecasts.latest(path) is None

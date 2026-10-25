@@ -64,11 +64,11 @@ def model_input_frame(name: str, source: pd.DataFrame) -> pd.DataFrame:
 
 
 def _json_records_frame(source: pd.DataFrame) -> pd.DataFrame:
-    """Match the shipped records JSON precision/inference one column at a time."""
+    """Keep numeric JSON inference while preserving timestamp precision."""
     if (source.empty or not source.columns.is_unique
             or any(not isinstance(name, str) for name in source.columns)):
         return pd.DataFrame.from_records(
-            json.loads(source.to_json(orient="records", date_format="iso"))
+            json.loads(source.to_json(orient="records", date_format="iso", date_unit="ns"))
         )
     columns = {}
     for name in source.columns:
@@ -79,12 +79,12 @@ def _json_records_frame(source: pd.DataFrame) -> pd.DataFrame:
             # a separate Python string allocation for every historical row.
             codes, unique = pd.factorize(column, sort=False, use_na_sentinel=False)
             encoded = pd.Series(unique, dtype=column.dtype).to_frame(name=name)
-            parsed = json.loads(encoded.to_json(orient="values", date_format="iso"))
+            parsed = json.loads(encoded.to_json(orient="values", date_format="iso", date_unit="ns"))
             values = [row[0] for row in parsed]
             columns[name] = pd.Series([values[code] for code in codes])
             del codes, unique, encoded, parsed, values
         else:
-            values = json.loads(column.to_json(orient="values", date_format="iso"))
+            values = json.loads(column.to_json(orient="values", date_format="iso", date_unit="ns"))
             columns[name] = pd.Series(values)
             del values
     return pd.DataFrame(columns, copy=False)
@@ -161,11 +161,15 @@ def calculate(payload: dict, selection: dict, *, include_predictability: bool = 
     )
     excluded = sorted(set(result.symbol) - eligible)
     result = result.loc[result.symbol.isin(eligible)]
+    # Reference cutoffs include sub-millisecond time. Default pandas JSON
+    # truncates to milliseconds and would fail exact provenance validation.
     output = {}
     for horizon in selection["horizons"]:
         days, names = horizon["horizon"], horizon["feature_names"]
         output[str(days)] = json.loads(
-            result[["symbol", "available_at", *names]].to_json(orient="records", date_format="iso")
+            result[["symbol", "available_at", *names]].to_json(
+                orient="records", date_format="iso", date_unit="ns"
+            )
         )
     return {
         "as_of": payload["as_of"],

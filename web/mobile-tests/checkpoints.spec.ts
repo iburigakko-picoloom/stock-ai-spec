@@ -12,6 +12,8 @@ from mobile.python import checkpoints, features
 from stock_ai.fixtures import market_fixture
 from tests.test_mobile_features import frozen_selection
 frames = market_fixture(270)
+for frame in frames:
+    frame["available_at"] += timedelta(microseconds=123456)
 daily = frames[0]
 symbol = sorted(daily.symbol.unique())[0]
 frames = (daily.loc[~((daily.symbol == symbol) & (daily.trading_date == daily.trading_date.min()))].copy(), *frames[1:])
