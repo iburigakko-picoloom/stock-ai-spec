@@ -3,7 +3,7 @@
 - Androidのportfolio GETだけを、確定済み暗号化operations archiveの直接読出しへ変更。Python/数値package起動、市場SQLite展開、計算queue待機を除去。暗号文・record/export/revision hash・世代・SQLite整合性を検証し、古いschemaのみ従来の移行処理へ戻す。書込み・台帳・市場・モデルは変更しない。
 - 隔離Androidエミュレーターの合成口座で、従来のcold GET 14,646msに対し直接読込64ms。応答全項目一致、Python未起動、計算queue占有中の読込、overlay優先とbase互換、一時ファイル除去を確認（instrumentation 1件成功）。本人端末・大規模実データでの所要時間は未測定。初回試験の日時表記差はPythonと同じUTC/microsecond表記に修正し再試験成功。
 - 追加の破損record拒否・一時ファイル除去とSavedReadViews暗号化回帰のAndroid3件成功。JVM31件成功。Gradleの制限環境localhost接続失敗は通常権限の同一offline buildで成功。
-- D246の0.1.48は配布を保留。今回の根本経路修正を含めて配布する。実注文なし。
+- D246の0.1.48は未配布。根本経路修正を含む同署名0.1.49-candidate/code10049を検査して承認済み非共有StockAIへ保存、サイズ/shared=false確認。source 1bb16b78ccd20d8a25f70532bd51c12012476e51、24,021,489 bytes、SHA256 f7090a0278fb6c2e76387b1b91cd09ee7f2fb76eb890ef120f938fa1516d71bd。Drive id 19ydUgDaRfrlthT8DL4J52JtZFqCZLPsL。本人端末の更新・速度は未確認。実注文なし。
 
 ## 2026-10-25 — 設定の確認中が終わらない表示（D246）
 
