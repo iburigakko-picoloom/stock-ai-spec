@@ -10,6 +10,7 @@ import com.getcapacitor.JSObject;
 import java.io.File;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,6 +35,73 @@ public class LocalComputeOwnerTest {
     }
 
     static <T> T result(CompletableFuture<T> value) throws Exception { return value.get(300, TimeUnit.SECONDS); }
+
+    @Test public void currentPortfolioReadBypassesColdPythonAndBusyCalculationQueue() throws Exception {
+        String profile = "{\"schema_version\":\"manual-portfolio-v1\",\"holdings_status\":\"none\",\"investment_budget_yen\":\"1040000\",\"maximum_drawdown_percent\":10,\"accounts\":[],\"holdings\":[]}";
+        JSONObject expected = result(owner.request("POST", "/api/v1/mobile/portfolio", profile)).getJSONObject("body");
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        java.lang.reflect.Field host = LocalComputeOwner.class.getDeclaredField("host"); host.setAccessible(true);
+        assertNull(host.get(owner));
+        long start = android.os.SystemClock.elapsedRealtime();
+        JSObject actual = NativePortfolioReader.read(context, owner.state);
+        long directMs = android.os.SystemClock.elapsedRealtime() - start;
+        assertJsonEqual(expected, actual.getJSONObject("body"));
+        assertNull("Personal read must not boot Python", host.get(owner));
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        ownerQueue().execute(() -> { entered.countDown(); try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            assertJsonEqual(expected, NativePortfolioReader.read(context, owner.state).getJSONObject("body"));
+        } finally { release.countDown(); }
+        start = android.os.SystemClock.elapsedRealtime();
+        assertJsonEqual(expected, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body"));
+        long coldMs = android.os.SystemClock.elapsedRealtime() - start;
+        android.util.Log.i("StockAIPersonalBenchmark", "direct_ms=" + directMs + " cold_python_ms=" + coldMs);
+        assertTrue("Direct read must complete within ten seconds", directMs < 10000);
+        assertTrue("Direct read must beat cold Python", directMs < coldMs);
+        JSObject full = result(owner.readState());
+        owner.state.write(owner.state.currentGeneration(), full.getString("payload"));
+        try (LocalStateStore.StartupLease lease = owner.state.openStartupLease()) { assertNull(lease.operations); }
+        assertJsonEqual(expected, NativePortfolioReader.read(context, owner.state).getJSONObject("body"));
+        File[] leftovers = context.getCacheDir().listFiles((dir, name) -> name.startsWith("personal-read-"));
+        assertNotNull(leftovers); assertEquals(0, leftovers.length);
+    }
+
+    @Test public void directPersonalReadRejectsInvalidRecordAndRemovesTemporaryFiles() throws Exception {
+        File database = File.createTempFile("invalid-personal-test-", ".sqlite3", context.getCacheDir());
+        try {
+            try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(database, null)) {
+                db.execSQL("CREATE TABLE manual_portfolio_imports (payload TEXT, content_hash TEXT, export_sha256 TEXT, revision_id TEXT, revision_sequence INTEGER, owner_scope_hash TEXT)");
+                db.execSQL("INSERT INTO manual_portfolio_imports VALUES ('{}','invalid','invalid','invalid',1,'invalid')");
+            }
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("operations.sqlite3"));
+                java.nio.file.Files.copy(database.toPath(), zip);
+                zip.closeEntry();
+            }
+            owner.state.write(owner.state.currentGeneration(), android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP));
+            try { NativePortfolioReader.read(context, owner.state); fail("Invalid record accepted"); }
+            catch (SecurityException expected) { assertEquals("PERSONAL_CONTENT_HASH", expected.getMessage()); }
+            File[] leftovers = context.getCacheDir().listFiles((dir, name) -> name.startsWith("personal-read-"));
+            assertNotNull(leftovers); assertEquals(0, leftovers.length);
+        } finally { SQLiteDatabase.deleteDatabase(database); }
+    }
+
+    private static void assertJsonEqual(Object expected, Object actual) throws Exception {
+        if (expected instanceof JSONObject) {
+            JSONObject left = (JSONObject) expected, right = (JSONObject) actual;
+            assertEquals(left.length(), right.length());
+            java.util.Iterator<String> keys = left.keys();
+            while (keys.hasNext()) { String key = keys.next(); assertJsonEqual(left.get(key), right.get(key)); }
+        } else if (expected instanceof org.json.JSONArray) {
+            org.json.JSONArray left = (org.json.JSONArray) expected, right = (org.json.JSONArray) actual;
+            assertEquals(left.length(), right.length());
+            for (int i = 0; i < left.length(); i++) assertJsonEqual(left.get(i), right.get(i));
+        } else if (expected instanceof Number) { assertEquals(((Number) expected).doubleValue(), ((Number) actual).doubleValue(), 0); }
+        else assertEquals(expected, actual);
+    }
 
     @Test public void splitStartupSkipsCommitAndSavedDisplayBypassesBusyOwner() throws Exception {
         JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));

@@ -2124,3 +2124,9 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - この経路だけproduction入力の最終確定営業日のavailable_atを実行時刻にする。実受信時刻の上限、全市場context、特徴量式、出力校正、候補・保有の完全性検証は保持。TOPIX500は直近確定日の原銘柄一覧を参照し、当日構成確認済みや正式採用とは表示しない。銘柄選択日と特徴量元の株価日が一致しなければ保存しない。
 - mobile_reference_runsへ独立保存し、日次予測selection・原予測archive・株数判断・台帳を更新しない。publishもreference modeを拒否。通常の提案は11:30と当日構成確認を引き続き要求する。参考分析失敗時は直前の完成済み結果を保持する。
 - 今日では株価日と生成時刻を区別し、参考分析・閲覧用として表示。保存済み日次分析との比較は生成時刻で行い、現役の当日提案を優先。入力不足は口座、モデル不足はモデル、市場不足は取得画面への操作を出す。手動計算中は不定進捗bar。自動処理の休場日停止やOSバックグラウンド保証は変更しない。
+
+### D247 — 最新口座情報の直接読込（2026-10-25）
+
+- 本人の「読み込みがそもそも遅すぎる」に対応。表示timeoutだけでは解決としない。GET /api/v1/mobile/portfolioは確定済み暗号化operations SQLiteの最新revisionをnativeで読み、Python初期化と市場履歴復元・計算queueを待たない。従来の表示copyと区別し、検証成功した最新応答で編集を有効にする。
+- 既存の暗号化ReadLease、generationとrecord/export/revision hashを検証。破損時は明示失敗、旧形式/未作成のみ既存のPython移行経路へ戻す。private cacheの一時ファイルは開いた直後にunlinkし、完了/失敗後も除去。最新の保存・復元世代に競合した読出しは拒否する。
+- 同一合成口座の隔離Android測定は64ms対14,646ms。本人端末の時間や全市場データ量での性能保証と混同しない。設定保存・予測計算・台帳の意味は変更しない。

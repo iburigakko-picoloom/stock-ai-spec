@@ -84,7 +84,18 @@ public class StockAIPlugin extends Plugin {
         });
     }
 
-    @PluginMethod public void compute(PluginCall call) { background(call, () -> {
+    @PluginMethod public void compute(PluginCall call) {
+        if ("GET".equals(call.getString("method")) && "/api/v1/mobile/portfolio".equals(call.getString("path"))) {
+            displayExecutor.execute(() -> {
+                try {
+                    JSObject result = NativePortfolioReader.read(getContext(), owner().state);
+                    if (result != null) { call.resolve(result); return; }
+                    background(call, () -> completeLocal(call, owner().request("GET", "/api/v1/mobile/portfolio", "null")));
+                } catch (Exception error) { call.reject("口座情報を確認できませんでした。再確認してください。", "PERSONAL_READ_FAILED"); }
+            });
+            return;
+        }
+        background(call, () -> {
         completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
     @PluginMethod public void readSavedView(PluginCall call) { displayExecutor.execute(() -> {

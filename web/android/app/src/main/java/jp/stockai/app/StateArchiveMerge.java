@@ -17,7 +17,7 @@ import java.util.zip.ZipOutputStream;
 final class StateArchiveMerge {
     private static final long MAX_ENTRY = 256L * 1024 * 1024;
 
-    private static final class LeaseInput extends InputStream {
+    static final class LeaseInput extends InputStream {
         final LocalStateStore.ReadLease lease;
         byte[] bytes = new byte[0];
         int offset, index;
