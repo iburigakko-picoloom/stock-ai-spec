@@ -3,6 +3,7 @@
 - 本人の0.1.55診断はforecasts.generate:459の時刻検証。合成受領履歴・実特徴量/推論の修正前テストで、小数秒123456時の同じエラーを再現（秒/ミリ秒は成功）。入力/出力JSONの既定ミリ秒切捨てを修正し、基準時刻のマイクロ秒を保持。完全一致・未来情報拒否は維持する。
 - Python関連56件、最終の小数秒付き保存/再読込1件成功。最終列変換8件とruff成功。小数秒付きoffline WASMのworker破棄→途中保存から再開→PC一致1件成功。数値のJSON精度も従来値との一致を確認。Android Java/UIは変更せずnative instrumentationは再実行しない。
 - 台帳/取引/資産・完成済み結果は変更なし、実注文/学習なし。本人端末の全量完走と署名版起動・CIは未確認。APK更新をまたぐ途中cacheは既存条件により再利用しない。検証記録 .demo-artifacts/update-0156-20261026/ 。
+- 型/build/同署名APK検査成功。0.1.56-candidate/code10056を承認済み非共有StockAIへ保存し24,046,509 bytes/shared=falseを再読込確認。Drive id 1vAcrej_GcbaVWpei2xgRv9_owwYjFHc5、source 5b9caee2bbc5f5e75cb14297cc76f95981c9ee70、SHA256 21752d433e6c48904b9b41d5bb543748a55d08932bfc2e30a8aa1e278b9621b9。本人端末更新・完走は未確認。
 
 ## 2026-10-25 — 失敗診断の保存と画面案内の往復を解消（D253）
 
