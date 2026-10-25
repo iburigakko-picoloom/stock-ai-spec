@@ -12,8 +12,8 @@ interface Exported { id: string; prompt: string; expiresAt: string }
 export function Rankings() {
   const [horizon, setHorizon] = useState("20d");
   return <div className="page"><PageHeader eyebrow="保存した最新の結果" title="ランキング" />
-    <TabBar label="ランキング期間" options={[["5d", "5日"], ["20d", "20日"]]} value={horizon} onChange={setHorizon} panelId="saved-ranking" />
-    <div id="saved-ranking" role="tabpanel" aria-labelledby={`saved-ranking-${horizon}`}><RankingBody key={horizon} horizon={horizon} /></div>
+    <TabBar label="ランキング期間" options={[["overall", "総合"], ["5d", "5日"], ["20d", "20日"], ["morning", "前場"]]} value={horizon} onChange={setHorizon} panelId="saved-ranking" />
+    <div id="saved-ranking" role="tabpanel" aria-labelledby={`saved-ranking-${horizon}`}>{horizon === "overall" || horizon === "morning" ? <StatePanel title={`${horizon === "overall" ? "総合" : "前場"}ランキングは未導入です`} detail="現在は20日ランキングを利用できます。" /> : <RankingBody key={horizon} horizon={horizon} />}</div>
   </div>;
 }
 
@@ -35,7 +35,7 @@ function RankingBody({ horizon }: { horizon: string }) {
     finally { setBusy(false); }
   }
   const exported = prepared ?? data?.savedInput;
-  const adjusted = source === "chatgpt" && data?.answer;
+  const adjusted = horizon === "20d" && source === "chatgpt" && data?.answer;
   const rows = adjusted ? data.answer!.order.map(item => ({ ...data.rows.find(row => row.symbol === item.symbol)!, reason: item.reason })) : (data?.rows ?? []).map(row => ({ ...row, reason: "" }));
   const visible = rows.map((row, index) => ({ ...row, rank: index + 1 })).filter(row => `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()));
   return <>
@@ -43,17 +43,17 @@ function RankingBody({ horizon }: { horizon: string }) {
     {error && <StatePanel tone="error" title="ランキングを読み込めません" detail={error} />}
     {data && !error && <>
       <p className="setting-footnote">{data.priceDate ? `株価 ${data.priceDate}・` : ""}更新 {dateTime(data.generatedAt, true)} JST</p>
-      {data.answer && <TabBar label="順位の種類" options={[["chatgpt", "ChatGPT"], ["model", "モデル"]]} value={source} onChange={setSource} panelId="ranking-source" />}
-      <div id="ranking-source" role={data.answer ? "tabpanel" : undefined} aria-labelledby={data.answer ? `ranking-source-${source}` : undefined}><p>{adjusted ? "ChatGPTの回答を反映した順位" : "モデルの予測順位"}・上位{rows.length}件</p>
+      {horizon === "20d" && data.answer && <TabBar label="順位の種類" options={[["chatgpt", "ChatGPT"], ["model", "モデル"]]} value={source} onChange={setSource} panelId="ranking-source" />}
+      <div id="ranking-source" role={data.answer ? "tabpanel" : undefined} aria-labelledby={data.answer ? `ranking-source-${source}` : undefined}><p>{horizon === "5d" ? "5日の予測リターン（補助情報）" : adjusted ? "ChatGPTの回答を反映した順位" : "モデルの予測順位"}・上位{rows.length}件</p>
         <label className="search"><span className="sr-only">銘柄名・コードで検索</span><input type="search" placeholder="上位50件から検索" value={search} onChange={e => setSearch(e.target.value)} /></label>
         {search.trim() && !visible.length && <p>検索に一致する銘柄がありません。</p>}
         <div className="ranking-list">{visible.map(row => <div className="ranking-row saved-ranking-row" key={row.symbol}>
-          <strong className="rank-number">{row.rank}位</strong><div><strong>{row.companyName || row.symbol}</strong>{row.companyName && row.companyName !== row.symbol && <small>{row.symbol}</small>}
+          <strong className="rank-number">{horizon === "20d" ? `${row.rank}位` : "5日"}</strong><div><strong>{row.companyName || row.symbol}</strong>{row.companyName && row.companyName !== row.symbol && <small>{row.symbol}</small>}
             {adjusted && <small>モデル {row.modelRank}位</small>}{row.reason && <p>{row.reason}</p>}</div>
           <span>{row.expectedReturn === null ? "—" : `${(row.expectedReturn * 100).toFixed(2)}%`}<small>予測リターン</small></span>
         </div>)}</div>
       </div>
-      <button className="button button--secondary" disabled={loading || busy || !rows.length} onClick={() => setConsulting(!consulting)}>ChatGPTと相談</button>
+      {horizon === "20d" && <button className="button button--secondary" disabled={loading || busy || !rows.length} onClick={() => setConsulting(!consulting)}>ChatGPTと相談</button>}
     </>}
     {!loading && <ReferenceAnalysis hasSaved={!!data?.rows.length} disabled={busy} onSaved={() => { setExported(null); setAnswer(""); reload(); }} />}
     {consulting && data && !error && <section className="section">

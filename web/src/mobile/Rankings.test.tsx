@@ -61,3 +61,21 @@ test("reopened input is available but changed ranking prevents stale clipboard e
   expect(screen.getByText("2位")).toBeVisible();
   expect(screen.queryByText("1000")).not.toBeInTheDocument();
 });
+
+ test("restores all four tabs and marks unavailable rankings without fetching them", () => {
+  render(<Rankings />);
+  for (const name of ["総合", "5日", "20日", "前場"]) expect(screen.getByRole("tab", { name })).toBeVisible();
+  fireEvent.click(screen.getByRole("tab", { name: "総合" }));
+  expect(screen.getByText("総合ランキングは未導入です")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "ChatGPTと相談" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "前場" }));
+  expect(screen.getByText("前場ランキングは未導入です")).toBeVisible();
+  expect(vi.mocked(useApiData).mock.calls.every(([path]) => path.endsWith("/20d"))).toBe(true);
+  fireEvent.click(screen.getByRole("tab", { name: "5日" }));
+  expect(screen.getByText(/5日の予測リターン（補助情報）/)).toBeVisible();
+  expect(screen.queryByText("1位")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "ChatGPTと相談" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "20日" }));
+  expect(screen.getByText("1位")).toBeVisible();
+  expect(screen.getByRole("button", { name: "ChatGPTと相談" })).toBeEnabled();
+});
