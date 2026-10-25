@@ -24,6 +24,8 @@ final class LocalComputeOwner {
     private final AtomicInteger operationSequence = new AtomicInteger();
     final LocalStateStore state;
     final SavedReadViews readViews;
+    final AnalysisCheckpoints checkpoints;
+    volatile boolean analyzing;
     private volatile ComputeHost host;
     private long generation;
     private volatile boolean closed;
@@ -49,6 +51,7 @@ final class LocalComputeOwner {
         File parent = file.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) throw new IllegalStateException("STATE_UNAVAILABLE");
         state = new LocalStateStore(SQLiteDatabase.openOrCreateDatabase(file, null));
+        checkpoints = new AnalysisCheckpoints(state.database);
         readViews = SavedReadViews.forDatabase(file);
     }
 
@@ -178,6 +181,10 @@ final class LocalComputeOwner {
             try {
                 initializeIfNeeded();
                 boolean operations = operationsOnly(method, path);
+                boolean analysis = ManualAnalysisService.handles(method, path);
+                host.checkpoints = analysis ? checkpoints : null;
+                host.checkpointInput = analysis ? checkpoints.begin(context, generation, body) : null;
+                analyzing = analysis;
                 try (ComputeHost.Reply reply = host.request(new JSONObject().put("command", "request")
                         .put("method", method).put("path", path).put("body", body)
                         .put("operations_only", operations), null, generation)) {
@@ -186,8 +193,19 @@ final class LocalComputeOwner {
                     if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
                     if ("POST".equals(method)) {
                         if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
+                        long previous = generation;
                         generation = operations ? state.commitOperations(generation, reply.state)
                             : state.commitTransfer(generation, reply.state);
+                        if (analysis || path.equals("/api/v1/mobile/decision/generate")
+                                || path.equals("/api/v1/mobile/portfolio")
+                                || path.matches("/api/v1/mobile/personal/(initial|current)/preview"))
+                            checkpoints.committed(previous, generation);
+                        if (analysis) {
+                            JSONObject output = result.optJSONObject("body");
+                            boolean saved = status == 200 && output != null && (output.optString("phase").matches("published|reference_saved")
+                                || output.optString("outcome").equals("cash_only"));
+                            checkpoints.finish(saved ? "complete" : "blocked");
+                        }
                         if (status == 200 && path.equals("/api/v1/mobile/personal/current/confirm")) readViews.clear();
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
                         throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
@@ -200,6 +218,7 @@ final class LocalComputeOwner {
                     return new JSObject(result.toString());
                 }
             } catch (Exception error) { if (!(error instanceof InterruptedException)) readViews.clear(); dropHost(); throw error; }
+            finally { analyzing = false; }
         });
     }
 

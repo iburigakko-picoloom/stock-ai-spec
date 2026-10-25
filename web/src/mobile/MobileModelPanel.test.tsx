@@ -6,7 +6,7 @@ import { StockAI } from "./native";
 import { MobileModelPanel } from "./MobileModelPanel";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
-vi.mock("./native", () => ({ StockAI: { importModel: vi.fn() }, isAndroid: () => true }));
+vi.mock("./native", () => ({ StockAI: { importModel: vi.fn(), analysisStatus: async () => ({ state: "idle" }) }, isAndroid: () => true }));
 afterEach(cleanup);
 const model = { approved_bundle_count: 1, imported_bundle_count: 1, bundle_ready: true,
   model_adopted: false };

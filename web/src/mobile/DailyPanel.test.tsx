@@ -5,17 +5,19 @@ import { StockAI } from "./native";
 
 vi.mock("./native", () => ({ isAndroid: () => true, StockAI: {
   dailyStatus: vi.fn(), startDaily: vi.fn(), stopDaily: vi.fn(), requestDailyNotifications: vi.fn(),
+  analysisStatus: vi.fn(),
 } }));
 const idle = { enabled: false, state: "idle", notificationsEnabled: false };
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(StockAI.analysisStatus).mockResolvedValue({ state: "idle" });
   vi.mocked(StockAI.dailyStatus).mockResolvedValue(idle);
   vi.mocked(StockAI.requestDailyNotifications).mockResolvedValue({ granted: false });
   vi.mocked(StockAI.startDaily).mockResolvedValue({ ...idle, enabled: true, state: "queued" });
 });
 afterEach(cleanup);
 
-test.each([["history", 0], ["calculating", 1], ["forecast_saved", 2], ["deciding", 2], ["numerical_saved", 3], ["research_running", 3]] as const)("%s reports completed stages rather than elapsed-time percent", (state, done) => {
+test.each([["history", 0], ["forecast_saved", 2], ["deciding", 2], ["numerical_saved", 3], ["research_running", 3]] as const)("%s reports completed stages rather than elapsed-time percent", (state, done) => {
   render(<DailyControls status={{ ...idle, enabled: true, state }} busy={false} message="" onChange={vi.fn()} />);
   expect(screen.getByRole("progressbar")).toHaveAttribute("value", String(done));
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", `${done}/3工程完了。残り時間の割合ではありません。`);
@@ -82,4 +84,12 @@ test("an older status read cannot overwrite an acknowledged stop", async () => {
   await act(async () => { finishOldRead(running); });
   expect(screen.getByRole("button", { name: "続きから再開" })).toBeEnabled();
   expect(stop).toBeDisabled();
+});
+
+ test("calculating shows the saved percentage instead of a coarse stage bar", async () => {
+  vi.mocked(StockAI.analysisStatus).mockResolvedValue({ state: "running", phase: "features", percent: 43 });
+  render(<DailyControls status={{ ...idle, enabled: true, state: "calculating" }} busy={false} message="" onChange={vi.fn()} />);
+  expect(await screen.findByText(/43%/)).toBeVisible();
+  expect(screen.getByRole("progressbar")).toHaveAttribute("max", "100");
+  expect(screen.getByRole("progressbar")).toHaveAttribute("value", "43");
 });

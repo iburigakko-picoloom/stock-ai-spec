@@ -88,7 +88,7 @@ async function exportNative(id: number, progress: (phase: string) => void, opera
     await interpreter.runPythonAsync("_native_export.close() if _native_export is not None else None\n_native_export = None");
   }
 }
-self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; operations_only?: boolean; optimized_startup?: boolean; defer_initialize?: boolean; method?: string; path?: string; body?: string }>) => {
+self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: number; ok?: boolean; state?: string; state_bytes?: ArrayBuffer; checkpoint_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; operations_only?: boolean; optimized_startup?: boolean; defer_initialize?: boolean; method?: string; path?: string; body?: string }>) => {
   const input = event.data;
   if (input.command === "state_ack") {
     if (awaitingAck?.id === input.id && (input.ok !== true || awaitingAck.index === input.index)) {
@@ -141,8 +141,29 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
         python.globals.set("request_path", input.path);
         python.globals.set("request_body", input.body || "null");
         try {
+          await python.runPythonAsync("from stock_ai.mobile import checkpoints\ncheckpoints.configure()");
+          if (input.checkpoint_bytes !== undefined) {
+            if (input.path !== "/api/v1/mobile/daily/generate" || input.method !== "POST") throw new Error("Invalid checkpoint scope");
+            python.globals.set("checkpoint_context", new TextDecoder("utf-8", { fatal: true }).decode(input.checkpoint_bytes));
+            python.globals.set("checkpoint_send", (value: string) => self.postMessage({ id: input.id, checkpoint: value }));
+            python.globals.set("checkpoint_read", (key: string) => {
+              if (!/^(inputs|source-[0-9a-f]{64}|features-[0-9a-f]{64}|model-[0-9a-f]{64})$/.test(key)) throw new Error("Invalid checkpoint key");
+              // Only this dedicated worker waits; Android serves the private origin offline.
+              const request = new XMLHttpRequest();
+              request.open("GET", `${self.location.origin}/analysis-checkpoint/${input.id}/${key}`, false);
+              request.send();
+              if (request.status !== 200) throw new Error("Checkpoint read failed");
+              return request.responseText;
+            });
+            await python.runPythonAsync("checkpoints.configure(runtime.json.loads(checkpoint_context), checkpoint_send, checkpoint_read)");
+            python.globals.set("checkpoint_context", null); delete input.checkpoint_bytes;
+          }
           result = JSON.parse(String(await python.runPythonAsync("import json\njson.dumps(await runtime.request(method, request_path, request_body), ensure_ascii=False)")));
-        } finally { python.globals.set("request_body", null); delete input.body; }
+        } finally {
+          await python.runPythonAsync("checkpoints.configure()");
+          python.globals.set("checkpoint_context", null); python.globals.set("checkpoint_send", null); python.globals.set("checkpoint_read", null);
+          python.globals.set("request_body", null); delete input.body; delete input.checkpoint_bytes;
+        }
       }
       const saves = startup ? ["full", "operations"].includes(startup.persistence) : input.command === "initialize" || input.method === "POST";
       if (saves && input.stream_state === true) {

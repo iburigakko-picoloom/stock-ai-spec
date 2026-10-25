@@ -16,6 +16,7 @@ export interface ReleaseInfo {
   notes: string; sha256: string; url: string; size: number;
 }
 export interface StockAINative {
+  analysisStatus(): Promise<AnalysisStatus>;
   readSavedView(input: { path: string }): Promise<{ available: boolean; savedAt?: string; readOnly?: boolean; body?: unknown }>;
   dailyStatus(): Promise<DailyStatus>;
   startDaily(): Promise<DailyStatus>;
@@ -41,6 +42,10 @@ export interface StockAINative {
   discardBackup(input: { token: string }): Promise<void>;
   restoreBackup(input: { token: string; confirmed: true }): Promise<{ generation: number }>;
   importModel(): Promise<{ content: string }>;
+}
+export interface AnalysisStatus {
+  state: "idle" | "running" | "interrupted" | "blocked" | "complete";
+  phase?: string; percent?: number | null; savedUnits?: number; totalUnits?: number;
 }
 export const isAndroid = (): boolean => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 export const StockAI = registerPlugin<StockAINative>("StockAI");

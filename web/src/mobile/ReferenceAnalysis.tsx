@@ -32,7 +32,7 @@ export function ReferenceAnalysis({ onSaved, hasSaved }: { onSaved: () => void; 
   return <section className="section" aria-label="最新データの参考分析">
     {!hasSaved && <><h2>表示できる分析がまだありません</h2><p>休場日でも、直近の確定株価で参考分析を作れます。</p></>}
     <button className="button button--primary" disabled={busy} onClick={() => void generate()}>{busy ? "参考分析を計算・保存中…" : "最新データで分析する"}</button>
-    {busy && <><progress aria-label="参考分析を計算中" style={{ width: "100%" }} /><p>画面を閉じても処理を続けます。</p></>}
+    {busy && <p>画面を閉じても処理を続けます。途中結果は自動保存します。</p>}
     {!hasSaved && <p className="setting-footnote">現在の登録内容を使う閲覧用の分析です。当日の売買提案とは別です。</p>}
     {message && <p role="status">{message}</p>}
     {message && message !== "参考分析を保存しました。" && <Link className="button button--secondary" to={`/settings?edit=${target}`}>{target === "market" ? "市場データを取得する" : "登録内容を確認する"}</Link>}

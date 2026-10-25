@@ -13,7 +13,7 @@ from stock_ai.domain.models import ResearchEnsemblePrediction, ReturnOnlyPredict
 from stock_ai.operations.daily import PredictionSnapshot, canonical_json, content_id
 from stock_ai.operations.store import OperationalConflictError
 
-from . import market, models, universe
+from . import checkpoints, market, models, universe
 from .features import bundled_selection, calculate, predictability_code_sha256
 from .model_bundle import ModelBundle
 from .portable_model import predict
@@ -352,7 +352,7 @@ def reconcile_publications(path: Path, store) -> None:
 def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
     if now.tzinfo is None:
         raise ValueError("Aware forecast execution time required")
-    cutoff = (now.astimezone(JST) if reference_only else
+    cutoff = (checkpoints.execution_time(now).astimezone(JST) if reference_only else
               now.astimezone(JST).replace(hour=11, minute=30, second=0, microsecond=0))
     manual, ledger = store.latest_manual_portfolio(), store.latest_portfolio()
     scope = {"as_of": cutoff.isoformat(),
@@ -415,8 +415,23 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
                if selection.get("policy") == "jquants-scalecat-topix500-v1" else {})
     if reference_only:
         options["reference_only"] = True
-    inputs = market.feature_inputs(path, now, True,
-                                   decision_symbols=selection["decision_symbols"], **options)
+    if checkpoints.enabled():
+        count = (len(bundle.components) if isinstance(bundle, ResearchEnsembleBundle)
+                 else len(bundle.heads))
+        from .input_cache import source_references
+
+        preparation = 2 * sum(row[0] in ("security_master", "daily_prices")
+                              for row in source_references(path, cutoff)) + 1
+        checkpoints.plan(preparation + len(selection["decision_symbols"]) + count + 1,
+                         "preparing")
+    inputs = checkpoints.cached("inputs", lambda: market.feature_inputs(
+        path, cutoff if reference_only else now, True,
+        decision_symbols=selection["decision_symbols"], **options))
+    if checkpoints.enabled():
+        count = (len(bundle.components) if isinstance(bundle, ResearchEnsembleBundle)
+                 else len(bundle.heads))
+        checkpoints.preparation_complete(preparation)
+        checkpoints.plan(preparation + int(inputs["daily"]["symbol"].nunique()) + count + 1)
     if reference_only and inputs.get("reference_price_date") != selection["latest_source_date"]:
         return blocked("REFERENCE_MARKET_DATE_MISMATCH")
     predictable_recipes = ([recipe for recipe in bundle.outputs
@@ -537,7 +552,9 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
                                 predictability_evidence_sha256=proof["predictability_evidence_sha256"])
         try:
             result = inference(bundle, {str(h): [maps[h][s] for s in symbols] for h in (5, 20)},
-                               bundled_selection(), rank_universes=populations)
+                               bundled_selection(), rank_universes=populations,
+                               **({"component_cache": checkpoints.cached}
+                                  if checkpoints.enabled() else {}))
         except (ValueError, KeyError, TypeError):
             if not predictable_recipes:
                 raise
@@ -547,7 +564,10 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
     else:
         for head in bundle.heads:
             rows = [maps[head.horizon][symbol] for symbol in symbols]
-            values = predict(head.decoded(bundled_selection()), rows)
+            values = checkpoints.cached(
+                "model-" + content_id([head.sha256, head.horizon, head.model_id]),
+                lambda current=head, values=rows: predict(
+                    current.decoded(bundled_selection()), values), units=1, phase="predicting")
             outputs.append({"model_id": head.model_id, "sha256": head.sha256,
                             "horizon": head.horizon, "task": head.task,
                             "values": list(zip(symbols, values, strict=True))})

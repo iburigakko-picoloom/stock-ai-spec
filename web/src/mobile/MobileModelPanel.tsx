@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
-import { StockAI, isAndroid } from "./native";
+import { StockAI } from "./native";
+import { AnalysisProgress } from "./AnalysisProgress";
 
 interface ModelStatus {
   approved_bundle_count: number; imported_bundle_count: number; bundle_ready: boolean;
@@ -109,7 +110,7 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
         setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : shares.blocking_reasons.length === 1 && shares.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE" ? "研究用の予測を保存しました。ChatGPTへの相談で株数案を検討できます。" : value.phase === "published" && value.snapshot ? "予測は保存済みです。株数の判定は未完了です。" : "予測は未完了です。下の理由を確認してください。");
       })}>{model?.return_only_research || model?.ensemble_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
     </div>
-    {calculating && <><progress aria-label="予測を計算・保存中" style={{ width: "100%" }} />{isAndroid() && <p>画面を閉じても処理を続けます。</p>}</>}
+    <AnalysisProgress busy={calculating} />
     <p role="status">{message}</p>
     {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
       <p>初回・休場日は、最新データによる参考分析を作れます。<Link className="button button--secondary" to="/today">参考分析を作る</Link></p>}

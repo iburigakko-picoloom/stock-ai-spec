@@ -24,6 +24,16 @@ public final class ManualAnalysisService extends Service {
     private volatile CompletableFuture<JSObject> core;
     private JSObject savedResult;
     private Throwable savedError = new IllegalStateException("ANALYSIS_INTERRUPTED");
+    private final Handler updates = new Handler(Looper.getMainLooper());
+    private volatile String phase = "calculating";
+    static boolean isRunning() { synchronized (LOCK) { return active != null; } }
+    private final Runnable refresh = new Runnable() {
+        public void run() {
+            if (job == null || job.result.isDone()) return;
+            try { foreground(phase); } catch (Exception ignored) { /* Computation owns error handling. */ }
+            updates.postDelayed(this, 1000);
+        }
+    };
 
     static final class Job {
         final String id = UUID.randomUUID().toString();
@@ -78,7 +88,13 @@ public final class ManualAnalysisService extends Service {
     }
 
     private void foreground(String phase) {
-        androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(this, phase);
+        this.phase = phase;
+        int percent = -1;
+        try {
+            JSObject saved = LocalComputeOwner.get(this).checkpoints.status(true);
+            if (!phase.equals("deciding") && !saved.isNull("percent")) percent = saved.optInt("percent", -1);
+        } catch (Exception ignored) { /* Initial progress has no denominator yet. */ }
+        androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(this, phase, percent);
         if (android.os.Build.VERSION.SDK_INT >= 29) startForeground(6104, info.getNotification(), info.getForegroundServiceType());
         else startForeground(6104, info.getNotification());
     }
@@ -111,11 +127,13 @@ public final class ManualAnalysisService extends Service {
                 });
             }, "stockai-manual-analysis");
             thread.start();
+            updates.postDelayed(refresh, 1000);
         } catch (Exception error) { savedError = error; stopSelf(); }
         return START_NOT_STICKY;
     }
 
     private void release() {
+        updates.removeCallbacks(refresh);
         if (wake != null && wake.isHeld()) wake.release();
         stopForeground(STOP_FOREGROUND_REMOVE);
     }

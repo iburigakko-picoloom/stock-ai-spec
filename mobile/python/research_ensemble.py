@@ -337,7 +337,7 @@ def average_percentile(values: list[float]) -> list[float]:
 
 
 def inference(bundle: ResearchEnsembleBundle, rows: dict, selection: dict,
-              *, rank_universes: dict | None = None) -> dict:
+              *, rank_universes: dict | None = None, component_cache=None) -> dict:
     """Evaluate complete horizon populations; never normalize partial batches."""
     if any(getattr(bundle, k) != selection[k]
            for k in ("feature_selection_id", "feature_manifest_hash")):
@@ -381,9 +381,12 @@ def inference(bundle: ResearchEnsembleBundle, rows: dict, selection: dict,
             raise ValueError("PREDICTABLE_HORIZON_POPULATIONS_DIFFER")
     raw = {}
     for component in bundle.components:
-        raw[component.model_id] = predict(
-            component.decoded(selection), ordered_rows[str(component.horizon)]
-        )
+        def evaluate(current=component):
+            return predict(current.decoded(selection), ordered_rows[str(current.horizon)])
+        raw[component.model_id] = (evaluate() if component_cache is None else
+            component_cache(
+                "model-" + content_id([component.sha256, component.horizon, component.model_id]),
+                evaluate, units=1, phase="predicting"))
         if len(raw[component.model_id]) != len(symbols[str(component.horizon)]):
             raise ValueError("COMPONENT_POPULATION_INCOMPLETE")
     outputs = []

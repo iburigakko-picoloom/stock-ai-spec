@@ -573,3 +573,49 @@ def test_reference_received_history_without_feature_doubles(tmp_path, monkeypatc
     assert store.latest_archived_prediction(now) is None
     view = forecasts.reference_view(path, now)
     assert view["priceDate"] == result["scope"]["universe"]["latest_source_date"]
+
+
+def test_checkpoint_pipeline_keeps_partial_models_out_of_published_forecasts(ready, monkeypatch):
+    import pandas as pd
+    from mobile.python import checkpoints
+
+    _, store, path, _, _, _ = ready
+    original = forecasts.market.feature_inputs
+
+    def prepared(*args, **kwargs):
+        result = original(*args, **kwargs)
+        result["daily"] = pd.DataFrame({"symbol": ["1000", "7203"]})
+        return result
+
+    monkeypatch.setattr(forecasts.market, "feature_inputs", prepared)
+    saved, messages = {}, []
+
+    def persist(text):
+        value = json.loads(text)
+        messages.append(value)
+        assert 0 <= value["done"] < value["total"]
+        if value["data"] is not None:
+            saved[value["key"]] = value["data"]
+
+    def interrupted(text):
+        persist(text)
+        if json.loads(text)["key"].startswith("model-"):
+            raise InterruptedError("Synthetic model interruption")
+
+    try:
+        checkpoints.configure({"records": {}, "startedAt": NOW.isoformat()}, interrupted)
+        with pytest.raises(InterruptedError):
+            forecasts.generate(path, store, NOW)
+        assert store.latest_prediction_snapshot() is None
+        assert any(key.startswith("model-") for key in saved)
+        checkpoints.configure({"records": saved.copy(), "startedAt": NOW.isoformat()}, persist)
+        monkeypatch.setattr(forecasts.market, "feature_inputs",
+                            lambda *a, **kw: pytest.fail("Prepared data was recomputed"))
+        result = forecasts.generate(path, store, NOW)
+        assert result["phase"] == "published"
+        assert all(row.expected_return_5d == .01 and row.expected_return_20d == .04
+                   for row in store.latest_prediction_snapshot().predictions)
+        assert any(value["key"].startswith("model-") and value["data"] is None
+                   for value in messages)
+    finally:
+        checkpoints.configure()

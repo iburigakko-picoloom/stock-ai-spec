@@ -19,6 +19,7 @@ from stock_ai.features.engine import (
 )
 from stock_ai.operations.daily import content_id
 
+from . import checkpoints
 from .research_ensemble import FeaturePredictability
 
 
@@ -156,6 +157,7 @@ def calculate(payload: dict, selection: dict, *, include_predictability: bool = 
         frames["sector"],
         financials=frames["financials"],
         as_of=as_of,
+        **({"batch_cache": checkpoints.feature_batch} if checkpoints.enabled() else {}),
     )
     excluded = sorted(set(result.symbol) - eligible)
     result = result.loc[result.symbol.isin(eligible)]

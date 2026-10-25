@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAndroid, StockAI, type DailyStatus } from "./native";
+import { AnalysisProgress } from "./AnalysisProgress";
 
 const labels: Record<string, string> = {
   idle: "未開始", queued: "開始待ち", history: "履歴を取得しています", membership: "当日の銘柄一覧を取得しています",
@@ -70,17 +71,18 @@ export function useDailyAutomation() {
 export function DailyPanel(): ReactNode {
   const daily = useDailyAutomation();
   if (!isAndroid()) return null;
-  return <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />;
+  return <><DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />{daily.status?.state !== "calculating" && <AnalysisProgress />}</>;
 }
 
 export function DailyControls({ status, busy, message, onChange }: {
   status: DailyStatus | null; busy: boolean; message: string; onChange: (start: boolean) => void;
 }): ReactNode {
   const delayed = status?.state === "waiting_cutoff" && status.day && Date.now() >= Date.parse(`${status.day}T11:30:00+09:00`);
-  const stage = status && status.enabled ? stages[status.state] : undefined;
+  const stage = status && status.enabled && status.state !== "calculating" ? stages[status.state] : undefined;
   return <section className="section daily-panel" aria-label="毎日の自動処理">
     <h2>毎日の自動処理</h2>
     <p role="status">{status ? delayed ? "締切後の実行待ち・Androidの予約処理を待っています" : labels[status.state] ?? "保存状態を確認してください" : "状態を確認しています…"}</p>
+    {status?.enabled && status.state === "calculating" && <AnalysisProgress busy />}
     {stage !== undefined && <div className="daily-stage">
       <progress max={3} value={stage} aria-label="数値計算の完了工程" aria-valuetext={`${stage}/3工程完了。残り時間の割合ではありません。`} />
       <small>進み具合の目安</small>

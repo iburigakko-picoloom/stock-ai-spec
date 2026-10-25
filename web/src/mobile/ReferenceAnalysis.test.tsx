@@ -18,7 +18,8 @@ test("first analysis uses reference mode, prevents duplicate work and reloads th
   fireEvent.click(button); fireEvent.click(button);
   expect(apiPost).toHaveBeenCalledTimes(1);
   expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/daily/generate", { reference_only: true });
-  expect(screen.getByRole("progressbar")).toBeVisible();
+  expect(button).toBeDisabled();
+  expect(screen.getByText(/途中結果は自動保存/)).toBeVisible();
   finish({ phase: "reference_saved", blocking_reasons: [] });
   await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
   expect(screen.getByRole("status")).toHaveTextContent("参考分析を保存しました");

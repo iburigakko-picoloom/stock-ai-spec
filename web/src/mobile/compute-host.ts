@@ -7,8 +7,12 @@ interface ComputeBridge {
   beginState(identity: string, length: number): boolean;
   stateChunk(identity: string, index: number, fragment: string): boolean;
   progress?(identity: string, phase: string): void;
+  checkpointChunk(identity: string, offset: number): string | null;
+  beginCheckpoint(identity: string, length: number): boolean;
+  appendCheckpoint(identity: string, offset: number, value: string): boolean;
+  commitCheckpoint(identity: string): boolean;
 }
-interface ComputeCommand { id: number; command: string; state_length?: number; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean }
+interface ComputeCommand { id: number; command: string; state_length?: number; state?: string; state_bytes?: ArrayBuffer; trace?: boolean; stream_state?: boolean; checkpoint_length?: number; checkpoint_bytes?: ArrayBuffer }
 interface HostWindow extends Window {
   StockAICompute?: ComputeBridge;
   stockAICompute?: (request: ComputeCommand) => void;
@@ -25,12 +29,21 @@ if (bridge) {
   let output: { length: number; received: number; next: number } | null = null;
   const fail = (id: number, code: string) => bridge.complete(String(id), JSON.stringify({ error: "COMPUTE_WORKER_FAILED", code }));
   const release = (id: number) => { if (active === id) { active = null; completing = false; output = null; } };
-  worker.onmessage = (event: MessageEvent<{ id: number; progress?: string; result?: unknown; state?: true | null; state_begin?: number; state_chunk?: string; index?: number; error?: string; error_code?: string }>) => {
+  worker.onmessage = (event: MessageEvent<{ id: number; checkpoint?: string; progress?: string; result?: unknown; state?: true | null; state_begin?: number; state_chunk?: string; index?: number; error?: string; error_code?: string }>) => {
     const message = event.data;
     if (message.id !== active || completing) return;
     const id = message.id;
     const identity = String(id);
     try {
+      if (message.checkpoint !== undefined) {
+        const value = message.checkpoint;
+        if (typeof value !== "string" || !bridge.beginCheckpoint(identity, value.length)) throw new Error("CHECKPOINT_FAILED");
+        for (let offset = 0; offset < value.length; offset += chunkCharacters) {
+          if (!bridge.appendCheckpoint(identity, offset, value.slice(offset, offset + chunkCharacters))) throw new Error("CHECKPOINT_FAILED");
+        }
+        if (!bridge.commitCheckpoint(identity)) throw new Error("CHECKPOINT_FAILED");
+        return;
+      }
       if (message.progress) { bridge.progress?.(identity, message.progress); return; }
       if (message.error) { fail(id, message.error_code ?? "unknown"); release(id); return; }
       if (message.state_begin !== undefined) {
@@ -74,6 +87,19 @@ if (bridge) {
     const input = { ...request };
     const transfer: Transferable[] = [];
     try {
+      if (input.checkpoint_length !== undefined) {
+        const length = input.checkpoint_length;
+        if (!Number.isSafeInteger(length) || length < 0 || length > maxCharacters) throw new Error("CHECKPOINT_FAILED");
+        const bytes = new Uint8Array(length), encoder = new TextEncoder();
+        for (let offset = 0; offset < length; offset += chunkCharacters) {
+          const fragment = bridge.checkpointChunk(String(id), offset);
+          if (typeof fragment !== "string" || fragment.length !== Math.min(chunkCharacters, length - offset)) throw new Error("CHECKPOINT_FAILED");
+          const encoded = encoder.encodeInto(fragment, bytes.subarray(offset, offset + fragment.length));
+          if (encoded.written !== fragment.length) throw new Error("CHECKPOINT_FAILED");
+          await yieldTurn();
+        }
+        input.checkpoint_bytes = bytes.buffer; transfer.push(bytes.buffer); delete input.checkpoint_length;
+      }
       if (input.command === "initialize" || input.command === "initialize_operations") {
         const length = input.state_length;
         if ("state" in input || "state_bytes" in input || !Number.isSafeInteger(length) || length === undefined || length < 0 || length > maxCharacters) throw new Error("STATE_TRANSFER_FAILED");
@@ -101,7 +127,7 @@ if (bridge) {
     } catch {
       fail(id, "state_other");
       release(id);
-    } finally { delete input.state; delete input.state_bytes; }
+    } finally { delete input.state; delete input.state_bytes; delete input.checkpoint_bytes; }
   };
   bridge.ready();
 }

@@ -2145,3 +2145,11 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - 新しい設定の現金残高とホームは同じ最新台帳を参照。総現金−買付余力＝確保中と明記し、旧入力との差は未反映の以前の入力として表示。明示的な差分確認/保存時だけ最新状態・対応するmanual revision/settings revisionを同一transactionに追記。初回台帳、旧入力、約定、未編集項目は保持。未反映約定、古いbase/revision、未来/期限切れ日時、金額不整合は拒否。再送は同一requestのidentityで冪等。
 - 現在残高のGETも暗号化operationsのnative直接読出しへ接続。Python起動/市場復元を待たず、ledger hash/時刻/同時刻競合、settings hash/parent/sequenceと世代を検査する。新規commit後は古い表示copyを消去。初回setupの既存確認経路は維持する。
 - 個別株のNISAは成長投資枠として年間240万円・保有限度1200万円を上限に残枠入力を検査。400万円のdefault定数は存在せず、保存入力に上限検査がなかった。過去の超過値を読み取れなくしたり切り詰めたりせず、警告し研究計算の入力不足へ分類、修正後に使う。金融庁 https://www.fsa.go.jp/policy/nisa2/know/index.html と https://www.fsa.go.jp/policy/nisa2/question/index.html を2026-10-25確認。売却で同日残枠を戻さない既存処理は維持。
+
+### D250 — 実処理量の進捗と途中保存・同一条件での再開（2026-10-25）
+
+- 本人要求は具体的な%表示と、中断で完了済みの計算が消えないこと。経過時間から進捗を推測せず、日付別の型確認/完全検証、入力準備、銘柄単位の特徴量バッチ、モデル別の全母集団予測の完了量をnativeへの保存後に%+バーで表示する。最終archiveの確定まで99%以下。入力数未確定は不定表示。途中保存は完成予測/売買提案と区別し、部分母集団をランキング正規化しない。
+- 暗号化native SQLiteにrunId/単位名/分割番号を認証したcheckpointを原子的に保存。市場の日付別projectionと元の完全source row hashを共に保存し、再開でも全市場identityを維持。準備済みinputsを保存したtransactionで細分source cacheを除去。Pythonのfloatビット、dtype、timezone backend、欠損を保持し、pickleは使わない。
+- scopeはnative archive世代・APK source commit・要求body・JST日付。同じscopeの参考分析は最初の実行時刻を情報締切として継続し、保存時刻は実際の時刻を使う。予測/株数保存と入力を変えないportfolio読出し/previewだけ世代を引き継ぐ。口座・保有・市場・モデル変更、復元、別要求/日付/APKでは古い途中結果を再利用しない。取引/台帳/完成済み予測は消さない。途中cacheはportable backupの対象外。
+- 5000銘柄×1日の合成source保存サイズを測定し、730日換算約397MiBだったため、128MiB一括ロード案を廃止。合計保存上限512MiB、単位128MiB/展開256MiB、暗号化256KiB chunk。再開時は索引だけ渡し、隔離compute workerから現在の要求IDで認可されたlocal originへの同期XHRで必要単位だけ読む。画面thread/ネットワーク/他要求へ公開しない。新規payloadをPython全体cacheにも蓄積しない。
+- Home/Today/予測設定で保存済み%と中断を確認し、手動解析の通知にも%を表示する。入力不変・同日なら同じボタンで保存済み単位を再利用。処理中の一単位、まだnativeに届いていない単位、source集約/最終mergeはやり直すことがある。強制停止後の自動復帰や残り時間は保証しない。日付更新時は新しい条件の解析になる。

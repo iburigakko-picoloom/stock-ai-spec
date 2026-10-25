@@ -130,6 +130,12 @@ public class StockAIPlugin extends Plugin {
 
     DailyAutomation automation() throws Exception { return new DailyAutomation(getContext(), owner().state.database); }
     @PluginMethod public void dailyStatus(PluginCall call) { background(call, () -> call.resolve(new JSObject(automation().status().toString()))); }
+    @PluginMethod public void analysisStatus(PluginCall call) { displayExecutor.execute(() -> {
+        try {
+            LocalComputeOwner current = owner();
+            call.resolve(current.checkpoints.status(current.analyzing || ManualAnalysisService.isRunning()));
+        } catch (Exception error) { call.reject("途中保存の状態を確認できません。", "CHECKPOINT_READ_FAILED"); }
+    }); }
     @PluginMethod public void startDaily(PluginCall call) { background(call, () -> {
         if (apiKey() == null) { call.reject("設定でJ-Quants APIキーを保存してから開始してください。", "API_KEY_REQUIRED"); return; }
         automation().start(); call.resolve(new JSObject(automation().status().toString()));

@@ -535,3 +535,8 @@ live_delay
 ## D188：returnのみの研究用原予測
 
 `PredictionSnapshot.predictions` の内側schema3は `ReturnOnlyPrediction`。5日/20日returnは有限の小数比率で、1日値、下振れquantile、下落確率、uncertainty、risk horizonと校正metadataはnull。snapshot全体がresearchであることと全行同じ提供範囲を要求し、正式adoption/mixed riskを拒否する。旧schema1/2の必須risk契約は変更しない。新しい派生propertyを旧原本のserialized hashへ加えない。手動相談の口座/原予測/設定結合digestは新しい相談だけへ付け、旧比較原本のnull fieldはserializeしない。
+
+
+### Mobile intermediate calculation cache (D250)
+
+Native encrypted checkpoint tables are rebuildable execution state, separate from the immutable forecast/account archive. Their identity binds input generation, APK code, exact request and JST date. Retained daily source projections include the complete canonical source row hashes; cached feature/model units preserve exact numeric values and whole-population normalization. Only a complete, validated final archive is published. The native index contains no payload; request-fenced offline reads load one authenticated unit at a time. These caches are not portable-backup inputs and cannot be used across changed input generations. A reference-analysis retry retains the first execution cutoff without backdating its final generated timestamp.

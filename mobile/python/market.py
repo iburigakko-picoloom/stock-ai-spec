@@ -19,7 +19,7 @@ from stock_ai.data.normalize import canonical_payload_hash, normalize_payload
 from stock_ai.data.production import _source_frame_id, _source_row_hashes, build_production_data
 from stock_ai.data.quality import require_quality, validate_rows
 
-from . import market_codec
+from . import checkpoints, market_codec
 from .features import model_input_frame
 from .storage import connect
 
@@ -505,10 +505,15 @@ class FeatureSource(SQLiteSource):
             # Both passes must observe the same immutable selection, even if a
             # separate connection receives a correction during the read.
             db.execute("BEGIN")
-            for _, _, raw, normalized, expected in _daily_snapshots(
+            for sequence, day, raw, normalized, expected in _daily_snapshots(
                 db, dataset, as_of, first_day=self.first_day
             ):
-                profile = market_codec.dtype_profile(db, normalized, raw, expected, cache)
+                profile = checkpoints.source_part(
+                    ["profile", dataset.value, sequence, expected],
+                    "profile:" + dataset.value + ":" + day,
+                    lambda normalized=normalized, raw=raw, expected=expected:
+                        market_codec.dtype_profile(db, normalized, raw, expected, cache),
+                )
                 if not profile.empty:
                     profiles.append(profile)
             if not profiles:
@@ -543,26 +548,33 @@ class FeatureSource(SQLiteSource):
             for sequence, day, raw, normalized, expected in _daily_snapshots(
                 db, dataset, as_of, first_day=self.first_day
             ):
-                frame = market_codec.frame(db, normalized, raw, expected, cache)
-                if frame.empty:
-                    if self.verified_day is not None:
-                        self.verified_day(dataset.value, day, schema, b"")
-                    continue
-                frame = _canonical_daily_part(frame, common, keys, sequence, day)
-                row_hashes = _source_row_hashes(frame).tobytes()
+                def verified_projection(normalized=normalized, raw=raw, expected=expected,
+                                        sequence=sequence, day=day):
+                    frame = market_codec.frame(db, normalized, raw, expected, cache)
+                    if frame.empty:
+                        return {"projected": frame, "hashes": ""}
+                    frame = _canonical_daily_part(frame, common, keys, sequence, day)
+                    columns = (self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
+                               else self.PRICE_COLUMNS)
+                    if self.context_only and dataset is DatasetName.SECURITY_MASTER:
+                        columns = columns - {"company_name"}
+                    return {
+                        "projected": frame.loc[:, [name for name in frame
+                                                  if name in columns]].copy(),
+                        "hashes": _source_row_hashes(frame).tobytes().hex(),
+                    }
+
+                part = checkpoints.source_part(
+                    ["verified", dataset.value, sequence, expected, schema, self.context_only],
+                    "verified:" + dataset.value + ":" + day, verified_projection,
+                )
+                projected = part["projected"]
+                row_hashes = bytes.fromhex(part["hashes"])
                 identity.update(row_hashes)
                 if self.verified_day is not None:
                     self.verified_day(dataset.value, day, schema, row_hashes)
-                columns = (
-                    self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
-                    else self.PRICE_COLUMNS
-                )
-                if self.context_only and dataset is DatasetName.SECURITY_MASTER:
-                    # Current display names come from the received master list.
-                    # Historical names still participate in the full source
-                    # identity above, but not in price/sector calculations.
-                    columns = columns - {"company_name"}
-                projected = frame.loc[:, [name for name in frame if name in columns]].copy()
+                if projected.empty:
+                    continue
                 # Immutable text repeats across daily batches. Retain one
                 # string per value instead of a new allocation for each day;
                 # keep the exact values, nulls, dtype and full-source identity.
@@ -596,7 +608,7 @@ class FeatureSource(SQLiteSource):
                     projected_digest = hashlib.sha256(header.encode())
                 projected_digest.update(_source_row_hashes(projected).tobytes())
                 parts.append(projected)
-        del frame, projected
+        del projected, part
         cache.clear()
         result = pd.concat(parts, ignore_index=True)
         parts.clear()

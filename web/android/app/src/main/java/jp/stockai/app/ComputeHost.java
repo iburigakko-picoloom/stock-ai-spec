@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 
-/** Activity-independent host. Only immutable APK resources can enter this WebView. */
+/** Activity-independent host with APK resources and request-fenced checkpoint reads. */
 final class ComputeHost {
     static final String ORIGIN = "https://compute.stockai.local";
     static final long TIMEOUT_SECONDS = 600;
@@ -44,6 +44,10 @@ final class ComputeHost {
     private volatile boolean assetUnavailable;
     private final java.util.concurrent.atomic.AtomicInteger interpreterAssets = new java.util.concurrent.atomic.AtomicInteger();
     private WebView view;
+    AnalysisCheckpoints checkpoints;
+    String checkpointInput;
+    private StringBuilder checkpointOutput;
+    private int checkpointLength;
 
     ComputeHost(Context context) { this.context = context.getApplicationContext(); }
 
@@ -61,6 +65,18 @@ final class ComputeHost {
         String path = uri.getPath();
         if (path == null || !path.startsWith("/") || path.contains("\\") || path.contains("\u0000")) return denied();
         for (String part : path.split("/", -1)) if (part.equals(".") || part.equals("..")) return denied();
+        if (path.startsWith("/analysis-checkpoint/")) {
+            synchronized (transferLock) {
+                String[] parts = path.split("/");
+                if (parts.length != 4 || uri.getQuery() != null || closed || pending == null || pending.isDone()
+                        || !Long.toString(requestId).equals(parts[2]) || checkpoints == null) return denied();
+                try {
+                    byte[] value = checkpoints.read(parts[3]).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                    return new WebResourceResponse("text/plain", "UTF-8", 200, "OK",
+                        Map.of("Cache-Control", "no-store", "X-Content-Type-Options", "nosniff"), new ByteArrayInputStream(value));
+                } catch (Exception ignored) { return denied(); }
+            }
+        }
         int bit = path.equals("/python/pyodide.mjs") ? 1 : path.equals("/python/pyodide.asm.js") ? 2
             : path.equals("/python/pyodide.asm.wasm") ? 4 : path.equals("/python/pyodide-lock.json") ? 8 : 0;
         interpreterAssets.getAndUpdate(value -> value | bit);
@@ -149,6 +165,7 @@ final class ComputeHost {
         }
         try {
             command.put("id", identity);
+            if (checkpointInput != null) command.put("checkpoint_length", checkpointInput.length());
             if (source != null) command.put("state_length", source.length);
             String script = "window.stockAICompute(" + command + ")";
             main.post(() -> {
@@ -167,6 +184,7 @@ final class ComputeHost {
                     pending = null;
                     if (incoming != null) incoming.close(); incoming = null;
                     if (outgoing != null) outgoing.close(); outgoing = null;
+                    checkpointInput = null; checkpointOutput = null;
                 }
             }
         }
@@ -180,11 +198,39 @@ final class ComputeHost {
             if (response != null) response.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
             if (incoming != null) incoming.close(); incoming = null;
             if (outgoing != null) outgoing.close(); outgoing = null;
+            checkpointInput = null; checkpointOutput = null;
         }
         main.post(() -> { if (view != null) { view.removeJavascriptInterface("StockAICompute"); view.destroy(); view = null; } });
     }
 
     final class Bridge {
+        @JavascriptInterface public String checkpointChunk(String identity, int offset) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpointInput == null || offset < 0 || offset >= checkpointInput.length()) return null;
+                return checkpointInput.substring(offset, Math.min(checkpointInput.length(), offset + AnalysisCheckpoints.CHUNK));
+            }
+        }
+        @JavascriptInterface public boolean beginCheckpoint(String identity, int length) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpoints == null || checkpointOutput != null || length < 1 || length > AnalysisCheckpoints.LIMIT + 4096) return false;
+                checkpointLength = length; checkpointOutput = new StringBuilder(); return true;
+            }
+        }
+        @JavascriptInterface public boolean appendCheckpoint(String identity, int offset, String value) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpointOutput == null || value == null || offset != checkpointOutput.length()
+                        || value.length() > AnalysisCheckpoints.CHUNK || value.length() == 0
+                        || offset + value.length() > checkpointLength) return false;
+                checkpointOutput.append(value); return true;
+            }
+        }
+        @JavascriptInterface public boolean commitCheckpoint(String identity) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpoints == null || checkpointOutput == null || checkpointOutput.length() != checkpointLength) return false;
+                try { checkpoints.write(new JSONObject(checkpointOutput.toString())); checkpointOutput = null; return true; }
+                catch (Exception error) { checkpointOutput = null; transferFailed(error); return false; }
+            }
+        }
         private boolean active(String identity) {
             return !closed && pending != null && !pending.isDone() && Long.toString(requestId).equals(identity);
         }

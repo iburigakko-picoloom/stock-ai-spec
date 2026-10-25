@@ -63,6 +63,9 @@ public final class DailyWorker extends Worker {
     }
 
     static ForegroundInfo foregroundInfo(Context context, String phase) {
+        return foregroundInfo(context, phase, -1);
+    }
+    static ForegroundInfo foregroundInfo(Context context, String phase, int percent) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel("stockai-compute", "データ取得・計算", NotificationManager.IMPORTANCE_LOW));
         Intent open = new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -71,8 +74,8 @@ public final class DailyWorker extends Worker {
             .setSmallIcon(R.drawable.ic_stat_stockai).setContentTitle("StockAI")
             .setContentText(phase.equals("history") || phase.equals("membership")
                 ? "データを取得・保存中"
-                : phase.equals("deciding") ? "株数を判定・保存中" : "予測を計算・保存中")
-            .setProgress(0, 0, true)
+                : phase.equals("deciding") ? "株数を判定・保存中" : percent < 0 ? "予測のデータを準備中" : "予測 " + percent + "%・途中保存済み")
+            .setProgress(100, Math.max(0, percent), percent < 0)
             .setContentIntent(pending).setOnlyAlertOnce(true).setOngoing(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build();
         return android.os.Build.VERSION.SDK_INT >= 29
