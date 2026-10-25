@@ -2,6 +2,7 @@
 
 - 総合/5日/20日/前場を復元。総合・前場は未導入と表示しAPI要求なし。5日は補助予測リターンとして順位表示/相談を除去。20日の順位・ChatGPT相談/反映は維持。計算/資産/履歴の変更なし、実注文なし。
 - ランキング関連5件、型/lint成功。本人端末の表示・署名版起動・CIは未確認。検証記録 .demo-artifacts/update-0158-20261026/ 。
+- build/署名検査成功。同署名0.1.58-candidate/code10058を非共有StockAIへ保存し24,050,749 bytes/shared=falseを再読込確認。Drive id 1tksHQe4J5VLWMFm5hrQf_yd_K3g78HGM、source 09952b20e289202e00cdb9af16c0cfbecabe0227、SHA256 b65d335f25b76c8af4bb3fc93c58c16dae1f57ec656a7c8553dfd75407ebf1f7。実機更新は未確認。
 
 ## 2026-10-26 — ランキング閲覧とChatGPT相談・順位反映（D255）
 
