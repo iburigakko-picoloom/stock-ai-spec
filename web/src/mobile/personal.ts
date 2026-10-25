@@ -19,8 +19,8 @@ export const costLabels = {
 } as const;
 export const taxLabels = {
   realized_gain_ytd: "今年の実現利益（円）", realized_loss_ytd: "今年の実現損失（正の円額）",
-  loss_carryforward_user_input: "利用する繰越損失（円）", nisa_annual_capacity_user_input: "NISA・今年の残り購入枠（円）",
-  nisa_lifetime_capacity_user_input: "NISA・生涯の残り購入枠（円）",
+  loss_carryforward_user_input: "利用する繰越損失（円）", nisa_annual_capacity_user_input: "NISA成長投資枠・今年の残枠（上限240万円）",
+  nisa_lifetime_capacity_user_input: "NISA成長投資枠・残り保有限度（上限1200万円）",
 } as const;
 export interface PersonalSettings {
   schema_version: "manual-personal-settings-v1"; portfolio_revision_id: string;
@@ -60,6 +60,7 @@ export function emptySettings(profile: SavedPortfolio): PersonalSettings {
     research_decision_policy: "daily-decision-engine-v3-bounded", research_conditions_reviewed: false };
 }
 const gapLabels: Record<string, string> = {
+  nisa_capacity_out_of_range: "NISA成長投資枠の残枠（年間240万円・保有限度1200万円以内）",
   manual_input: "口座・保有の保存", personal_settings: "補足設定の保存", settings_outdated: "更新後の口座・保有に合わせた補足設定の見直し",
   holdings_status: "現在の保有状況", investment_budget_yen: "投資上限", maximum_drawdown_percent: "希望する最大下落率",
   accounts: "口座の登録", available_cash_yen: "各口座の現金", account_classification: "口座区分・源泉徴収の確認",

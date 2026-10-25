@@ -150,6 +150,7 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
         if (operationsOnly && !startup && (input.method !== "POST" || ![
           "/api/v1/mobile/portfolio", "/api/v1/mobile/personal/settings",
           "/api/v1/mobile/personal/initial/preview", "/api/v1/mobile/personal/initial/confirm",
+          "/api/v1/mobile/personal/current/preview", "/api/v1/mobile/personal/current/confirm",
         ].includes(input.path ?? ""))) throw new Error("Invalid partial save request");
         await exportNative(input.id, progress, operationsOnly);
         self.postMessage({ id: input.id, result: startup ?? result, state: true });

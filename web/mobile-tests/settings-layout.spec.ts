@@ -49,6 +49,7 @@ test.beforeEach(async ({ page }) => {
   const payloads: Record<string, unknown> = {
     "/api/v1/settings": { runtimeMode: "TEST", data: {}, runtime: {} },
     "/api/v1/mobile/portfolio": profile,
+    "/api/v1/mobile/personal/current": { ledger: null, profile, settings: null },
     "/api/v1/mobile/market": { latest_data_date: null, completed_dates: [] },
     "/api/v1/mobile/market/plan": { first_day: "2024-10-20", last_day: "2026-10-19" },
     "/api/v1/mobile/market/membership": { available_at_cutoff: false },
@@ -347,8 +348,8 @@ test("saving capital keeps other editors' unsaved account changes out of the sav
     return route.fulfill({ json: { revision_id: "b".repeat(64), saved_at: "2026-10-20T10:00:00+09:00", portfolio: received!.portfolio } });
   });
   await page.getByRole("button", { name: /^証券口座/ }).click();
-  await page.getByRole("button", { name: /^口座・保有/ }).click();
-  await page.getByLabel("口座の呼び名").fill("未保存の口座名");
+  await page.getByRole("button", { name: /^現金・買付余力/ }).click();
+  await page.getByLabel("現金入力（円）").fill("123456");
   await page.getByRole("button", { name: "← 証券口座へ" }).click();
   await page.getByRole("button", { name: "← 設定一覧へ" }).click();
   await page.getByRole("button", { name: /^運用資金/ }).click();
@@ -363,8 +364,8 @@ test("saving capital keeps other editors' unsaved account changes out of the sav
   await page.getByRole("button", { name: "← 設定一覧へ" }).click();
   await expect(page.getByRole("button", { name: /^運用資金/ })).toContainText("¥600,000");
   await page.getByRole("button", { name: /^証券口座/ }).click();
-  await page.getByRole("button", { name: /^口座・保有/ }).click();
-  await expect(page.getByLabel("口座の呼び名")).toHaveValue("未保存の口座名");
+  await page.getByRole("button", { name: /^現金・買付余力/ }).click();
+  await expect(page.getByLabel("現金入力（円）")).toHaveValue("123456");
 });
 
 
@@ -373,12 +374,12 @@ for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.evaluate(() => document.documentElement.style.fontSize = "150%");
     await page.getByRole("button", { name: /^証券口座/ }).click();
-    await expect(page.getByRole("button", { name: /^口座・保有/ })).toContainText("入力済み");
+    await expect(page.getByRole("button", { name: /^現金・買付余力/ })).toContainText("入力済み");
     await expect(page.getByRole("button", { name: /^取引の確認/ })).toContainText("未入力");
-    await expect(page.getByRole("button", { name: /^残高登録/ })).toContainText("未登録");
+    await expect(page.getByRole("button", { name: /^初回残高/ })).toContainText("未登録");
     await expect(page.getByRole("textbox", { name: "口座の呼び名" })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`account-overview-${width}.png`), fullPage: true });
-    for (const title of ["口座・保有", "取引の確認", "残高登録"]) {
+    for (const title of ["現金・買付余力", "取引の確認", "初回残高"]) {
       await page.getByRole("button", { name: new RegExp(`^${title}`) }).click();
       await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -387,3 +388,25 @@ for (const width of [320, 390]) {
     }
   });
 }
+
+for (const width of [320, 390]) test(`current balances and holdings editor at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 844 });
+  await page.evaluate(() => document.documentElement.style.fontSize = "150%");
+  const ledger = { portfolio_id: "synthetic-current", as_of: "2026-10-24T09:00:00Z",
+    account_buckets: [{ bucket_id: "a", account_type: "taxable_specified", withholding_mode: "withholding" }],
+    positions: [], cash: [{ account_bucket_id: "a", available_cash: "1040000", reserved_cash: "440000" }], tax_states: [],
+  };
+  await page.route("**/api/v1/mobile/personal/current", route => route.fulfill({ json: { ledger, profile: null, settings: null } }));
+  await page.getByRole("button", { name: /^証券口座/ }).click();
+  await page.getByRole("button", { name: /^現金・買付余力/ }).click();
+  await expect(page.getByLabel("買付余力（円）")).toHaveValue("600000");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.screenshot({ path: info.outputPath(`current-cash-${width}.png`), fullPage: true });
+  await page.evaluate(() => { window.location.hash = "/holdings"; });
+  await page.getByRole("button", { name: "保有株を追加", exact: true }).click();
+  await page.getByLabel("銘柄コード").fill("7203");
+  await page.getByLabel("口座区分").selectOption("new:nisa");
+  await expect(page.getByRole("button", { name: "この保有を削除" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.screenshot({ path: info.outputPath(`current-holdings-${width}.png`), fullPage: true });
+});

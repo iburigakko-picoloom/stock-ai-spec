@@ -221,8 +221,21 @@ test("offline personal settings compile and confirmed balances survive a new int
     const restored = await request("GET", "/api/v1/home");
     const restoredExtra = await request("GET", "/api/v1/mobile/personal/settings");
     const ready = await request("GET", "/api/v1/mobile/personal/readiness");
+    const current = await request("GET", "/api/v1/mobile/personal/current");
+    const ledger = current.result.body.ledger as { portfolio_id: string };
+    const correction = { base_ledger_id: ledger.portfolio_id, base_revision_id: saved.result.body.revision_id,
+      base_settings_id: (extra.result.body.saved as { revision_id: string }).revision_id,
+      as_of: new Date().toISOString(), group: "cash", changes: [{ account_bucket_id: account, total: "1040000", buying_power: "600000" }] };
+    const correctionPreview = await request("POST", "/api/v1/mobile/personal/current/preview", correction);
+    const corrected = await request("POST", "/api/v1/mobile/personal/current/confirm", correction);
     worker.terminate();
-    return { extra, preview, refused, applied, home, restored, restoredExtra, ready };
+    worker = new Worker("/src/mobile/compute-worker.ts", { type: "module" });
+    await send({ command: "initialize", state: corrected.state });
+    const correctedHome = await request("GET", "/api/v1/home");
+    const correctedProfile = await request("GET", "/api/v1/mobile/portfolio");
+    worker.terminate();
+    return { extra, preview, refused, applied, home, restored, restoredExtra, ready,
+      correctionPreview, corrected, correctedHome, correctedProfile };
   });
   expect(result.extra.result.status).toBe(200);
   expect(result.preview.result.body.blocking_reasons).toEqual([]);
@@ -232,4 +245,8 @@ test("offline personal settings compile and confirmed balances survive a new int
   expect(result.restored.result.body).toEqual(result.home.result.body);
   expect(result.restoredExtra.result.body).toEqual(result.extra.result.body);
   expect(result.ready.result.body).toMatchObject({ input_gaps: [], comparison: { proposal: null, research_only: true } });
+  expect(result.correctionPreview.result.status).toBe(200);
+  expect(result.corrected.result.status).toBe(200);
+  expect(result.correctedHome.result.body).toMatchObject({ portfolio: { cashValue: "1040000", reservedCash: "440000", buyingPower: "600000" } });
+  expect(result.correctedProfile.result.body).toMatchObject({ portfolio: { accounts: [{ available_cash_yen: "1040000" }] } });
 });

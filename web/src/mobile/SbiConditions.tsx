@@ -35,19 +35,19 @@ function OptionalMoney({ title, label, value, onChange }: { title: string; label
   </div>;
 }
 
-function AccountQuestions({ source, item, change }: { source: SavedPortfolio["portfolio"]["accounts"][number]; item: AccountSettings; change: (value: Partial<AccountSettings>) => void }) {
+function AccountQuestions({ source, item, change, currentLedger }: { source: SavedPortfolio["portfolio"]["accounts"][number]; item: AccountSettings; change: (value: Partial<AccountSettings>) => void; currentLedger: boolean }) {
   const [enterTax, setEnterTax] = useState(false);
   const zeroTax = item.realized_gain_ytd !== null && item.realized_loss_ytd !== null && Number(item.realized_gain_ytd) === 0 && Number(item.realized_loss_ytd) === 0;
   const taxMode = enterTax ? "amount" : zeroTax ? "none" : item.realized_gain_ytd !== null || item.realized_loss_ytd !== null ? "amount" : "";
   return <fieldset><legend>{source.name}</legend>
-    <OptionalMoney title="注文用・出金用などに確保している現金" label="確保中の金額（円）" value={item.reserved_cash_yen} onChange={value => change({ reserved_cash_yen: value })} />
+    {!currentLedger && <OptionalMoney title="注文用・出金用などに確保している現金" label="確保中の金額（円）" value={item.reserved_cash_yen} onChange={value => change({ reserved_cash_yen: value })} />}
     <label>残高に未反映の売買・入出金や、未決済の取引<select value={item.pending_activity} onChange={e => change({ pending_activity: e.target.value as AccountSettings["pending_activity"] })}>
       <option value="unknown">選んでください</option><option value="none">なし</option><option value="pending">あり（反映・決済後に登録）</option>
     </select></label>
     {source.account_type === "nisa" ? <>
-      <p className="setting-footnote">NISAは残り枠だけ入力します。課税用の損益は計算に使いません。</p>
-      <Money label="今年の残り購入枠（円）" value={item.nisa_annual_capacity_user_input} onChange={value => change({ nisa_annual_capacity_user_input: value })} />
-      <Money label="生涯の残り購入枠（円）" value={item.nisa_lifetime_capacity_user_input} onChange={value => change({ nisa_lifetime_capacity_user_input: value })} />
+      <p className="setting-footnote">個別株の成長投資枠です。年間上限240万円、保有限度1200万円。SBIに表示された残枠を入力します。</p>
+      {!currentLedger && <><Money label="今年の残り購入枠（円）" value={item.nisa_annual_capacity_user_input} onChange={value => change({ nisa_annual_capacity_user_input: value })} />
+      <Money label="生涯の残り購入枠（円）" value={item.nisa_lifetime_capacity_user_input} onChange={value => change({ nisa_lifetime_capacity_user_input: value })} /></>}
       {(item.realized_gain_ytd === null || item.realized_loss_ytd === null || item.loss_carryforward_user_input === null) && <button type="button" className="button button--secondary" onClick={() => change({
         realized_gain_ytd: item.realized_gain_ytd ?? "0", realized_loss_ytd: item.realized_loss_ytd ?? "0", loss_carryforward_user_input: item.loss_carryforward_user_input ?? "0",
       })}>NISAの課税計算を対象外にする</button>}
@@ -66,7 +66,7 @@ function AccountQuestions({ source, item, change }: { source: SavedPortfolio["po
   </fieldset>;
 }
 
-export function SbiConditions({ profile, draft, change, onManual }: { profile: SavedPortfolio; draft: PersonalSettings; change: (value: PersonalSettings) => void; onManual: () => void }) {
+export function SbiConditions({ profile, draft, change, onManual, currentLedger = false }: { profile: SavedPortfolio; draft: PersonalSettings; change: (value: PersonalSettings) => void; onManual: () => void; currentLedger?: boolean }) {
   const year = Number(new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 4));
   const costs = draft.cost_assumptions;
   const assumptionsReady = draft.budget_basis && draft.tax_year && draft.research_conditions_reviewed &&
@@ -88,14 +88,14 @@ export function SbiConditions({ profile, draft, change, onManual }: { profile: S
       <p className="setting-footnote">ネット取引・所定の書面すべての電子交付などが条件です。<a href="https://faq.sbisec.co.jp/answer/64f176ea8e582c2aa5655c2a/" target="_blank" rel="noreferrer">SBIの条件を確認</a></p>
     </div>
     <div className="account-form-card"><h3>残高の確認</h3>
-      <label>口座・保有に入力した現金額<select value={draft.cash_basis ?? ""} onChange={e => change({ ...draft, cash_basis: e.target.value as PersonalSettings["cash_basis"] || null })}>
+      {!currentLedger && <><label>口座・保有に入力した現金額<select value={draft.cash_basis ?? ""} onChange={e => change({ ...draft, cash_basis: e.target.value as PersonalSettings["cash_basis"] || null })}>
         <option value="">選んでください</option><option value="deployable_after_reserved">買付余力</option><option value="total_including_reserved">総現金</option>
       </select></label>
-      <p className="setting-footnote">買付余力は確保分を除いた額、総現金は含む額です。複数口座への重複入力は不要です。</p>
+      <p className="setting-footnote">買付余力は確保分を除いた額、総現金は含む額です。複数口座への重複入力は不要です。</p></>}
       {draft.tax_year !== null && draft.tax_year !== year && <p role="alert">{draft.tax_year}年の損益が残っています。「計算条件の確認・変更」で対象年と損益を見直してください。</p>}
       {profile.portfolio.accounts.map(source => {
         const item = draft.accounts.find(x => x.account_id === source.id);
-        return item ? <AccountQuestions key={source.id} source={source} item={item} change={value => change({ ...draft, accounts: draft.accounts.map(x => x.account_id === source.id ? { ...x, ...value } : x) })} /> : null;
+        return item ? <AccountQuestions key={source.id} source={source} item={item} currentLedger={currentLedger} change={value => change({ ...draft, accounts: draft.accounts.map(x => x.account_id === source.id ? { ...x, ...value } : x) })} /> : null;
       })}
     </div>
   </>;

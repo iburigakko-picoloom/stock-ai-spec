@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { MobileBackupPanel } from "./MobileBackupPanel";
 import { MobilePersonalPanel, accountStepTitles, type AccountStep } from "./MobilePersonalPanel";
+import { CurrentAccountPanel } from "./CurrentAccountPanel";
 import { SaveProgress } from "./SaveProgress";
 import { ChatGPTPanel } from "./ChatGPTPanel";
 import { MobileMarketPanel } from "./MobileMarketPanel";
@@ -182,6 +183,14 @@ export function MobileDevicePanel(): ReactNode {
       : selected === "risk" ? { ...draft, maximum_drawdown_percent: value.portfolio.maximum_drawdown_percent }
         : { ...draft, accounts: value.portfolio.accounts, holdings: value.portfolio.holdings, holdings_status: value.portfolio.holdings_status });
   }
+  function currentSaved(): void {
+    void apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio").then(value => {
+      if (!value) return;
+      setSavedPortfolio(value);
+      setPortfolio(draft => ({ ...draft, accounts: value.portfolio.accounts,
+        holdings: value.portfolio.holdings, holdings_status: value.portfolio.holdings_status }));
+    }).catch(() => setPortfolioError("保存済みです。設定一覧を読み直してください。"));
+  }
   const accountDirty = JSON.stringify([portfolio.accounts, portfolio.holdings, portfolio.holdings_status]) !== JSON.stringify([
     savedPortfolio?.portfolio.accounts ?? blank.accounts, savedPortfolio?.portfolio.holdings ?? blank.holdings,
     savedPortfolio?.portfolio.holdings_status ?? blank.holdings_status,
@@ -227,7 +236,7 @@ export function MobileDevicePanel(): ReactNode {
         <SettingsRow icon="info" title="アプリ情報・詳細" onClick={() => open("about")} />
       </div></section>
     </div>
-    <SettingsPanel visible={(selected === "accounts" && accountStep === "portfolio") || selected === "capital" || selected === "risk"}>
+    <SettingsPanel visible={selected === "capital" || selected === "risk"}>
     <section className="section account-editor">
       <fieldset className="account-form" disabled={busy || !portfolioLoaded}>
 
@@ -237,32 +246,6 @@ export function MobileDevicePanel(): ReactNode {
       <div hidden={selected !== "risk"}>
       <label>許容する最大下落率（%・未定は空欄）<input type="number" min="0.01" max="100" step="any" value={portfolio.maximum_drawdown_percent ?? ""} onChange={event => setPortfolio({ ...portfolio, maximum_drawdown_percent: event.target.value ? Number(event.target.value) : null })} /></label>
       <p className="setting-footnote">本人の希望条件です。この下落率以内に収まることを保証するものではありません。</p>
-      </div>
-      <div hidden={selected !== "accounts"}>
-      <label><input type="checkbox" checked={portfolio.holdings_status === "none"} onChange={event => setPortfolio({ ...portfolio, holdings_status: event.target.checked ? "none" : "unrecorded", holdings: [] })} />現在は保有なし</label>
-      {portfolio.accounts.map((account, index) => <fieldset key={account.id}><legend>口座 {index + 1}</legend>
-        <label>口座の呼び名<input value={account.name} onChange={event => setPortfolio({ ...portfolio, accounts: portfolio.accounts.map(item => item.id === account.id ? { ...item, name: event.target.value } : item) })} /></label>
-        <label>口座区分<select value={account.account_type} onChange={event => setPortfolio({ ...portfolio, accounts: portfolio.accounts.map(item => item.id === account.id ? { ...item, account_type: event.target.value as typeof item.account_type, withholding_mode: event.target.value === "nisa" ? "not_applicable" : "unknown" } : item) })}>
-          <option value="unknown_manual">未確認</option><option value="taxable_specified">特定口座</option><option value="taxable_general">一般口座</option><option value="nisa">NISA</option>
-        </select></label>
-        {(account.account_type === "taxable_specified" || account.account_type === "taxable_general") && <label>源泉徴収<select value={account.withholding_mode} onChange={event => setPortfolio({ ...portfolio, accounts: portfolio.accounts.map(item => item.id === account.id ? { ...item, withholding_mode: event.target.value as typeof item.withholding_mode } : item) })}><option value="unknown">未確認</option>{account.account_type === "taxable_specified" && <option value="withholding">あり</option>}<option value="no_withholding">なし</option></select></label>}
-        <label>利用可能現金（円・未定は空欄）<input inputMode="decimal" value={account.available_cash_yen ?? ""} onChange={event => setPortfolio({ ...portfolio, accounts: portfolio.accounts.map(item => item.id === account.id ? { ...item, available_cash_yen: event.target.value || null } : item) })} /></label>
-        <button className="button button--secondary" onClick={() => setPortfolio({ ...portfolio, holdings_status: "recorded", holdings: [...portfolio.holdings, { account_id: account.id, symbol: "", shares: 1, average_acquisition_price_yen: null }] })}>この口座に保有株を追加</button>
-        <button className="button button--secondary" onClick={() => {
-          const holdings = portfolio.holdings.filter(item => item.account_id !== account.id);
-          setPortfolio({ ...portfolio, accounts: portfolio.accounts.filter(item => item.id !== account.id), holdings, holdings_status: holdings.length ? "recorded" : "unrecorded" });
-        }}>この口座と入力中の保有を削除</button>
-      </fieldset>)}
-      <button className="button button--secondary" onClick={() => setPortfolio({ ...portfolio, accounts: [...portfolio.accounts, { id: crypto.randomUUID(), name: "", account_type: "unknown_manual", withholding_mode: "unknown", available_cash_yen: null }] })}>口座を追加</button>
-      {portfolio.holdings.map((holding, index) => <fieldset key={index}><legend>保有株 {index + 1} · {portfolio.accounts.find(item => item.id === holding.account_id)?.name}</legend>
-        <label>銘柄コード<input value={holding.symbol} onChange={event => setPortfolio({ ...portfolio, holdings: portfolio.holdings.map((item, position) => position === index ? { ...item, symbol: event.target.value.toUpperCase() } : item) })} /></label>
-        <label>株数<input type="number" min="1" value={holding.shares} onChange={event => setPortfolio({ ...portfolio, holdings: portfolio.holdings.map((item, position) => position === index ? { ...item, shares: Number(event.target.value) } : item) })} /></label>
-        <label>平均取得単価（円・未定は空欄）<input inputMode="decimal" value={holding.average_acquisition_price_yen ?? ""} onChange={event => setPortfolio({ ...portfolio, holdings: portfolio.holdings.map((item, position) => position === index ? { ...item, average_acquisition_price_yen: event.target.value || null } : item) })} /></label>
-        <button className="button button--secondary" onClick={() => {
-          const holdings = portfolio.holdings.filter((_, position) => position !== index);
-          setPortfolio({ ...portfolio, holdings, holdings_status: holdings.length ? "recorded" : "unrecorded" });
-        }}>この保有入力を削除</button>
-      </fieldset>)}
       </div>
       <div className="button-stack">
       <button className="button button--primary" disabled={busy || !portfolioLoaded} onClick={() => void action(savePortfolio, `${selected ? panelTitles[selected] : "口座・保有"}を端末に保存しました。`)}>{selected === "capital" ? "運用資金を保存" : selected === "risk" ? "許容下落率を保存" : "口座・保有を保存"}</button>
@@ -277,6 +260,17 @@ export function MobileDevicePanel(): ReactNode {
       </fieldset>
     </section>
     {messageGroup === "account" && message && <p role="status">{message}</p>}
+    </SettingsPanel>
+    <SettingsPanel visible={selected === "accounts" && accountStep === "portfolio"}>
+      <section className="section"><CurrentAccountPanel mode="cash" onSaved={currentSaved} fallback={<fieldset className="account-form" disabled={busy || !portfolioLoaded}>
+        <p>SBI証券 · 初回残高の入力</p>
+        {portfolio.accounts.map(account => <label key={account.id}>現金入力（円）<input inputMode="decimal" value={account.available_cash_yen ?? ""} onChange={event => setPortfolio({ ...portfolio, accounts: portfolio.accounts.map(item => item.id === account.id ? { ...item, available_cash_yen: event.target.value || null } : item) })} /></label>)}
+        {!portfolio.accounts.length && <p>ホームの「実保有」から保有状況を登録してください。</p>}
+        <button className="button button--primary" onClick={() => void action(savePortfolio, "初回残高の入力を保存しました。")}>初回残高の入力を保存</button>
+      </fieldset>} /></section>
+    </SettingsPanel>
+    <SettingsPanel visible={selected === "accounts" && accountStep === "nisa"}>
+      <section className="section"><CurrentAccountPanel mode="nisa" onSaved={currentSaved} /></section>
     </SettingsPanel>
     <SettingsPanel visible={selected === "accounts"}>
       <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || accountDirty}

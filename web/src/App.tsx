@@ -6,6 +6,7 @@ import { DataOperationsPage } from "./pages/DataOperationsPage";
 import { DecisionReviewPage } from "./pages/DecisionReviewPage";
 import { DecisionSavedPage } from "./pages/DecisionSavedPage";
 import { ExecutionPage } from "./pages/ExecutionPage";
+import { HoldingsPage } from "./pages/HoldingsPage";
 import { HomePage } from "./pages/HomePage";
 import { ManualChatGPTPage } from "./pages/ManualChatGPTPage";
 import { RankingPage } from "./pages/RankingPage";
@@ -20,6 +21,7 @@ export function App(): ReactNode {
       <Route element={<AppShell />}>
         <Route element={<RetainedReadViews />}>
         <Route index element={<HomePage />} />
+        <Route path="holdings" element={<HoldingsPage />} />
         <Route path="today" element={<TodayPage />} />
         <Route path="today/review" element={<DecisionReviewPage />} />
         <Route path="today/decision" element={<DecisionSavedPage />} />

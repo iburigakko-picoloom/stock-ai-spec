@@ -24,6 +24,7 @@ from stock_ai.operations.manual_settings import ManualPersonalSettings
 from stock_ai.operations.store import OperationalConflictError
 
 from . import (
+    account_editor,
     decisions,
     forecasts,
     manual_chatgpt,
@@ -319,6 +320,16 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         store = _app.state.store
         now = datetime.now(UTC)
         try:
+            if path == "/api/v1/mobile/personal/current" and method == "GET":
+                return {"status": 200, "body": account_editor.view(store)}
+            if path in (
+                "/api/v1/mobile/personal/current/preview",
+                "/api/v1/mobile/personal/current/confirm",
+            ) and method == "POST":
+                incoming = strict_json(body)
+                return {"status": 200, "body": account_editor.edit(
+                    store, incoming, now, confirm=path.endswith("/confirm"),
+                )}
             if path == "/api/v1/mobile/personal/settings":
                 if method == "POST":
                     incoming = strict_json(body)
@@ -349,7 +360,12 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 )}
         except OperationalConflictError as error:
             return {"status": 409, "body": {"detail": str(error)}}
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError) as error:
+            if path.startswith("/api/v1/mobile/personal/current"):
+                message = str(error)
+                return {"status": 422, "body": {"detail": message
+                    if len(message) < 160 and any("\u3040" <= c <= "\u9fff" for c in message)
+                    else "金額・口座区分・株数を確認してください。"}}
             return {"status": 422, "body": {
                 "detail": "補足設定・未入力項目・口座との対応を確認してください。"
             }}

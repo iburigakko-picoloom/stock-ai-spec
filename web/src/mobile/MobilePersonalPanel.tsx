@@ -10,7 +10,7 @@ function Amount({ label, value, change }: { label: string; value: string | null;
   return <label>{label}<input inputMode="decimal" placeholder="未確認なら空欄" value={value ?? ""} onChange={event => change(event.target.value || null)} /></label>;
 }
 
-export const accountStepTitles = { portfolio: "口座・保有", conditions: "取引の確認", balances: "残高登録" };
+export const accountStepTitles = { portfolio: "現金・買付余力", nisa: "NISA残枠", conditions: "取引の確認", balances: "初回残高" };
 export type AccountStep = keyof typeof accountStepTitles;
 
 export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, portfolioStatus = "確認中" }: {
@@ -25,6 +25,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const acting = useRef(false);
+  const draftTouched = useRef(false);
   const [message, setMessage] = useState("");
   const [reload, setReload] = useState(0);
   const [manualConditions, setManualConditions] = useState(false);
@@ -41,7 +42,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
     ]).then(([result, ready]) => {
       if (cancelled) return;
       setSaved(result.saved); setReadiness(ready); setRefreshError("");
-      setDraft(previous => previous ?? result.saved?.settings ?? (result.current_portfolio ? emptySettings(result.current_portfolio) : null));
+      setDraft(previous => draftTouched.current && previous ? previous : result.saved?.settings ?? (result.current_portfolio ? emptySettings(result.current_portfolio) : null));
       setLoaded(true); setPreview(null); setConfirm(false);
     }).catch(() => { if (!cancelled) { setRefreshError("入力状況を確認できません。もう一度読み込んでください。"); setMessage("補足設定を読み込めません。保存済みの口座・保有を読み直してください。"); } });
     return () => { cancelled = true; invalidateRefresh(); };
@@ -55,7 +56,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
 
   const stale = draft !== null && draft.portfolio_revision_id !== profile?.revision_id;
   const blocked = disabled || busy || !loaded || stale;
-  function change(value: PersonalSettings) { setDraft(value); setPreview(null); setConfirm(false); setMessage(""); }
+  function change(value: PersonalSettings) { draftTouched.current = true; setDraft(value); setPreview(null); setConfirm(false); setMessage(""); }
   function accountChange(id: string, value: Partial<AccountSettings>) {
     if (draft) change({ ...draft, accounts: draft.accounts.map(x => x.account_id === id ? { ...x, ...value } : x) });
   }
@@ -88,9 +89,10 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
     : readiness.comparison.ledger_portfolio_id ? "登録済み" : "未登録";
   if (step === "overview") return <section className="account-setup-menu" aria-label="証券口座の登録項目">
     {([
-      ["portfolio", "口座・保有", "口座区分・現金・保有株", portfolioStatus],
+      ["portfolio", "現金・買付余力", "SBI証券の現在残高", portfolioStatus],
+      ["nisa", "NISA残枠", "成長投資枠", ledgerStatus],
       ["conditions", "取引の確認", "SBIの手数料・残高の確認", settingsStatus],
-      ["balances", "残高登録", "保存した内容を初回残高に確定", ledgerStatus],
+      ["balances", "初回残高", "開始時の資産・履歴", ledgerStatus],
     ] as const).map(([id, title, hint, status]) => <button key={id} type="button" className="account-setup-row" onClick={() => onStep?.(id)}>
       <span className="account-setup-copy"><strong>{title}</strong><small>{hint}</small></span>
       <span className={`account-setup-status${status === "入力済み" || status === "登録済み" ? " account-setup-status--done" : ""}`}>{status}</span>
@@ -99,7 +101,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
     {refreshError && <p role="alert">{refreshError}</p>}
     {refreshError && <button className="button button--secondary" onClick={() => setReload(value => value + 1)}>入力状況を再確認</button>}
   </section>;
-  if (step === "portfolio") return null;
+  if (step === "portfolio" || step === "nisa") return null;
   if (!profile || !draft) return <section className="section"><p>{!loaded && !refreshError ? "登録内容を読み込んでいます…" : "先に口座・保有を保存してください。"}</p>{message && <><p role="status">{message}</p><button className="button" disabled={busy} onClick={() => setReload(value => value + 1)}>補足設定を読み直す</button></>}</section>;
   const gaps = [...new Set((readiness?.input_gaps ?? []).map(gapLabel))];
   const reasons = [...new Set((readiness?.comparison.blocking_reasons ?? []).map(x => gapLabel(x.code)))];
@@ -118,12 +120,12 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
       })}>最新の口座・保有に合わせて見直す</button></div>}
     <fieldset className="account-form" hidden={step === "balances"} disabled={blocked}>
       <legend className={step !== "all" && !manualConditions ? "sr-only" : undefined}>現金・税金・費用の入力</legend>
-      {step !== "all" && !manualConditions ? <SbiConditions profile={profile} draft={draft} change={change} onManual={() => setManualConditions(true)} /> : <>
+      {step !== "all" && !manualConditions ? <SbiConditions profile={profile} draft={draft} change={change} onManual={() => setManualConditions(true)} currentLedger={!!readiness?.comparison.ledger_portfolio_id} /> : <>
       {step !== "all" && <button type="button" className="settings-back" onClick={() => setManualConditions(false)}>← かんたん設定へ</button>}
       <div className="account-form-card"><h3>現金の扱い</h3>
-      <label>口座に入力した現金の意味<select value={draft.cash_basis ?? ""} onChange={event => change({ ...draft, cash_basis: event.target.value as PersonalSettings["cash_basis"] || null })}>
+      {!readiness?.comparison.ledger_portfolio_id && <label>口座に入力した現金の意味<select value={draft.cash_basis ?? ""} onChange={event => change({ ...draft, cash_basis: event.target.value as PersonalSettings["cash_basis"] || null })}>
         <option value="">未確認</option><option value="total_including_reserved">確保中の金額を含む総現金</option><option value="deployable_after_reserved">確保中の金額を除いた買付余力</option>
-      </select></label>
+      </select></label>}
       <label><input type="checkbox" checked={draft.budget_basis !== null} onChange={event => change({ ...draft, budget_basis: event.target.checked ? "maximum_total_equity_market_value" : null })} />投資上限は全口座で保有する株式の時価合計に対する上限です</label>
       </div>
       <div className="account-form-card"><h3>口座ごとの内訳</h3>
@@ -132,12 +134,12 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         const item = draft.accounts.find(x => x.account_id === source.id);
         if (!item) return null;
         return <fieldset key={source.id}><legend>{source.name}</legend>
-          <Amount label="確保中の現金（円）" value={item.reserved_cash_yen} change={next => accountChange(source.id, { reserved_cash_yen: next })} />
+          {!readiness?.comparison.ledger_portfolio_id && <Amount label="確保中の現金（円）" value={item.reserved_cash_yen} change={next => accountChange(source.id, { reserved_cash_yen: next })} />}
           <label>未反映の取引・決済・入出金<select value={item.pending_activity} onChange={event => accountChange(source.id, { pending_activity: event.target.value as AccountSettings["pending_activity"] })}>
             <option value="unknown">まだ確認していない</option><option value="none">未反映のものはない</option><option value="pending">未反映・未決済のものがある</option>
           </select></label>
           <details className="settings-disclosure"><summary>この口座の税・NISA</summary>
-          {(Object.entries(taxLabels) as [keyof typeof taxLabels, string][]).filter(([key]) => source.account_type === "nisa" || !key.startsWith("nisa_") || item[key] !== null).map(([key, label]) =>
+          {(Object.entries(taxLabels) as [keyof typeof taxLabels, string][]).filter(([key]) => !(readiness?.comparison.ledger_portfolio_id && key.startsWith("nisa_")) && (source.account_type === "nisa" || !key.startsWith("nisa_") || item[key] !== null)).map(([key, label]) =>
             <Amount key={key} label={label} value={item[key]} change={next => accountChange(source.id, { [key]: next })} />)}
           </details>
         </fieldset>;
@@ -164,6 +166,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
       </>}
       <button className="button button--primary" onClick={() => void act(async () => {
         const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
+        draftTouched.current = false;
         setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false);
         setMessage("保存しました。"); refresh();
       })}>補足設定を保存</button>

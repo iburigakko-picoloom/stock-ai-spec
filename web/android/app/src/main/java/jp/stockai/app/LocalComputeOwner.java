@@ -163,7 +163,9 @@ final class LocalComputeOwner {
         return "POST".equals(method) && (path.equals("/api/v1/mobile/portfolio")
             || path.equals("/api/v1/mobile/personal/settings")
             || path.equals("/api/v1/mobile/personal/initial/preview")
-            || path.equals("/api/v1/mobile/personal/initial/confirm"));
+            || path.equals("/api/v1/mobile/personal/initial/confirm")
+            || path.equals("/api/v1/mobile/personal/current/preview")
+            || path.equals("/api/v1/mobile/personal/current/confirm"));
     }
 
     CompletableFuture<JSObject> request(String method, String path, String body) {
@@ -186,6 +188,7 @@ final class LocalComputeOwner {
                         if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
                         generation = operations ? state.commitOperations(generation, reply.state)
                             : state.commitTransfer(generation, reply.state);
+                        if (status == 200 && path.equals("/api/v1/mobile/personal/current/confirm")) readViews.clear();
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
                         throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
                     if (("GET".equals(method) || ("POST".equals(method) && path.equals("/api/v1/mobile/portfolio"))) && SavedReadViews.allowed(path)) {

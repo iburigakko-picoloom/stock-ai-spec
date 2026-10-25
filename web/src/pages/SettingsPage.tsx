@@ -126,8 +126,8 @@ function ReadOnlySettingsPage(): ReactNode {
           <div><dt>年内確定利益</dt><dd>{yen(item.realizedGainYtd)}</dd></div>
           <div><dt>年内確定損失</dt><dd>{yen(item.realizedLossYtd)}</dd></div>
           <div><dt>繰越損失</dt><dd>{yen(item.lossCarryforward)}</dd></div>
-          <div><dt>NISA年間残枠</dt><dd>{yen(item.nisaAnnualCapacity)}</dd></div>
-          <div><dt>NISA生涯残枠</dt><dd>{yen(item.nisaLifetimeCapacity)}</dd></div>
+          <div><dt>NISA成長投資枠・今年の残枠</dt><dd>{yen(item.nisaAnnualCapacity)}{Number(item.nisaAnnualCapacity) > 2400000 && "（要確認：年間上限240万円）"}</dd></div>
+          <div><dt>NISA成長投資枠・残り保有限度</dt><dd>{yen(item.nisaLifetimeCapacity)}{Number(item.nisaLifetimeCapacity) > 12000000 && "（要確認：上限1200万円）"}</dd></div>
         </dl><p className="explain">税額・税効果は意思決定用の推定です。</p>
       </article>)}</section>}
       {section === "trading" && <section className="section"><dl className="status-list">

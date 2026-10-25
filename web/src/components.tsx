@@ -100,7 +100,7 @@ const nav = [
 export function AppShell(): ReactNode {
   const location = useLocation();
   const from: unknown = location.state?.from;
-  const stockParent = location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : "/today" : null;
+  const stockParent = location.pathname === "/holdings" ? "/" : location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : "/today" : null;
   return (
     <div className="app-shell">
       <MobileUpdateNotice />

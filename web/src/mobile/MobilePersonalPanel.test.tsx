@@ -133,10 +133,10 @@ test("overview distinguishes saved inputs, missing supplements and confirmed bal
   const onStep = vi.fn();
   render(<MobilePersonalPanel profile={profile} disabled={false} step="overview" onStep={onStep} portfolioStatus="入力済み" />);
   await waitFor(() => expect(screen.getByRole("button", { name: /取引の確認/ })).toHaveTextContent("未入力"));
-  expect(screen.getByRole("button", { name: /口座・保有/ })).toHaveTextContent("入力済み");
-  expect(screen.getByRole("button", { name: /残高登録/ })).toHaveTextContent("登録済み");
+  expect(screen.getByRole("button", { name: /現金・買付余力/ })).toHaveTextContent("入力済み");
+  expect(screen.getByRole("button", { name: /初回残高/ })).toHaveTextContent("登録済み");
   expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /残高登録/ }));
+  fireEvent.click(screen.getByRole("button", { name: /初回残高/ }));
   expect(onStep).toHaveBeenCalledWith("balances");
 });
 
@@ -160,5 +160,5 @@ test("overview never labels failed reads as missing or completed", async () => {
   render(<MobilePersonalPanel profile={profile} disabled={false} step="overview" />);
   await screen.findByRole("alert");
   expect(screen.getByRole("button", { name: /取引の確認/ })).toHaveTextContent("確認できません");
-  expect(screen.getByRole("button", { name: /残高登録/ })).toHaveTextContent("確認できません");
+  expect(screen.getByRole("button", { name: /初回残高/ })).toHaveTextContent("確認できません");
 });

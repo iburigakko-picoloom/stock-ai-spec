@@ -70,6 +70,8 @@ export interface PortfolioSummary {
   asOf: string;
   totalAssets: string;
   cashValue: string;
+  reservedCash?: string;
+  buyingPower?: string;
   equityValue: string;
   holdingsCount: number;
 }

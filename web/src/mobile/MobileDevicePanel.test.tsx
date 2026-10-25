@@ -68,14 +68,16 @@ test("account subpages have separate history and preserve unsaved portfolio edit
     ? { input_gaps: ["personal_settings"], initial_ledger: { blocking_reasons: [] }, comparison: { ledger_portfolio_id: null, blocking_reasons: [] } }
     : path.endsWith("settings") ? { saved: null, current_portfolio: profile } : profile);
   render(<MemoryRouter initialEntries={["/settings?edit=accounts"]}><MobileDevicePanel /></MemoryRouter>);
-  const row = await screen.findByRole("button", { name: /口座・保有.*入力済み/ });
+  const row = await screen.findByRole("button", { name: /現金・買付余力.*入力済み/ });
   expect(screen.queryByRole("textbox", { name: "口座の呼び名" })).not.toBeInTheDocument();
   fireEvent.click(row);
-  expect(screen.getByRole("heading", { name: "口座・保有" })).toBeVisible();
-  fireEvent.change(screen.getByRole("textbox", { name: "口座の呼び名" }), { target: { value: "編集中の口座" } });
+  expect(screen.getByRole("heading", { name: "現金・買付余力" })).toBeVisible();
+  fireEvent.change(await screen.findByRole("textbox", { name: "現金入力（円）" }), { target: { value: "12345" } });
   fireEvent.click(screen.getByRole("button", { name: "← 証券口座へ" }));
-  expect(screen.getByRole("button", { name: /口座・保有.*未保存/ })).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: /口座・保有.*未保存/ }));
-  expect(screen.getByRole("textbox", { name: "口座の呼び名" })).toHaveValue("編集中の口座");
+  expect(screen.getByRole("button", { name: /現金・買付余力.*未保存/ })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: /現金・買付余力.*未保存/ }));
+  expect(screen.getByRole("textbox", { name: "現金入力（円）" })).toHaveValue("12345");
+  expect(screen.queryByRole("button", { name: "口座を追加" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /保有株を追加/ })).not.toBeInTheDocument();
   expect(apiPost).not.toHaveBeenCalled();
 });

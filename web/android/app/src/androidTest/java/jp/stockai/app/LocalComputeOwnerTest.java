@@ -89,6 +89,23 @@ public class LocalComputeOwnerTest {
         } finally { SQLiteDatabase.deleteDatabase(database); }
     }
 
+    @Test public void currentBalancesMatchPythonWithoutStartingTheInterpreter() throws Exception {
+        JSONObject fixture;
+        try (java.io.InputStream input = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("account-editor-fixture.json")) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192]; int count;
+            while ((count = input.read(buffer)) != -1) bytes.write(buffer, 0, count);
+            fixture = new JSONObject(bytes.toString("UTF-8"));
+        }
+        assertTrue(fixture.getBoolean("synthetic_only"));
+        owner.state.write(owner.state.currentGeneration(), fixture.getString("state"));
+        long start = android.os.SystemClock.elapsedRealtime();
+        assertJsonEqual(fixture.getJSONObject("expected"), NativePortfolioReader.read(context, owner.state, true).getJSONObject("body"));
+        android.util.Log.i("StockAIPersonalBenchmark", "current_balances_ms=" + (android.os.SystemClock.elapsedRealtime() - start));
+        java.lang.reflect.Field host = LocalComputeOwner.class.getDeclaredField("host"); host.setAccessible(true);
+        assertNull(host.get(owner));
+    }
+
     private static void assertJsonEqual(Object expected, Object actual) throws Exception {
         if (expected instanceof JSONObject) {
             JSONObject left = (JSONObject) expected, right = (JSONObject) actual;

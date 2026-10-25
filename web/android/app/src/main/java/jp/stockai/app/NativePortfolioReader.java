@@ -41,7 +41,10 @@ final class NativePortfolioReader {
         }
     }
     // null means an old schema needs the existing Python migration, never an empty portfolio.
-    static synchronized JSObject read(Context context, LocalStateStore state) throws Exception {
+    static JSObject read(Context context, LocalStateStore state) throws Exception {
+        return read(context, state, false);
+    }
+    static synchronized JSObject read(Context context, LocalStateStore state, boolean currentView) throws Exception {
         long started = android.os.SystemClock.elapsedRealtime();
         // Remove only this reader's interrupted temporary files, never a durable database.
         File[] interrupted = context.getCacheDir().listFiles((dir, name) -> name.startsWith("personal-read-"));
@@ -101,6 +104,10 @@ final class NativePortfolioReader {
                     body = new JSONObject().put("revision_id", exported.getString("revision_id"))
                         .put("saved_at", timestamp(exported.getString("saved_at"))).put("portfolio", revision.getJSONObject("portfolio"));
                 }
+                if (currentView) {
+                    body = currentBody(db, body);
+                    if (body == null) return null;
+                }
             }
             if (state.currentGeneration() != source.generation) throw new IllegalStateException("STATE_CONFLICT");
             android.util.Log.i("StockAIComputeTiming", "personal_read_ms="
@@ -110,5 +117,42 @@ final class NativePortfolioReader {
         } finally {
             archive.delete(); SQLiteDatabase.deleteDatabase(ledger);
         }
+    }
+
+    private static JSONObject currentBody(SQLiteDatabase db, JSONObject profile) throws Exception {
+        try (Cursor tables = db.rawQuery("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('portfolio_states','mobile_personal_settings')", null)) {
+            if (!tables.moveToFirst() || tables.getInt(0) != 2) return null;
+        }
+        JSONObject ledger = null, settings = null;
+        Instant latest = null;
+        boolean tied = false;
+        try (Cursor rows = db.rawQuery("SELECT portfolio_id,as_of,payload,content_hash FROM portfolio_states", null)) {
+            while (rows.moveToNext()) {
+                String payload = rows.getString(2);
+                if (!digest(payload).equals(rows.getString(3))) throw new SecurityException("LEDGER_CONTENT_HASH");
+                JSONObject value = new JSONObject(payload);
+                Instant instant = Instant.parse(value.getString("as_of"));
+                if (!rows.getString(0).equals(value.getString("portfolio_id"))
+                        || !instant.equals(Instant.parse(rows.getString(1)))) throw new SecurityException("LEDGER_IDENTITY");
+                if (latest == null || instant.isAfter(latest)) { ledger = value; latest = instant; tied = false; }
+                else if (instant.equals(latest)) tied = true;
+            }
+        }
+        if (tied || (latest != null && latest.isAfter(Instant.now()))) throw new SecurityException("LEDGER_BASE_CONFLICT");
+        String previous = null;
+        int sequence = 0;
+        try (Cursor rows = db.rawQuery("SELECT sequence,revision_id,payload,content_hash FROM mobile_personal_settings ORDER BY sequence", null)) {
+            while (rows.moveToNext()) {
+                String payload = rows.getString(2), hash = digest(payload);
+                JSONObject value = new JSONObject(payload);
+                if (!hash.equals(rows.getString(1)) || !hash.equals(rows.getString(3))
+                        || rows.getInt(0) != ++sequence || value.getInt("sequence") != sequence
+                        || (previous == null ? !value.isNull("parent") : !previous.equals(value.getString("parent"))))
+                    throw new SecurityException("SETTINGS_CHAIN");
+                settings = value.put("revision_id", hash); previous = hash;
+            }
+        }
+        return new JSONObject().put("profile", profile).put("ledger", ledger == null ? JSONObject.NULL : ledger)
+            .put("settings", settings == null ? JSONObject.NULL : settings);
     }
 }

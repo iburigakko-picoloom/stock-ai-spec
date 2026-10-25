@@ -2130,3 +2130,11 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - 本人の「読み込みがそもそも遅すぎる」に対応。表示timeoutだけでは解決としない。GET /api/v1/mobile/portfolioは確定済み暗号化operations SQLiteの最新revisionをnativeで読み、Python初期化と市場履歴復元・計算queueを待たない。従来の表示copyと区別し、検証成功した最新応答で編集を有効にする。
 - 既存の暗号化ReadLease、generationとrecord/export/revision hashを検証。破損時は明示失敗、旧形式/未作成のみ既存のPython移行経路へ戻す。private cacheの一時ファイルは開いた直後にunlinkし、完了/失敗後も除去。最新の保存・復元世代に競合した読出しは拒否する。
 - 同一合成口座の隔離Android測定は64ms対14,646ms。本人端末の時間や全市場データ量での性能保証と混同しない。設定保存・予測計算・台帳の意味は変更しない。
+
+### D248 — SBI一口座の画面と現在残高の訂正（2026-10-25）
+
+- 本人の追加4点をD247の配布完了後に実施。証券会社はSBI一つの画面とし、口座の追加/削除/呼び名入力を廃止。保有登録はホームの実保有へ移す。税区分は各保有の選択、実約定は既存のaccount_bucket_idを維持。旧口座ID・取引・税区分別資金を移し替えたり削除したりしない。新しい税区分は同じbroker accountのbucketとして追加し、既存資金を自動配分しない。
+- 不一致のコード上の原因は、設定がmanual input revision、ホームが確定済みPortfolioStateを表示し、入力保存が台帳を更新しないこと。さらに旧available_cash_yenはcash_basisにより総現金/買付余力の意味が変わるが、日本語は同じ利用可能現金だった。本人端末DBは未取得につき0/44万/104万の変更履歴そのものは断定しない。
+- 新しい設定の現金残高とホームは同じ最新台帳を参照。総現金−買付余力＝確保中と明記し、旧入力との差は未反映の以前の入力として表示。明示的な差分確認/保存時だけ最新状態・対応するmanual revision/settings revisionを同一transactionに追記。初回台帳、旧入力、約定、未編集項目は保持。未反映約定、古いbase/revision、未来/期限切れ日時、金額不整合は拒否。再送は同一requestのidentityで冪等。
+- 現在残高のGETも暗号化operationsのnative直接読出しへ接続。Python起動/市場復元を待たず、ledger hash/時刻/同時刻競合、settings hash/parent/sequenceと世代を検査する。新規commit後は古い表示copyを消去。初回setupの既存確認経路は維持する。
+- 個別株のNISAは成長投資枠として年間240万円・保有限度1200万円を上限に残枠入力を検査。400万円のdefault定数は存在せず、保存入力に上限検査がなかった。過去の超過値を読み取れなくしたり切り詰めたりせず、警告し研究計算の入力不足へ分類、修正後に使う。金融庁 https://www.fsa.go.jp/policy/nisa2/know/index.html と https://www.fsa.go.jp/policy/nisa2/question/index.html を2026-10-25確認。売却で同日残枠を戻さない既存処理は維持。

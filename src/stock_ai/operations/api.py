@@ -674,6 +674,10 @@ def create_app(
                 "asOf": portfolio.as_of,
                 "totalAssets": str(cash_value + equity_value),
                 "cashValue": str(cash_value),
+                "reservedCash": str(sum(
+                    (item.reserved_cash for item in portfolio.cash), Decimal("0"))),
+                "buyingPower": str(sum(
+                    (item.deployable_cash for item in portfolio.cash), Decimal("0"))),
                 "equityValue": str(equity_value),
                 "holdingsCount": len(portfolio.positions),
             },
