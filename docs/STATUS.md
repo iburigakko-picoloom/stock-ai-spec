@@ -3,7 +3,7 @@
 - 本人確認：ボタンから開始した解析が対象。通常plugin executorにはforeground保護がなく、予測後の株数判定も画面JSからの次要求に依存していた。手動予測/参考分析を通知付きManualAnalysisServiceへ接続。通常予測は株数保存までnativeで完結、参考分析は株数を生成しない。23分上限partial WakeLockと各要求660秒待ち/取消、同一実行の共有、終了時解放。原計算600秒制限・保存形式・台帳・自動処理は不変。
 - 関連Web15件、型/build/lint成功。Android JVM31件、本体/試験build成功。隔離Androidのnative3件成功：2段階の画面非依存実行、参考分析/HTTP失敗時の後続抑止、同一開始共有/異種拒否、実サービスforeground許可後にActivity停止+消灯→実owner/Python要求完了→サービスとWakeLock解放。全市場の数分計算や本人Xiaomiの省電力条件とは別scope。
 - 最初の消灯試験は処理完了後、WakeLock取得/解放の過去ログまで含む検査が失敗。実際のRELを確認し、現在保持中のPARTIAL_WAKE_LOCKのみ検査するよう直して3件成功。強制停止後の自動再開は保証せず、保存済み結果を保持。実注文なし。
-- 同署名0.1.51の作成・非共有Drive配布を続行中。
+- 同署名0.1.51-candidate/code10051を検査し承認済み非共有StockAIへ保存、24,032,989 bytes/shared=falseを再読込確認。Drive id 1XXhWjkZCXPqqEGhmbo1fhV8nqldftAxH、source 6debd69fd6c2d3f899f85580c700a73a67c94bce、SHA256 a9bfcdfd5fc413a764506a38694853a1a906b29955e5a0df5e20e624cdc6f6c4。本人端末更新・署名版起動・CIは未確認。検証記録は .demo-artifacts/update-0151-20261025/verified.json と native-tests.txt。
 
 ## 2026-10-25 — SBI口座・実保有・現在残高の整理（D248）
 
