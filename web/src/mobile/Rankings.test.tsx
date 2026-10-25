@@ -78,20 +78,26 @@ test("reopened input is available but changed ranking prevents stale clipboard e
   expect(screen.queryByText("1000")).not.toBeInTheDocument();
 });
 
- test("restores all four tabs and marks unavailable rankings without fetching them", () => {
+test("four tabs separate rank scores from returns and preserve search ranks", () => {
+  vi.mocked(useApiData).mockReturnValue({ data: { ...base, rows: [
+    { symbol: "1000", modelRank: 1, score: 9, expectedReturn: -.01 },
+    { symbol: "2000", modelRank: 2, score: 2, expectedReturn: .05 },
+    { symbol: "3000", modelRank: 3, score: 1, expectedReturn: null },
+  ] }, loading: false, error: null, savedAt: null, reload });
   render(<Rankings />);
-  for (const name of ["総合", "5日", "20日", "前場"]) expect(screen.getByRole("tab", { name })).toBeVisible();
+  for (const name of ["総合", "20日順位", "20日値", "5日値"]) expect(screen.getByRole("tab", { name })).toBeVisible();
   fireEvent.click(screen.getByRole("tab", { name: "総合" }));
   expect(screen.getByText("総合ランキングは未導入です")).toBeVisible();
-  expect(screen.queryByRole("button", { name: "ChatGPTと相談" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("tab", { name: "前場" }));
-  expect(screen.getByText("前場ランキングは未導入です")).toBeVisible();
   expect(vi.mocked(useApiData).mock.calls.every(([path]) => path.endsWith("/20d"))).toBe(true);
-  fireEvent.click(screen.getByRole("tab", { name: "5日" }));
-  expect(screen.getByText(/5日の予測リターン（補助情報）/)).toBeVisible();
-  expect(screen.queryByText("1位")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "ChatGPTと相談" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("tab", { name: "20日" }));
-  expect(screen.getByText("1位")).toBeVisible();
+  for (const name of ["20日値", "5日値"]) {
+    fireEvent.click(screen.getByRole("tab", { name }));
+    expect(screen.getByText(/日の予測リターンが高い順/)).toBeVisible();
+    expect(screen.getByText("2000").closest(".ranking-row")).toHaveTextContent("1位");
+    expect(screen.getByText("1000").closest(".ranking-row")).toHaveTextContent("2位");
+    expect(screen.getByText("3000").closest(".ranking-row")).toHaveTextContent("3位");
+    expect(screen.queryByRole("button", { name: "ChatGPTと相談" })).not.toBeInTheDocument();
+  }
+  fireEvent.click(screen.getByRole("tab", { name: "20日順位" }));
+  expect(screen.getByText("1000").closest(".ranking-row")).toHaveTextContent("1位");
   expect(screen.getByRole("button", { name: "ChatGPTと相談" })).toBeEnabled();
 });
