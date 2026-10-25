@@ -4,6 +4,8 @@
 - blocked応答の停止コードを暗号化保存し再表示へ接続。入力条件不足で終了した場合の99%バー・無条件再開案内を外し、株価履歴不足/モデル条件/口座確認等の短い理由を表示。元のforecast利用条件・台帳/取引/保存本体/rollback・計算式は不変。
 - Web関連9件、型/lint/build成功。Android JVM31件、native22件成功：checkpoint5（writerがDBとmonitorを保持したままmain上のstatusが1秒以内に返る、transferLock保持中のmain close、理由再open、暗号化単位等）、サービス4（消灯・Activity停止含む）、転送13（成功/中断/改ざん/DB失敗のrollback）。最小範囲の修正のためPython計算コードは変更せず新たな訓練なし。実注文なし。
 - 本人端末での全量分析完走、署名版起動、CIは未確認。停止コードは次の実行から保存される。APK更新前の途中計算はD250の同APK制約で再利用しない。検証記録 .demo-artifacts/update-0154-20261025/ 。
+- 同署名0.1.54-candidate/code10054を承認済み非共有StockAIへ保存。Drive id 1gqBYKiIUmggzWsaI3LW4ph-NnoPCNG_0、24,044,809 bytes/shared=falseを再読込確認。source 7081ff16a79cb2bdd4e1702e63d392928bc8180b、SHA256 fb503c7195d9fc87b0875e02473c6a1bc657b35879e51e4fec2a55daa081c5d2。本人端末更新・完走は未確認。
+
 ## 2026-10-25 — 99%後に戻る解析の継続と終了理由（D251）
 
 - 本人の99%後に元ボタンへ戻る報告を受け、時間制限とphase通知経路を調査。実機ログは未取得。過去の全量Android要求593.209秒に対する600秒上限の余裕不足を確認し、新規途中保存後480秒で内部継続、進捗増加がある継続/timeoutだけ最大2回再開、手動処理全体20分制限を追加。全特徴量集約も保存し再開時の再計算を減らす。未完成archiveを完成結果として保存しない。
