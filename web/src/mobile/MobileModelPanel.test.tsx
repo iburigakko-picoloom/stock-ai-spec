@@ -37,6 +37,24 @@ test("one file imports the reviewed bundle and refreshes saved status", async ()
   await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/models/import", { content: "synthetic bundle file" }));
   expect(screen.getByText("研究用・正式採用前")).toBeVisible();
 });
+test("first model import is available without a previously installed bundle", async () => {
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? { ...model, approved_bundle_count: 0, imported_bundle_count: 0, bundle_ready: false } : null);
+  panel();
+  await screen.findByText("モデルファイル：0件取込済み");
+  expect(screen.getByRole("button", { name: "モデル一式を取り込む" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "当日の予測・株数を計算・保存" })).toBeDisabled();
+});
+test("reference analysis runs in model settings and model errors do not link back to itself", async () => {
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? model : path.endsWith("/daily") ? { ...run, blocking_reasons: ["ALPHA_CUTOFF_OPEN"] } : null);
+  vi.mocked(apiPost).mockResolvedValue({ phase: "blocked", blocking_reasons: ["CALIBRATED_MODEL_BUNDLE_UNAVAILABLE"] });
+  render(<MemoryRouter initialEntries={["/settings?edit=model"]}><MobileModelPanel disabled={false} inputsSaved onBusy={vi.fn()} /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("button", { name: "最新データで分析する" }));
+  await screen.findByText("取り込んだモデルの利用条件を確認してください。");
+  expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/daily/generate", { reference_only: true });
+  expect(screen.queryByRole("link", { name: "参考分析を作る" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "登録内容を確認する" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "モデル一式を取り込む" })).toBeEnabled();
+});
 
 test("native analysis owns both stages without a second page-owned request", async () => {
   vi.mocked(apiPost).mockResolvedValue({ ...run, manual_decision: decision });

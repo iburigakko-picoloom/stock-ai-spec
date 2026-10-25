@@ -502,10 +502,22 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             return {"status": 202, "body": {"code": "CHECKPOINT_CONTINUE"}}
         except OperationalConflictError:
             return {"status": 409, "body": {
+                "code": "FORECAST_INPUT_CHANGED",
                 "detail": "口座・保有が更新されています。保存済みの状態を読み直してください。"
             }}
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError) as error:
+            # Keep the failing code location, never exception arguments, rows or secrets.
+            import traceback
+
+            location = "runtime:request"
+            for frame, line in traceback.walk_tb(error.__traceback__):
+                module = frame.f_globals.get("__name__", "")
+                if module.startswith(("stock_ai.", "mobile.python.")):
+                    function = frame.f_code.co_name.strip("<>")
+                    location = f"{module}:{function}:{line}"
             return {"status": 422, "body": {
+                "code": "FORECAST_VALIDATION_FAILED",
+                "diagnostic": f"{type(error).__name__}:{location}",
                 "detail": "履歴・当日一覧・校正情報・保有の整合を確認できず、予測を更新できません。"
             }}
     if path == "/api/v1/mobile/models/import" and method == "POST":

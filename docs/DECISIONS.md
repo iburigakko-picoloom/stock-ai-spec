@@ -2165,3 +2165,10 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - 本人の0.1.53画像でAndroidの応答なしダイアログを確認。コード上、ManualAnalysisServiceのmain Handlerが1秒ごとにcheckpoints.statusを呼び、checkpoint monitorと最終archiveと同じSQLite DB/AES読出しを待っていた。実機ANR traceは未取得だが、大きな書込み中にmainがブロックし得る経路を除去する。renderer終了callbackのtransferLock待ち/closeも同様にmainから外す。
 - 進捗は確定済みの小さいimmutable metadataをvolatileで公開し、statusはDB/暗号鍵/書込みmonitorに触れない。初期metadataの復元はowner構築のbackground、変更の公開はDB commit成功後のみ。通知開始はowner構築を待たず、backgroundで取得したowner参照から表示copyを読む。保存本体/認証/rollbackは変更しない。
 - 画像の「分析の完了条件を満たしていません」はnativeが最終archiveをcommit後に返したblocked判定の表示であり、timeoutと同一ではない。HTTP応答の既存blocking_reasonsを上限8件の制限付きコードとして暗号化metadataに保存し、再表示でも不足理由を短く示す。blockedでは99%バー/無条件再開案内を表示しない。予測の利用条件を緩めたり未完成予測を公開したりしない。
+
+### D253 — 診断応答の保持と解決しない誘導の除去（2026-10-25）
+
+- 本人画像の汎用表示は、blocking_reasonsのみ保存しHTTP422のdetail/エラー種別を捨てる経路でも発生する。実機の具体的な例外原因は未判明。予測routeのValueError/KeyError/TypeErrorに固定codeと自前Python module/function/行番号・例外型を付け、nativeはHTTP status/code/制限付きdiagnosticを最終archive commit前に暗号化保存する。例外の引数・全文・stack全体・ファイル絶対パス・APIキー・保有値は保存/表示しない。native例外もallowlistのコードだけ残す。未知のblocked応答には明示コードを付け、旧記録の欠落と区別。
+- 診断は同じ場所に直接表示し、予測設定へ再誘導しない。特定できないエラーにはコードを送る案内を示し、無条件の再試行/再登録へ誘導しない。予測設定内で参考分析を実行できるようにし、Todayとの往復を除去。同じmodel設定へのReferenceAnalysisリンクを抑止。モデル0件でも初回取込は許可し、入力取込の検証は維持。
+- 保有状況/取得単価の不足は設定の口座一覧ではなく実保有へ直接案内。ReferenceAnalysisの未知理由を市場データ不足と誤判定しない。口座読込未完了を未保存編集と表示せず、旧当日予測の日時を当日予測の記録と明示し、最新参考分析の失敗と混同させない。
+- Today/ProposalReadiness/モデル/参考分析/証券口座/実保有/市場データ/自動更新/ChatGPT入口と戻り先をコードで確認。正常な戻る操作・完了結果を見るリンクは往復エラー誘導と区別し保持。対象外のモデル計算・資産/約定/台帳・売買条件は変更しない。

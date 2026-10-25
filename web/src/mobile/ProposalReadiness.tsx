@@ -30,7 +30,7 @@ export function proposalBlockLabel(reason: string | null): string {
     ALPHA_CUTOFF_OPEN: "今日の予測は11:30以降に更新します。時刻までお待ちください。",
     PERSONAL_INPUTS_CHANGED: "登録内容が前回の計算後に変更されています。最新の登録内容で再計算が必要です。",
     PERSONAL_SETTINGS_AFTER_ALPHA_CUTOFF: "補足設定が判定時刻より後に更新されています。次の判定時刻に合うデータで再計算が必要です。",
-    NUMERICAL_FORECAST_INCOMPLETE: "数値予測がまだ完成していません。モデル・予測の設定で停止理由を確認してください。",
+    NUMERICAL_FORECAST_INCOMPLETE: "数値予測がまだ完成していません。分析に失敗した場合は、この画面に停止理由を表示します。",
     NUMERICAL_FORECAST_NOT_CURRENT_DAY: "保存済みの数値予測が今日の分ではありません。当日の予測の更新が必要です。",
     PERSONAL_INPUTS_INCOMPLETE: "口座・補足設定・初回台帳のいずれかが未完了です。登録内容の確認が必要です。",
     PERSONAL_INPUTS_DIFFER_FROM_NUMERICAL: "登録内容と数値予測に使った内容が一致しません。最新の登録内容で予測を更新してください。",
@@ -54,7 +54,7 @@ function ReadinessDetails({ reason }: { reason: string | null }) {
   let action = "予測の状況を確認";
   if (gap) {
     message = `${gapLabel(gap)}が未完了です。`;
-    target = gap === "investment_budget_yen" ? "capital" : gap === "maximum_drawdown_percent" ? "risk" : "accounts";
+    target = ["holdings_status", "average_acquisition_price_yen", "shares"].includes(gap) ? "holdings" : gap === "investment_budget_yen" ? "capital" : gap === "maximum_drawdown_percent" ? "risk" : "accounts";
     action = "不足している情報を入力";
   } else if (priceGap) {
     message = "残高の確定に必要な保有株の価格を確認できません。";
@@ -77,7 +77,7 @@ function ReadinessDetails({ reason }: { reason: string | null }) {
         {data.portfolio_revision_id && <p className="explain">口座・保有は登録済みです。</p>}
         {unfinished.length > 0 && <p aria-label="未完了の項目"><strong>未完了：</strong>{unfinished.join("・")}</p>}
         <p>{message}</p>
-        {!waiting && <Link className="button button--secondary" to={`/settings?edit=${target}`}>{action}</Link>}
+        {!waiting && <Link className="button button--secondary" to={target === "holdings" ? "/holdings" : `/settings?edit=${target}`}>{action}</Link>}
       </>}
   </section>;
 }

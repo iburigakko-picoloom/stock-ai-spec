@@ -24,6 +24,10 @@ test("names unfinished items concisely while keeping one next action", () => {
   expect(screen.getByRole("link")).toHaveAttribute("href", "/settings?edit=accounts");
   expect(document.querySelector("details")).toBeNull();
 });
+test("holdings gaps lead directly to the holdings editor, not account settings", () => {
+  show({ ...ready, input_gaps: ["holdings_status"] });
+  expect(screen.getByRole("link")).toHaveAttribute("href", "/holdings");
+});
 test("loading never presents previous gaps as current missing registration", () => {
   show(ready, true);
   expect(screen.queryByText("各口座の現金が未完了です。")).not.toBeInTheDocument();

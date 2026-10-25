@@ -201,3 +201,24 @@ def test_runtime_maps_continuation_to_internal_response_not_input_failure(tmp_pa
     monkeypatch.setattr(forecasts, "generate", pause)
     result = asyncio.run(runtime.request("POST", "/api/v1/mobile/daily/generate", "{}"))
     assert result == {"status": 202, "body": {"code": "CHECKPOINT_CONTINUE"}}
+
+
+def test_forecast_error_retains_safe_diagnostic_without_exception_values(tmp_path, monkeypatch):
+    import asyncio
+
+    from mobile.python import forecasts
+
+    from tests.test_mobile_runtime import device
+
+    runtime = device.__wrapped__(tmp_path, monkeypatch)
+
+    def invalid(*args, **kwargs):
+        raise ValueError("SECRET_API_KEY private holdings 123456")
+
+    monkeypatch.setattr(forecasts, "generate", invalid)
+    result = asyncio.run(runtime.request("POST", "/api/v1/mobile/daily/generate", "{}"))
+    assert result["status"] == 422
+    assert result["body"]["code"] == "FORECAST_VALIDATION_FAILED"
+    assert result["body"]["diagnostic"].startswith("ValueError:mobile.python.runtime:request:")
+    assert "SECRET" not in json.dumps(result)
+    assert "123456" not in json.dumps(result)

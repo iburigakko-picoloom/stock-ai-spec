@@ -191,6 +191,7 @@ final class LocalComputeOwner {
                     JSONObject result = reply.json.getJSONObject("result");
                     int status = result.getInt("status");
                     if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
+                    if (analysis) checkpoints.response(status, result.optJSONObject("body"));
                     if ("POST".equals(method)) {
                         if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
                         long previous = generation;

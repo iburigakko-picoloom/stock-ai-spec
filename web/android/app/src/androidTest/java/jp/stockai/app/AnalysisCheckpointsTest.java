@@ -39,11 +39,20 @@ public class AnalysisCheckpointsTest {
                     assertEquals(Integer.valueOf(43), displayed.get(1, java.util.concurrent.TimeUnit.SECONDS));
                 } finally { release.countDown(); writer.get(5, java.util.concurrent.TimeUnit.SECONDS); }
                 saved.finish("blocked", new JSONObject().put("blocking_reasons", new org.json.JSONArray().put("ENSEMBLE_RANK_POPULATION_INCOMPLETE")));
+                saved.response(422, new JSONObject().put("code", "FORECAST_VALIDATION_FAILED")
+                    .put("diagnostic", "ValueError:stock_ai.mobile.forecasts:generate:443"));
             }
             try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(file, null)) {
                 AnalysisCheckpoints saved = new AnalysisCheckpoints(db);
                 assertEquals("blocked", saved.status(false).getString("state"));
                 assertEquals("ENSEMBLE_RANK_POPULATION_INCOMPLETE", saved.status(false).getJSONArray("blockingReasons").getString(0));
+                assertEquals(422, saved.status(false).getInt("responseStatus"));
+                assertEquals("FORECAST_VALIDATION_FAILED", saved.status(false).getString("responseCode"));
+                assertEquals("ValueError:stock_ai.mobile.forecasts:generate:443", saved.status(false).getString("diagnostic"));
+                saved.begin(context, 1, "{}");
+                assertEquals("", saved.status(true).getString("diagnostic"));
+                saved.response(422, new JSONObject().put("code", "secret value").put("diagnostic", "private input\nsecret"));
+                assertEquals("", saved.status(true).getString("diagnostic"));
             }
         } finally { SQLiteDatabase.deleteDatabase(file); }
     }

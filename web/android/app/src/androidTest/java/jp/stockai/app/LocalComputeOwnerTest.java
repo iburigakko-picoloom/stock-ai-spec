@@ -36,6 +36,19 @@ public class LocalComputeOwnerTest {
 
     static <T> T result(CompletableFuture<T> value) throws Exception { return value.get(300, TimeUnit.SECONDS); }
 
+    @Test public void realPythonForecastFailureIsVisibleAfterOwnerReopen() throws Exception {
+        JSObject response = result(owner.request("POST", "/api/v1/mobile/daily/generate", "{\"reference_only\":\"invalid\"}"));
+        assertEquals(422, response.getInt("status"));
+        assertEquals("FORECAST_VALIDATION_FAILED", response.getJSONObject("body").getString("code"));
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        JSObject status = owner.checkpoints.status(false);
+        assertEquals("blocked", status.getString("state"));
+        assertEquals(422, status.getInt("responseStatus"));
+        assertEquals("FORECAST_VALIDATION_FAILED", status.getString("responseCode"));
+        assertTrue(status.getString("diagnostic").startsWith("ValueError:stock_ai.mobile.runtime:request:"));
+        assertEquals(0, status.getJSONArray("blockingReasons").length());
+    }
+
     @Test public void currentPortfolioReadBypassesColdPythonAndBusyCalculationQueue() throws Exception {
         String profile = "{\"schema_version\":\"manual-portfolio-v1\",\"holdings_status\":\"none\",\"investment_budget_yen\":\"1040000\",\"maximum_drawdown_percent\":10,\"accounts\":[],\"holdings\":[]}";
         JSONObject expected = result(owner.request("POST", "/api/v1/mobile/portfolio", profile)).getJSONObject("body");

@@ -55,6 +55,7 @@ final class AnalysisCheckpoints {
             published = saved.toString();
         } else {
             saved.put("state", "running"); saved.remove("failure"); saved.remove("blockingReasons");
+            saved.remove("responseCode"); saved.remove("responseStatus"); saved.remove("diagnostic");
             save(saved);
         }
         JSONObject records = new JSONObject();
@@ -127,14 +128,17 @@ final class AnalysisCheckpoints {
     }
     synchronized void failed(Throwable error) throws Exception {
         String reason = "calculation";
+        String diagnostic = "";
         for (Throwable cause = error; cause != null; cause = cause.getCause()) {
             if (cause instanceof java.util.concurrent.TimeoutException) { reason = "timeout"; break; }
             String message = cause.getMessage();
+            if (message != null && message.matches("COMPUTE_((interpreter|packages|archive|state|request)_(wasm|type|python|other)_ASSETMASK_[0-9]+(_APK_ASSET_UNAVAILABLE)?|STATE_TRANSFER_FAILED|FAILED|RENDERER_(CRASHED|KILLED)_STAGE_[a-z-]+)")) diagnostic = message;
             if (message != null && message.contains("checkpoint_pause")) { reason = "continuing"; break; }
             if (message != null && (message.contains("RENDERER_") || message.contains("_wasm"))) reason = "memory";
         }
         JSONObject value = meta();
         if (!value.has("scope")) return;
+        value.put("diagnostic", diagnostic.isEmpty() ? "ANALYSIS_" + reason.toUpperCase(java.util.Locale.ROOT) : diagnostic);
         value.put("state", "running").put("failure", reason); save(value);
     }
     synchronized void finish(String state) throws Exception {
@@ -153,7 +157,19 @@ final class AnalysisCheckpoints {
             }
         }
         saved.put("blockingReasons", reasons);
+        if (state.equals("blocked") && reasons.length() == 0 && saved.optInt("responseStatus") == 200)
+            saved.put("responseCode", "FORECAST_BLOCKED_WITHOUT_REASON");
         if (state.equals("complete") && saved.optInt("total") > 0) saved.put("done", saved.getInt("total"));
+        save(saved);
+    }
+    synchronized void response(int status, JSONObject output) throws Exception {
+        JSONObject saved = meta();
+        if (!saved.has("scope")) return;
+        saved.put("responseStatus", status);
+        String code = output == null ? "" : output.optString("code");
+        String diagnostic = output == null ? "" : output.optString("diagnostic");
+        saved.put("responseCode", code.matches("[A-Z0-9_]{1,80}") ? code : "");
+        saved.put("diagnostic", diagnostic.matches("[A-Za-z0-9_.:]{1,180}") ? diagnostic : "");
         save(saved);
     }
     synchronized void committed(long previous, long generation) throws Exception {
@@ -176,6 +192,9 @@ final class AnalysisCheckpoints {
             .put("percent", total > 0 ? Math.min(state.equals("complete") ? 100 : 99, done * 100 / total) : JSONObject.NULL)
             .put("savedUnits", done).put("totalUnits", total).put("savedRevision", value.optLong("revision"))
             .put("failure", value.optString("failure"))
+            .put("responseStatus", value.optInt("responseStatus"))
+            .put("responseCode", value.optString("responseCode"))
+            .put("diagnostic", value.optString("diagnostic"))
             .put("blockingReasons", value.optJSONArray("blockingReasons") == null
                 ? new org.json.JSONArray() : value.getJSONArray("blockingReasons"));
     }

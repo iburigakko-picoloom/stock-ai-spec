@@ -8,6 +8,13 @@ vi.mock("../api", () => ({ apiPost: vi.fn() }));
 vi.mock("./native", () => ({ isAndroid: () => true }));
 afterEach(cleanup);
 beforeEach(() => vi.resetAllMocks());
+test("unknown blocking codes do not falsely route to market data", async () => {
+  vi.mocked(apiPost).mockResolvedValue({ phase: "blocked", blocking_reasons: ["UNEXPECTED_CONTRACT"] });
+  render(<MemoryRouter><ReferenceAnalysis onSaved={vi.fn()} hasSaved /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "最新データで分析する" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("UNEXPECTED_CONTRACT");
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});
 
 test("first analysis uses reference mode, prevents duplicate work and reloads the saved view", async () => {
   let finish!: (value: unknown) => void;
@@ -28,14 +35,14 @@ test("first analysis uses reference mode, prevents duplicate work and reloads th
 
 test.each([
   ["UNIVERSE_PRICE_SESSION_MISSING", "market"],
-  ["PERSONAL_HOLDINGS_UNCONFIRMED", "accounts"],
+  ["PERSONAL_HOLDINGS_UNCONFIRMED", "holdings"],
   ["CALIBRATED_MODEL_BUNDLE_UNAVAILABLE", "model"],
 ])("%s directs to the actual prerequisite without generating a decision", async (code, target) => {
   vi.mocked(apiPost).mockResolvedValue({ phase: "blocked", blocking_reasons: [code] });
   const reload = vi.fn();
   render(<MemoryRouter><ReferenceAnalysis onSaved={reload} hasSaved /></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "最新データで分析する" }));
-  expect(await screen.findByRole("link")).toHaveAttribute("href", `/settings?edit=${target}`);
+  expect(await screen.findByRole("link")).toHaveAttribute("href", target === "holdings" ? "/holdings" : `/settings?edit=${target}`);
   expect(reload).not.toHaveBeenCalled();
   expect(apiPost).toHaveBeenCalledTimes(1);
 });

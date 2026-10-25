@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { StockAI } from "./native";
 import { AnalysisProgress } from "./AnalysisProgress";
+import { ReferenceAnalysis } from "./ReferenceAnalysis";
 
 interface ModelStatus {
   approved_bundle_count: number; imported_bundle_count: number; bundle_ready: boolean;
@@ -52,7 +53,7 @@ function reason(code: string): string {
     FROZEN_MARKET_EVIDENCE_INVALID: "保存済みの価格・出来高の根拠を確認できません。",
     CASH_EXECUTIONS_UNRECONCILED: "約定記録と台帳を照合してください。",
   };
-  return messages[code] ?? "保存済みの履歴・原予測・口座・保有・補足設定を確認してください。";
+  return messages[code] ?? `処理を完了できませんでした。診断コード：${code}`;
 }
 const percent = (value: number | undefined): string => value === undefined ? "未提供" : new Intl.NumberFormat("ja-JP", { style: "percent", maximumFractionDigits: 2 }).format(value);
 const clock = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" });
@@ -61,14 +62,15 @@ function timestamp(value: string): ReactNode {
   return <time dateTime={value} title={value}>{Number.isNaN(date.valueOf()) ? "未確認" : clock.format(date)}</time>;
 }
 
-export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
-  disabled: boolean; inputsSaved: boolean; onBusy: (value: boolean) => void;
+export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }: {
+  disabled: boolean; inputsSaved: boolean; inputStatus?: string; onBusy: (value: boolean) => void;
 }): ReactNode {
   const [model, setModel] = useState<ModelStatus | null>(null);
   const [run, setRun] = useState<ForecastRun | null>(null);
   const [decision, setDecision] = useState<DecisionRun | null>(null);
   const [message, setMessage] = useState("");
   const [calculating, setCalculating] = useState(false);
+  const [referenceSaved, setReferenceSaved] = useState(false);
   useEffect(() => {
     void Promise.all([apiGet<ModelStatus>("/api/v1/mobile/models"), apiGet<ForecastRun | null>("/api/v1/mobile/daily"), apiGet<DecisionRun | null>("/api/v1/mobile/decision")])
       .then(([status, saved, shares]) => { setModel(status); setRun(saved); setDecision(shares); })
@@ -90,15 +92,14 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
     .sort((a, b) => priority.get(b)! - priority.get(a)! || a.localeCompare(b)).slice(0, 20);
   const symbols = top ? [...new Set([...top, ...[...holdings].sort()])].filter(symbol => available.includes(symbol)) : available.sort();
   const researchConsultation = decision?.blocking_reasons.length === 1 && decision.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE";
-  const bundleCount = (model?.approved_bundle_count ?? 0) + (model?.research_bundle_count ?? 0);
   const blockingMessages = [...new Set([...(run?.blocking_reasons ?? []), ...(decision?.blocking_reasons ?? [])].map(reason))];
   return <section className="section model-panel" aria-label="端末内のモデルと予測">
     <p>{model ? `モデルファイル：${model.imported_bundle_count}件取込済み` : "モデルを確認中…"}</p>
     <p>{model?.model_adopted ? "採用確認済み" : "研究用・正式採用前"}</p>
-    {!inputsSaved && <p>口座・保有の編集を保存してから予測を計算します。</p>}
+    {!inputsSaved && <p>{inputStatus ?? "口座・保有の編集を保存してから予測を計算します。"}</p>}
     {model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
     <div className="button-stack">
-      <button className="button button--secondary" disabled={disabled || !bundleCount} onClick={() => void perform(async () => {
+      <button className="button button--secondary" disabled={disabled} onClick={() => void perform(async () => {
         const content = await StockAI.importModel(); await apiPost("/api/v1/mobile/models/import", content);
         setModel(await apiGet("/api/v1/mobile/models")); setMessage("確認済みのモデル一式を保存しました。");
       })}>モデル一式を取り込む</button>
@@ -113,9 +114,10 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
     <AnalysisProgress busy={calculating} />
     <p role="status">{message}</p>
     {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
-      <p>初回・休場日は、最新データによる参考分析を作れます。<Link className="button button--secondary" to="/today">参考分析を作る</Link></p>}
+      <ReferenceAnalysis hasSaved={referenceSaved} disabled={disabled || calculating} onBusy={onBusy} onSaved={() => setReferenceSaved(true)} />}
+    {referenceSaved && <Link className="button button--secondary" to="/today">保存した参考分析を見る</Link>}
     {run && <div className="forecast-state">
-      <p>判定時点：{timestamp(run.scope.as_of)}</p>
+      <p>当日予測の記録：{timestamp(run.scope.as_of)}</p>
       <p>推奨株数：{researchConsultation ? "自動判定なし・ChatGPTで案を検討" : decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>
       {decision?.is_active && <Link className="button button--secondary" to="/today">今日の判定を見る</Link>}
       {researchConsultation && <Link className="button button--secondary" to="/today/chatgpt">予測を使ってChatGPTへ相談する</Link>}

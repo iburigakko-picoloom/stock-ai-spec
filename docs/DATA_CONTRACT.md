@@ -540,3 +540,5 @@ live_delay
 ### Mobile intermediate calculation cache (D250)
 
 Native encrypted checkpoint tables are rebuildable execution state, separate from the immutable forecast/account archive. Their identity binds input generation, APK code, exact request and JST date. Retained daily source projections include the complete canonical source row hashes; cached feature/model units preserve exact numeric values and whole-population normalization. Only a complete, validated final archive is published. The native index contains no payload; request-fenced offline reads load one authenticated unit at a time. These caches are not portable-backup inputs and cannot be used across changed input generations. A reference-analysis retry retains the first execution cutoff without backdating its final generated timestamp.
+
+D253：予測生成の409/422応答は固定codeを持つ。422のdiagnosticは例外型と自前module/function/行番号のみで、例外引数・データ値・絶対パスは含めない。native metadataへresponseStatus/responseCode/diagnosticを制限付きで保存し、完成予測と区別する。旧metadataで欠けるfieldは未記録として扱う。

@@ -292,7 +292,7 @@ export function MobileDevicePanel(): ReactNode {
     <MobileMarketPanel configured={configured === true} disabled={busy} onBusy={setBusy} onBackground={() => open("daily")} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "model"}>
-    <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} onBusy={setBusy} />
+    <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} inputStatus={!portfolioLoaded ? "口座情報を読み込み中です。読込に失敗した場合は、この画面の「口座・保有を読み直す」を押してください。" : savedPortfolio === null ? "口座・保有が未登録です。証券口座と実保有を登録してください。" : "口座・保有の編集が未保存です。保存してから計算してください。"} onBusy={setBusy} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "daily"}>
     <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />
