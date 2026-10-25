@@ -6,7 +6,7 @@ import { StockAI } from "./native";
 import { MobileModelPanel } from "./MobileModelPanel";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
-vi.mock("./native", () => ({ StockAI: { importModel: vi.fn() } }));
+vi.mock("./native", () => ({ StockAI: { importModel: vi.fn() }, isAndroid: () => true }));
 afterEach(cleanup);
 const model = { approved_bundle_count: 1, imported_bundle_count: 1, bundle_ready: true,
   model_adopted: false };
@@ -36,6 +36,16 @@ test("one file imports the reviewed bundle and refreshes saved status", async ()
   fireEvent.click(button);
   await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/models/import", { content: "synthetic bundle file" }));
   expect(screen.getByText("研究用・正式採用前")).toBeVisible();
+});
+
+test("native analysis owns both stages without a second page-owned request", async () => {
+  vi.mocked(apiPost).mockResolvedValue({ ...run, manual_decision: decision });
+  panel();
+  const button = screen.getByRole("button", { name: "当日の予測・株数を計算・保存" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("予測と株数の判定を保存"));
+  expect(apiPost).toHaveBeenCalledTimes(1);
 });
 test("frozen timestamps, excluded candidates and stored output remain readable", async () => {
   vi.mocked(apiPost).mockImplementation(async path => path.includes("/decision/") ? decision : run);

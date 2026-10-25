@@ -2131,6 +2131,13 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - 既存の暗号化ReadLease、generationとrecord/export/revision hashを検証。破損時は明示失敗、旧形式/未作成のみ既存のPython移行経路へ戻す。private cacheの一時ファイルは開いた直後にunlinkし、完了/失敗後も除去。最新の保存・復元世代に競合した読出しは拒否する。
 - 同一合成口座の隔離Android測定は64ms対14,646ms。本人端末の時間や全市場データ量での性能保証と混同しない。設定保存・予測計算・台帳の意味は変更しない。
 
+### D249 — ボタン開始の解析をAndroidサービスで完結（2026-10-25）
+
+- 本人が「予測を計算・保存」等のボタンで開始した解析がバックグラウンドで進まないと確認。従来のcompute pluginは通常executorからownerへ渡すだけで、DailyWorkerのforeground保護を通らず、株数判定の後続要求も画面JSに依存していた。
+- Androidの手動daily/generateだけ、本人操作から非exported dataSync foreground serviceを起動する。参考分析は一要求、通常予測は予測保存→株数判定保存をnativeで連続実行し、UIへまとめて返す。原予測archiveや計算式、時点制約、台帳は変更しない。Webの従来API経路は維持する。
+- 実行中は専用通知と上限23分のpartial WakeLock。各要求は既存ownerで直列化し660秒待ちで取消、実際の計算600秒制限を保持。終了/失敗/サービス終了/OS timeoutで取消と解放。同一実行の再タップは同じfutureへまとめ、別種の同時手動解析は拒否。自動処理のスケジュールは変更しない。
+- サービスを強制終了した場合の自動再開やXiaomi固有省電力下の完走を保証しない。保存済み成果は既存archiveから読み、未完了は再実行する。参考: https://developer.android.com/develop/background-work/services/fgs/launch と https://developer.android.com/develop/background-work/services/fgs/timeout 。
+
 ### D248 — SBI一口座の画面と現在残高の訂正（2026-10-25）
 
 - 本人の追加4点をD247の配布完了後に実施。証券会社はSBI一つの画面とし、口座の追加/削除/呼び名入力を廃止。保有登録はホームの実保有へ移す。税区分は各保有の選択、実約定は既存のaccount_bucket_idを維持。旧口座ID・取引・税区分別資金を移し替えたり削除したりしない。新しい税区分は同じbroker accountのbucketとして追加し、既存資金を自動配分しない。

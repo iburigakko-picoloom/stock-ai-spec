@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
-import { StockAI } from "./native";
+import { StockAI, isAndroid } from "./native";
 
 interface ModelStatus {
   approved_bundle_count: number; imported_bundle_count: number; bundle_ready: boolean;
@@ -9,6 +9,7 @@ interface ModelStatus {
   research_bundle_count?: number; return_only_research?: boolean; ensemble_research?: boolean; risk_available?: boolean;
 }
 interface ForecastRun {
+  manual_decision?: DecisionRun;
   run_id: string; phase: string; outcome: string; checked_at: string;
   scope: { as_of: string; universe?: { latest_source_date?: string | null; policy?: string } };
   snapshot: { generated_at: string; data_as_of: string; predictions: { symbol: string;
@@ -66,6 +67,7 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
   const [run, setRun] = useState<ForecastRun | null>(null);
   const [decision, setDecision] = useState<DecisionRun | null>(null);
   const [message, setMessage] = useState("");
+  const [calculating, setCalculating] = useState(false);
   useEffect(() => {
     void Promise.all([apiGet<ModelStatus>("/api/v1/mobile/models"), apiGet<ForecastRun | null>("/api/v1/mobile/daily"), apiGet<DecisionRun | null>("/api/v1/mobile/decision")])
       .then(([status, saved, shares]) => { setModel(status); setRun(saved); setDecision(shares); })
@@ -75,7 +77,7 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
     onBusy(true); setMessage("");
     try { await task(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "計算・保存を完了できませんでした。"); }
-    finally { onBusy(false); }
+    finally { setCalculating(false); onBusy(false); }
   }
   const five = new Map(run?.outputs.find(x => x.horizon === 5 && (x.task === "regression" || x.role === "return"))?.values ?? []);
   const twenty = new Map(run?.outputs.find(x => x.horizon === 20 && (x.task === "regression" || x.role === "return"))?.values ?? []);
@@ -100,12 +102,14 @@ export function MobileModelPanel({ disabled, inputsSaved, onBusy }: {
         setModel(await apiGet("/api/v1/mobile/models")); setMessage("確認済みのモデル一式を保存しました。");
       })}>モデル一式を取り込む</button>
       <button className="button button--primary" disabled={disabled || !inputsSaved || !model?.bundle_ready} onClick={() => void perform(async () => {
+        setCalculating(true);
         setDecision(null);
         const value = await apiPost<ForecastRun>("/api/v1/mobile/daily/generate", {}); setRun(value);
-        const shares = await apiPost<DecisionRun>("/api/v1/mobile/decision/generate", {}); setDecision(shares);
+        const shares = value.manual_decision ?? await apiPost<DecisionRun>("/api/v1/mobile/decision/generate", {}); setDecision(shares);
         setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : shares.blocking_reasons.length === 1 && shares.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE" ? "研究用の予測を保存しました。ChatGPTへの相談で株数案を検討できます。" : value.phase === "published" && value.snapshot ? "予測は保存済みです。株数の判定は未完了です。" : "予測は未完了です。下の理由を確認してください。");
       })}>{model?.return_only_research || model?.ensemble_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
     </div>
+    {calculating && <><progress aria-label="予測を計算・保存中" style={{ width: "100%" }} />{isAndroid() && <p>画面を閉じても処理を続けます。</p>}</>}
     <p role="status">{message}</p>
     {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
       <p>初回・休場日は、最新データによる参考分析を作れます。<Link className="button button--secondary" to="/today">参考分析を作る</Link></p>}

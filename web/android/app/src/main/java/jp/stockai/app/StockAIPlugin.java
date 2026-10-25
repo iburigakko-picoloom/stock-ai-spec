@@ -86,6 +86,10 @@ public class StockAIPlugin extends Plugin {
 
     @PluginMethod public void compute(PluginCall call) {
         String personalPath = call.getString("path");
+        if (ManualAnalysisService.handles(call.getString("method"), personalPath)) {
+            completeLocal(call, ManualAnalysisService.start(getContext(), call.getString("body", "{}")));
+            return;
+        }
         if ("GET".equals(call.getString("method")) && ("/api/v1/mobile/portfolio".equals(personalPath)
                 || "/api/v1/mobile/personal/current".equals(personalPath))) {
             displayExecutor.execute(() -> {
