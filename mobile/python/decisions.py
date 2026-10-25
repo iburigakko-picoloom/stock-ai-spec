@@ -314,7 +314,8 @@ def _save(path, store, scope, now, *, comparison=None, market=None, frozen=None,
     return _publish(path, store, saved, now)
 
 
-def generate(path: Path, store, now: datetime, numerical=None) -> dict:
+def generate(path: Path, store, now: datetime, numerical=None, *,
+             refresh_consultation=False) -> dict:
     if now.tzinfo is None:
         raise ValueError("Aware decision execution time required")
     cutoff = now.astimezone(forecasts.JST).replace(hour=11, minute=30, second=0, microsecond=0)
@@ -361,7 +362,7 @@ def generate(path: Path, store, now: datetime, numerical=None) -> dict:
             or pin["sha256"] != numerical["scope"]["bundle_sha256"]):
         return blocked("MODEL_SELECTION_DIFFERS_FROM_NUMERICAL")
     scope["bundle_pin_sha256"] = content_id(pin)
-    if isinstance(bundle, (ResearchModelBundle, ResearchEnsembleBundle)):
+    if refresh_consultation or isinstance(bundle, (ResearchModelBundle, ResearchEnsembleBundle)):
         # A fresh explicit calculation can renew the consultation context while
         # preserving the original forecast, prices and expired exchanges.
         elapsed = now - datetime.fromisoformat(numerical["checked_at"])

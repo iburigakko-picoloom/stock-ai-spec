@@ -18,7 +18,7 @@ const forecast: StockDetail["forecast"] = { snapshotId: "snapshot", asOf: contex
 
 test("completed findings expose independent and comparison evidence with clickable citations", () => {
   render(<MemoryRouter><CompanyResearchPanel symbol="A" forecast={forecast} runs={[]} records={[record]} onChanged={vi.fn()} /></MemoryRouter>);
-  expect(screen.getByText("数値予測と推奨株数は変更しません。", { exact: false })).toBeInTheDocument();
+  expect(screen.getByText("元の予測と台帳は変更しません。", { exact: false })).toBeInTheDocument();
   fireEvent.click(screen.getByText("数値予測を見る前の独立調査"));
   expect(screen.getByText(first.text)).toBeVisible();
   const links = screen.getAllByRole("link", { name: "公式IR", hidden: true });

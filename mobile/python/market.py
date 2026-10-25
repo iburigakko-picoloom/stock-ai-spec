@@ -645,6 +645,91 @@ def master_references(path: Path, cutoff: datetime) -> list[dict]:
              "received_at": row[2], "payload_hash": row[3]} for row in rows]
 
 
+def consultation_evidence(path: Path, cutoff: datetime) -> list[dict]:
+    """Small verified summaries; never rebuild model features for consultation."""
+    if cutoff.utcoffset() is None:
+        raise ValueError("Aware research cutoff required")
+    cache = OrderedDict()
+    today = cutoff.astimezone(ZoneInfo("Asia/Tokyo")).date()
+    with connect(path) as db:
+        db.execute("BEGIN")
+
+        def recent(kind, limit):
+            result = []
+            for sequence, day, raw, normalized, expected in _daily_snapshots(
+                db, kind, cutoff, descending=True,
+                first_day=str(today - timedelta(days=90)),
+            ):
+                if date.fromisoformat(day) >= today:
+                    continue
+                frame = market_codec.frame(db, normalized, raw, expected, cache)
+                if frame.empty:
+                    continue
+                frame = frame.loc[pd.to_datetime(frame.available_at, utc=True) <= cutoff]
+                if frame.empty:
+                    continue
+                result.append((day, frame, {
+                    "observation_id": sequence, "normalized_sha256": expected,
+                    "available_at": pd.to_datetime(frame.available_at, utc=True).max().isoformat(),
+                    "date": day,
+                    "source_url": "https://api.jquants.com/v2" + ENDPOINT_SCHEMAS[kind].endpoint,
+                }))
+                if len(result) == limit:
+                    break
+            return result
+
+        indices = recent(DatasetName.TOPIX, 21)
+        daily = recent(DatasetName.DAILY_PRICES, 2)
+        master = recent(DatasetName.SECURITY_MASTER, 1)
+    facts = []
+
+    def fact(topic, kind, day, frame, refs, values):
+        return {
+            "topic": topic,
+            "source_url": "https://api.jquants.com/v2" + ENDPOINT_SCHEMAS[kind].endpoint,
+            "observed_at": datetime.combine(
+                date.fromisoformat(day), time(15, 30), ZoneInfo("Asia/Tokyo")
+            ).isoformat(),
+            "available_at": max(
+                datetime.fromisoformat(r["available_at"]) for r in refs
+            ).isoformat(),
+            "checked_at": cutoff.isoformat(), "published_at": None,
+            "source_records": refs, "values": values,
+        }
+    if indices:
+        day, frame, ref = indices[0]
+        series = [{"date": d, "close": float(f.iloc[0]["close"])} for d, f, _ in reversed(indices)
+                  if len(f) == 1 and pd.notna(f.iloc[0]["close"])]
+        if series:
+            facts.append(fact("topix", DatasetName.TOPIX, day, frame,
+                              [r for _, _, r in indices], {"daily_closes": series}))
+    if len(daily) == 2 and master:
+        day, latest, ref = daily[0]
+        previous = daily[1][1]
+        names = master[0][1]
+        current = latest[["provider_code", "research_close"]].merge(
+            previous[["provider_code", "research_close"]],
+            on="provider_code", suffixes=("", "_previous"),
+            validate="one_to_one",
+        ).merge(names[["provider_code", "sector_33_name"]],
+                on="provider_code", validate="one_to_one")
+        current = current.loc[
+            current.provider_code.astype(str).str.fullmatch(r"[0-9A-Z]{4}0")
+            & current.research_close_previous.gt(0) & current.research_close.notna()
+        ].copy()
+        current["return"] = current.research_close / current.research_close_previous - 1
+        sectors = [{"sector": str(name), "mean_return": float(group["return"].mean()),
+                    "count": len(group)} for name, group in current.groupby("sector_33_name")]
+        if sectors:
+            facts.append(fact("sectors", DatasetName.DAILY_PRICES, day, latest,
+                              [ref, daily[1][2], master[0][2]], {
+                                  "basis": "equal_weight_observed_common_stocks_not_sector_index",
+                                  "previous_date": daily[1][0],
+                                  "unit": "fractional_return", "sectors": sectors,
+                              }))
+    return facts
+
+
 def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
                    decision_symbols: list[str] | tuple[str, ...] | None = None,
                    preselected: bool = False, reference_only: bool = False) -> dict:

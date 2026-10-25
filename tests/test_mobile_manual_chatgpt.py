@@ -192,3 +192,41 @@ def test_expired_comparison_keeps_history_but_never_reoffers_saved_prompt(ready)
     assert not expired["ready"]
     assert expired["saved_input"] is None
     assert len(expired["answers"]) == 1
+
+
+def test_long_research_is_saved_then_rechecked_against_fresh_conditions(ready):
+    device, path, store, _, _ = ready
+    exported = export(ready)
+    original = json.dumps(answer_for(exported))
+    before = store.latest_portfolio()
+    later = NOW + timedelta(hours=2)
+    saved = manual_chatgpt.save_answer(path, store, {
+        "input_record_id": exported["input_record_id"], "answer_json": original,
+    }, later)
+    assert saved["saved"] and not saved["reviewed"]
+    assert not manual_chatgpt.status(path, store, later)["answers"]
+    device.initialize(device.export_state())
+    store = device._app.state.store
+    assert manual_chatgpt.status(path, store, later)["research"][0]["original_json"] == original
+    result = manual_chatgpt.review_saved(path, store, {
+        "research_record_id": saved["research_record_id"],
+    }, later)
+    assert result["review"]["checked_comparison_id"]
+    assert not result["review"]["order_submitted"]
+    assert store.latest_portfolio() == before
+
+
+def test_expired_send_permission_does_not_discard_returned_research(ready):
+    _, path, store, _, _ = ready
+    exported = export(ready)
+    saved = manual_chatgpt.save_answer(path, store, {
+        "input_record_id": exported["input_record_id"],
+        "answer_json": json.dumps(answer_for(exported)),
+    }, NOW + timedelta(days=2))
+    assert saved["saved"]
+    assert manual_chatgpt.status(path, store, NOW + timedelta(days=2))["saved_input"] is None
+    with pytest.raises(ValueError):
+        manual_chatgpt.review_saved(path, store, {
+            "research_record_id": saved["research_record_id"],
+        }, NOW + timedelta(days=2))
+    store.verify_integrity()

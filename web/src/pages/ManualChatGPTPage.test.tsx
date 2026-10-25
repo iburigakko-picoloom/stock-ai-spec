@@ -13,7 +13,7 @@ test("missing model or inputs stays blocked without export controls", async () =
   vi.mocked(apiGet).mockResolvedValue({ ready: false, reason: "原予測が未採用です", selected_input: null, answers: [] });
   show();
   expect(await screen.findByText("原予測が未採用です")).toBeVisible();
-  expect(screen.queryByRole("button", { name: "プロンプトを作成" })).toBeNull();
+  expect(screen.getByRole("button", { name: "プロンプトを作成" })).toBeDisabled();
   expect(apiPost).not.toHaveBeenCalled();
 });
 
@@ -30,10 +30,10 @@ test("explicit conditions precede copy and a rejected answer stays editable", as
   vi.mocked(apiPost).mockRejectedValueOnce(new Error("LOT_SIZE: 売買差分が単元に一致しません"));
   const answer = screen.getByRole("textbox", { name: "ChatGPTの回答JSON" });
   fireEvent.change(answer, { target: { value: '{"target_shares":1}' } });
-  fireEvent.click(screen.getByRole("button", { name: "回答を検証して保存" }));
+  fireEvent.click(screen.getByRole("button", { name: "調査結果を保存" }));
   expect(await screen.findByText("LOT_SIZE: 売買差分が単元に一致しません")).toBeVisible();
   expect(answer).toHaveValue('{"target_shares":1}');
-  await waitFor(() => expect(screen.getByRole("button", { name: "回答を検証して保存" })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole("button", { name: "調査結果を保存" })).toBeEnabled());
   expect(apiPost).not.toHaveBeenCalledWith(expect.stringMatching(/executions|decisions|apply/), expect.anything());
 });
 
@@ -49,10 +49,24 @@ test("a recreated page resumes the exact saved input without a new permission or
   const answer = screen.getByRole("textbox", { name: "ChatGPTの回答JSON" });
   fireEvent.change(answer, { target: { value: "{}" } });
   vi.mocked(apiPost).mockRejectedValueOnce(new Error("合成の拒否"));
-  fireEvent.click(screen.getByRole("button", { name: "回答を検証して保存" }));
+  fireEvent.click(screen.getByRole("button", { name: "調査結果を保存" }));
   expect(await screen.findByText("合成の拒否")).toBeVisible();
   expect(apiPost).toHaveBeenCalledTimes(1);
-  expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/chatgpt-manual/answer", { input_record_id: savedInput.input_record_id, answer_json: "{}" });
+  expect(apiPost).toHaveBeenCalledWith("/api/v1/mobile/chatgpt-manual/research", { input_record_id: savedInput.input_record_id, answer_json: "{}" });
+});
+
+test("a long consultation can be saved after its comparison expires and reviewed separately", async () => {
+  vi.mocked(apiGet).mockResolvedValue({ ready: false, reason: "照合期限切れ", selected_input: "original", answers: [] });
+  vi.mocked(apiPost).mockResolvedValueOnce({ research_record_id: "saved" }).mockRejectedValueOnce(new Error("予測が更新されています"));
+  show();
+  const field = await screen.findByRole("textbox", { name: "ChatGPTの回答JSON" });
+  fireEvent.change(field, { target: { value: "回答原本" } });
+  fireEvent.click(screen.getByRole("button", { name: "調査結果を保存" }));
+  expect(await screen.findByText("調査結果を保存しました。最新の条件で検算できます。")).toBeVisible();
+  expect(apiPost).toHaveBeenCalledExactlyOnceWith("/api/v1/mobile/chatgpt-manual/research", { input_record_id: "original", answer_json: "回答原本" });
+  fireEvent.click(screen.getByRole("button", { name: "最新の条件で検算" }));
+  expect(await screen.findByText(/調査結果は保存済みです。予測が更新/)).toBeVisible();
+  expect(field).toHaveValue("回答原本");
 });
 
 test("copy waits for current local permission and input checks and serializes controls", async () => {

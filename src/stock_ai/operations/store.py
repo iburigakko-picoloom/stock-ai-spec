@@ -1544,6 +1544,7 @@ class OperationalStore:
     def begin_research(
         self, snapshot_id: str, symbol: str, configuration: ResearchConfiguration,
         *, company_name: str, now: datetime, rerun_previous_id: str | None = None,
+        market_evidence: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         configuration = ResearchConfiguration.model_validate_json(configuration.model_dump_json())
         with self._connect() as connection:
@@ -1577,10 +1578,16 @@ class OperationalStore:
                 raise OperationalConflictError(
                     "research is still running with another configuration"
                 )
+            from stock_ai.operations.consultation import consultation_context
+
             context = ResearchContext(
                 prediction_snapshot_id=snapshot_id, symbol=symbol, company_name=company_name,
                 numerical_as_of=snapshot.as_of, research_as_of=now, configuration=configuration,
                 revision=max((item.context.revision for item in existing), default=0) + 1,
+                consultation=(consultation_context(snapshot, self.latest_portfolio(), now=now,
+                                                  market_evidence=market_evidence)
+                              if configuration.prompt_version == "market-portfolio-research-v2"
+                              else None),
             )
             validate_context(context, snapshot)
             run = ResearchRun.create(context)

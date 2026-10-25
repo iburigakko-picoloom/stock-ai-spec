@@ -498,9 +498,12 @@ def create_app(
                 item.company_name for item in (() if proposal is None else proposal.lines)
                 if item.symbol == symbol
             ), f"証券コード {symbol}")
+            research_time = current_time()
+            evidence_reader = getattr(app.state, "research_market_evidence", None)
             return store.begin_research(
                 snapshot_id, symbol, body.configuration, company_name=company_name,
-                now=current_time(), rerun_previous_id=body.rerun_previous_id,
+                now=research_time, rerun_previous_id=body.rerun_previous_id,
+                market_evidence=None if evidence_reader is None else evidence_reader(research_time),
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="snapshot not found") from exc

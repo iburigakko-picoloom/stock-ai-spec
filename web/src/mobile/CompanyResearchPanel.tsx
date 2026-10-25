@@ -81,7 +81,7 @@ export function CompanyResearchPanel({
 
   return <section className="section company-research" aria-labelledby="company-research-title">
     <div className="section-title"><div><span>COMPANY RESEARCH</span><h2 id="company-research-title">ChatGPTの見解</h2></div></div>
-    <p className="explain">企業を独立に調べた後、数値予測と照合します。数値予測と推奨株数は変更しません。</p>
+    <p className="explain">市場全体→企業調査→数値予測→全保有と候補の比較、の順に調べます。元の予測と台帳は変更しません。</p>
     {!forecast ? <p>照合する数値予測はまだありません。</p> : <>
       <p className="research-status">{running ? "調査実行中" : lastAttempt?.status === "failed" || lastAttempt?.status === "interrupted"
         ? "調査未完了" : current?.record || (!current && latestRecord) ? "調査と照合を保存済み" : partial ? "独立調査を保存済み・照合待ち" : "未調査"}</p>

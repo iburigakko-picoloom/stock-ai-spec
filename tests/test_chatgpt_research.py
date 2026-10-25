@@ -105,7 +105,8 @@ def test_independent_prompt_is_invariant_to_numerical_prediction_and_rank() -> N
     assert changed.snapshot_id != snapshot.snapshot_id
     assert independent_request(changed_context) == original
     target = json.loads(original["input"][0]["content"])  # type: ignore[index]
-    assert set(target) == {"symbol", "company_name", "research_as_of"}
+    assert set(target) == {"symbol", "company_name", "research_as_of", "market_evidence",
+                           "market_topics", "web_research_needed"}
     for prohibited in ("expected_return", "rank", "holding", "balance", "BUY", "snapshot_id"):
         assert prohibited not in canonical_json(original)
 

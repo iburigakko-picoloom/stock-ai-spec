@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, dateTime } from "../components";
 import { isAndroid } from "../mobile/native";
+import { ConsultationReport, type ConsultationFindings } from "../ConsultationReport";
 
 interface Review {
   lines: { symbol: string; account: string; current_shares: number; target_shares: number; share_difference: number }[];
@@ -11,7 +12,8 @@ interface Review {
   applied_to_ledger: false;
   answer?: { evidence_as_of: string; targets: { symbol: string; account: string; reason: string; sources: string[] }[]; unknowns: string[] };
 }
-interface ManualStatus { ready: boolean; reason: string | null; selected_input: string | null; saved_input?: Exported | null; saved_input_reason?: string | null; answers: Review[]; account_labels?: Record<string, string> }
+interface SavedResearch { record_id: string; saved_at: string; original_json: string; answer?: { research?: ConsultationFindings } }
+interface ManualStatus { ready: boolean; reason: string | null; selected_input: string | null; saved_input?: Exported | null; saved_input_reason?: string | null; answers: Review[]; account_labels?: Record<string, string>; research?: SavedResearch[] }
 interface Exported { input_record_id: string; input_snapshot_id: string; expires_at: string; prompt: string }
 
 export function ManualChatGPTPage(): ReactNode {
@@ -23,6 +25,8 @@ export function ManualChatGPTPage(): ReactNode {
   const [review, setReview] = useState<Review | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [researchId, setResearchId] = useState<string | null>(null);
+  const [findings, setFindings] = useState<ConsultationFindings | null>(null);
   const [error, setError] = useState("");
   const android = isAndroid();
   useEffect(() => {
@@ -32,6 +36,8 @@ export function ManualChatGPTPage(): ReactNode {
       .then(value => {
         if (!active) return;
         setStatus(value);
+        setResearchId(value.research?.[0]?.record_id ?? null);
+        setFindings(value.research?.[0]?.answer?.research ?? null);
         if (value.saved_input) {
           setExported(value.saved_input);
           setMessage("保存済みの入力を再表示しました。有効期限と内容を確認して相談を続けられます。");
@@ -75,11 +81,12 @@ export function ManualChatGPTPage(): ReactNode {
   async function importAnswer(): Promise<void> {
     setBusy(true); setError(""); setMessage(""); setReview(null);
     try {
-      const saved = await apiPost<{ review: Review }>("/api/v1/mobile/chatgpt-manual/answer", {
+      const saved = await apiPost<{ research_record_id: string; answer?: { research?: ConsultationFindings } }>("/api/v1/mobile/chatgpt-manual/research", {
         input_record_id: exported?.input_record_id ?? status?.selected_input, answer_json: answer,
       });
-      setReview(saved.review);
-      setMessage("制約を確認し、ChatGPT提案として保存しました。保有・現金・税台帳は更新していません。");
+      setResearchId(saved.research_record_id);
+      setFindings(saved.answer?.research ?? null);
+      setMessage("調査結果を保存しました。最新の条件で検算できます。");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "回答を検証できませんでした。"); }
     finally { setBusy(false); }
   }
@@ -89,7 +96,8 @@ export function ManualChatGPTPage(): ReactNode {
     <p className="explain">上位20銘柄と全保有を渡して相談します。モデル・推論設定はChatGPT側で選びます。回答は提案として保存します。</p>
     {!android ? <StatePanel title="Androidアプリで利用できます" detail="端末に保存した最新の原予測・口座・設定を使います。" />
       : !status ? <StatePanel title="保存済み入力を確認しています" />
-      : !status.ready ? <StatePanel title="入力の準備待ちです" detail={status.reason ?? "最新の原予測と本人入力を確認してください。"} /> : <>
+      : <>
+        {!status.ready && <StatePanel title="最新条件の照合が必要です" detail={status.reason ?? "保存済みの相談への回答は受け取れます。"} />}
         <section className="section">
           <h2>1. 入力を渡す</h2>
           <label className="checkbox"><input type="checkbox" checked={privateUse} disabled={busy}
@@ -98,7 +106,7 @@ export function ManualChatGPTPage(): ReactNode {
             onChange={event => setEntitled(event.target.checked)} />使用するデータが現在のJ-Quants契約・取得範囲で利用できると確認しました</label>
           <p className="setting-footnote">共有link・結果の配信や公開・学習利用につながるfeedback送信は行わないでください。
             <a href="https://jpx-jquants.com/ja/help/usage" target="_blank" rel="noreferrer">J-Quantsの利用条件</a></p>
-          <div className="button-stack"><button className="button button--primary" disabled={busy || !privateUse || !entitled}
+          <div className="button-stack"><button className="button button--primary" disabled={busy || !status.ready || !privateUse || !entitled}
             onClick={() => void prepare()}>プロンプトを作成</button></div>
           {status.saved_input_reason && <p className="setting-footnote">{status.saved_input_reason}</p>}
           {exported && <>
@@ -111,8 +119,16 @@ export function ManualChatGPTPage(): ReactNode {
           <h2>2. 回答を確認する</h2>
           <textarea className="csv-input" aria-label="ChatGPTの回答JSON" value={answer} disabled={busy}
             onChange={event => { setAnswer(event.target.value); setReview(null); }} placeholder="回答JSONをここに貼り付け" />
-          <div className="button-stack"><button className="button button--primary" disabled={busy || !answer.trim() || !exported}
-            onClick={() => void importAnswer()}>回答を検証して保存</button></div>
+          <div className="button-stack"><button className="button button--primary" disabled={busy || !answer.trim() || !(exported || status.selected_input)}
+            onClick={() => void importAnswer()}>調査結果を保存</button></div>
+          {findings && <ConsultationReport value={findings} />}
+          {researchId && <button className="button button--primary" disabled={busy} onClick={() => {
+            setBusy(true); setError(""); setReview(null);
+            void apiPost<{ review: Review }>("/api/v1/mobile/chatgpt-manual/review", { research_record_id: researchId })
+              .then(value => { setReview(value.review); setMessage("最新の条件で株数・資金・費用を検算しました。台帳は変更していません。"); })
+              .catch(reason => setError(`調査結果は保存済みです。${reason instanceof Error ? reason.message : "最新条件を照合してください。"}`))
+              .finally(() => setBusy(false));
+          }}>最新の条件で検算</button>}
         </section>
       </>}
     {message && <p role="status">{message}</p>}

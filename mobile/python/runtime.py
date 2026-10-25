@@ -142,6 +142,9 @@ def initialize(encoded: str = "") -> dict:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded, validate=True))) as archive:
             _restore_archive(archive)
     _app = create_app(STATE / "operations.sqlite3")
+    _app.state.research_market_evidence = lambda now: market.consultation_evidence(
+        STATE / "mobile.sqlite3", now
+    )
 
     # WASM has no Python threads. Run the already-validated synchronous route
     # functions on this dedicated Web Worker, retaining FastAPI validation,
@@ -440,8 +443,11 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             args = (STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC), horizon)
             if len(parts) == 1 and method == "GET":
                 result = rankings.view(*args)
-            elif len(parts) == 2 and method == "POST" and parts[1] in ("export", "answer"):
-                operation = rankings.export if parts[1] == "export" else rankings.import_answer
+            elif (len(parts) == 2 and method == "POST"
+                  and parts[1] in ("export", "answer", "research", "review")):
+                operation = {"export": rankings.export, "answer": rankings.import_answer,
+                             "research": rankings.save_answer,
+                             "review": rankings.review_saved}[parts[1]]
                 result = operation(*args, json.loads(body))
             else:
                 raise ValueError("ランキングの操作を確認してください")
@@ -459,6 +465,10 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 result = manual_chatgpt.export(local_path, store, json.loads(body), now)
             elif path == "/api/v1/mobile/chatgpt-manual/answer" and method == "POST":
                 result = manual_chatgpt.import_answer(local_path, store, json.loads(body), now)
+            elif path == "/api/v1/mobile/chatgpt-manual/research" and method == "POST":
+                result = manual_chatgpt.save_answer(local_path, store, json.loads(body), now)
+            elif path == "/api/v1/mobile/chatgpt-manual/review" and method == "POST":
+                result = manual_chatgpt.review_saved(local_path, store, json.loads(body), now)
             else:
                 raise ValueError("手動ChatGPTの操作を確認してください")
             return {"status": 200, "body": result}

@@ -23,6 +23,11 @@ from stock_ai.decision.engine import DailyPortfolioDecisionEngine, TradeConstrai
 from stock_ai.decision.tax import SimpleJapanTaxEngine
 from stock_ai.domain import PortfolioState, Position
 from stock_ai.domain.models import ResearchEnsemblePrediction
+from stock_ai.operations.consultation import (
+    RESEARCH_ORDER,
+    ConsultationFindings,
+    consultation_context,
+)
 from stock_ai.operations.daily import (
     PredictionSnapshot,
     canonical_json,
@@ -99,6 +104,7 @@ class ManualAnswer(ManualModel):
     evidence_as_of: AwareDatetime
     targets: tuple[TargetSuggestion, ...] = Field(min_length=1, max_length=1000)
     unknowns: tuple[str, ...] = Field(max_length=100)
+    research: ConsultationFindings | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 def parse_answer(text: str) -> ManualAnswer:
@@ -220,9 +226,11 @@ def input_package(
     *,
     now: datetime,
     permission: ExternalAiPermission,
+    market_evidence: list[dict[str, Any]] | None = None,
+    local_review: bool = False,
 ) -> dict[str, Any]:
     """Project only required fields; never dump credentials/account identifiers."""
-    permission.require(now, "manual_chatgpt")
+    permission.require(permission.checked_at if local_review else now, "manual_chatgpt")
     require_daily_close_label(forecast.label_definition)
     comparison, portfolio, forecast = _context(comparison, portfolio, forecast, now)
     settings, market = comparison.request.settings, comparison.request.market
@@ -281,6 +289,10 @@ def input_package(
     required_targets = _target_rows(symbols, forecast.candidate_symbols, positions, aliases)
     body = {
         "schema_version": "chatgpt-manual-input-v1",
+        "consultation": consultation_context(
+            forecast, portfolio, now=comparison.checked_at, market_evidence=market_evidence,
+            prices=dict(prices), price_as_of=market.market.as_of,
+        ),
         "validation_version": "manual-target-review-v1",
         "validation_sha256": content_id(
             {
@@ -290,6 +302,7 @@ def input_package(
         ),
         "prediction_snapshot_id": forecast.snapshot_id,
         "account_snapshot_id": content_id(portfolio.model_dump(mode="json")),
+        "account_aliases_sha256": content_id(aliases),
         "settings_snapshot_id": content_id(settings.model_dump(mode="json")),
         "manual_revision_id": comparison.manual_revision_id,
         "comparison_id": comparison.comparison_id,
@@ -340,6 +353,9 @@ def manual_prompt(package: dict[str, Any]) -> str:
     )
     return (
         "本人用の日本株判断支援です。外部公開せず、学習利用をoffにした会話で扱ってください。\n"
+        + RESEARCH_ORDER
+        + "researchに市場5日/20日、全対象企業の独立調査・影響・数値照合・判断、"
+        "現金維持の理由、出典と日時を含めてください。\n"
         "企業IR等を独立に調べ、数値モデルに同調せず、反対材料・不明点も示してください。"
         "入力外の重要論点も自由に検討できます。確率や未確認事実を作らず、事実と推論を分けてください。\n"
         "5日/20日は、入力株価日Tの翌営業日の調整済み終値を起点とした、h営業日後までの研究ラベルの予測です。"
@@ -368,14 +384,26 @@ def review_answer(
     *,
     now: datetime,
     permission: ExternalAiPermission,
+    saved_research: bool = False,
 ) -> dict[str, Any]:
-    expected = input_package(comparison, portfolio, forecast, now=now, permission=permission)
-    if package != expected:
+    expected = input_package(comparison, portfolio, forecast, now=now, permission=permission,
+                             local_review=saved_research,
+                             market_evidence=package.get("consultation", {}).get("market_evidence"))
+    manual_prompt(package)
+    if not saved_research and package != expected:
         raise ValueError("SNAPSHOT_MISMATCH: 入力snapshotが変化しています")
+    if saved_research and (
+        package["prediction_snapshot_id"] != expected["prediction_snapshot_id"]
+        or package.get("account_aliases_sha256") != expected.get("account_aliases_sha256")
+        or {(x["symbol"], x["account"]) for x in package["required_targets"]}
+        != {(x["symbol"], x["account"]) for x in expected["required_targets"]}
+    ):
+        raise ValueError("SNAPSHOT_MISMATCH: 回答は保存済みです。"
+                         "原予測・対象口座が変わったため新しい相談が必要です")
     answer = parse_answer(text)
     if answer.input_snapshot_id != package["input_snapshot_id"]:
         raise ValueError("SNAPSHOT_MISMATCH: 別の入力への回答です")
-    if not comparison.checked_at <= answer.evidence_as_of <= now:
+    if not datetime.fromisoformat(package["created_at"]) <= answer.evidence_as_of <= now:
         raise ValueError("STALE_EVIDENCE: 根拠の時点が入力前または未来です")
     keys = [(t.symbol, t.account) for t in answer.targets]
     required = {(x["symbol"], x["account"]) for x in package["required_targets"]}
@@ -506,6 +534,10 @@ def review_answer(
         "answer": answer.model_dump(mode="json"),
         "answer_id": content_id(answer.model_dump(mode="json")),
         "validation_sha256": package["validation_sha256"],
+        **({"validation_sha256": expected["validation_sha256"],
+            "checked_comparison_id": comparison.comparison_id,
+            "checked_account_snapshot_id": expected["account_snapshot_id"]}
+           if saved_research else {}),
         "lines": lines,
         "estimated_cash_after": {a: str(result.cash_after[b]) for a, b in aliases.items()},
         "estimated_cost_yen": str(sum((x.total for x in result.costs.values()), Decimal(0))),
@@ -518,7 +550,7 @@ def review_answer(
 
 def save_record(connection: sqlite3.Connection, kind: str, payload: dict[str, Any]) -> str:
     """Append an immutable exchange to existing backup-covered local metadata."""
-    if kind not in {"input", "answer"}:
+    if kind not in {"input", "answer", "research"}:
         raise ValueError("unknown manual exchange record")
     identity = _record_identity(kind, payload)
     key = f"chatgpt-manual:{kind}:{identity}"
@@ -527,7 +559,8 @@ def save_record(connection: sqlite3.Connection, kind: str, payload: dict[str, An
         "SELECT value FROM operational_metadata WHERE key=?", (key,)
     ).fetchone()
     if row is not None and row[0] != encoded:
-        if kind != "answer" or _record_identity(kind, read_record(row[0])) != identity:
+        if (kind not in {"answer", "research"}
+                or _record_identity(kind, read_record(row[0])) != identity):
             raise ValueError("Manual exchange identity conflict")
         # Preserve the first acceptance time on an exact answer replay.
         return identity
@@ -557,12 +590,13 @@ def verify_exchange_records(connection: sqlite3.Connection) -> None:
             continue
         kind, identity = key.removeprefix("chatgpt-manual:").split(":", 1)
         payload = read_record(value)
-        if kind not in {"input", "answer"} or identity != _record_identity(kind, payload):
+        if (kind not in {"input", "answer", "research"}
+                or identity != _record_identity(kind, payload)):
             raise ValueError("Manual exchange content changed")
         if kind == "input":
             manual_prompt(payload["package"])
             ExternalAiPermission.model_validate(payload["permission"])
-        else:
+        elif kind == "answer":
             answer = parse_answer(payload["original_json"])
             if answer.model_dump(mode="json") != payload["review"]["answer"]:
                 raise ValueError("Manual answer differs from its saved review")
@@ -575,20 +609,46 @@ def verify_exchange_records(connection: sqlite3.Connection) -> None:
     if selected is not None and ("input", selected[0]) not in records:
         raise ValueError("Manual input selection is missing")
     for (kind, _), payload in records.items():
-        if kind == "answer":
+        if kind in {"answer", "research"}:
             source = records.get(("input", payload["input_record_id"]))
+            answer = parse_answer(payload["original_json"])
             if (
                 source is None
-                or payload["review"]["answer"]["input_snapshot_id"]
-                != source["package"]["input_snapshot_id"]
+                or answer.input_snapshot_id != source["package"]["input_snapshot_id"]
             ):
                 raise ValueError("Manual answer input reference changed")
+            if kind == "research":
+                validate_saved_answer(payload["original_json"], source["package"],
+                                      datetime.fromisoformat(payload["saved_at"]))
 
 
 def _record_identity(kind: str, payload: dict[str, Any]) -> str:
     # Timing remains in the stored envelope; it does not create a second copy
     # when an unchanged response is submitted after a lost acknowledgment.
-    return content_id({k: v for k, v in payload.items() if kind != "answer" or k != "checked_at"})
+    ignored = "checked_at" if kind == "answer" else "saved_at" if kind == "research" else ""
+    return content_id({k: v for k, v in payload.items() if k != ignored})
+
+
+def validate_saved_answer(text: str, package: dict[str, Any], now: datetime) -> ManualAnswer:
+    """Validate source-bound research without claiming current portfolio feasibility."""
+    manual_prompt(package)
+    answer = parse_answer(text)
+    if answer.input_snapshot_id != package["input_snapshot_id"]:
+        raise ValueError("SNAPSHOT_MISMATCH: 別の入力への回答です")
+    if not datetime.fromisoformat(package["created_at"]) <= answer.evidence_as_of <= now:
+        raise ValueError("STALE_EVIDENCE: 根拠の時点が入力前または未来です")
+    actual = [(t.symbol, t.account) for t in answer.targets]
+    expected = {(t["symbol"], t["account"]) for t in package["required_targets"]}
+    if len(actual) != len(set(actual)) or set(actual) != expected:
+        raise ValueError("TARGET_UNIVERSE: 全対象/全口座を重複なく指定してください")
+    from stock_ai.operations.consultation import EvidenceSource
+
+    for target in answer.targets:
+        for url in target.sources:
+            EvidenceSource.source_url(url)
+    if answer.research is not None:
+        answer.research.check({s for s, _ in expected}, answer.evidence_as_of, now)
+    return answer
 
 
 def read_record(encoded: str) -> dict[str, Any]:

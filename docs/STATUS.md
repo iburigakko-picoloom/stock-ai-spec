@@ -1,3 +1,12 @@
+## 2026-10-26 — 市場・全保有を含むChatGPT相談（D257）
+
+- 自動/手動共通の相談contextを追加。既存選定の上位20＋全保有、原予測全体の5日/20日順位と母集団、順位根拠/score/returnの単位分離、株数/評価額/総資産比率/現金構成/評価時点を射影。5日head未提供時はreturn順の参考順位として明示する。未予測の追加保有は欠損のまま保持する。
+- 日本市場/海外・為替・金利等の調査→独立企業調査→数値照合→保有/候補/現金比較を共通promptへ接続。Androidの受領済みTOPIXと業種資料をbounded readで検証して再利用し、未提供・古い情報はWeb検索へ。出典/日時/hashを保存。自動は既存2段階と中断復元を再利用し、v1記録のidentity・旧batch版を保持する。
+- 手動の調査原本保存と、最新条件の検算/順位反映を別API・ボタンに分離。期限後も保存/再起動復元が可能で、予測/保有変更時の反映停止でも結果を失わない。市場5日/20日・現金判断と企業別調査/出典を画面から参照できる。コピー/新規送信許可条件、モデル、台帳/取引、実注文禁止は維持。
+- 関連pytest 129件成功：`test_consultation_context`、`test_chatgpt_research`、`test_chatgpt_manual`、`test_mobile_manual_chatgpt`、`test_mobile_rankings`、`test_mobile_research`、`test_research_workflow`、`test_mobile_decisions`。55相談対象/60母集団、順位scoreとreturnの別順序、未予測保有、既存市場の訂正/cutoff、2時間後の保存→復元→再検算、期限切れ/新予測/保有変更/不正JSONの拒否、旧prompt/recordの互換を検証。v1原実装(1cc04ba)との内容一致を確認しgolden hashを追加。既存fixtureのPydantic/Starlette警告は残る。
+- Web関連26件（Rankings/ManualChatGPTPage/CompanyResearchPanel/research）、型check・変更画面eslint、Python変更箇所ruff・関連5moduleのmypy成功。Android `:app:testDebugUnitTest` 成功（Javaコンパイル、31件、失敗0）。新しい実機instrumentationは未実施。既存Android toolchainのSDK XML/Gradle非推奨警告あり。
+- 合成データによる機能検証で、学習/投資成績の実験はなし。外部AIへの実データ送信・APK公開・実注文は実施していない。実際の検索結果の網羅性/品質、本人実機での表示・長時間実行、CIは未確認。最新の照合条件を満たせない回答は、保存済みでも未検算/未反映のまま保持する。
+
 ## 2026-10-26 — ランキング4欄の復元（D256）
 
 - 総合/5日/20日/前場を復元。総合・前場は未導入と表示しAPI要求なし。5日は補助予測リターンとして順位表示/相談を除去。20日の順位・ChatGPT相談/反映は維持。計算/資産/履歴の変更なし、実注文なし。
