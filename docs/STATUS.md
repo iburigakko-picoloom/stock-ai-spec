@@ -5,7 +5,7 @@
 - Python27件、Web171件、変更共通Pythonのmypy/ruff、Web型/build/lint成功。320/390px・文字150%の一覧/入力保持3件と現在残高/保有画面2件成功、画像確認。実WASMで初回登録→現金訂正→別interpreter復元→ホーム/入力一致1件成功。Android JVM31件、本体/試験compile成功、native current readとPython全項目一致1件成功（合成台帳266ms、Python未起動）。本人端末の金額履歴・表示速度・更新は未確認。
 - 最初のWeb実行はsandbox TEMP rename EPERMで収集できず、workspace TEMPで再試験。旧画面文言3件と追加テストの待機/通貨表記2件を変更仕様に合わせて修正し成功。最初の新規保存試験でcommit不足を検出し、明示commit後27件成功。初回の制限環境Python回帰は停止し、通常SQLite環境で再試験。無条件に成功扱いにしていない。
 - 最終の銘柄形式/残枠合計検査後、Python追加4件成功。詳細設定のNISA表示修正後Web関連13件・型/lint成功、入力間隔調整後スマホ幅2件を再確認。新規Android current読込は266msでPython未起動を確認。
-- D247配布済み後の追加変更。APK作成は続行中。実注文なし、モデル訓練/採用/自動注文機能の変更なし。
+- D247配布済み後の追加変更。同署名0.1.50-candidate/code10050の署名・同梱46assets・私的パス/試験fixture非混入を検査し、承認済み非共有StockAIへ保存。Drive id 1P8w3DMAF7jPJq3ep9yWdf0VFfZpEv-El、24,030,381 bytesとshared=falseを再読込確認。source c5f37bc7a22588bf2a92221f50a9d45798b4da4d、SHA256 6736f4c9d3f6d45bdc3d9c6758535c50befd24d919e9bf2b722d2289421c09b7。本人端末更新・署名版起動は未確認、CIは別途未確認。実注文なし、モデル訓練/採用/自動注文機能の変更なし。
 
 ## 2026-10-25 — 口座読込を計算初期化から分離（D247）
 
