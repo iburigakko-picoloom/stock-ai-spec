@@ -204,7 +204,7 @@ final class LocalComputeOwner {
                             JSONObject output = result.optJSONObject("body");
                             boolean saved = status == 200 && output != null && (output.optString("phase").matches("published|reference_saved")
                                 || output.optString("outcome").equals("cash_only"));
-                            checkpoints.finish(saved ? "complete" : "blocked");
+                            checkpoints.finish(saved ? "complete" : "blocked", output);
                         }
                         if (status == 200 && path.equals("/api/v1/mobile/personal/current/confirm")) readViews.clear();
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)

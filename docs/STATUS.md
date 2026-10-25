@@ -1,3 +1,9 @@
+## 2026-10-25 — 最終保存中の応答なしを防ぐ（D252）
+
+- 本人画像でOSの応答なしとblocked 99%を確認。main Handlerの通知更新がcheckpoint monitor/共有SQLite保存ロック/AES鍵を待つ経路と、renderer終了callbackがtransferLockを待つ経路を除去。確定済み小規模metadataのimmutable volatile copyを参照し、DB復元/owner構築と転送後始末はbackgroundに限定。本人端末ANR traceは未取得につき実機原因の断定とは区別する。
+- blocked応答の停止コードを暗号化保存し再表示へ接続。入力条件不足で終了した場合の99%バー・無条件再開案内を外し、株価履歴不足/モデル条件/口座確認等の短い理由を表示。元のforecast利用条件・台帳/取引/保存本体/rollback・計算式は不変。
+- Web関連9件、型/lint/build成功。Android JVM31件、native22件成功：checkpoint5（writerがDBとmonitorを保持したままmain上のstatusが1秒以内に返る、transferLock保持中のmain close、理由再open、暗号化単位等）、サービス4（消灯・Activity停止含む）、転送13（成功/中断/改ざん/DB失敗のrollback）。最小範囲の修正のためPython計算コードは変更せず新たな訓練なし。実注文なし。
+- 本人端末での全量分析完走、署名版起動、CIは未確認。停止コードは次の実行から保存される。APK更新前の途中計算はD250の同APK制約で再利用しない。検証記録 .demo-artifacts/update-0154-20261025/ 。
 ## 2026-10-25 — 99%後に戻る解析の継続と終了理由（D251）
 
 - 本人の99%後に元ボタンへ戻る報告を受け、時間制限とphase通知経路を調査。実機ログは未取得。過去の全量Android要求593.209秒に対する600秒上限の余裕不足を確認し、新規途中保存後480秒で内部継続、進捗増加がある継続/timeoutだけ最大2回再開、手動処理全体20分制限を追加。全特徴量集約も保存し再開時の再計算を減らす。未完成archiveを完成結果として保存しない。

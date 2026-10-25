@@ -2159,3 +2159,9 @@ The observed forecast/save state interval is544.795s under the existing600s boun
 - 本人の報告は99%の後に完了せず元のボタンへ戻り、エラー表示なし。実機ログ未取得につき原因は断定しない。以前のAndroid全量計測は要求全体593.209秒で既存600秒上限に近く、端末性能や途中保存で超過し得る。重い処理の後だけphaseを送るため99%の銘柄計算表示も停止箇所を表していなかった。
 - 新規単位を送信した後、計算開始480秒を過ぎていれば内部継続応答とする。部分archiveは公開/commitしない。native側は新たに永続保存されたrevisionが増えた時間切れ/内部継続だけ最大2回再開し、手動サービス全体20分で停止。原要求600秒、WakeLock23分、計算式・全母集団・11:30制約・台帳保存方式は変更しない。進捗なし/入力不整合/一般例外を自動反復しない。
 - 全特徴量の集約結果も保存して再開時の再結合を省く。予測開始前にphaseを変更、最終exportは保存中と表示する。失敗理由を暗号化metadataに残し、画面を開き直しても中断理由と再開案内を表示。計算失敗を一律市場データ不足と案内しない。再開可能条件はD250と同じでAPK更新をまたぐ途中cacheは使わない。
+
+### D252 — 保存ロックで通知/画面を停止させない（2026-10-25）
+
+- 本人の0.1.53画像でAndroidの応答なしダイアログを確認。コード上、ManualAnalysisServiceのmain Handlerが1秒ごとにcheckpoints.statusを呼び、checkpoint monitorと最終archiveと同じSQLite DB/AES読出しを待っていた。実機ANR traceは未取得だが、大きな書込み中にmainがブロックし得る経路を除去する。renderer終了callbackのtransferLock待ち/closeも同様にmainから外す。
+- 進捗は確定済みの小さいimmutable metadataをvolatileで公開し、statusはDB/暗号鍵/書込みmonitorに触れない。初期metadataの復元はowner構築のbackground、変更の公開はDB commit成功後のみ。通知開始はowner構築を待たず、backgroundで取得したowner参照から表示copyを読む。保存本体/認証/rollbackは変更しない。
+- 画像の「分析の完了条件を満たしていません」はnativeが最終archiveをcommit後に返したblocked判定の表示であり、timeoutと同一ではない。HTTP応答の既存blocking_reasonsを上限8件の制限付きコードとして暗号化metadataに保存し、再表示でも不足理由を短く示す。blockedでは99%バー/無条件再開案内を表示しない。予測の利用条件を緩めたり未完成予測を公開したりしない。

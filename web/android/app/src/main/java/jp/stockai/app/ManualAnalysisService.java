@@ -22,6 +22,7 @@ public final class ManualAnalysisService extends Service {
     private PowerManager.WakeLock wake;
     private Thread thread;
     private volatile CompletableFuture<JSObject> core;
+    private volatile LocalComputeOwner computeOwner;
     private JSObject savedResult;
     private Throwable savedError = new IllegalStateException("ANALYSIS_INTERRUPTED");
     private final Handler updates = new Handler(Looper.getMainLooper());
@@ -109,8 +110,11 @@ public final class ManualAnalysisService extends Service {
         this.phase = phase;
         int percent = -1;
         try {
-            JSObject saved = LocalComputeOwner.get(this).checkpoints.status(true);
-            if (!phase.equals("deciding") && !saved.isNull("percent")) percent = saved.optInt("percent", -1);
+            LocalComputeOwner owner = computeOwner;
+            if (owner != null) {
+                JSObject saved = owner.checkpoints.status(true);
+                if (!phase.equals("deciding") && !saved.isNull("percent")) percent = saved.optInt("percent", -1);
+            }
         } catch (Exception ignored) { /* Initial progress has no denominator yet. */ }
         androidx.work.ForegroundInfo info = DailyWorker.foregroundInfo(this, phase, percent);
         if (android.os.Build.VERSION.SDK_INT >= 29) startForeground(6104, info.getNotification(), info.getForegroundServiceType());
@@ -133,6 +137,7 @@ public final class ManualAnalysisService extends Service {
                 JSObject result = null; Throwable failure = null;
                 try {
                     LocalComputeOwner owner = LocalComputeOwner.get(this);
+                    computeOwner = owner;
                     long deadline = android.os.SystemClock.elapsedRealtime() + TimeUnit.MINUTES.toMillis(20);
                     Request bounded = (path, body) -> {
                         long remaining = deadline - android.os.SystemClock.elapsedRealtime();

@@ -38,7 +38,7 @@ final class ComputeHost {
     private boolean stateExpected;
     private boolean optimizedStartup;
     private boolean deferredStartup;
-    private String transferPhase = "idle";
+    private volatile String transferPhase = "idle";
     private volatile long requestId;
     private volatile boolean closed;
     private volatile boolean assetUnavailable;
@@ -125,12 +125,11 @@ final class ComputeHost {
                         if (request.isForMainFrame()) ready.completeExceptionally(new IllegalStateException("COMPUTE_HOST_UNAVAILABLE"));
                     }
                     @Override public boolean onRenderProcessGone(WebView source, android.webkit.RenderProcessGoneDetail detail) {
-                        synchronized (transferLock) {
-                            IllegalStateException failure = new IllegalStateException(
-                                "COMPUTE_RENDERER_" + (detail.didCrash() ? "CRASHED" : "KILLED") + "_STAGE_" + transferPhase);
-                            ready.completeExceptionally(failure);
-                            if (pending != null) pending.completeExceptionally(failure);
-                        }
+                        IllegalStateException failure = new IllegalStateException(
+                            "COMPUTE_RENDERER_" + (detail.didCrash() ? "CRASHED" : "KILLED") + "_STAGE_" + transferPhase);
+                        ready.completeExceptionally(failure);
+                        CompletableFuture<JSONObject> response = pending;
+                        if (response != null) response.completeExceptionally(failure);
                         ComputeHost.this.close(); return true;
                     }
                 });
@@ -193,6 +192,11 @@ final class ComputeHost {
     void close() {
         closed = true;
         ready.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // Renderer callbacks run on main; transfer cleanup can wait on disk/AES.
+            CompletableFuture.runAsync(this::close);
+            return;
+        }
         synchronized (transferLock) {
             CompletableFuture<JSONObject> response = pending;
             if (response != null) response.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));

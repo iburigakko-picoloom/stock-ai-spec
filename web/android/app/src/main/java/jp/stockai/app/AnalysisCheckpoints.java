@@ -16,10 +16,13 @@ final class AnalysisCheckpoints {
     static final int LIMIT = 128 * 1024 * 1024, STORE_LIMIT = 512 * 1024 * 1024, CHUNK = 256 * 1024;
     final SQLiteDatabase db;
     private String scope;
-    AnalysisCheckpoints(SQLiteDatabase db) {
+    // Immutable, committed metadata only. Notifications must never wait for DB/AES work.
+    private volatile String published = "{}";
+    AnalysisCheckpoints(SQLiteDatabase db) throws Exception {
         this.db = db;
         db.execSQL("CREATE TABLE IF NOT EXISTS analysis_checkpoint_meta(id INTEGER PRIMARY KEY CHECK(id=1),payload BLOB NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS analysis_checkpoint_chunks(name TEXT NOT NULL,piece INTEGER NOT NULL,payload BLOB NOT NULL,PRIMARY KEY(name,piece))");
+        published = meta().toString();
     }
     private JSONObject meta() throws Exception {
         try (Cursor cursor = db.rawQuery("SELECT payload FROM analysis_checkpoint_meta WHERE id=1", null)) {
@@ -28,6 +31,7 @@ final class AnalysisCheckpoints {
     }
     private void save(JSONObject value) throws Exception {
         db.execSQL("INSERT OR REPLACE INTO analysis_checkpoint_meta VALUES(1,?)", new Object[]{LocalStateStore.encrypt(value.toString())});
+        if (!db.inTransaction()) published = value.toString();
     }
     synchronized String begin(Context context, long generation, String body) throws Exception {
         String code;
@@ -48,7 +52,11 @@ final class AnalysisCheckpoints {
                     .put("phase", "preparing").put("done", 0).put("total", 0).put("state", "running");
                 save(saved); db.setTransactionSuccessful();
             } finally { db.endTransaction(); }
-        } else { saved.put("state", "running").remove("failure"); save(saved); }
+            published = saved.toString();
+        } else {
+            saved.put("state", "running"); saved.remove("failure"); saved.remove("blockingReasons");
+            save(saved);
+        }
         JSONObject records = new JSONObject();
         // Return only the index, never an entire history-sized String.
         try (Cursor rows = db.rawQuery("SELECT DISTINCT name FROM analysis_checkpoint_chunks ORDER BY name", null)) {
@@ -110,6 +118,7 @@ final class AnalysisCheckpoints {
                 .put("phase", phase).put("state", "running").put("updatedAt", Instant.now().toString());
             save(saved); db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
+        published = saved.toString();
     }
     synchronized void phase(String phase) throws Exception {
         JSONObject value = meta();
@@ -129,9 +138,21 @@ final class AnalysisCheckpoints {
         value.put("state", "running").put("failure", reason); save(value);
     }
     synchronized void finish(String state) throws Exception {
+        finish(state, null);
+    }
+    synchronized void finish(String state, JSONObject output) throws Exception {
         JSONObject saved = meta();
         if (!saved.has("scope")) return;
         saved.put("state", state);
+        org.json.JSONArray reasons = new org.json.JSONArray();
+        org.json.JSONArray codes = output == null ? null : output.optJSONArray("blocking_reasons");
+        if (state.equals("blocked") && codes != null) {
+            for (int i = 0; i < Math.min(codes.length(), 8); i++) {
+                String code = codes.optString(i);
+                if (code.matches("[A-Z0-9_:.-]{1,160}")) reasons.put(code);
+            }
+        }
+        saved.put("blockingReasons", reasons);
         if (state.equals("complete") && saved.optInt("total") > 0) saved.put("done", saved.getInt("total"));
         save(saved);
     }
@@ -145,8 +166,8 @@ final class AnalysisCheckpoints {
             (generation + ":" + value.getString("inputKey")).getBytes(StandardCharsets.UTF_8)));
         value.put("scope", scope); save(value);
     }
-    synchronized JSObject status(boolean running) throws Exception {
-        JSONObject value = meta();
+    JSObject status(boolean running) throws Exception {
+        JSONObject value = new JSONObject(published);
         if (!value.has("scope")) return new JSObject().put("state", "idle");
         int done = value.optInt("done"), total = value.optInt("total");
         String state = value.optString("state");
@@ -154,6 +175,8 @@ final class AnalysisCheckpoints {
         return new JSObject().put("state", state).put("phase", value.optString("phase"))
             .put("percent", total > 0 ? Math.min(state.equals("complete") ? 100 : 99, done * 100 / total) : JSONObject.NULL)
             .put("savedUnits", done).put("totalUnits", total).put("savedRevision", value.optLong("revision"))
-            .put("failure", value.optString("failure"));
+            .put("failure", value.optString("failure"))
+            .put("blockingReasons", value.optJSONArray("blockingReasons") == null
+                ? new org.json.JSONArray() : value.getJSONArray("blockingReasons"));
     }
 }

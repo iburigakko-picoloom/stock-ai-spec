@@ -12,6 +12,57 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class AnalysisCheckpointsTest {
+    @Test public void mainThreadStatusNeverWaitsForWriterAndBlockedReasonSurvivesReopen() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        File file = File.createTempFile("checkpoint-main-", ".sqlite", context.getCacheDir());
+        try {
+            try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(file, null)) {
+                AnalysisCheckpoints saved = new AnalysisCheckpoints(db);
+                saved.begin(context, 1, "{}"); saved.write(unit("inputs", "AAAA", 43));
+                java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
+                java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+                java.util.concurrent.CompletableFuture<Void> writer = java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    synchronized (saved) {
+                        db.beginTransaction();
+                        try { held.countDown(); release.await(); }
+                        catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+                        finally { db.endTransaction(); }
+                    }
+                });
+                try {
+                    assertTrue(held.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                    java.util.concurrent.CompletableFuture<Integer> displayed = new java.util.concurrent.CompletableFuture<>();
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        try { displayed.complete(saved.status(true).getInt("percent")); }
+                        catch (Exception error) { displayed.completeExceptionally(error); }
+                    });
+                    assertEquals(Integer.valueOf(43), displayed.get(1, java.util.concurrent.TimeUnit.SECONDS));
+                } finally { release.countDown(); writer.get(5, java.util.concurrent.TimeUnit.SECONDS); }
+                saved.finish("blocked", new JSONObject().put("blocking_reasons", new org.json.JSONArray().put("ENSEMBLE_RANK_POPULATION_INCOMPLETE")));
+            }
+            try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(file, null)) {
+                AnalysisCheckpoints saved = new AnalysisCheckpoints(db);
+                assertEquals("blocked", saved.status(false).getString("state"));
+                assertEquals("ENSEMBLE_RANK_POPULATION_INCOMPLETE", saved.status(false).getJSONArray("blockingReasons").getString(0));
+            }
+        } finally { SQLiteDatabase.deleteDatabase(file); }
+    }
+
+    @Test public void mainThreadHostCloseNeverWaitsForTransferLock() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ComputeHost host = new ComputeHost(context);
+        java.lang.reflect.Field field = ComputeHost.class.getDeclaredField("transferLock"); field.setAccessible(true);
+        Object lock = field.get(host);
+        java.util.concurrent.CompletableFuture<Void> closed = new java.util.concurrent.CompletableFuture<>();
+        synchronized (lock) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                host.close(); closed.complete(null);
+            });
+            closed.get(1, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        host.close();
+    }
+
     static JSONObject unit(String key, String data, int done) throws Exception {
         return new JSONObject().put("key", key).put("data", data == null ? JSONObject.NULL : data)
             .put("done", done).put("total", 100).put("phase", "features");
