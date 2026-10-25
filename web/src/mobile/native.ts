@@ -46,6 +46,7 @@ export interface StockAINative {
 export interface AnalysisStatus {
   state: "idle" | "running" | "interrupted" | "blocked" | "complete";
   phase?: string; percent?: number | null; savedUnits?: number; totalUnits?: number;
+  savedRevision?: number; failure?: string;
 }
 export const isAndroid = (): boolean => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 export const StockAI = registerPlugin<StockAINative>("StockAI");

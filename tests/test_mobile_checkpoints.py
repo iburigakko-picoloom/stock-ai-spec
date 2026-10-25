@@ -75,6 +75,11 @@ def test_interrupted_feature_batches_resume_without_recomputing_completed_result
     checkpoints.plan(10)
     assert features.calculate(payload, selection) == expected
     assert any(event["data"] is None and event["key"] in prior for event in events)
+    complete = checkpoints.encode(expected)
+    checkpoints.configure({"records": {"features-result": complete}}, resumed)
+    assert checkpoints.cached(
+        "features-result", lambda: pytest.fail("Repeated full feature merge"), phase="features"
+    ) == expected
 
 
 def test_prepared_inputs_and_model_outputs_survive_a_fresh_context():
@@ -153,3 +158,46 @@ def test_lazy_checkpoint_reads_only_the_requested_unit_without_retaining_payload
     assert all(value is None for value in context["records"].values())
     assert checkpoints.cached("new", lambda: [4]) == [4]
     assert "new" not in context["records"]
+
+
+def test_budget_yields_only_after_new_checkpoint_and_cached_resume_completes(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(checkpoints.time, "monotonic", lambda: clock[0])
+    saved, messages = {}, []
+
+    def save(text):
+        value = json.loads(text)
+        messages.append(value)
+        if value["data"] is not None:
+            saved[value["key"]] = value["data"]
+
+    context = {"records": {}, "startedAt": "2026-01-01T00:00:00Z", "budgetSeconds": 480}
+    checkpoints.configure(context, save)
+    checkpoints.plan(10)
+    clock[0] = 481
+    with pytest.raises(checkpoints.CheckpointPause):
+        checkpoints.cached("model-" + "a" * 64, lambda: [1.25], units=1, phase="predicting")
+    assert saved and messages[-1]["data"] is not None
+    assert any(x["phase"] == "predicting" and x["data"] is None for x in messages)
+    checkpoints.configure({**context, "records": saved}, save)
+    clock[0] = 2000
+    assert checkpoints.cached(
+        "model-" + "a" * 64, lambda: pytest.fail("Repeated"), units=1
+    ) == [1.25]
+
+
+def test_runtime_maps_continuation_to_internal_response_not_input_failure(tmp_path, monkeypatch):
+    import asyncio
+
+    from mobile.python import forecasts
+
+    from tests.test_mobile_runtime import device
+
+    runtime = device.__wrapped__(tmp_path, monkeypatch)
+
+    def pause(*args, **kwargs):
+        raise checkpoints.CheckpointPause()
+
+    monkeypatch.setattr(forecasts, "generate", pause)
+    result = asyncio.run(runtime.request("POST", "/api/v1/mobile/daily/generate", "{}"))
+    assert result == {"status": 202, "body": {"code": "CHECKPOINT_CONTINUE"}}

@@ -147,7 +147,7 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
             python.globals.set("checkpoint_context", new TextDecoder("utf-8", { fatal: true }).decode(input.checkpoint_bytes));
             python.globals.set("checkpoint_send", (value: string) => self.postMessage({ id: input.id, checkpoint: value }));
             python.globals.set("checkpoint_read", (key: string) => {
-              if (!/^(inputs|source-[0-9a-f]{64}|features-[0-9a-f]{64}|model-[0-9a-f]{64})$/.test(key)) throw new Error("Invalid checkpoint key");
+              if (!/^(inputs|features-result|source-[0-9a-f]{64}|features-[0-9a-f]{64}|model-[0-9a-f]{64})$/.test(key)) throw new Error("Invalid checkpoint key");
               // Only this dedicated worker waits; Android serves the private origin offline.
               const request = new XMLHttpRequest();
               request.open("GET", `${self.location.origin}/analysis-checkpoint/${input.id}/${key}`, false);
@@ -164,6 +164,11 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
           python.globals.set("checkpoint_context", null); python.globals.set("checkpoint_send", null); python.globals.set("checkpoint_read", null);
           python.globals.set("request_body", null); delete input.body; delete input.checkpoint_bytes;
         }
+      }
+      if ((result as { status?: number; body?: { code?: string } } | null)?.status === 202
+          && (result as { body?: { code?: string } }).body?.code === "CHECKPOINT_CONTINUE") {
+        self.postMessage({ id: input.id, error_code: "checkpoint_pause", error: "Checkpoint continuation" });
+        return;
       }
       const saves = startup ? ["full", "operations"].includes(startup.persistence) : input.command === "initialize" || input.method === "POST";
       if (saves && input.stream_state === true) {

@@ -39,3 +39,12 @@ test.each([
   expect(reload).not.toHaveBeenCalled();
   expect(apiPost).toHaveBeenCalledTimes(1);
 });
+
+test("preserves computation errors without falsely directing users to market inputs", async () => {
+  vi.mocked(apiPost).mockRejectedValue(new Error("途中保存から再試行してください。"));
+  render(<MemoryRouter><ReferenceAnalysis onSaved={vi.fn()} hasSaved={false} /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "最新データで分析する" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("途中保存から再試行してください。");
+  expect(screen.getByRole("button", { name: "最新データで分析する" })).toBeEnabled();
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});

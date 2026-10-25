@@ -243,6 +243,10 @@ final class ComputeHost {
                 if (!active(identity) || phase == null
                         || !phase.matches("reading-input|posting-input|decoding-input|interpreter|packages|archive|state|request|export|export-archive|export-chunks|staging-output")) return;
                 transferPhase = phase;
+                if (checkpoints != null && phase.matches("export|export-archive|export-chunks|staging-output")) {
+                    try { checkpoints.phase("saving"); }
+                    catch (Exception error) { transferFailed(error); return; }
+                }
                 // Allowlisted stage only: no request bodies, provider URLs,
                 // credentials, holdings, or exception messages in release logs.
                 android.util.Log.i("StockAIComputeTiming", "request=" + requestId + " phase=" + phase);
@@ -304,7 +308,7 @@ final class ComputeHost {
                 JSONObject value = new JSONObject(payload);
                 if (value.has("error")) {
                     String code = value.optString("code");
-                    if (!code.matches("(interpreter|packages|archive|state|request)_(wasm|type|python|other)|worker_js")) code = "unknown";
+                    if (!code.matches("(interpreter|packages|archive|state|request)_(wasm|type|python|other)|worker_js|checkpoint_pause")) code = "unknown";
                     response.completeExceptionally(new IllegalStateException("COMPUTE_" + code + "_ASSETMASK_" + interpreterAssets.get() + (assetUnavailable ? "_APK_ASSET_UNAVAILABLE" : "")));
                     return;
                 }

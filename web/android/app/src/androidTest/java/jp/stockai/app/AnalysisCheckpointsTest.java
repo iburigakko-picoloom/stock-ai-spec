@@ -28,12 +28,16 @@ public class AnalysisCheckpointsTest {
                 saved.write(unit("inputs", data, 43));
                 assertEquals(43, saved.status(false).getInt("percent"));
                 assertEquals("interrupted", saved.status(false).getString("state"));
+                saved.failed(new java.util.concurrent.ExecutionException(new java.util.concurrent.TimeoutException()));
                 try { saved.write(unit("inputs", "AAAA", 101)); fail("Invalid progress accepted"); }
                 catch (SecurityException expected) { }
             }
             try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(file, null)) {
                 AnalysisCheckpoints reopened = new AnalysisCheckpoints(db);
+                assertEquals("timeout", reopened.status(false).getString("failure"));
+                assertEquals(2, reopened.status(false).getLong("savedRevision"));
                 JSONObject recovered = new JSONObject(reopened.begin(context, 5, "{}")).getJSONObject("records");
+                assertEquals("", reopened.status(true).getString("failure"));
                 assertTrue(recovered.isNull("inputs"));
                 assertEquals(data, reopened.read("inputs"));
                 assertEquals(1, recovered.length());
@@ -43,6 +47,7 @@ public class AnalysisCheckpointsTest {
                 reopened.finish("complete"); assertEquals(100, reopened.status(false).getInt("percent"));
                 assertEquals(0, new JSONObject(reopened.begin(context, 7, "{}")).getJSONObject("records").length());
                 assertEquals(0, reopened.status(true).getInt("savedUnits"));
+                assertEquals(2, reopened.status(true).getLong("savedRevision"));
             }
         } finally { SQLiteDatabase.deleteDatabase(file); }
     }

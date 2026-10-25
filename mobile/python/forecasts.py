@@ -437,8 +437,9 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
     predictable_recipes = ([recipe for recipe in bundle.outputs
                            if recipe.rank_universe == "predictable_decision_symbols"]
                           if isinstance(bundle, ResearchEnsembleBundle) else [])
-    features = calculate(inputs, bundled_selection(),
-                         **({"include_predictability": True} if predictable_recipes else {}))
+    features = checkpoints.cached("features-result", lambda: calculate(
+        inputs, bundled_selection(),
+        **({"include_predictability": True} if predictable_recipes else {})), phase="features")
     if inputs["as_of"] != cutoff.isoformat() or features["as_of"] != cutoff.isoformat():
         raise ValueError("Feature cutoff mismatch")
     maps = {}
@@ -543,6 +544,7 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
                      blocks=["ENSEMBLE_RANK_POPULATION_INCOMPLETE",
                              *["HELD_FORECAST_MISSING:" + s for s in missing_held]],
                      component_outputs=[])
+    checkpoints.stage("predicting")
     if isinstance(bundle, ResearchEnsembleBundle):
         populations = {str(h): {"decision_symbols": sorted(decision_symbols)} for h in (5, 20)}
         if population is not None:

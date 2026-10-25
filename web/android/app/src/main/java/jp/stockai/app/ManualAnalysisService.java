@@ -87,6 +87,24 @@ public final class ManualAnalysisService extends Service {
         return forecast;
     }
 
+    static boolean canContinue(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof java.util.concurrent.TimeoutException) return true;
+            if (cause.getMessage() != null && cause.getMessage().contains("COMPUTE_checkpoint_pause")) return true;
+        }
+        return false;
+    }
+    interface Revision { long read() throws Exception; }
+    static JSObject continueForecast(Request request, Revision revision, String body) throws Exception {
+        for (int attempt = 0; ; attempt++) {
+            long before = revision.read();
+            try { return request.run("/api/v1/mobile/daily/generate", body); }
+            catch (Exception error) {
+                if (attempt >= 2 || !canContinue(error) || revision.read() <= before) throw error;
+            }
+        }
+    }
+
     private void foreground(String phase) {
         this.phase = phase;
         int percent = -1;
@@ -115,12 +133,21 @@ public final class ManualAnalysisService extends Service {
                 JSObject result = null; Throwable failure = null;
                 try {
                     LocalComputeOwner owner = LocalComputeOwner.get(this);
-                    result = run(job.body, (path, body) -> {
+                    long deadline = android.os.SystemClock.elapsedRealtime() + TimeUnit.MINUTES.toMillis(20);
+                    Request bounded = (path, body) -> {
+                        long remaining = deadline - android.os.SystemClock.elapsedRealtime();
+                        if (remaining <= 0) throw new java.util.concurrent.TimeoutException("ANALYSIS_TOTAL_BUDGET");
                         core = owner.request("POST", path, body);
-                        try { return core.get(660, TimeUnit.SECONDS); }
+                        try { return core.get(Math.min(TimeUnit.SECONDS.toMillis(660), remaining), TimeUnit.MILLISECONDS); }
                         finally { if (!core.isDone()) core.cancel(true); core = null; }
-                    }, this::foreground);
-                } catch (Exception error) { failure = error; }
+                    };
+                    result = run(job.body, (path, body) -> handles("POST", path)
+                        ? continueForecast(bounded, () -> owner.checkpoints.status(true).optLong("savedRevision"), body)
+                        : bounded.run(path, body), this::foreground);
+                } catch (Exception error) {
+                    failure = error;
+                    try { LocalComputeOwner.get(this).checkpoints.failed(error); } catch (Exception ignored) { }
+                }
                 final JSObject saved = result; final Throwable error = failure;
                 new Handler(Looper.getMainLooper()).post(() -> {
                     savedResult = saved; savedError = error; stopSelf();

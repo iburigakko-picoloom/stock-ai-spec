@@ -17,3 +17,13 @@ test("does not invent a percentage before the work population is known", async (
   expect(await screen.findByText(/データ準備中/)).toBeVisible();
   expect(screen.getByRole("progressbar")).not.toHaveAttribute("value");
 });
+
+test("keeps failure reason visible after reopening and identifies saving", async () => {
+  vi.mocked(StockAI.analysisStatus).mockResolvedValue({ state: "interrupted", phase: "saving", percent: 99, failure: "timeout" });
+  const view = render(<AnalysisProgress />);
+  expect(await screen.findByText(/処理時間の上限で中断/)).toBeVisible();
+  view.unmount();
+  vi.mocked(StockAI.analysisStatus).mockResolvedValue({ state: "running", phase: "saving", percent: 99 });
+  render(<AnalysisProgress />);
+  expect(await screen.findByText("予測結果を保存中 99%")).toBeVisible();
+});

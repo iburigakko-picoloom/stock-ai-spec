@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 import zlib
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -17,11 +18,14 @@ _read = None
 _done = 0
 _total = 0
 _credits = set()
+_started = 0.0
+_phase = "preparing"
 
 
 def configure(context=None, send=None, read=None):
-    global _context, _send, _read, _done, _total, _credits
+    global _context, _send, _read, _done, _total, _credits, _started, _phase
     _context, _send, _read, _done, _total, _credits = context, send, read, 0, 0, set()
+    _started, _phase = time.monotonic(), "preparing"
 
 
 def enabled():
@@ -164,8 +168,8 @@ def decode(value):
 
 
 def plan(total, phase="features"):
-    global _total
-    _total = total
+    global _total, _phase
+    _total, _phase = total, phase
     if enabled():
         _send(
             json.dumps(
@@ -178,6 +182,8 @@ def cached(key, compute, *, units=0, phase="preparing", credit=None):
     global _done
     if not enabled():
         return compute()
+    if phase != _phase:
+        plan(_total, phase)
     records = _context["records"]
     data = None
     if key in records:
@@ -190,7 +196,21 @@ def cached(key, compute, *, units=0, phase="preparing", credit=None):
         _done += units
         _credits.add(identity)
     _send(json.dumps({"key": key, "data": data, "done": _done, "total": _total, "phase": phase}))
+    # Only yield after newly completed work was sent to the durable owner.
+    # Cache hits cannot repeatedly consume the budget without making progress.
+    budget = _context.get("budgetSeconds")
+    if data is not None and budget is not None and time.monotonic() - _started >= budget:
+        raise CheckpointPause("Continue from saved units")
     return result
+
+
+class CheckpointPause(RuntimeError):
+    """Internal continuation signal, never an invalid market/model error."""
+
+
+def stage(phase):
+    if enabled():
+        plan(_total, phase)
 
 
 def feature_batch(symbols, compute):

@@ -488,6 +488,7 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 "detail": "原予測・市場情報・本人設定の整合を確認できず、株数提案を保存できません。"
             }}
     if path == "/api/v1/mobile/daily/generate" and method == "POST":
+        from .checkpoints import CheckpointPause
         try:
             options = strict_json(body)
             if (not isinstance(options, dict) or set(options) - {"reference_only"}
@@ -497,6 +498,8 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC),
                 **({"reference_only": True} if options.get("reference_only") else {})
             )}
+        except CheckpointPause:
+            return {"status": 202, "body": {"code": "CHECKPOINT_CONTINUE"}}
         except OperationalConflictError:
             return {"status": 409, "body": {
                 "detail": "口座・保有が更新されています。保存済みの状態を読み直してください。"

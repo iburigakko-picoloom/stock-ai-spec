@@ -81,4 +81,28 @@ public class ManualAnalysisServiceTest {
         assertFalse(ManualAnalysisService.handles("GET", "/api/v1/mobile/daily/generate"));
         assertFalse(ManualAnalysisService.handles("POST", "/api/v1/mobile/personal/current/confirm"));
     }
+    @Test public void timedOutForecastContinuesOnlyWithNewDurableWorkAndBoundedRetries() throws Exception {
+        long[] revision = {0}; int[] calls = {0};
+        JSObject result = ManualAnalysisService.continueForecast((path, body) -> {
+            calls[0]++; revision[0]++;
+            if (calls[0] == 1) throw new java.util.concurrent.TimeoutException();
+            if (calls[0] == 2) throw new IllegalStateException("COMPUTE_checkpoint_pause_ASSETMASK_15");
+            return new JSObject().put("status", 200);
+        }, () -> revision[0], "{}");
+        assertEquals(200, result.getInt("status")); assertEquals(3, calls[0]);
+        calls[0] = 0;
+        try {
+            ManualAnalysisService.continueForecast((path, body) -> {
+                calls[0]++; throw new java.util.concurrent.TimeoutException();
+            }, () -> revision[0], "{}"); fail("Repeated without progress");
+        } catch (java.util.concurrent.TimeoutException expected) { assertEquals(1, calls[0]); }
+        calls[0] = 0;
+        try {
+            ManualAnalysisService.continueForecast((path, body) -> {
+                calls[0]++; revision[0]++; throw new java.util.concurrent.TimeoutException();
+            }, () -> revision[0], "{}"); fail("Unlimited retries");
+        } catch (java.util.concurrent.TimeoutException expected) { assertEquals(3, calls[0]); }
+        assertFalse(ManualAnalysisService.canContinue(new IllegalStateException("COMPUTE_request_python")));
+    }
+
 }

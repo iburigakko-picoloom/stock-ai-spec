@@ -43,22 +43,23 @@ final class AnalysisCheckpoints {
             try {
                 db.execSQL("DELETE FROM analysis_checkpoint_chunks");
                 saved = new JSONObject().put("scope", scope).put("runId", java.util.UUID.randomUUID().toString())
+                    .put("revision", saved.optLong("revision"))
                     .put("inputKey", inputKey).put("startedAt", Instant.now().toString())
                     .put("phase", "preparing").put("done", 0).put("total", 0).put("state", "running");
                 save(saved); db.setTransactionSuccessful();
             } finally { db.endTransaction(); }
-        } else { saved.put("state", "running"); save(saved); }
+        } else { saved.put("state", "running").remove("failure"); save(saved); }
         JSONObject records = new JSONObject();
         // Return only the index, never an entire history-sized String.
         try (Cursor rows = db.rawQuery("SELECT DISTINCT name FROM analysis_checkpoint_chunks ORDER BY name", null)) {
             while (rows.moveToNext()) records.put(rows.getString(0), JSONObject.NULL);
         }
-        return new JSONObject().put("startedAt", saved.getString("startedAt")).put("records", records).toString();
+        return new JSONObject().put("startedAt", saved.getString("startedAt")).put("records", records).put("budgetSeconds", 480).toString();
     }
     synchronized String read(String name) throws Exception {
         JSONObject saved = meta();
         if (scope == null || !scope.equals(saved.optString("scope"))
-                || !name.matches("inputs|source-[0-9a-f]{64}|features-[0-9a-f]{64}|model-[0-9a-f]{64}"))
+                || !name.matches("inputs|features-result|source-[0-9a-f]{64}|features-[0-9a-f]{64}|model-[0-9a-f]{64}"))
             throw new SecurityException("CHECKPOINT_SCOPE");
         StringBuilder value = new StringBuilder(); int index = 0;
         try (Cursor rows = db.rawQuery("SELECT piece,payload FROM analysis_checkpoint_chunks WHERE name=? ORDER BY piece", new String[]{name})) {
@@ -79,7 +80,7 @@ final class AnalysisCheckpoints {
         if (scope == null || !scope.equals(saved.optString("scope"))) throw new SecurityException("CHECKPOINT_SCOPE");
         String key = message.getString("key"), phase = message.getString("phase");
         int done = message.getInt("done"), total = message.getInt("total");
-        if (!key.matches("|inputs|source-[0-9a-f]{64}|features-[0-9a-f]{64}|model-[0-9a-f]{64}")
+        if (!key.matches("|inputs|features-result|source-[0-9a-f]{64}|features-[0-9a-f]{64}|model-[0-9a-f]{64}")
                 || !phase.matches("preparing|features|predicting") || done < 0 || total < 0 || total > 20000
                 || (total > 0 && done >= total)) throw new SecurityException("CHECKPOINT_PROGRESS");
         db.beginTransaction();
@@ -104,10 +105,28 @@ final class AnalysisCheckpoints {
                     if (!row.moveToFirst()) throw new SecurityException("CHECKPOINT_NOT_SAVED");
                 }
             }
+            if (!message.isNull("data")) saved.put("revision", saved.optLong("revision") + 1);
             saved.put("done", Math.max(saved.optInt("done"), done)).put("total", Math.max(saved.optInt("total"), total))
                 .put("phase", phase).put("state", "running").put("updatedAt", Instant.now().toString());
             save(saved); db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
+    }
+    synchronized void phase(String phase) throws Exception {
+        JSONObject value = meta();
+        if (scope == null || !scope.equals(value.optString("scope"))) return;
+        value.put("phase", phase); save(value);
+    }
+    synchronized void failed(Throwable error) throws Exception {
+        String reason = "calculation";
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof java.util.concurrent.TimeoutException) { reason = "timeout"; break; }
+            String message = cause.getMessage();
+            if (message != null && message.contains("checkpoint_pause")) { reason = "continuing"; break; }
+            if (message != null && (message.contains("RENDERER_") || message.contains("_wasm"))) reason = "memory";
+        }
+        JSONObject value = meta();
+        if (!value.has("scope")) return;
+        value.put("state", "running").put("failure", reason); save(value);
     }
     synchronized void finish(String state) throws Exception {
         JSONObject saved = meta();
@@ -134,6 +153,7 @@ final class AnalysisCheckpoints {
         if (state.equals("running") && !running) state = "interrupted";
         return new JSObject().put("state", state).put("phase", value.optString("phase"))
             .put("percent", total > 0 ? Math.min(state.equals("complete") ? 100 : 99, done * 100 / total) : JSONObject.NULL)
-            .put("savedUnits", done).put("totalUnits", total);
+            .put("savedUnits", done).put("totalUnits", total).put("savedRevision", value.optLong("revision"))
+            .put("failure", value.optString("failure"));
     }
 }

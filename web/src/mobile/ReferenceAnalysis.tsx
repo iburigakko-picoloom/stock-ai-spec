@@ -25,8 +25,8 @@ export function ReferenceAnalysis({ onSaved, hasSaved }: { onSaved: () => void; 
           setMessage("分析に必要な株価・銘柄一覧・履歴が不足しています。市場データを取得してください。"); setTarget("market");
         }
       }
-    } catch {
-      setMessage("参考分析を保存できませんでした。市場データの取得状況を確認してください。保存済み分析は保持しています。"); setTarget("market");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "分析を完了できませんでした。途中保存から再開できます。"); setTarget("");
     } finally { acting.current = false; setBusy(false); }
   }
   return <section className="section" aria-label="最新データの参考分析">
@@ -35,6 +35,6 @@ export function ReferenceAnalysis({ onSaved, hasSaved }: { onSaved: () => void; 
     {busy && <p>画面を閉じても処理を続けます。途中結果は自動保存します。</p>}
     {!hasSaved && <p className="setting-footnote">現在の登録内容を使う閲覧用の分析です。当日の売買提案とは別です。</p>}
     {message && <p role="status">{message}</p>}
-    {message && message !== "参考分析を保存しました。" && <Link className="button button--secondary" to={`/settings?edit=${target}`}>{target === "market" ? "市場データを取得する" : "登録内容を確認する"}</Link>}
+    {message && target && message !== "参考分析を保存しました。" && <Link className="button button--secondary" to={`/settings?edit=${target}`}>{target === "market" ? "市場データを取得する" : "登録内容を確認する"}</Link>}
   </section>;
 }

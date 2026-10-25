@@ -217,7 +217,10 @@ final class LocalComputeOwner {
                     }
                     return new JSObject(result.toString());
                 }
-            } catch (Exception error) { if (!(error instanceof InterruptedException)) readViews.clear(); dropHost(); throw error; }
+            } catch (Exception error) {
+                if (analyzing) { try { checkpoints.failed(error); } catch (Exception ignored) { } }
+                if (!(error instanceof InterruptedException)) readViews.clear(); dropHost(); throw error;
+            }
             finally { analyzing = false; }
         });
     }
