@@ -5,6 +5,8 @@
 - Python関連75件成功後、最終変更の途中保存5件と予測公開1件を再確認し6件成功（関連計77件）。Web全174件成功、進捗表示の最終変更23件、型/build/lint成功。実offline WASMはworkerを破棄→別workerで保存済み特徴量を再利用しPC完全結果と一致、1件成功。ruff/mypy成功。Android JVM31件成功。 最終Android計6件成功：暗号化chunk再open/世代変更、chunk差替拒否、実WebWorkerのoffline単位読出しと別要求拒否、手動サービス3件（Activity停止+消灯を含む）。初回まとめ実行はエミュレーター自体の終了で未完了となり、再起動・再install後に2クラス各3件で再確認。
 - 本人端末・全市場の数分計算の実機完走・署名版起動・CIは未確認。今まさに処理中/未到達の単位、集約/mergeは再実行する場合がある。別日・入力更新・APK更新では古い途中cacheを再利用しない。portable backupには途中cacheを含めない。実注文なし。
 
+- 同署名0.1.52-candidate/code10052を検査し承認済み非共有StockAIへ保存、24,042,305 bytes/shared=falseを再読込確認。Drive id 12aIXnTLMRe8sCteFVruqvfywoEbUc9bV、source dba014dbed7371972800a7d56f08fd8772169386、SHA256 33b72442f26d56bed8752f0fb1388d91830625545940e4072a312e1f4f4abbb4。検証記録 .demo-artifacts/update-0152-20261025/verified.json、checkpoint-native-tests.txt、manual-native-tests.txt。本人端末への更新は未確認。
+
 ## 2026-10-25 — 手動解析のバックグラウンド実行（D249）
 
 - 本人確認：ボタンから開始した解析が対象。通常plugin executorにはforeground保護がなく、予測後の株数判定も画面JSからの次要求に依存していた。手動予測/参考分析を通知付きManualAnalysisServiceへ接続。通常予測は株数保存までnativeで完結、参考分析は株数を生成しない。23分上限partial WakeLockと各要求660秒待ち/取消、同一実行の共有、終了時解放。原計算600秒制限・保存形式・台帳・自動処理は不変。
