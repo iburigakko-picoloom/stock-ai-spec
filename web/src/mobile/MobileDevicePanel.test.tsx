@@ -4,16 +4,42 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { apiGet, apiPost } from "../api";
 import { MobileDevicePanel } from "./MobileDevicePanel";
 import { ApiError } from "../apiError";
+import { StockAI } from "./native";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
-vi.mock("./native", () => ({ isAndroid: () => true, StockAI: { keyStatus: async () => ({ configured: false }) } }));
+vi.mock("./native", () => ({ isAndroid: () => true, StockAI: { keyStatus: async () => ({ configured: false }), readSavedView: vi.fn() } }));
 vi.mock("./DailyPanel", () => ({ DailyControls: () => null, useDailyAutomation: () => ({ status: null, busy: false }) }));
-beforeEach(() => vi.resetAllMocks());
-afterEach(cleanup);
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(StockAI.readSavedView).mockResolvedValue({ available: false }); });
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 const saved = { revision_id: "a".repeat(64), saved_at: "2026-10-01T00:00:00Z", portfolio: {
   schema_version: "manual-portfolio-v1", holdings_status: "none", investment_budget_yen: "10000",
   maximum_drawdown_percent: null, accounts: [], holdings: [],
 } };
+
+test("failed settings read stops showing checking and retry hydrates the editor", async () => {
+  vi.mocked(apiGet).mockRejectedValueOnce(new Error("failed")).mockResolvedValue(saved);
+  render(<MemoryRouter><MobileDevicePanel /></MemoryRouter>);
+  expect(await screen.findByRole("button", { name: /運用資金.*再確認が必要/ })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "口座・保有を読み直す" }));
+  expect(await screen.findByRole("button", { name: /運用資金.*¥10,000/ })).toBeVisible();
+});
+
+test("saved settings display while a stalled read is bounded and cannot enable editing", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({ available: true, readOnly: true, savedAt: saved.saved_at, body: saved });
+  render(<MemoryRouter><MobileDevicePanel /></MemoryRouter>);
+  await act(async () => {});
+  expect(screen.getByRole("button", { name: /運用資金.*¥10,000/ })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: /運用資金.*¥10,000/ }));
+  expect(screen.getByLabelText("投資上限（円・未定は空欄）")).toBeDisabled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(45_000); });
+  expect(screen.getByRole("alert")).toHaveTextContent("時間がかかっています");
+  await act(async () => finish(saved));
+  expect(screen.getByLabelText("投資上限（円・未定は空欄）")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "口座・保有を読み直す" })).toBeVisible();
+});
 test("edit fields wait for hydration and preserve values after a rejected save", async () => {
   let finish!: (value: unknown) => void;
   vi.mocked(apiGet).mockImplementation(() => new Promise(resolve => { finish = resolve; }));

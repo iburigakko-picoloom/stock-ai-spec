@@ -188,7 +188,7 @@ final class LocalComputeOwner {
                             : state.commitTransfer(generation, reply.state);
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
                         throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
-                    if ("GET".equals(method) && SavedReadViews.allowed(path)) {
+                    if (("GET".equals(method) || ("POST".equals(method) && path.equals("/api/v1/mobile/portfolio"))) && SavedReadViews.allowed(path)) {
                         if (status == 200) {
                             try { readViews.save(path, result, generation); }
                             catch (Exception ignored) { readViews.clear(); } // Optional display copy never fails a valid read.

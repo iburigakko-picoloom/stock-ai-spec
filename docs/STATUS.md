@@ -1,3 +1,9 @@
+## 2026-10-25 — 設定の確認中が終わらない表示（D246）
+
+- MobileDevicePanelの口座読込失敗を一覧状態へ反映し、45秒無応答の待機上限と読直し操作を追加。期限後/離脱後の応答を破棄し、旧応答で編集を有効にしない。APIキーの失敗状態とは分離。SavedReadViews/LocalComputeOwnerはportfolio読込・永続保存後の暗号化表示copyを更新し、一覧だけ先行表示する。
+- Web168件成功（失敗→読直し、保存copy先行表示、45秒無応答、期限後応答で編集不可を含む）。型/build/lint成功。Android JVM31件、本体/実機試験コードcompile成功。instrumentation実行は未実施。APK配布を続行中。モデル計算・台帳の変更、実注文なし。
+- 本人端末の計算待機が長い原因と実測は未確定。表示copyがまだない端末は、最初の正常読込/保存が必要。新規instrumentation assertionはcompileと実行を区別して報告する。
+
 ## 2026-10-25 — 保存済み画面の先行表示（D245）
 
 - StockAIPlugin/SavedReadViews/LocalComputeOwnerを変更し、保存済み表示の読出しを計算所有者・SQLite準備から独立。DB path単位の共有instanceで既存の暗号化・消去同期を保持。Todayは確認中の前回提案を隠さず閲覧用表示し、判断確認は新鮮な応答まで抑止。保存済み分析がある場合の読込カードも除去。

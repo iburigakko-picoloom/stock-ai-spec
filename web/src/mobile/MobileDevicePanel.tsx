@@ -104,6 +104,9 @@ export function MobileDevicePanel(): ReactNode {
   const [portfolio, setPortfolio] = useState<LocalPortfolio>(blank);
   const [savedPortfolio, setSavedPortfolio] = useState<SavedPortfolio | null>(null);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+  const [previewPortfolio, setPreviewPortfolio] = useState<SavedPortfolio | null>(null);
+  const [portfolioError, setPortfolioError] = useState("");
+  const [readAttempt, setReadAttempt] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [messageGroup, setMessageGroup] = useState("account");
@@ -113,12 +116,38 @@ export function MobileDevicePanel(): ReactNode {
   useEffect(() => {
     if (!isAndroid()) return;
     void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setLoadError(value => `${value}APIキーの保存状態を確認できません。再起動してください。`));
+  }, []);
+  useEffect(() => {
+    if (!isAndroid()) return;
+    let active = true;
+    let finished = false;
+    const timer = window.setTimeout(() => {
+      if (!active || finished) return;
+      finished = true;
+      setPortfolioError("口座情報の確認に時間がかかっています。再確認してください。");
+    }, 45_000);
+    if (typeof StockAI.readSavedView === "function") {
+      void StockAI.readSavedView({ path: "/api/v1/mobile/portfolio" }).then(saved => {
+        if (active && !finished && saved.available && saved.readOnly && saved.savedAt
+            && Number.isFinite(Date.parse(saved.savedAt)) && Date.parse(saved.savedAt) <= Date.now()) {
+          setPreviewPortfolio(saved.body as SavedPortfolio | null);
+        }
+      }).catch(() => { /* Invalid display copies cannot enable editing. */ });
+    }
     void apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio").then(value => {
-      if (value) setPortfolio(value.portfolio);
+      if (!active || finished) return;
+      finished = true; window.clearTimeout(timer);
+      setPortfolio(value?.portfolio ?? blank);
       setSavedPortfolio(value);
       setPortfolioLoaded(true);
-    }).catch(() => setLoadError(value => `${value}保存済みの口座入力を確認できません。再起動してから編集してください。`));
-  }, []);
+      setPreviewPortfolio(null); setPortfolioError("");
+    }).catch(() => {
+      if (!active || finished) return;
+      finished = true; window.clearTimeout(timer); setPreviewPortfolio(null);
+      setPortfolioError("口座情報を確認できませんでした。再確認してください。");
+    });
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [readAttempt]);
   if (!isAndroid()) return null;
   function open(panel: SettingsPanelId): void { setParams({ edit: panel }, { state: { settingsList: true } }); }
   function openAccount(step: AccountStep): void { setParams({ edit: "accounts", step }, { state: { accountList: true } }); }
@@ -161,32 +190,32 @@ export function MobileDevicePanel(): ReactNode {
   const accountComplete = recorded && recorded.accounts.length > 0 && recorded.holdings_status !== "unrecorded"
     && recorded.accounts.every(account => account.name.trim() && account.account_type !== "unknown_manual" && account.withholding_mode !== "unknown" && account.available_cash_yen !== null)
     && recorded.holdings.every(holding => holding.average_acquisition_price_yen !== null);
-  const accountStatus = !portfolioLoaded ? loadError ? "確認できません" : "確認中" : accountDirty ? "未保存" : !recorded ? "未入力" : accountComplete ? "入力済み" : "要確認";
-  const budget = savedPortfolio?.portfolio.investment_budget_yen;
+  const waitingLabel = portfolioError ? "再確認が必要" : "確認中";
+  const overview = (portfolioLoaded ? savedPortfolio : previewPortfolio)?.portfolio;
+  const accountStatus = !portfolioLoaded ? waitingLabel : accountDirty ? "未保存" : !recorded ? "未入力" : accountComplete ? "入力済み" : "要確認";
+  const budget = overview?.investment_budget_yen;
   const budgetValue = budget && Number.isFinite(Number(budget)) ? `¥${Math.round(Number(budget)).toLocaleString("ja-JP")}` : "未設定";
-  const drawdown = savedPortfolio?.portfolio.maximum_drawdown_percent;
+  const drawdown = overview?.maximum_drawdown_percent;
   return <div className={`device-settings settings-screen${selected === "accounts" ? " account-settings-screen" : ""}`}>
     <header className="settings-page-header app-brand">
       {selected && <button type="button" className="settings-back" onClick={back}>← {accountStep ? "証券口座へ" : "設定一覧へ"}</button>}
       <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{accountStep ? accountStepTitles[accountStep] : selected ? panelTitles[selected] : "設定"}</h1></div>
     </header>
     {loadError && <p role="alert">{loadError}</p>}
-    {loadError && !portfolioLoaded && <button className="button" disabled={busy} onClick={() => void action(async () => {
-      const value = await apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio");
-      setSavedPortfolio(value); setPortfolio(value?.portfolio ?? blank); setPortfolioLoaded(true); setLoadError("");
-    }, "口座・保有を読み込みました。")}>口座・保有を読み直す</button>}
+    {!portfolioLoaded && previewPortfolio && <p className="explain">前回保存した設定を表示しています。編集は最新確認後にできます。</p>}
+    {portfolioError && <><p role="alert">{portfolioError}</p><button className="button" onClick={() => { setPortfolioError(""); setReadAttempt(value => value + 1); }}>口座・保有を読み直す</button></>}
     {busy && <SaveProgress />}
     <div className="settings-overview" hidden={selected !== null}>
       <section className="settings-menu-section" aria-labelledby="settings-connection"><h2 id="settings-connection">接続</h2><div className="settings-menu-list">
         <SettingsRow icon="database" title="J-Quants API" value={configured === null ? "確認中" : configured ? "設定済み" : "未設定"} badge={configured === true} onClick={() => open("market")} />
       </div></section>
       <section className="settings-menu-section" aria-labelledby="settings-accounts"><h2 id="settings-accounts">口座・資金</h2><div className="settings-menu-list">
-        <SettingsRow icon="bank" title="証券口座" value={!portfolioLoaded ? "確認中" : savedPortfolio?.portfolio.accounts.length ? "登録済み" : "未登録"} badge={!!savedPortfolio?.portfolio.accounts.length} onClick={() => open("accounts")} />
-        <SettingsRow icon="database" title="運用資金" value={portfolioLoaded ? budgetValue : "確認中"} onClick={() => open("capital")} />
+        <SettingsRow icon="bank" title="証券口座" value={!portfolioLoaded && !overview ? waitingLabel : overview?.accounts.length ? "登録済み" : "未登録"} badge={!!overview?.accounts.length} onClick={() => open("accounts")} />
+        <SettingsRow icon="database" title="運用資金" value={portfolioLoaded || overview ? budgetValue : waitingLabel} onClick={() => open("capital")} />
       </div></section>
       <section className="settings-menu-section" aria-labelledby="settings-conditions"><h2 id="settings-conditions">運用条件</h2><div className="settings-menu-list">
         <SettingsRow icon="calendar" title="予測期間" value="5日・20日" onClick={() => open("model")} />
-        <SettingsRow icon="shield" title="許容下落率" value={!portfolioLoaded ? "確認中" : drawdown === null || drawdown === undefined ? "未設定" : `${drawdown}%`} onClick={() => open("risk")} />
+        <SettingsRow icon="shield" title="許容下落率" value={!portfolioLoaded && !overview ? waitingLabel : drawdown === null || drawdown === undefined ? "未設定" : `${drawdown}%`} onClick={() => open("risk")} />
       </div></section>
       <section className="settings-menu-section" aria-labelledby="settings-automation"><h2 id="settings-automation">自動更新</h2><div className="settings-menu-list">
         <SettingsRow icon="refresh" title="営業日に自動更新" checked={daily.status?.enabled ?? false} disabled={daily.busy || !daily.status || (!daily.status.enabled && !configured)} onClick={() => void daily.change(!daily.status?.enabled)} />

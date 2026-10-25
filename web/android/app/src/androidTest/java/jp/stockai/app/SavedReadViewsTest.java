@@ -20,8 +20,13 @@ public class SavedReadViewsTest {
             assertSame(views, reader);
             assertTrue(reader.read("/api/v1/home").getBoolean("available"));
             assertFalse(database.exists());
+            views.save("/api/v1/mobile/portfolio", new JSONObject().put("status", 200)
+                .put("body", new JSONObject().put("revision_id", "saved-fixture")), 2);
+            assertEquals("saved-fixture", reader.read("/api/v1/mobile/portfolio")
+                .getJSONObject("body").getString("revision_id"));
             reader.clear();
             assertFalse(views.read("/api/v1/home").getBoolean("available"));
+            assertFalse(views.read("/api/v1/mobile/portfolio").getBoolean("available"));
         } finally { views.clear(); new File(database.getPath() + ".readviews").delete(); }
     }
     @Test public void encryptedHistoricalViewsRejectTamperingAndWrongPaths() throws Exception {
