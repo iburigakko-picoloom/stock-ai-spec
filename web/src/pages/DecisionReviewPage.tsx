@@ -1,24 +1,16 @@
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ApiError, apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, currency as yen } from "../components";
 import { KV } from "../Adopted";
 import { useApiData } from "../hooks";
 import type { DecisionReview, TodayResponse } from "../types";
-import { isAndroid } from "../mobile/native";
 
 interface SavedDecision {
   version: number;
 }
-interface ConsultationSource {recordId:string;checkedAt:string;lines:{symbol:string;accountBucketId:string;currentShares:number;targetShares:number}[]}
 
 export function DecisionReviewPage(): ReactNode {
-  const [params,setParams]=useSearchParams();
-  const [source,setSource]=useState(params.get("source")==="chatgpt" ? "chatgpt" : "model");
-  const [consultation,setConsultation]=useState<ConsultationSource|null>(null);
-  const [consultationReady,setConsultationReady]=useState(false);
-  useEffect(()=>{const requested=params.get("source");if(requested==="model" || requested==="chatgpt")setSource(requested);},[params]);
-  const chooseSource=(value:string)=>{setSource(value);setParams({source:value},{replace:true});};
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today");
   const [targets, setTargets] = useState<Record<string, number>>({});
@@ -30,18 +22,15 @@ export function DecisionReviewPage(): ReactNode {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const proposal = data?.isStale ? null : data?.proposal;
-  useEffect(()=>{if(!isAndroid())return;let active=true;setConsultationReady(false);void apiGet<{decision_source?:ConsultationSource|null}>("/api/v1/mobile/chatgpt-manual/status").then(value=>{if(active){setConsultation(value.decision_source ?? null);setConsultationReady(true);}}).catch(()=>{if(active)setConsultationReady(false);});return()=>{active=false;};},[]);
-  const consultationMatches=!!proposal && !!consultation && consultation.lines.every(item=>proposal.lines.some(line=>line.symbol===item.symbol && line.accountBucketId===item.accountBucketId && line.currentShares===item.currentShares));
-  const sourceBlocked=source==="chatgpt" && (!consultationReady || !consultationMatches);
-  const referenceTargets=Object.fromEntries((proposal?.lines ?? []).map(line=>[line.lineId,source==="chatgpt" ? consultationMatches ? consultation?.lines.find(item=>item.symbol===line.symbol && item.accountBucketId===line.accountBucketId)?.targetShares ?? line.currentShares : line.currentShares : line.recommendedShares]));
-  const sourceKey=source==="chatgpt" ? consultationMatches ? consultation!.recordId : "chatgpt-unavailable" : "model";
+  const referenceTargets=Object.fromEntries((proposal?.lines ?? []).map(line=>[line.lineId,line.recommendedShares]));
+  const sourceKey="model";
 
   const proposalKey = proposal ? JSON.stringify([proposal.proposalId,
     proposal.lines.map(line => [line.lineId, line.recommendedShares]).sort()]) : "";
   const targetKey = JSON.stringify([proposalKey, Object.entries(targets).sort(([a], [b]) => a.localeCompare(b)),sourceKey]);
   const referenceKey=JSON.stringify(referenceTargets);
   const draftIdentity=JSON.stringify([proposalKey,sourceKey]);
-  const review = !sourceBlocked && reviewState?.key === targetKey && draftProposal === draftIdentity ? reviewState.value : null;
+  const review = reviewState?.key === targetKey && draftProposal === draftIdentity ? reviewState.value : null;
   useEffect(() => {
     if (!proposalKey) { setReview(null); return; }
     const identity=JSON.stringify([draftIdentity,referenceKey]);
@@ -52,7 +41,7 @@ export function DecisionReviewPage(): ReactNode {
   }, [proposalKey,referenceKey,sourceKey,draftIdentity]);
 
   useEffect(() => {
-    if (!proposalKey || draftProposal !== draftIdentity || sourceBlocked) return;
+    if (!proposalKey || draftProposal !== draftIdentity) return;
     const [id, lines] = JSON.parse(proposalKey) as [string, [string, number][]];
     const [, entries] = JSON.parse(targetKey) as [string, [string, number][]];
     if (entries.length !== lines.length || lines.some(([key]) => !entries.some(([entry]) => key === entry))) return;
@@ -64,7 +53,7 @@ export function DecisionReviewPage(): ReactNode {
         if (active) setReviewError(reason instanceof Error ? reason.message : "再計算に失敗しました");
       });
     return () => { active = false; };
-  }, [proposalKey, draftProposal, targetKey,sourceBlocked,draftIdentity]);
+  }, [proposalKey, draftProposal, targetKey,draftIdentity]);
 
   if (loading || error || !proposal) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="判断を確認" /><StatePanel tone={loading ? "neutral" : error ? "error" : "warning"} title={loading ? "判断内容を準備しています" : error ? "提案を取得できません" : "有効な当日提案がありません"} detail={error || data?.blockingReason} /></div>;
 
@@ -84,7 +73,6 @@ export function DecisionReviewPage(): ReactNode {
         lines: proposal.lines.map((line) => ({
           proposalLineId: line.lineId,
           selectedTargetShares: targets[line.lineId],
-          ...(source==="chatgpt" ? {note:`ChatGPT検算記録 ${consultation!.recordId}`} : {}),
         })),
       } };
       }
@@ -103,12 +91,10 @@ export function DecisionReviewPage(): ReactNode {
     <div className="page page--with-sticky">
       <PageHeader title="判断を確認" backTo="/today" />
       {savedKey === targetKey && <section role="status" className="save-result"><h2>判断を保存しました</h2><p>保有・現金は変更していません。</p><Link className="button button--secondary" to="/today/executions">実行結果を記録</Link></section>}
-      <div className="subscreen stack"><div className="subtabs"><button className={`button ${source==="model" ? "" : "secondary"}`} aria-pressed={source==="model"} onClick={()=>chooseSource("model")}>数値モデル</button><button className={`button ${source==="chatgpt" ? "" : "secondary"}`} aria-pressed={source==="chatgpt"} onClick={()=>chooseSource("chatgpt")}>ChatGPT</button></div>
-      {sourceBlocked && <StatePanel title="ChatGPT提案の最新検算が必要です" detail="原予測・口座・保有が一致する保存済み提案を確認してください。" />}
-      {source==="chatgpt" && <Link className="quiet-link" to="/today/chatgpt">ChatGPT提案を検算 ›</Link>}
+      <div className="subscreen stack">
       <section className="card"><h3 className="section-title">銘柄ごとの判断</h3><table className="subtable"><tbody>
-        {proposal.lines.filter((line) => !sourceBlocked && line.currentShares!==referenceTargets[line.lineId]).map((line) => (
-          <Fragment key={line.lineId}><tr><td><Link to={`/stocks/${line.symbol}`} state={{from:`/today/review?source=${source}`}}>{line.companyName}</Link><small className="block muted">{line.symbol} · {data?.accountLabels?.[line.accountBucketId] ?? line.accountBucketId}</small></td><td>{line.currentShares} → {targets[line.lineId] ?? referenceTargets[line.lineId]}株</td><td><button className="button" aria-label={`${line.companyName}の提案を採用`} disabled={saving} aria-pressed={(targets[line.lineId] ?? referenceTargets[line.lineId])===referenceTargets[line.lineId]} onClick={()=>setTargets(current=>({...current,[line.lineId]:(targets[line.lineId] ?? referenceTargets[line.lineId])===referenceTargets[line.lineId] ? line.currentShares : referenceTargets[line.lineId]}))}>{(targets[line.lineId] ?? referenceTargets[line.lineId])===referenceTargets[line.lineId] ? "採用" : "保有維持"}</button></td></tr><tr><td colSpan={3} className="small muted">{line.positiveReasons[0] || line.negativeReasons[0]}</td></tr></Fragment>
+        {proposal.lines.filter((line) => line.currentShares!==referenceTargets[line.lineId]).map((line) => (
+          <Fragment key={line.lineId}><tr><td><Link to={`/stocks/${line.symbol}`} state={{from:"/today/review"}}>{line.companyName}</Link><small className="block muted">{line.symbol} · {data?.accountLabels?.[line.accountBucketId] ?? line.accountBucketId}</small></td><td>{line.currentShares} → {targets[line.lineId] ?? referenceTargets[line.lineId]}株</td><td><button className="button" aria-label={`${line.companyName}の提案を採用`} disabled={saving} aria-pressed={(targets[line.lineId] ?? referenceTargets[line.lineId])===referenceTargets[line.lineId]} onClick={()=>setTargets(current=>({...current,[line.lineId]:(targets[line.lineId] ?? referenceTargets[line.lineId])===referenceTargets[line.lineId] ? line.currentShares : referenceTargets[line.lineId]}))}>{(targets[line.lineId] ?? referenceTargets[line.lineId])===referenceTargets[line.lineId] ? "採用" : "保有維持"}</button></td></tr><tr><td colSpan={3} className="small muted">{line.positiveReasons[0] || line.negativeReasons[0]}</td></tr></Fragment>
         ))}
       </tbody></table></section>
       <div className="subgrid"><section className="card"><h3 className="section-title">判断後の試算・確認中</h3>
@@ -125,7 +111,7 @@ export function DecisionReviewPage(): ReactNode {
               </div>
             )}
           </>
-        ) : <p>{sourceBlocked ? "最新検算待ち" : "再計算中…"}</p>}
+        ) : <p>再計算中…</p>}
         {reviewError && <StatePanel tone="error" title="再計算または保存に失敗しました" detail={reviewError} />}
       </section><section className="card"><h3 className="section-title">判断後の保有・制約</h3><table className="subtable"><thead><tr><th>銘柄</th><th>実保有</th><th>試算</th></tr></thead><tbody>{proposal.lines.filter(line=>line.action!=="SKIP").map(line=><tr key={line.lineId}><td>{line.companyName}</td><td>{line.currentShares}株</td><td>{targets[line.lineId] ?? referenceTargets[line.lineId]}株</td></tr>)}</tbody></table><KV label="判断後の保有明細" value={review ? `${review.resulting_positions}件` : "確認中"} /><KV label="制約" value={!review ? "確認中" : review.constraint_violations.length ? "要確認" : "違反なし"} /></section></div>
       <div className="subactions">

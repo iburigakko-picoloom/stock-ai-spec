@@ -173,11 +173,13 @@ self.onmessage = (event: MessageEvent<{ id: number; command: string; index?: num
       const saves = startup ? ["full", "operations"].includes(startup.persistence) : input.command === "initialize" || input.method === "POST";
       if (saves && input.stream_state === true) {
         const operationsOnly = startup?.persistence === "operations" || input.operations_only === true;
-        if (operationsOnly && !startup && (input.method !== "POST" || ![
+        const partialPath = input.path ?? "";
+        const allowedPartial = [
           "/api/v1/mobile/portfolio", "/api/v1/mobile/personal/settings",
           "/api/v1/mobile/personal/initial/preview", "/api/v1/mobile/personal/initial/confirm",
           "/api/v1/mobile/personal/current/preview", "/api/v1/mobile/personal/current/confirm",
-        ].includes(input.path ?? ""))) throw new Error("Invalid partial save request");
+        ].includes(partialPath) || /^\/api\/v1\/stocks\/[A-Z0-9]{1,10}\/note$/.test(partialPath);
+        if (operationsOnly && !startup && (input.method !== "POST" || !allowedPartial)) throw new Error("Invalid partial save request");
         await exportNative(input.id, progress, operationsOnly);
         self.postMessage({ id: input.id, result: startup ?? result, state: true });
       } else {

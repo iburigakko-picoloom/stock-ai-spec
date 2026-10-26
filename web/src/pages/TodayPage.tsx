@@ -1,22 +1,14 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PageHeader, RuntimeBanner, StatePanel, dateTime, currency as yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, SavedAnalysis, TodayResponse } from "../types";
 import { DailyPanel, DailyStatusLink } from "../mobile/DailyPanel";
-import { apiGet } from "../api";
-import type { ConsultationFindings } from "../ConsultationReport";
 
-interface ConsultationView {
-  lines: { symbol: string; account: string; current_shares: number; target_shares: number }[];
-  estimated_cost_yen: string; estimated_cash_after: Record<string,string>;
-}
-
-function MarketOutlook({ findings }: { findings: ConsultationFindings | null }) {
+function MarketOutlook() {
   return <section className="today-market" aria-label="市場の見通し">
-    <div className="row spread"><b>市場の見通し</b><span className="today-caption">ChatGPT{findings ? "・保存済み" : "で確認"}</span></div>
-    <p style={{margin:"9px 0",fontSize:".8125rem"}}>{findings ? <>5日 <strong>{findings.market_5d}</strong> ／ 20日 <strong>{findings.market_20d}</strong></> : "市場全体と保有株・候補の分析は、ChatGPTの会話で確認できます。"}</p>
-    {findings && <div className="today-caption">出典 {findings.sources?.length ?? 0}件</div>}<Link className="button ghost" to={findings ? "/today/chatgpt/history" : "/today/chatgpt"}>{findings ? "過去の調査履歴 ›" : "ChatGPTに相談 ↗"}</Link>
+    <b>市場の見通し</b><p>市場全体と保有株・候補の分析は、ChatGPTの会話で確認できます。</p>
+    <Link className="button ghost" to="/today/chatgpt">ChatGPTに相談 ↗</Link>
   </section>;
 }
 import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";
@@ -66,18 +58,6 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
 
 export function TodayPage(): ReactNode {
   const detailed = useLocation().pathname === "/today/details";
-  const [source, setSource] = useState("model");
-  const [findings, setFindings] = useState<ConsultationFindings | null>(null);
-  const [consultation, setConsultation] = useState<ConsultationView | null>(null);
-  useEffect(() => {
-    if (!isAndroid()) return;
-    let active=true;
-    let latestSaved=Number.NEGATIVE_INFINITY;
-    const show=(value:ConsultationFindings|undefined,savedAt:string|undefined)=>{const at=Date.parse(savedAt ?? "");if(active && value && (!Number.isFinite(at) ? latestSaved===Number.NEGATIVE_INFINITY : at>=latestSaved)){if(Number.isFinite(at))latestSaved=at;setFindings(value);}};
-    void apiGet<{research?: {research?: ConsultationFindings;savedAt?:string}}>("/api/v1/mobile/ranking/20d").then(value=>show(value.research?.research,value.research?.savedAt)).catch(()=>{});
-    void apiGet<{answers: ConsultationView[];research?:{saved_at:string;answer?:{research?:ConsultationFindings}}[]}>("/api/v1/mobile/chatgpt-manual/status").then(value=>{if(active){setConsultation(value.answers[0] ?? null);show(value.research?.[0]?.answer?.research,value.research?.[0]?.saved_at);}}).catch(()=>{});
-    return ()=>{active=false;};
-  }, []);
   const { data, error, loading, savedAt, reload } = useApiData<TodayResponse>("/api/v1/today");
   if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
   const previous = isAndroid() && (loading || !!savedAt);
@@ -95,12 +75,10 @@ export function TodayPage(): ReactNode {
     <div className="screen-today">
     {data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
     {previous && <p role="status" className="setting-footnote">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
-    {!detailed && <MarketOutlook findings={findings} />}
-    {!detailed && <><div className="today-heading"><h3>今日の提案</h3></div><div className="today-switch" aria-label="提案元">{[["model","数値モデル"],["chatgpt","ChatGPT"]].map(([id,label])=><button id={`today-source-${id}`} key={id} className={source===id ? "active" : ""} aria-pressed={source===id} onClick={()=>setSource(id)}>{label}</button>)}</div></>}
-    <div id="today-source" aria-labelledby={`today-source-${source}`}>
-    {source === "chatgpt" && !detailed ? <>
-      {consultation ? <section className="card"><h2>保存したChatGPT提案</h2>{consultation.lines.map(line=><Link className="proposal-row" to={`/stocks/${line.symbol}`} state={{from:"/today"}} key={`${line.symbol}:${line.account}`}><span className="action">{line.target_shares>line.current_shares ? "購入" : line.target_shares<line.current_shares ? "売却" : "継続"}</span><div className="proposal-row__body"><strong>{line.symbol}</strong><span>{line.account}</span></div><div className="proposal-row__shares"><strong>{line.current_shares} → {line.target_shares}</strong><span>株・保存時の提案</span></div></Link>)}<p className="setting-footnote">最新の資金・保有条件で検算してから判断してください。</p><Link className="button button--secondary" to="/today/chatgpt">最新条件で検算</Link></section> : <StatePanel title="保存したChatGPT提案はありません" detail="相談への回答を保存・検算すると、数値モデルの提案と分けて確認できます。" />}
-    </> : !loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" /> : !proposal ? <>
+    {!detailed && <MarketOutlook />}
+    {!detailed && <div className="today-heading"><h3>今日の提案</h3></div>}
+    <div id="today-source">
+    {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" /> : !proposal ? <>
       {((loading && !data.savedAnalysis) || !isAndroid()) && <StatePanel tone={data.isStale ? "warning" : "neutral"} title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"} detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)} />}
       {data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}
       {!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} />}
@@ -124,7 +102,7 @@ export function TodayPage(): ReactNode {
       <section className="section"><h2>提案の基準時刻・モデル詳細</h2><dl className="summary-list"><div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div><div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div><div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div></dl></section></>}
     </>}
     </div>
-    {!detailed && <div className="today-actions">{proposal && !previous && <Link className="button" to={source==="chatgpt" ? "/today/review?source=chatgpt" : "/today/review?source=model"}>判断を確認</Link>}<div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions">取引を記録 ＋</Link></div><Link className="button ghost" to="/today/chatgpt/history">相談履歴を見る</Link><Link className="quiet-link" to="/today/details">提案の計算詳細</Link></div>}
+    {!detailed && <div className="today-actions">{proposal && !previous && <Link className="button" to="/today/review">判断を確認</Link>}<div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions">取引を記録 ＋</Link></div><Link className="quiet-link" to="/today/chatgpt/history">保存済み記録（閲覧のみ）</Link><Link className="quiet-link" to="/today/details">提案の計算詳細</Link></div>}
     </div>
   </div>;
 }

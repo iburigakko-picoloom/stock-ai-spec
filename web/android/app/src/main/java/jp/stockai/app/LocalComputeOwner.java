@@ -168,7 +168,8 @@ final class LocalComputeOwner {
             || path.equals("/api/v1/mobile/personal/initial/preview")
             || path.equals("/api/v1/mobile/personal/initial/confirm")
             || path.equals("/api/v1/mobile/personal/current/preview")
-            || path.equals("/api/v1/mobile/personal/current/confirm"));
+            || path.equals("/api/v1/mobile/personal/current/confirm")
+            || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}/note"));
     }
 
     CompletableFuture<JSObject> request(String method, String path, String body) {

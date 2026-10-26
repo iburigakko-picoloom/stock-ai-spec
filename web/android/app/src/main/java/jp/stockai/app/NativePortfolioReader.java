@@ -23,7 +23,7 @@ final class NativePortfolioReader {
     private static String digest(String text) throws Exception {
         return StockAIPlugin.hex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
     }
-    private static String timestamp(String text) {
+    static String timestamp(String text) {
         java.time.OffsetDateTime time = java.time.OffsetDateTime.parse(text);
         String seconds = time.format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss"));
         int micros = time.getNano() / 1000;
@@ -44,7 +44,14 @@ final class NativePortfolioReader {
     static JSObject read(Context context, LocalStateStore state) throws Exception {
         return read(context, state, false);
     }
-    static synchronized JSObject read(Context context, LocalStateStore state, boolean currentView) throws Exception {
+    static JSObject read(Context context, LocalStateStore state, boolean currentView) throws Exception {
+        return read(context, state, currentView, null);
+    }
+    static JSObject readRecords(Context context, LocalStateStore state, String path) throws Exception {
+        if (!NativeRecordViews.handles(path)) throw new IllegalArgumentException("INVALID_RECORD_VIEW");
+        return read(context, state, false, path);
+    }
+    private static synchronized JSObject read(Context context, LocalStateStore state, boolean currentView, String recordPath) throws Exception {
         long started = android.os.SystemClock.elapsedRealtime();
         // Remove only this reader's interrupted temporary files, never a durable database.
         File[] interrupted = context.getCacheDir().listFiles((dir, name) -> name.startsWith("personal-read-"));
@@ -53,7 +60,7 @@ final class NativePortfolioReader {
         File ledger = File.createTempFile("personal-read-", ".sqlite3", context.getCacheDir());
         try (LocalStateStore.StartupLease saved = state.openStartupLease()) {
             LocalStateStore.ReadLease source = saved.operations != null ? saved.operations : saved.base;
-            if (source.length == 0) return null;
+            if (source.length == 0) return recordPath == null ? null : new JSObject().put("status", 200).put("body", NativeRecordViews.empty(recordPath));
             StateArchiveMerge.LeaseInput raw = new StateArchiveMerge.LeaseInput(source);
             try (InputStream decoded = new Base64InputStream(raw, Base64.NO_WRAP)) { copy(decoded, archive); }
             raw.finish(); // Authenticate every ciphertext chunk, envelope hash and generation.
@@ -79,6 +86,10 @@ final class NativePortfolioReader {
                 try (Cursor check = db.rawQuery("PRAGMA integrity_check", null)) {
                     if (!check.moveToFirst() || !"ok".equals(check.getString(0))) throw new SecurityException("PERSONAL_SQLITE_INTEGRITY");
                 }
+                if (recordPath != null) {
+                    body = NativeRecordViews.read(db, recordPath);
+                    if (body == null) return null;
+                } else {
                 try (Cursor table = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='manual_portfolio_imports'", null)) {
                     if (!table.moveToFirst()) return null;
                 }
@@ -107,6 +118,7 @@ final class NativePortfolioReader {
                 if (currentView) {
                     body = currentBody(db, body);
                     if (body == null) return null;
+                }
                 }
             }
             if (state.currentGeneration() != source.generation) throw new IllegalStateException("STATE_CONFLICT");

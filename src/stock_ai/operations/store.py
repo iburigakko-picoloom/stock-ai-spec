@@ -8,6 +8,7 @@ import io
 import json
 import math
 import os
+import re
 import sqlite3
 import tempfile
 from collections.abc import Iterable, Iterator, Mapping
@@ -425,6 +426,11 @@ def _verify_database_connection(connection: sqlite3.Connection) -> dict[str, int
     counts: dict[str, int] = {}
     metadata_rows = connection.execute("SELECT key FROM operational_metadata").fetchall()
     counts["operational_metadata"] = len(metadata_rows)
+    for row in metadata_rows:
+        if str(row[0]).startswith("stock-note:"):
+            symbol = str(row[0]).removeprefix("stock-note:")
+            _note_symbol(symbol)
+            _stock_note_connection(connection, symbol)
     schema_version = connection.execute("PRAGMA user_version").fetchone()[0]
     tables = {
         row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -897,6 +903,36 @@ def _verify_database_path(path: Path) -> dict[str, int]:
     finally:
         if connection is not None:
             connection.close()
+
+
+def _note_symbol(symbol: str) -> None:
+    if not re.fullmatch(r"[A-Z0-9]{1,10}", symbol):
+        raise ValueError("銘柄コードを確認してください")
+
+
+def _stock_note_connection(connection: sqlite3.Connection, symbol: str) -> dict[str, Any]:
+    row = connection.execute(
+        "SELECT value FROM operational_metadata WHERE key=?", ("stock-note:" + symbol,),
+    ).fetchone()
+    if row is None:
+        return {"symbol": symbol, "text": "", "revision": None, "updatedAt": None}
+    try:
+        envelope = json.loads(row[0])
+        payload = envelope["payload_json"]
+        digest = _payload_hash(payload)
+        value = json.loads(payload)
+        when = datetime.fromisoformat(value["updated_at"])
+        if (digest != envelope["sha256"] or value["schema_version"] != "stock-note-v1"
+                or value["symbol"] != symbol or not isinstance(value["text"], str)
+                or len(value["text"]) > 5000 or "\x00" in value["text"]
+                or when.utcoffset() is None
+                or (value["previous_revision"] is not None
+                    and not _hash_reference(value["previous_revision"]))):
+            raise ValueError("Invalid note")
+        return {"symbol": symbol, "text": value["text"], "revision": digest,
+                "updatedAt": value["updated_at"]}
+    except (KeyError, TypeError, ValueError) as error:
+        raise OperationalIntegrityError("銘柄メモの保存内容を確認できません") from error
 
 
 class OperationalStore:
@@ -1782,6 +1818,41 @@ class OperationalStore:
                 "SELECT value FROM operational_metadata WHERE key = ?", (key,)
             ).fetchone()
         return None if row is None else str(row["value"])
+
+    def stock_note(self, symbol: str) -> dict[str, Any]:
+        _note_symbol(symbol)
+        with self._connect() as connection:
+            return _stock_note_connection(connection, symbol)
+
+    def save_stock_note(
+        self, symbol: str, text: str, expected_revision: str | None, now: datetime,
+    ) -> dict[str, Any]:
+        _note_symbol(symbol)
+        if len(text) > 5000 or "\x00" in text or now.utcoffset() is None:
+            raise ValueError("メモは5000文字以内で入力してください")
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = _stock_note_connection(connection, symbol)
+            if text == current["text"]:
+                return current  # Safe retry after an acknowledged or lost save response.
+            if expected_revision != current["revision"]:
+                raise OperationalConflictError(
+                    "メモが別の画面で更新されています。"
+                    "入力を保ったまま最新のメモを確認してください。"
+                )
+            payload = json.dumps({
+                "schema_version": "stock-note-v1", "symbol": symbol, "text": text,
+                "updated_at": now.isoformat(), "previous_revision": expected_revision,
+            }, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            digest = _payload_hash(payload)
+            connection.execute(
+                "INSERT INTO operational_metadata(key,value) VALUES(?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                ("stock-note:" + symbol, json.dumps({"payload_json": payload, "sha256": digest})),
+            )
+            connection.commit()
+            return {"symbol": symbol, "text": text, "revision": digest,
+                    "updatedAt": now.isoformat()}
 
     def portfolio(self, portfolio_id: str) -> PortfolioState:
         return self._load_one("portfolio_states", "portfolio_id", portfolio_id, PortfolioState)

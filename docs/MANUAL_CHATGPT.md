@@ -84,3 +84,7 @@ research bundleの5日/20日returnだけでも、通常の原予測保存から�
 ## D200：実保存予測を使うAndroid通常APIの接続確認
 
 2026-10-20、製品58c8a2e・既存署名0.1.22は変更せず、実730日/研究2回帰から保存した原予測で、上位20の入力、回答拒否、維持案/費用付き株数案の検算、重複抑止、別processの読戻し、期限切れと新contextを確認した。全入力射影・株数・費用・現金見込みはPC一致し、原予測/実台帳/実約定は不変。全17mobile/全operation tableと回答recordをhostで独立検査した。試験口座・試験回答とprivate clockによる通常APIの試験であり、外部ChatGPTへの実送信、実時刻OS更新、Xiaomiの本人操作を実施済みとはしない。許可欄の自動有効化や新しい外部連携を追加しない。集約結果は[evidence](evidence/android-runtime-20261020/manual-exchange.json)、本人操作は既存の一括受入票へまとめる。
+
+## D264：手動回答の取り込み操作の終了
+
+D263に続く本人指示により、通常/旧URL/ランキングからのJSON回答入力・保存・検算・順位反映、本人判断のChatGPT案選択を終了する。手動相談はChatGPTで読んで完結する。以前の原本・検証API・schemaと保存履歴の読み取り専用表示は、既存データの保全と互換検証のため残す。上記の取込browserケースは旧機能の歴史的な証拠であり、現行UIの受入には使わない。現行の操作なし・履歴閲覧・copy/exportの受入はManualChatGPTPage/Rankings/DecisionReviewPageの単体試験とadopted-layout.spec.tsで行う。

@@ -91,14 +91,15 @@ public class StockAIPlugin extends Plugin {
             return;
         }
         if ("GET".equals(call.getString("method")) && ("/api/v1/mobile/portfolio".equals(personalPath)
-                || "/api/v1/mobile/personal/current".equals(personalPath))) {
+                || "/api/v1/mobile/personal/current".equals(personalPath) || NativeRecordViews.handles(personalPath))) {
             displayExecutor.execute(() -> {
                 try {
-                    JSObject result = NativePortfolioReader.read(getContext(), owner().state,
-                        personalPath.endsWith("/current"));
+                    JSObject result = NativeRecordViews.handles(personalPath)
+                        ? NativePortfolioReader.readRecords(getContext(), owner().state, personalPath)
+                        : NativePortfolioReader.read(getContext(), owner().state, personalPath.endsWith("/current"));
                     if (result != null) { call.resolve(result); return; }
                     background(call, () -> completeLocal(call, owner().request("GET", personalPath, "null")));
-                } catch (Exception error) { call.reject("口座情報を確認できませんでした。再確認してください。", "PERSONAL_READ_FAILED"); }
+                } catch (Exception error) { call.reject("保存情報を確認できませんでした。再確認してください。", "PERSONAL_READ_FAILED"); }
             });
             return;
         }

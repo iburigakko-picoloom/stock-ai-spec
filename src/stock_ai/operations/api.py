@@ -111,6 +111,14 @@ class SaveDecisionInput(ApiModel):
     confirms_manual_order_only: bool = True
 
 
+class StockNoteInput(ApiModel):
+    model_config = ConfigDict(
+        alias_generator=_camel, populate_by_name=True, extra="forbid", str_strip_whitespace=False,
+    )
+    text: str = Field(max_length=5000, strict=True)
+    expected_revision: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+
 class ExecutionInput(ApiModel):
     execution_id: str = Field(default_factory=lambda: f"execution-{uuid4()}")
     executed_at: datetime
@@ -734,6 +742,45 @@ def create_app(
                 "predictions": [predictions[symbol].model_dump(mode="json") for symbol in symbols],
             }
         return payload
+
+    @app.get("/api/v1/execution-context")
+    def execution_context() -> dict[str, object]:
+        # Actual fills refer to the saved judgment, even after an earlier fill
+        # changed holdings. Do not recalculate predictions or proposal eligibility.
+        day = current_time().date()
+        proposal = store.latest_proposal(day)
+        decision = None if proposal is None else store.latest_decision(proposal.proposal_id)
+        return {
+            "businessDate": day.isoformat(),
+            "proposal": None if proposal is None else {
+                "proposalId": proposal.proposal_id, "asOf": proposal.as_of.isoformat(),
+                "lines": [{key: value for key, value in _line_view(line).items() if key in {
+                    "lineId", "symbol", "companyName", "accountBucketId", "currentShares",
+                    "referencePrice",
+                }} for line in proposal.lines],
+            },
+            "decision": None if decision is None else jsonable_encoder(decision),
+            "accountLabels": _account_labels(
+                None if proposal is None else store.portfolio(proposal.current_portfolio_id)
+            ),
+        }
+
+    @app.get("/api/v1/stocks/{symbol}/note")
+    def stock_note(symbol: str) -> dict[str, Any]:
+        try:
+            return store.stock_note(symbol)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/api/v1/stocks/{symbol}/note")
+    def save_stock_note(
+        symbol: str, body: StockNoteInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> dict[str, Any]:
+        try:
+            return store.save_stock_note(symbol, body.text, body.expected_revision, current_time())
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @app.get("/api/v1/proposals/{proposal_id}")
     def get_proposal(proposal_id: str) -> dict[str, object]:

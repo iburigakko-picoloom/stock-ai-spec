@@ -19,14 +19,16 @@ beforeEach(() => {
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
-test("saved rankings show the date, can update any time, and distinguish ChatGPT from model", () => {
+test("saved ranking archive remains readable without import or adoption actions", () => {
   vi.mocked(useApiData).mockReturnValue({ data: { ...base, answer: { order: [
     { symbol: "2000", reason: "相談で優先" }, { symbol: "1000", reason: "比較後の順位" },
   ] } }, loading: false, error: null, savedAt: null, reload });
   render(<MemoryRouter><Rankings /></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
   expect(screen.getByText(/2026-10-22 終値/)).toBeVisible();
-  fireEvent.click(screen.getByRole("tab", { name: "ChatGPT" }));
+  expect(screen.queryByRole("tab", { name: "保存済みChatGPT" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "過去の相談記録" }));
+  fireEvent.click(screen.getByRole("tab", { name: "保存済みChatGPT" }));
   expect(screen.getByText(/ChatGPTの回答を反映した順位/)).toBeVisible();
   expect(screen.getByText("相談で優先")).toBeVisible();
   fireEvent.click(screen.getByRole("tab", { name: "モデル" }));
@@ -34,39 +36,18 @@ test("saved rankings show the date, can update any time, and distinguish ChatGPT
   expect(screen.getByRole("button", { name: "ランキングを更新" })).toBeEnabled();
 });
 
-test("consultation exports only after confirmation and imports to its exact ranking", async () => {
-  vi.mocked(useApiData).mockReturnValue({data:{...base,savedInput:{id:base.id,prompt:"以前の相談",expiresAt:"2026-10-27"}},loading:false,error:null,savedAt:null,reload});
-  vi.mocked(apiPost).mockResolvedValueOnce({ id: base.id, prompt: "相談する銘柄", expiresAt: "2026-10-27" }).mockResolvedValueOnce({ researchId: "saved", order: [], savedAt: "2026-10-26" }).mockResolvedValueOnce({});
+test("archive retains old findings but cannot submit, validate or adopt a response", () => {
+  vi.mocked(useApiData).mockReturnValue({data:{...base,savedInput:{id:"old",rankingId:base.id,prompt:"以前の相談",canCopy:false},research:{researchId:"saved",order:[],savedAt:"2026-10-24"}},loading:false,error:null,savedAt:null,reload});
   render(<MemoryRouter><Rankings /></MemoryRouter>);
-  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
-  fireEvent.click(screen.getByRole("button", { name: "ChatGPTと相談" }));
-  fireEvent.click(screen.getByRole("button", { name: "過去の相談記録" }));
-  expect(screen.getByRole("button", { name: "相談文を作る" })).toBeDisabled();
-  for (const input of screen.getAllByRole("checkbox")) fireEvent.click(input);
-  fireEvent.click(screen.getByRole("button", { name: "相談文を作る" }));
-  expect(await screen.findByLabelText("ChatGPTへの相談文")).toHaveValue("相談する銘柄");
-  fireEvent.change(screen.getByLabelText("回答JSON"), { target: { value: '{"id":"snapshot-a"}' } });
-  fireEvent.click(screen.getByRole("button", { name: "調査結果を保存" }));
-  await waitFor(() => expect(apiPost).toHaveBeenLastCalledWith("/api/v1/mobile/ranking/20d/research", { id: base.id, answer: '{"id":"snapshot-a"}' }));
-  expect(apiPost).not.toHaveBeenCalledWith("/api/v1/mobile/ranking/20d/review", expect.anything());
-  fireEvent.click(await screen.findByRole("button", { name: "最新の条件で確認して反映" }));
-  await waitFor(() => expect(apiPost).toHaveBeenLastCalledWith("/api/v1/mobile/ranking/20d/review", { researchId: "saved" }));
-  await waitFor(() => expect(reload).toHaveBeenCalled());
-});
-
-test("expired input still accepts results and saved research survives a rejected apply", async () => {
-  vi.mocked(useApiData).mockReturnValue({ data: { ...base, savedInput: { id: "old", rankingId: base.id, prompt: "期限切れの相談", canCopy: false }, research: { researchId: "saved", order: [], savedAt: "2026-10-24" } }, loading: false, error: null, savedAt: null, reload });
-  vi.mocked(apiPost).mockRejectedValueOnce(new Error("調査結果は保存済みです。保有が更新されています"));
-  render(<MemoryRouter><Rankings /></MemoryRouter>);
-  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
-  fireEvent.click(screen.getByRole("button", { name: "ChatGPTと相談" }));
-  fireEvent.click(screen.getByRole("button", { name: "過去の相談記録" }));
-  expect(screen.getByRole("button", { name: "相談文をコピー" })).toBeDisabled();
-  fireEvent.change(screen.getByLabelText("回答JSON"), { target: { value: "{}" } });
-  expect(screen.getByRole("button", { name: "調査結果を保存" })).toBeEnabled();
-  fireEvent.click(screen.getByRole("button", { name: "最新の条件で確認して反映" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("保存済み");
+  fireEvent.click(screen.getByRole("button",{name:"20日・ランキング"}));
+  fireEvent.click(screen.getByRole("button",{name:"過去の相談記録"}));
+  expect(screen.getByLabelText("ChatGPTへの相談文")).toHaveValue("以前の相談");
+  expect(screen.getByRole("button",{name:"相談文をコピー"})).toBeDisabled();
   expect(screen.getByText("保存した調査結果")).toBeVisible();
+  expect(screen.queryByLabelText("回答JSON")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"調査結果を保存"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"最新の条件で確認して反映"})).not.toBeInTheDocument();
+  expect(apiPost).not.toHaveBeenCalled();
 });
 
 test("reopened input is available but changed ranking prevents stale clipboard export", async () => {

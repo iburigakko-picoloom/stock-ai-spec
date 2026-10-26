@@ -2,6 +2,7 @@ import { type ReactNode, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, currency as yen } from "../components";
 import { useApiData } from "../hooks";
+import { StockMemo } from "../StockMemo";
 import type { StockDetail } from "../types";
 
 export function StockDetailPage(): ReactNode {
@@ -11,7 +12,7 @@ export function StockDetailPage(): ReactNode {
   const backTo = from === "/" || from === "/ranking" || from === "/assets" || (typeof from==="string" && /^\/today\/review(?:\?source=(?:model|chatgpt))?$/.test(from)) || from === "/today/chatgpt" || (typeof from === "string" && /^\/transactions(?:\?[^#]*)?$/.test(from)) ? from : "/today";
   const { data, error, loading } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
   const [selectedBucket, setSelectedBucket] = useState<string>(location.state?.bucket ?? "ALL");
-  if (loading || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /></div>;
+  if ((loading && !data) || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /><StockMemo key={symbol} symbol={symbol} /></div>;
 
   const bucketIds = Array.from(new Set([
     ...data.positions.map((item) => item.account_bucket_id),
@@ -64,6 +65,7 @@ export function StockDetailPage(): ReactNode {
     <div className="detail-foot"><Link className="button" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{from:backTo,bucket:selectedBucket}}>この銘柄の取引を記録</Link></div>
     {data.proposal && <Link className="quiet-link" to="/today/details">現在維持・提案全体の計算詳細 ›</Link>}
     </div></div>
+    <StockMemo key={symbol} symbol={symbol} />
     {data.forecast && <section className="section"><h2>予測の条件</h2><p className="setting-footnote">入力締切 {dateTime(data.forecast.asOf,true)} JST</p><p className="setting-footnote">{data.forecast.labelDefinitionSupported ? "入力に使った株価日の翌営業日終値から、5・20営業日先までの研究予測です。実約定による損益ではありません。" : "この予測の起点は現在のモデル契約に対応していません。新しい判断には使えません。"}</p>
       {prediction?.rank_score_5d != null && <p className="setting-footnote">5日順位スコア {prediction.rank_score_5d.toFixed(4)}</p>}
       {prediction?.large_loss_probability === null && <p className="setting-footnote">下落確率は未提供です。リスクがないという意味ではありません。</p>}

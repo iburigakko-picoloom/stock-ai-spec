@@ -253,8 +253,11 @@ test("adopted HTML typography and controls match the implementation",async({page
     await reference.goto(`http://127.0.0.1:5196/adopted-reference?screen=${name}#${name}`);
     await reference.locator(".app-screen").waitFor();
     for(const selector of selectors){
-      const actual=page.locator(".app-main").locator(selector).filter({visible:true}).first();
-      const expected=reference.locator(".app-screen").locator(selector).filter({visible:true}).first();
+      // The user removed the model/ChatGPT source switch. Compare the remaining
+      // save/trade controls with their counterparts, rather than with removed tabs.
+      const matching=name==="decision" && selector.startsWith(".button") ? `.subactions ${selector}` : selector;
+      const actual=page.locator(".app-main").locator(matching).filter({visible:true}).first();
+      const expected=reference.locator(".app-screen").locator(matching).filter({visible:true}).first();
       if(!await actual.count() || !await expected.count())continue;
       const read=(node:Element,props:string[])=>{const style=getComputedStyle(node);return Object.fromEntries(props.map(p=>[p,style[p as keyof CSSStyleDeclaration]]));};
       const observed=await actual.evaluate(read,properties), accepted=await expected.evaluate(read,properties);
@@ -315,7 +318,7 @@ test("execution history retains the selected record when returning from stock de
   await expect(page.getByRole("button",{name:"記録を確認",exact:true}).first()).toHaveAttribute("aria-pressed","true");
 });
 
-test("judgment source and unsaved adoption survive stock detail and return",async({page})=>{
+test("numeric judgment and unsaved adoption survive stock detail and return",async({page})=>{
   await page.goto("http://127.0.0.1:5196/#/today/review?source=model");
   const choice=page.getByRole("button",{name:"画面試験株式会社の提案を採用",exact:true});
   await expect(choice).toHaveAttribute("aria-pressed","true");
@@ -324,5 +327,56 @@ test("judgment source and unsaved adoption survive stock detail and return",asyn
   await page.getByRole("link",{name:"画面試験株式会社",exact:true}).click();
   await page.getByRole("link",{name:"← 戻る",exact:true}).click();
   await expect(choice).toHaveAttribute("aria-pressed","false");
-  await expect(page.getByRole("button",{name:"数値モデル",exact:true})).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByRole("button",{name:"ChatGPT",exact:true})).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/today\/review$/);
+});
+
+test("stock memo persists across detail navigation and fits narrow screens",async({page},info)=>{
+  let saved={symbol:"1234",text:"",revision:null as string|null,updatedAt:null as string|null};
+  let writes=0;
+  await page.route("**/api/v1/stocks/1234/note",route=>{
+    if(route.request().method()==="POST"){
+      expect(route.request().postDataJSON()).toEqual({text:"決算発表後に確認\n自分の判断を記録",expectedRevision:saved.revision});
+      saved={...saved,text:route.request().postDataJSON().text,revision:"c".repeat(64),updatedAt:"2026-10-26T19:00:00+09:00"};writes++;
+    }
+    return route.fulfill({json:saved});
+  });
+  if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
+  await page.goto("http://127.0.0.1:5196/#/stocks/1234");
+  const memo=page.getByRole("region",{name:"銘柄メモ"});
+  await expect(memo.getByRole("textbox",{name:"メモ",exact:true})).toBeEnabled();
+  await memo.getByRole("textbox",{name:"メモ",exact:true}).fill("決算発表後に確認\n自分の判断を記録");
+  await memo.getByRole("button",{name:"メモを保存",exact:true}).click();
+  await expect(memo.getByRole("status")).toHaveText("メモを保存しました。");
+  for(const font of [100,150]){
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    await memo.getByRole("button",{name:"メモを保存",exact:true}).scrollIntoViewIfNeeded();
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+    const input=await memo.getByRole("textbox").boundingBox(),button=await memo.getByRole("button").boundingBox();
+    expect(input!.y+input!.height).toBeLessThanOrEqual(button!.y);
+    if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`stock-memo-${font}.png`),await activeDevice!.screenshot());
+    else await page.screenshot({path:info.outputPath(`stock-memo-${font}.png`),fullPage:true});
+  }
+  await page.getByRole("navigation",{name:"メインナビゲーション"}).getByRole("link",{name:"ランキング",exact:true}).click();
+  await page.locator('.ranking-table-row[href="#/stocks/1234"]').click();
+  await expect(memo.getByRole("textbox",{name:"メモ",exact:true})).toHaveValue(saved.text);
+  expect(writes).toBe(1);
+});
+
+test("execution entry uses one saved context without waiting for today recalculation",async({page},info)=>{
+  const reads:string[]=[];
+  page.on("request",request=>{if(request.method()==="GET" && request.url().includes("/api/"))reads.push(new URL(request.url()).pathname);});
+  if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
+  await page.goto("http://127.0.0.1:5196/#/today/executions");
+  await expect(page.getByRole("heading",{name:"取引記録",exact:true})).toBeVisible();
+  await page.getByRole("combobox",{name:"実行状態",exact:true}).selectOption("filled");
+  await expect(page.getByLabel("約定株数",{exact:true})).toBeVisible();
+  expect(reads.filter(path=>path==="/api/v1/execution-context")).toHaveLength(1);
+  expect(reads.filter(path=>path==="/api/v1/today" || path.endsWith("/decision"))).toEqual([]);
+  for(const font of [100,150]){
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+    if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`execution-context-${font}.png`),await activeDevice!.screenshot());
+    else await page.screenshot({path:info.outputPath(`execution-context-${font}.png`),fullPage:true});
+  }
 });

@@ -1,10 +1,9 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
-import { PageHeader, StatePanel, currency as yen } from "../components";
+import { PageHeader, StatePanel, dateTime, currency as yen } from "../components";
 import { Field, FormGroup, KV } from "../Adopted";
-import { useApiData } from "../hooks";
-import type { ProposalLine, TodayResponse } from "../types";
+import type { ProposalLine } from "../types";
 
 interface DecisionLine {
   proposal_line_id: string;
@@ -15,6 +14,14 @@ interface SavedDecision {
   decision_id: string;
   version: number;
   lines: DecisionLine[];
+}
+
+type ExecutionLine=Pick<ProposalLine,"lineId"|"symbol"|"companyName"|"accountBucketId"|"currentShares"|"referencePrice">;
+interface ExecutionContext {
+  businessDate:string;
+  proposal:{proposalId:string;asOf:string;lines:ExecutionLine[]}|null;
+  decision:SavedDecision|null;
+  accountLabels:Record<string,string>;
 }
 
 interface EntryState {
@@ -51,9 +58,9 @@ const initialEntry: EntryState = {
 
 export function ExecutionPage(): ReactNode {
   const [params] = useSearchParams();
+  const applyOnly=params.has("apply");
   const location = useLocation();
-  const today = useApiData<TodayResponse>("/api/v1/today");
-  const [decision, setDecision] = useState<SavedDecision | null>(null);
+  const [context,setContext]=useState<ExecutionContext|null>(null);
   const [loadingDecision, setLoadingDecision] = useState(true);
   const [selectedLine,setSelectedLine]=useState("");
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
@@ -66,26 +73,26 @@ export function ExecutionPage(): ReactNode {
   const pending = useRef(false);
   const attempts = useRef(new Map<string, { key: string; id: string; confirmed: boolean }>());
   const [nextAsOf, setNextAsOf] = useState(localDateTimeValue(new Date()));
-  const proposal = today.data?.proposal;
+  const proposal = context?.proposal;
+  const decision=context?.decision;
 
   useEffect(() => {
-    if (!proposal) {
-      setLoadingDecision(false);
-      return;
-    }
-    apiGet<SavedDecision | null>(`/api/v1/proposals/${proposal.proposalId}/decision`)
-      .then((value) => setDecision(value))
-      .catch((reason: unknown) => setLoadError(reason instanceof Error ? reason.message : "判断を取得できません"))
-      .finally(() => setLoadingDecision(false));
-  }, [proposal]);
+    if(applyOnly){setLoadingDecision(false);return;}
+    let active=true;
+    apiGet<ExecutionContext>("/api/v1/execution-context")
+      .then(value=>{if(active)setContext(value);})
+      .catch((reason: unknown) => {if(active)setLoadError(reason instanceof Error ? reason.message : "判断を取得できません");})
+      .finally(() => {if(active)setLoadingDecision(false);});
+    return ()=>{active=false;};
+  }, [applyOnly]);
 
-  if (today.loading || loadingDecision || today.error || loadError || !proposal || !decision) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="実行結果を記録" /><StatePanel tone={today.error || loadError ? "error" : "neutral"} title={today.loading || loadingDecision ? "実行結果入力を準備しています" : today.error || loadError ? "入力を準備できません" : "実行待ちの保存済み判断がありません"} detail={today.error || loadError} /></div>;
+  if (!applyOnly && (loadingDecision || loadError || !proposal || !decision)) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="実行結果を記録" /><StatePanel tone={loadError ? "error" : "neutral"} title={loadingDecision ? "実行結果入力を準備しています" : loadError ? "入力を準備できません" : "実行待ちの保存済み判断がありません"} detail={loadError} /></div>;
 
   const savedDecision = decision;
-  const decisionTargets = new Map(savedDecision.lines.map((line) => [line.proposal_line_id, line.selected_target_shares]));
-  const changed = proposal.lines.filter((line) => decisionTargets.get(line.lineId) !== line.currentShares && (!params.get("symbol") || params.get("symbol") === line.symbol));
+  const decisionTargets = new Map((savedDecision?.lines ?? []).map((line) => [line.proposal_line_id, line.selected_target_shares]));
+  const changed = (proposal?.lines ?? []).filter((line) => decisionTargets.get(line.lineId) !== line.currentShares && (!params.get("symbol") || params.get("symbol") === line.symbol));
 
-  function entryFor(line: ProposalLine): EntryState {
+  function entryFor(line: ExecutionLine): EntryState {
     const target = decisionTargets.get(line.lineId) ?? line.currentShares;
     return entries[line.lineId] || {
       ...initialEntry,
@@ -97,13 +104,13 @@ export function ExecutionPage(): ReactNode {
     };
   }
 
-  function patchEntry(line: ProposalLine, patch: Partial<EntryState>): void {
+  function patchEntry(line: ExecutionLine, patch: Partial<EntryState>): void {
     setEntries((current) => ({ ...current, [line.lineId]: { ...entryFor(line), ...patch } }));
     setRecorded(current => ({ ...current, [line.lineId]: false }));
   }
 
-  async function record(line: ProposalLine): Promise<void> {
-    if (pending.current) return;
+  async function record(line: ExecutionLine): Promise<void> {
+    if (pending.current || !savedDecision) return;
     pending.current = true; setBusy(true);
     const entry = entryFor(line);
     setEntries(current => ({ ...current, [line.lineId]: entry }));
@@ -171,6 +178,7 @@ export function ExecutionPage(): ReactNode {
     <div className="page">
       <PageHeader title={params.has("apply") ? "記録済み約定の反映" : "取引記録"} backTo={params.has("apply") ? "/transactions" : params.get("symbol") ? `/stocks/${params.get("symbol")}` : "/today"} backState={location.state} />
       <div className="subscreen stack">
+      {proposal && savedDecision && <p className="small muted">{dateTime(proposal.asOf,true)} の保存済み判断 · 第{savedDecision.version}版</p>}
       {!params.has("apply") && (changed.length === 0 ? <StatePanel title="取引しない判断です" /> : changed.map((line) => {
         const target = decisionTargets.get(line.lineId) ?? line.currentShares;
         const entry = entryFor(line);
@@ -179,7 +187,7 @@ export function ExecutionPage(): ReactNode {
             <section className="card"><fieldset className="account-form" disabled={busy}>
             <FormGroup title="注文">
               <Field label="銘柄"><select className="input" value={selectedLine || changed[0].lineId} onChange={e=>setSelectedLine(e.target.value)}>{changed.map(item=><option key={item.lineId} value={item.lineId}>{item.symbol} {item.companyName}</option>)}</select></Field>
-              <Field label="口座"><input className="input" readOnly value={today.data?.accountLabels?.[line.accountBucketId] ?? line.accountBucketId} /></Field>
+              <Field label="口座"><input className="input" readOnly value={context?.accountLabels?.[line.accountBucketId] ?? line.accountBucketId} /></Field>
               <Field label="売買方向"><select className="input" value={entry.side} onChange={e=>patchEntry(line,{side:e.target.value as "BUY"|"SELL"})}><option value="BUY">買い</option><option value="SELL">売り</option></select></Field>
               <Field label="注文株数"><input className="input" type="number" min="0" step="100" value={entry.orderedShares} onChange={e=>patchEntry(line,{orderedShares:Number(e.target.value)})} /></Field>
               <Field label="実行日時"><input className="input" type="datetime-local" step="0.001" value={entry.executedAt} onChange={e=>patchEntry(line,{executedAt:e.target.value})} /></Field>
