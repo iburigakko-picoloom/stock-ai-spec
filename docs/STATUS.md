@@ -3,7 +3,9 @@
 - 当日の保存済み判断がないと取引登録できない条件を修正。口座を直接読み、実約定を独立記録する。約定と保有/現金更新は原子的、同じIDの再試行は二重反映なし。SQLite schema6で既存の約定payload/hash/FKを保全し、判断なしをnullで明示する。既存の判断付き入力は維持。
 - 今日の主要操作を提案・ランキング・相談・取引へ整理し、重複説明と準備状況は詳細へ移動。回答取り込み操作を戻さず、銘柄メモと旧記録閲覧を維持する。
 - 関連Python180件＋domain/simulator19件、React228件、Ruff/TypeScript/ESLint、mypy78モジュール、production build成功。ブラウザー18ケース成功（全29画面320/390px・100/150%文字、新しい判断なし入力、既存取引の失敗時入力保持）。Android JVM31件成功。端末試験は既存7件成功、新規1件は試験のJSON応答形式を修正して再実行成功。新規経路は不正約定時の未保存、原子的反映、再送、再起動、操作DB差分保存、完全backup/restore、判断を捏造しないことをPC結果と照合。
-- Android WebViewは320dp・100/150%文字で全29画面＋新規入力を実表示し4ケース成功、横はみ出し/操作の重なりなし。署名APK生成/検査/非公開Drive追加は進行中。本人Xiaomi端末での確認とCIは未実施。実注文なし。
+- Android WebViewは320dp・100/150%文字で全29画面＋新規入力を実表示し4ケース成功、横はみ出し/操作の重なりなし。同一署名の非公開0.1.68-candidate/code10068を作成し、同梱54 Python source・assets・署名・debug無効・試験データ非混入を検査。0.1.67からアンインストールなしの上書きと起動を確認（初回install時刻保持）。本人Xiaomi端末での確認とCIは未実施。実注文なし。
+
+APK: `.demo-artifacts/manual-trade-release/StockAI-0.1.68-candidate.apk`、24,094,509 bytes、SHA256 `23623c7cb6541026aaba851d003aa429821e9f19c79d4dce7c6b83d86df41695`、source `4c2f03a9db6aadd253257d3efef4c6ce9eee4b12`。非公開Driveへ追加しサイズ・保存先・owner-onlyをmetadata再読取で確認。既存APKは保持。[Drive更新APK](https://drive.google.com/file/d/1xrqXVswVYidRxaRUmJ6ycsfOEXfyQnTW/view?usp=drivesdk)。
 
 ## 2026-10-26 — 添付レスポンス改善パッチの最新コード統合（D266）
 
