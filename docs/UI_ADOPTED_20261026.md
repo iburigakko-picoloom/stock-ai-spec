@@ -136,3 +136,5 @@ D264配布：0.1.65/code10065、source `5e660d96cd276f17e3472c3a4955e5e3e4bb1648
 配布用ブラウザー15ケースで29画面、320/390px、100/150%と105部品×10プロパティの数値比較が通り、重い確認の完了前に保存ランキングが見えること、ホーム/資産の残高GETが各1回であることを確認した。証拠/APK工程は `.demo-artifacts/display-first-release/`。実データ量でのXiaomi測定と実通信・CIは別途未確認。
 
 D265実表示：Android35/320dpでも5ケース成功。全29画面の文字100/150%、設定下書き保持、メモ保存、残高取得各1回、最新の重い読取を待たない保存ランキングを実キャプチャした。
+
+D265配布：0.1.66/code10066、source `866bd36037abd1f34aacb09dd8d10ee0574972ac`、24,089,113 bytes、SHA256 `16a0df7db1c68a8163a28452927c364d13cb2898a90894d78bed3c679c09a00e`。署名版のcold起動/ホームと同一APK hashを確認。既存非共有Driveへ[本人用APK](https://drive.google.com/file/d/1YFKLZM0PeiQzcnGcCFZfKK6al5Y4ArlH/view?usp=drivesdk)を保存し、親/size/shared=falseを再確認した。旧版は保持。本人実機・初回詳細確認の待ち時間・実通信・CIは未確認。

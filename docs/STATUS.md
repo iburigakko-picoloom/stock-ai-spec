@@ -7,6 +7,8 @@
 - 最終の専用合成AVDではhome53ms対cold Python14420ms、取引45ms・残高履歴37ms・処理記録40ms。計算queue占有時と起動前を別に確認し、小数金額・確保中・部分約定反映ID・訂正理由、UTC/JSTのJSON文字列までPCと一致した。最初のstrict比較でUTCのZ/+00:00表記差を検出したため、文字列/日時objectのAPI契約を区別して修正。合成fixtureは実時計より確実に過去へ置き、製品の未来台帳拒否を維持した。
 - 証拠/確認用0.1.66の工程は `.demo-artifacts/display-first-release/`。本人Xiaomi/実データ量の実測、外部ChatGPT返答、CIは未確認。正式採用HOLD、投資成績の新規実験/実注文なし。APK/既存非共有Driveへの反映を次工程で行う。
 
+- 配布完了：同署名0.1.66-candidate/code10066、source `866bd36037abd1f34aacb09dd8d10ee0574972ac`、24,089,113 bytes、SHA256 `16a0df7db1c68a8163a28452927c364d13cb2898a90894d78bed3c679c09a00e`。署名/非debug・46assets一致・53PythonのGit byte一致・秘密/モデル/試験データ非混入を検査。専用read-only AVDへ署名版を入れ、cold起動/ホーム/前面Activity・インストール済みAPK hash一致とクラッシュなしを確認。[0.1.66本人用APK](https://drive.google.com/file/d/1YFKLZM0PeiQzcnGcCFZfKK6al5Y4ArlH/view?usp=drivesdk)を既存非共有StockAIへ保存し、親/size/shared=falseを再読込確認。旧版を保持。保存表示がない初回の詳細/予測確認は依然Pythonを必要とする。本人Xiaomiの実データ量での速度/更新、実ChatGPT返答、CIは未確認。source確定後は配布記録の文書のみ変更。
+
 ## 2026-10-26 — 取引記録の読込短縮・手動回答取込の終了・銘柄メモ（D264）
 
 - 実行結果入力を当日JSTの保存済み判断の小さな専用APIへ変更。Today/予測/市場の再読込を待たず、Androidは暗号化済み操作DBの内容/世代/hashを確認して直接読む。計算queueが占有中でも表示可能。focusで入力を消さず、記録済み約定反映だけなら現在判断の取得も不要。既存の約定差分/現金/保有の反映と保存経路は維持した。
