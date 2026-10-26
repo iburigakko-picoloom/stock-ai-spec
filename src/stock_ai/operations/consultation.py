@@ -10,7 +10,12 @@ from urllib.parse import urlsplit
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from stock_ai.domain import PortfolioState
-from stock_ai.operations.daily import PredictionSnapshot, content_id, daily_close_forecast_basis
+from stock_ai.operations.daily import (
+    PredictionSnapshot,
+    canonical_json,
+    content_id,
+    daily_close_forecast_basis,
+)
 
 RESEARCH_ORDER = """次の順序で判断してください。
 1. 日本株市場全体:日経平均・TOPIX、業種別動向、米国株、為替、金利、先物、
@@ -42,6 +47,45 @@ MARKET_TOPICS = (
     "news",
     "economic_events",
 )
+
+CHATGPT_REPORT_MODE = "chatgpt-readable-report-v1"
+
+
+def readable_consultation_prompt(package: dict[str, Any]) -> str:
+    """Render an external reading prompt without changing saved numerical inputs."""
+    return (
+        "本人用・非公開の日本株相談です。学習利用をoffにした会話で扱ってください。\n"
+        "分析結果はこのChatGPTの会話で本人が読みます。アプリへの回答の貼り戻しは行いません。\n"
+        "回答は読みやすい日本語のMarkdown本文・表・出典リンクにしてください。"
+        "回答JSON・機械取込用schema・アプリへ戻すためのコードブロックは出力しないでください。\n"
+        + RESEARCH_ORDER
+        + "\n回答の構成:\n"
+        "1. 結論:基準日時を明示し、5営業日・20営業日それぞれの方針を短く説明。"
+        "現在の保有を維持する案と、変更する案を比較する。\n"
+        "2. 市場の見通し:日本株・業種・米国株・為替・金利等を5日/20日で分け、"
+        "保有株と候補への影響を説明する。\n"
+        "3. 全対象銘柄の比較表:上位20の新規候補と順位外を含む全保有を省略せず、"
+        "銘柄コード/社名(確認できる場合)、保有株数、5日/20日予測、独立調査の評価、"
+        "保有継続・追加・縮小・売却・見送りの判断と主な理由を示す。"
+        "原モデルの数値とChatGPT自身の判断は別の列にする。\n"
+        "4. 具体的な方針:保有継続・入替・現金維持を比較し、株数を示す場合は"
+        "口座別に『現在→目安の保有株数(増減)』を表記する。"
+        "提示された単元、既存の運用可能現金、設定済み費用/税/制約を考慮し、"
+        "未約定売却代金をすぐ使える余力に加えない。"
+        "資金や条件が不明なら株数を断定せず、足りない情報を示す。"
+        "目安はアプリで検算済みの提案や実際の約定ではない。\n"
+        "5. 反対材料と見直し条件:自分の結論が外れるシナリオ、未確認事項、"
+        "判断を変える条件を示す。\n"
+        "6. 出典:本文や表の根拠にリンクを付け、資料名・対象日時・公開日時・確認日時を示す。"
+        "Web検索できなければその旨を伝え、最新ニュース・出典・調査済み事実を作らない。\n"
+        "\n入力の5日/20日予測は、入力株価日Tの翌営業日の調整済み終値を起点とした"
+        "h営業日後までの研究ラベルです。日足終値の研究proxyで、実約定による損益の再現ではありません。"
+        "費用・税・配当入金を含みません。rank_scoreを%へ変換せず、5日と20日を加算しないでください。"
+        "nullのリスク・確信度・予測は未提供でありゼロではありません。"
+        "原予測の時点と、今回調べた情報の時点を区別してください。"
+        "原予測・台帳を変更せず、実注文を実行しないでください。\n"
+        "\n入力:\n" + canonical_json(package)
+    )
 
 
 class EvidenceSource(BaseModel):

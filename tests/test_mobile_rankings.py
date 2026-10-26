@@ -64,6 +64,21 @@ def test_saved_ranking_any_time_consultation_restore_without_ledger_changes(read
     assert restored["savedInput"]["prompt"] == exported["prompt"]
 
 
+def test_new_ranking_prompt_requests_readable_analysis_without_json_response(ready):
+    _, store, *_ = ready
+    before = store.latest_portfolio().model_dump_json()
+    _, _, _, _, _, exported, _ = prepare(ready)
+    assert exported["responseMode"] == "chatgpt-readable-report-v1"
+    prompt = exported["prompt"]
+    assert "日本語のMarkdown本文・表・出典リンク" in prompt
+    assert "次のJSON形式だけを返してください" not in prompt
+    assert '"properties"' not in prompt
+    package = json.loads(prompt.split("\n入力:\n")[1])
+    assert package["response_mode"] == exported["responseMode"]
+    assert package["consultation"]["securities"]
+    assert store.latest_portfolio().model_dump_json() == before
+
+
 def test_display_metrics_preserve_identity_and_do_not_invent_rank_scores(ready):
     _, store, path, now, current, _, _ = prepare(ready)
     assert current["id"] == content_id({

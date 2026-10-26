@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 
 from stock_ai.operations.chatgpt_manual import ExternalAiPermission
 from stock_ai.operations.consultation import (
-    RESEARCH_ORDER,
+    CHATGPT_REPORT_MODE,
     ConsultationFindings,
     consultation_context,
+    readable_consultation_prompt,
 )
 from stock_ai.operations.daily import PredictionSnapshot, content_id
 from stock_ai.operations.manual_portfolio import strict_json
@@ -140,6 +141,7 @@ def view(path, store, now, horizon):
             "prompt": saved_input["prompt"],
             "canCopy": can_copy,
             "expiresAt": saved_input["expiresAt"],
+            "responseMode": saved_input.get("responseMode", "legacy-json"),
         },
     }
 
@@ -159,6 +161,7 @@ def export(path, store, now, horizon, body):
     )
     package = {
         "schema_version": "ranking-consultation-v2",
+        "response_mode": CHATGPT_REPORT_MODE,
         "ranking_id": current["id"],
         "horizon": horizon,
         "consultation": context,
@@ -166,18 +169,7 @@ def export(path, store, now, horizon, body):
     identity = content_id(package)
     package["id"] = identity
     expires = (now + timedelta(hours=24)).isoformat()
-    prompt = (
-        "本人用・非公開の日本株相談です。学習利用をoffにした会話で扱ってください。\n"
-        + RESEARCH_ORDER
-        + "指定期間の優先順位と理由を検討してください。数量・注文は実行しません。"
-        "consultation.securitiesの全銘柄を重複・追加・省略なく順位順に並べ、"
-        "次のJSON形式だけを返してください。先頭が1位です。"
-        '{"id":"入力のid","order":[{"symbol":"銘柄コード","reason":"理由"}],"research":{...}}\n'
-        "researchのschema(全対象企業を含める。未確認の出典・日時は創作しない):\n"
-        + json.dumps(ConsultationFindings.model_json_schema(), ensure_ascii=False)
-        + "\n入力:\n"
-        + json.dumps(package, ensure_ascii=False)
-    )
+    prompt = readable_consultation_prompt(package)
     record = {
         "id": identity,
         "rankingId": current["id"],
@@ -185,6 +177,7 @@ def export(path, store, now, horizon, body):
         "expiresAt": expires,
         "permission": permission.model_dump(mode="json"),
         "prompt": prompt,
+        "responseMode": CHATGPT_REPORT_MODE,
     }
     _write(store, "ranking:research-input:" + identity, record)
     _write(store, "ranking:input:" + current["id"], record)
@@ -194,6 +187,7 @@ def export(path, store, now, horizon, body):
         "prompt": prompt,
         "expiresAt": expires,
         "canCopy": True,
+        "responseMode": CHATGPT_REPORT_MODE,
     }
 
 

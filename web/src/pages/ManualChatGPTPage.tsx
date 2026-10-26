@@ -16,10 +16,12 @@ interface Review {
 interface ConsultationContext {prediction_as_of:string;securities:{symbol:string;shares:number|null;"5d":{rank:number|null;expected_return:number|null};"20d":{rank:number|null;expected_return:number|null}}[]}
 interface SavedResearch { record_id: string; saved_at: string; original_json: string; answer?: { research?: ConsultationFindings };consultation?:ConsultationContext|null }
 interface ManualStatus { ready: boolean; reason: string | null; selected_input: string | null; saved_input?: Exported | null; saved_input_reason?: string | null; answers: Review[]; account_labels?: Record<string, string>; research?: SavedResearch[];current_context?:ConsultationContext|null;current_shares?:Record<string,number> }
-interface Exported { input_record_id: string; input_snapshot_id: string; expires_at: string; prompt: string }
+interface Exported { input_record_id: string; input_snapshot_id: string; expires_at: string; prompt: string; response_mode?: string }
 
 export function ManualChatGPTPage(): ReactNode {
-  const historyOnly = useLocation().pathname.endsWith("/history");
+  const location=useLocation();
+  const historyOnly = location.pathname.endsWith("/history");
+  const legacyMode=new URLSearchParams(location.search).get("legacy")==="1";
   const [historyIndex, setHistoryIndex] = useState(0);
   const [historyKind,setHistoryKind]=useState("research");
   const [status, setStatus] = useState<ManualStatus | null>(null);
@@ -49,15 +51,17 @@ export function ManualChatGPTPage(): ReactNode {
         setStatus(value);
         setResearchId(value.research?.[0]?.record_id ?? null);
         setFindings(value.research?.[0]?.answer?.research ?? null);
-        if (value.saved_input) {
+        if (value.saved_input && (legacyMode || value.saved_input.response_mode==="chatgpt-readable-report-v1")) {
           setExported(value.saved_input);
           setShowPrompt(true);
           setMessage("保存済みの入力を再表示しました。有効期限と内容を確認して相談を続けられます。");
+        } else if (!legacyMode) {
+          setExported(null);setShowPrompt(false);
         }
       })
       .catch(() => { if (active) setError("保存済み入力を確認できません。アプリを開き直してください。"); });
     return () => { active = false; };
-  }, [android]);
+  }, [android,legacyMode]);
 
   async function prepare(): Promise<void> {
     setBusy(true); setError(""); setMessage(""); setReview(null);
@@ -67,6 +71,7 @@ export function ManualChatGPTPage(): ReactNode {
         personal_analysis_only: privateUse, training_disabled: privateUse,
         private_input: privateUse, private_output: privateUse, data_entitlement_confirmed: entitled,
       });
+      if (!legacyMode && prepared.response_mode!=="chatgpt-readable-report-v1") throw new Error("相談文を新しい形式で作り直してください。");
       setExported(prepared);
       setShowPrompt(true);
       setStatus(previous => previous && { ...previous, selected_input: prepared.input_record_id, saved_input: prepared, saved_input_reason: null });
@@ -80,7 +85,7 @@ export function ManualChatGPTPage(): ReactNode {
     setBusy(true); setError(""); setMessage("");
     try {
       const latest = await apiGet<ManualStatus>("/api/v1/mobile/chatgpt-manual/status");
-      if (!latest.ready || !latest.saved_input
+      if (!latest.ready || !latest.saved_input || (!legacyMode && latest.saved_input.response_mode!=="chatgpt-readable-report-v1")
         || latest.saved_input.input_record_id !== exported.input_record_id
         || latest.saved_input.input_snapshot_id !== exported.input_snapshot_id
         || latest.saved_input.prompt !== exported.prompt) {
@@ -106,11 +111,12 @@ export function ManualChatGPTPage(): ReactNode {
   }
   return <div className="page manual-chatgpt">
     <PageHeader title={historyOnly ? "相談履歴" : "ChatGPTと相談"} backTo="/today" />
-    {historyOnly && <Link className="quiet-link" to="/today/chatgpt">新しい相談</Link>}
+    {historyOnly && <><Link className="quiet-link" to="/today/chatgpt">新しい相談</Link><Link className="quiet-link" to="/today/chatgpt?legacy=1">以前の回答を保存・検算</Link><a className="button secondary" href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPTの会話履歴を開く</a></>}
     <div className="subscreen stack" hidden={historyOnly}>
     {!android ? <StatePanel title="Androidアプリで利用できます" detail="端末に保存した最新の原予測・口座・設定を使います。" />
       : !status ? <StatePanel title="保存済み入力を確認しています" />
       : <>
+        {!legacyMode && <section className="card"><p>相談文をコピーし、ChatGPTに貼り付けて送信してください。分析はChatGPTの会話で読み、そのまま質問を続けられます。アプリへの貼り戻しは不要です。</p></section>}
         {!status.ready && <StatePanel title="最新条件の照合が必要です" detail={status.reason ?? "保存済みの相談への回答は受け取れます。"} />}
         <section className="card">
           <h3 className="section-title">利用条件</h3>
@@ -123,14 +129,14 @@ export function ManualChatGPTPage(): ReactNode {
           <div className="button-stack"><button className="button button--primary" disabled={busy || !status.ready || !privateUse || !entitled}
             onClick={() => void prepare()}>作成・コピー</button><button className="button secondary" disabled={!exported} onClick={()=>setShowPrompt(true)}>内容を表示</button></div>
           {status.saved_input_reason && <p className="setting-footnote">{status.saved_input_reason}</p>}
-          {exported && showPrompt && <>
+          {exported && showPrompt && (legacyMode || exported.response_mode==="chatgpt-readable-report-v1") && <>
             <p>入力の有効期限：{dateTime(exported.expires_at)}</p>
             <textarea className="csv-input" aria-label="ChatGPTへ渡す入力" readOnly value={exported.prompt} />
             <div className="button-stack"><button className="button button--secondary" disabled={busy} onClick={() => void copy()}>プロンプトをコピー</button></div>
           </>}
           <a className="button secondary" href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPTを開く</a>
         </section>
-        <section className="card stack">
+        {legacyMode && <section className="card stack">
           <h3 className="section-title">回答JSON</h3>
           <textarea className="input" rows={9} aria-label="ChatGPTの回答JSON" value={answer} disabled={busy}
             onChange={event => { setAnswer(event.target.value); setReview(null); }} placeholder="回答JSONをここに貼り付け" />
@@ -144,11 +150,11 @@ export function ManualChatGPTPage(): ReactNode {
               .catch(reason => setError(`調査結果は保存済みです。${reason instanceof Error ? reason.message : "最新条件を照合してください。"}`))
               .finally(() => setBusy(false));
           }}>最新の条件で検算</button>}
-        </section>
+        </section>}
       </>}
     {message && <p role="status">{message}</p>}
     {error && <StatePanel tone="error" title="処理を完了できません" detail={error} />}
-    {review && <section className="card"><h3 className="section-title">保存したChatGPT提案</h3><Link className="button secondary" to="/today/review?source=chatgpt">ChatGPT案の判断</Link>
+    {legacyMode && review && <section className="card"><h3 className="section-title">保存したChatGPT提案</h3><Link className="button secondary" to="/today/review?source=chatgpt">ChatGPT案の判断</Link>
       {review.lines.map(line => <div className="difference-row" key={`${line.symbol}-${line.account}`}>
         <span>{line.symbol} / {status?.account_labels?.[line.account] ?? line.account}</span><strong className="share-change"><span>{line.current_shares}株</span><span aria-hidden="true">→</span><span>{line.target_shares}株</span></strong>
       </div>)}
@@ -164,7 +170,7 @@ export function ManualChatGPTPage(): ReactNode {
       <p>実注文はご本人が行い、実際の約定を確認した後に記録してください。</p>
     </section>}
     </div>
-    {!historyOnly && <Link className="quiet-link" to="/today/chatgpt/history">相談履歴</Link>}
+    {!historyOnly && <Link className="quiet-link" to="/today/chatgpt/history">過去の相談記録</Link>}
     {historyOnly && !status?.answers.length && !researchHistory.length && <StatePanel title={status ? "保存した相談はまだありません" : "相談履歴を確認しています"} detail={error || undefined} />}
     {historyOnly && status && (!!status.answers.length || !!researchHistory.length) && <section className="subscreen stack"><div className="card"><h3 className="section-title">保存した相談</h3>
       <label>保存日時<select className="history-select" value={`${showResearch ? "research" : "answer"}:${historyIndex}`} onChange={e => {const [kind,index]=e.target.value.split(":");setHistoryKind(kind);setHistoryIndex(Number(index));}}>{researchHistory.map((item,i)=><option key={item.record_id} value={`research:${i}`}>{dateTime(item.saved_at,true)} · 調査結果</option>)}{status.answers.map((item, i) => <option key={`answer-${i}`} value={`answer:${i}`}>{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`} · 検算済み</option>)}</select></label>

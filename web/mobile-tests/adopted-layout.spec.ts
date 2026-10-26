@@ -200,6 +200,40 @@ test("unregistered home keeps the adopted layout and real registration route",as
   await expect(page.getByRole("heading",{name:"初回資産登録",exact:true})).toBeVisible();
 });
 
+test("new ChatGPT consultation copies and opens a report without answer import",async({page},info)=>{
+  const exported={input_record_id:"synthetic-report",input_snapshot_id:"synthetic-report-input",expires_at:"2026-10-26T18:00:00+09:00",prompt:"SYNTHETIC_UI_TEST: 日本語の本文・表・出典で分析を読みます。",response_mode:"chatgpt-readable-report-v1"};
+  let saved:typeof exported|null=null;
+  let writes=0;
+  const clipboardMock=()=>Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async(value:string)=>{Object.assign(window,{__reportCopied:value});}}});
+  await page.addInitScript(clipboardMock);
+  // This app uses hash routes, so the already loaded document also needs the boundary mock.
+  await page.evaluate(clipboardMock);
+  await page.route("**/api/v1/mobile/chatgpt-manual/status",route=>route.fulfill({json:{ready:true,reason:null,saved_input:saved,selected_input:saved?.input_record_id ?? null,answers:[]}}));
+  await page.route("**/api/v1/mobile/chatgpt-manual/export",route=>{
+    expect(route.request().postDataJSON()).toMatchObject({personal_analysis_only:true,training_disabled:true,data_entitlement_confirmed:true});
+    writes++;saved=exported;return route.fulfill({json:exported});
+  });
+  if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
+  await page.goto("http://127.0.0.1:5196/#/today/chatgpt");
+  const create=page.getByRole("button",{name:"作成・コピー",exact:true});
+  await expect(create).toBeDisabled();
+  await page.getByRole("checkbox").check();
+  await create.click();
+  await expect(page.getByRole("textbox",{name:"ChatGPTへ渡す入力"})).toHaveValue(exported.prompt);
+  expect(await page.evaluate(()=>(window as unknown as {__reportCopied:string}).__reportCopied)).toBe(exported.prompt);
+  await expect(page.getByRole("textbox",{name:"ChatGPTの回答JSON"})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"検証・保存"})).toHaveCount(0);
+  await expect(page.getByRole("link",{name:"ChatGPTを開く",exact:true})).toHaveAttribute("href","https://chatgpt.com/");
+  expect(writes).toBe(1);
+  for(const font of [100,150]){
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+    await page.getByRole("link",{name:"ChatGPTを開く",exact:true}).scrollIntoViewIfNeeded();
+    if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`external-report-${font}.png`),await activeDevice!.screenshot());
+    else await page.screenshot({path:info.outputPath(`external-report-${font}.png`),fullPage:true});
+  }
+});
+
 test("adopted HTML typography and controls match the implementation",async({page},info)=>{
   test.skip(!!process.env.STOCKAI_ANDROID_UI,"Reference CSS comparison runs in Edge; Android runs all route and overlap checks.");
   test.setTimeout(180_000);

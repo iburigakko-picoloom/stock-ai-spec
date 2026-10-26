@@ -14,9 +14,9 @@ interface ConsultationView {
 
 function MarketOutlook({ findings }: { findings: ConsultationFindings | null }) {
   return <section className="today-market" aria-label="市場の見通し">
-    <div className="row spread"><b>市場の見通し</b><span className="today-caption">ChatGPT{findings ? "・保存済み" : "・未相談"}</span></div>
-    <p style={{margin:"9px 0",fontSize:".8125rem"}}>5日 <strong>{findings?.market_5d || "未確認"}</strong> ／ 20日 <strong>{findings?.market_20d || "未確認"}</strong></p>
-    <div className="today-caption">{findings ? `出典 ${findings.sources?.length ?? 0}件` : "相談結果を保存すると表示します"}</div><Link className="button ghost" to="/today/chatgpt/history">調査履歴 ›</Link>
+    <div className="row spread"><b>市場の見通し</b><span className="today-caption">ChatGPT{findings ? "・保存済み" : "で確認"}</span></div>
+    <p style={{margin:"9px 0",fontSize:".8125rem"}}>{findings ? <>5日 <strong>{findings.market_5d}</strong> ／ 20日 <strong>{findings.market_20d}</strong></> : "市場全体と保有株・候補の分析は、ChatGPTの会話で確認できます。"}</p>
+    {findings && <div className="today-caption">出典 {findings.sources?.length ?? 0}件</div>}<Link className="button ghost" to={findings ? "/today/chatgpt/history" : "/today/chatgpt"}>{findings ? "過去の調査履歴 ›" : "ChatGPTに相談 ↗"}</Link>
   </section>;
 }
 import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";

@@ -110,3 +110,11 @@ source `0d9c5dd5493a943030f3a7d0e265edcb76c2cf56` の同署名0.1.62-candidate/c
 Vitest197件、型/ESLint/build、配布用ブラウザー10ケース成功。追加の1ケースで全5タブのナビの寸法・余白・文字・アイコン・選択状態を比較し、320/390px・100/150%で一致を確認。実Android35/320dp・100/150%でも同じ比較と設定の実表示を確認。WebViewの小数を含む表示高さはvisualViewportで測定する。製品Python/nativeは前版と同一のため、それらの回帰証拠は0.1.62から再利用する。確認用APKと配布証拠は `.demo-artifacts/settings-nav-release/`。
 
 同署名0.1.63-candidate/code10063を検査し、専用read-only Android35で署名版の設定トップと新しい共通タブを実表示。インストール済みAPK hashも一致した。source `8b28b817b578c3224b72b33a42a823707823c4d7`、24,083,141 bytes、SHA256 `048674018955c9931567808c510bdbef9467654ee06b78e4803d999e25e8eb05`。[Drive確認用APK](https://drive.google.com/file/d/1k7SiEWiil6b8CgK_x0pfckErVQTaxUdu/view?usp=drivesdk)は既存非共有StockAI内へ保存し、親/size/shared=falseを再読込確認。本人データを使用せず、本人Xiaomi更新/実通信/CIは未確認。証拠は同フォルダーのverified.json・signed-launch.json・signed-settings-second.png・drive-upload-status.json。
+
+## D263 — 手動分析はChatGPTの会話で読む
+
+本人の最新指定により、採用モックの新規相談の回答JSON欄/検算/アプリ内分析の部分は使用しない。新規相談は利用条件確認・実入力の作成/コピー・ChatGPTを開く流れとし、回答は本文/表/出典でChatGPT側へ表示する。過去の相談記録と以前の回答を保存/検算する導線は保全する。既存の自動連携・数値提案・本人判断・約定を変更せず、新しい外部分析をアプリが検算/保存した提案と称さない。
+
+変更は共通の読み物用prompt関数、手動/ランキングのexport表示、ManualChatGPTPage/Rankings/Todayの案内。旧manual検証moduleは変更せず、入力検証・原本・バックアップと履歴を保持する。UI200件、Python104件、型/ESLint/Ruff/mypy77、配布用build成功。ブラウザー11ケースで29画面と新規相談コピー/外部リンク/回答欄なしを確認。証拠は `.demo-artifacts/chatgpt-readable-release/`。実際のChatGPTへは送信していない。
+
+Android35/320dpでも新しい相談の作成/コピー/外部リンクと回答欄なしの1ケースが成功し、100/150%で実キャプチャ。クリップボードとデータは試験境界を使い、製品APKには含めない。署名版のcold起動はnativeコード不変の前版証拠と区別する。

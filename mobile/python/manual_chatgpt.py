@@ -13,7 +13,11 @@ from stock_ai.operations.chatgpt_manual import (
     validate_saved_answer,
     verify_exchange_records,
 )
-from stock_ai.operations.consultation import consultation_context
+from stock_ai.operations.consultation import (
+    CHATGPT_REPORT_MODE,
+    consultation_context,
+    readable_consultation_prompt,
+)
 from stock_ai.operations.daily import PredictionSnapshot, content_id
 from stock_ai.operations.personal import PersonalComparison
 
@@ -237,11 +241,14 @@ def export(path, store, body, now):
 
 
 def _input_view(identity, package):
+    # Keep legacy package validation and exchange identities; only the reading view changes.
+    manual_prompt(package)
     return {
         "input_record_id": identity,
         "input_snapshot_id": package["input_snapshot_id"],
         "expires_at": package["expires_at"],
-        "prompt": manual_prompt(package),
+        "prompt": readable_consultation_prompt(package),
+        "response_mode": CHATGPT_REPORT_MODE,
     }
 
 

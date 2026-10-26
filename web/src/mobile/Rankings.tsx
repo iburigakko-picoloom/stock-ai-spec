@@ -9,7 +9,7 @@ import { ReferenceAnalysis } from "./ReferenceAnalysis";
 interface Ranked { symbol: string; companyName?: string; modelRank: number; score: number | null; expectedReturn: number | null }
 interface Answer { order: { symbol: string; reason: string }[]; savedAt: string; researchId?: string; research?: ConsultationFindings }
 interface Ranking { id: string; generatedAt: string; asOf: string; priceDate: string | null; rows: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null; holdingSymbols?: string[]; metrics?: Record<string, { return5d: number | null; return20d: number | null; rank20d: number | null }> }
-interface Exported { id: string; rankingId?: string; prompt: string; expiresAt: string; canCopy?: boolean }
+interface Exported { id: string; rankingId?: string; prompt: string; expiresAt: string; canCopy?: boolean; responseMode?: string }
 
 export function Rankings() {
   const [horizon, setHorizon] = useState("5d");
@@ -27,6 +27,7 @@ function RankingBody({ horizon }: { horizon: string }) {
   const [source, setSource] = useState("model");
   const [heldOnly, setHeldOnly] = useState(false);
   const [consulting, setConsulting] = useState(false);
+  const [legacy,setLegacy]=useState(false);
   const [privateUse, setPrivateUse] = useState(false);
   const [entitled, setEntitled] = useState(false);
   const [prepared, setExported] = useState<Exported | null>(null);
@@ -65,27 +66,27 @@ function RankingBody({ horizon }: { horizon: string }) {
           <span className={`ranking-return ${horizon==="20d-value" ? "is-period" : ""}`}>{percent(data.metrics?.[row.symbol]?.return20d ?? (horizon !== "5d" ? row.expectedReturn : null))}</span>
         </Link>)}</div><p className="small muted">{data.priceDate ? `${data.priceDate} 終値 · ` : ""}{dateTime(data.generatedAt, true)} 作成</p>
       </div>
-      {horizon === "20d" && <button className="button button--secondary" disabled={loading || busy || !rows.length} onClick={() => setConsulting(!consulting)}>ChatGPTと相談</button>}
+      {horizon === "20d" && <><button className="button button--secondary" disabled={loading || busy || !rows.length} onClick={() => setConsulting(!consulting)}>ChatGPTと相談</button>{(data.savedInput || research || data.answer) && <button className="quiet-link" onClick={()=>{setLegacy(!legacy);setConsulting(true);}}>過去の相談記録</button>}</>}
     </>}
     {!loading && <ReferenceAnalysis hasSaved={!!data?.rows.length} disabled={busy} onSaved={() => { setExported(null); setAnswer(""); reload(); }} />}
-    {consulting && data && !error && <section className="section">
-      <h2>ランキングを相談する</h2><p>上位20銘柄＋全保有を、市場の5日・20日見通しと一緒に相談します。回答の保存後、最新の条件を確認して順位へ反映できます。</p>
+    {horizon === "20d" && consulting && data && !error && <section className="section">
+      <h2>ランキングを相談する</h2><p>上位20銘柄＋全保有を、市場の5日・20日見通しと一緒に相談します。相談文をコピーしてChatGPTへ貼り付け、分析はChatGPTの会話で読みます。アプリへの貼り戻しは不要です。</p>
       <label className="checkbox"><input type="checkbox" checked={privateUse} onChange={e => setPrivateUse(e.target.checked)} />本人用・非公開で使い、ChatGPTの学習利用をオフにしています</label>
       <label className="checkbox"><input type="checkbox" checked={entitled} onChange={e => setEntitled(e.target.checked)} />データの利用条件を確認しました</label>
       <button className="button button--primary" disabled={busy || loading || !privateUse || !entitled} onClick={() => void run(async () => {
         setExported(await apiPost<Exported>(`${path}/export`, { service: "manual_chatgpt", checked_at: new Date().toISOString(), personal_analysis_only: privateUse, training_disabled: privateUse, private_input: privateUse, private_output: privateUse, data_entitlement_confirmed: entitled }));
       })}>相談文を作る</button>
-      {exported && <>
+      {exported && (legacy || exported.responseMode==="chatgpt-readable-report-v1") && <>
         <textarea className="csv-input" aria-label="ChatGPTへの相談文" readOnly value={exported.prompt} />
         <button className="button button--secondary" disabled={busy || loading || exported.canCopy === false} onClick={() => void run(async () => { const current = await apiGet<Ranking>(path); if (current?.id !== (exported.rankingId ?? exported.id) || current.savedInput?.prompt !== exported.prompt || current.savedInput?.canCopy === false) throw new Error("ランキングか送信許可が更新されています。相談文を作り直してください。回答の保存は続けられます。"); await navigator.clipboard.writeText(exported.prompt); setMessage("コピーしました。ChatGPTに貼り付けて相談してください。"); })}>相談文をコピー</button>
         <a className="button button--secondary" href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPTを開く</a>
-        <label>回答JSON<textarea className="csv-input" value={answer} onChange={e => setAnswer(e.target.value)} /></label>
+        {legacy && <><label>回答JSON<textarea className="csv-input" value={answer} onChange={e => setAnswer(e.target.value)} /></label>
         <button className="button button--primary" disabled={busy || loading || !answer.trim()} onClick={() => void run(async () => {
           setSavedResearch(await apiPost<Answer>(`${path}/research`, { id: exported.id, answer })); reload(); setMessage("調査結果を保存しました。最新の条件で確認すると順位へ反映できます。");
-        })}>調査結果を保存</button>
+        })}>調査結果を保存</button></>}
       </>}
     </section>}
-    {horizon === "20d" && research?.researchId && <section className="section">
+    {legacy && horizon === "20d" && research?.researchId && <section className="section">
       <h2>保存した調査結果</h2>
       <p className="setting-footnote">保存 {dateTime(research.savedAt)} JST</p>
       {research.research && <ConsultationReport value={research.research} />}

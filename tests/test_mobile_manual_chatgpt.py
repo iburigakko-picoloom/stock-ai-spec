@@ -48,6 +48,28 @@ def answer_for(exported):
     )
 
 
+def test_new_prompt_is_for_reading_in_chatgpt_and_preserves_source_inputs(ready):
+    _, _, store, _, _ = ready
+    before = store.latest_portfolio().model_dump_json()
+    exported = export(ready)
+    assert exported["response_mode"] == "chatgpt-readable-report-v1"
+    prompt = exported["prompt"]
+    assert "日本語のMarkdown本文・表・出典リンク" in prompt
+    assert "アプリへの回答の貼り戻しは行いません" in prompt
+    assert "回答JSON・機械取込用schema" in prompt
+    assert "出力しないでください" in prompt
+    assert "回答は次のschemaのJSONだけ" not in prompt
+    assert "chatgpt-target-shares-v1" not in prompt
+    assert "全保有" in prompt and "5営業日・20営業日" in prompt
+    assert "実約定による損益の再現ではありません" in prompt
+    assert "未約定売却代金" in prompt and "元の数値予測" in prompt
+    package = json.loads(prompt.split("\n入力:\n")[1])
+    assert package["input_snapshot_id"] == exported["input_snapshot_id"]
+    assert package["consultation"]["securities"]
+    assert store.latest_portfolio().model_dump_json() == before
+    store.verify_integrity()
+
+
 def test_manual_exchange_restores_exact_json_and_never_updates_actual_state(ready):
     device, path, store, _, _ = ready
     exported = export(ready)
