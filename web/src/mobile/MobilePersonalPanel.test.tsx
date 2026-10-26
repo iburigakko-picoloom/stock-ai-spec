@@ -116,7 +116,7 @@ test("saved exact policy stays selected and changing search requires renewed rev
   const saved: SavedSettings = { revision_id: "b".repeat(64), saved_at: profile.saved_at, settings: draft };
   vi.mocked(apiGet).mockImplementation(async path => path.endsWith("readiness") ? ready : { saved, current_portfolio: profile });
   render(<MobilePersonalPanel profile={profile} disabled={false} />);
-  const select = await screen.findByRole("combobox", { name: "株数の探索方法" });
+  const select = await screen.findByRole("combobox", { name: "探索方法" });
   expect(select).toHaveValue("daily-decision-engine-v2");
   const review = screen.getByRole("checkbox", { name: "探索方法を含む研究用の比較条件を確認しました" });
   expect(review).toBeChecked();

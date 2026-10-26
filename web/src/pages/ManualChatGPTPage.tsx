@@ -19,6 +19,7 @@ interface Exported { input_record_id: string; input_snapshot_id: string; expires
 export function ManualChatGPTPage(): ReactNode {
   const historyOnly = useLocation().pathname.endsWith("/history");
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [historyKind,setHistoryKind]=useState("research");
   const [status, setStatus] = useState<ManualStatus | null>(null);
   const [privateUse, setPrivateUse] = useState(false);
   const [entitled, setEntitled] = useState(false);
@@ -31,6 +32,8 @@ export function ManualChatGPTPage(): ReactNode {
   const [findings, setFindings] = useState<ConsultationFindings | null>(null);
   const [error, setError] = useState("");
   const android = isAndroid();
+  const researchHistory=status?.research ?? [];
+  const showResearch=researchHistory.length>0 && (historyKind === "research" || !status?.answers.length);
   useEffect(() => {
     if (!android) return;
     let active = true;
@@ -93,9 +96,8 @@ export function ManualChatGPTPage(): ReactNode {
     finally { setBusy(false); }
   }
   return <div className="page manual-chatgpt">
-    <Link className="back-link" to="/today">← 今日へ戻る</Link>
-    <PageHeader eyebrow="本人用の判断支援" title={historyOnly ? "相談履歴" : "ChatGPTと相談"} />
-    <Link className="button button--secondary" to={historyOnly ? "/today/chatgpt" : "/today/chatgpt/history"}>{historyOnly ? "新しい相談" : "相談履歴"}</Link>
+    <PageHeader title={historyOnly ? "相談履歴" : "ChatGPTと相談"} backTo="/today" />
+    {historyOnly && <Link className="quiet-link" to="/today/chatgpt">新しい相談</Link>}
     <div hidden={historyOnly}>
     <p className="explain">上位20銘柄と全保有を渡して相談します。モデル・推論設定はChatGPT側で選びます。回答は提案として保存します。</p>
     {!android ? <StatePanel title="Androidアプリで利用できます" detail="端末に保存した最新の原予測・口座・設定を使います。" />
@@ -103,13 +105,14 @@ export function ManualChatGPTPage(): ReactNode {
       : <>
         {!status.ready && <StatePanel title="最新条件の照合が必要です" detail={status.reason ?? "保存済みの相談への回答は受け取れます。"} />}
         <section className="section">
-          <h2>1. 入力を渡す</h2>
+          <h2>利用条件</h2>
           <label className="checkbox"><input type="checkbox" checked={privateUse} disabled={busy}
             onChange={event => setPrivateUse(event.target.checked)} />本人の分析だけに使い、学習利用をオフ、会話と結果を非公開にしています</label>
           <label className="checkbox"><input type="checkbox" checked={entitled} disabled={busy}
             onChange={event => setEntitled(event.target.checked)} />使用するデータが現在のJ-Quants契約・取得範囲で利用できると確認しました</label>
           <p className="setting-footnote">共有link・結果の配信や公開・学習利用につながるfeedback送信は行わないでください。
             <a href="https://jpx-jquants.com/ja/help/usage" target="_blank" rel="noreferrer">J-Quantsの利用条件</a></p>
+        </section><section className="section"><h2>相談文</h2>
           <div className="button-stack"><button className="button button--primary" disabled={busy || !status.ready || !privateUse || !entitled}
             onClick={() => void prepare()}>プロンプトを作成</button></div>
           {status.saved_input_reason && <p className="setting-footnote">{status.saved_input_reason}</p>}
@@ -120,7 +123,7 @@ export function ManualChatGPTPage(): ReactNode {
           </>}
         </section>
         <section className="section">
-          <h2>2. 回答を確認する</h2>
+          <h2>回答JSON</h2>
           <textarea className="csv-input" aria-label="ChatGPTの回答JSON" value={answer} disabled={busy}
             onChange={event => { setAnswer(event.target.value); setReview(null); }} placeholder="回答JSONをここに貼り付け" />
           <div className="button-stack"><button className="button button--primary" disabled={busy || !answer.trim() || !(exported || status.selected_input)}
@@ -153,10 +156,12 @@ export function ManualChatGPTPage(): ReactNode {
       <p>実注文はご本人が行い、実際の約定を確認した後に記録してください。</p>
     </section>}
     </div>
-    {historyOnly && !status?.answers.length && <StatePanel title={status ? "保存した相談はまだありません" : "相談履歴を確認しています"} detail={error || undefined} />}
-    {historyOnly && !!status?.answers.length && <section className="section"><h3 className="plain-section-title">保存した相談履歴（直近20件）</h3>
-      <label>保存日時<select className="history-select" value={historyIndex} onChange={e => setHistoryIndex(Number(e.target.value))}>{status.answers.map((item, i) => <option key={i} value={i}>{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`}</option>)}</select></label>
-      {status.answers.slice(historyIndex, historyIndex + 1).map((item, i) => <section key={i}>
+    {!historyOnly && <Link className="quiet-link" to="/today/chatgpt/history">相談履歴</Link>}
+    {historyOnly && !status?.answers.length && !researchHistory.length && <StatePanel title={status ? "保存した相談はまだありません" : "相談履歴を確認しています"} detail={error || undefined} />}
+    {historyOnly && status && (!!status.answers.length || !!researchHistory.length) && <section className="section"><h3 className="plain-section-title">保存した相談</h3>
+      <label>保存日時<select className="history-select" value={`${showResearch ? "research" : "answer"}:${historyIndex}`} onChange={e => {const [kind,index]=e.target.value.split(":");setHistoryKind(kind);setHistoryIndex(Number(index));}}>{researchHistory.map((item,i)=><option key={item.record_id} value={`research:${i}`}>{dateTime(item.saved_at,true)} · 調査結果</option>)}{status.answers.map((item, i) => <option key={`answer-${i}`} value={`answer:${i}`}>{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`} · 検算済み</option>)}</select></label>
+      {showResearch && researchHistory.slice(historyIndex,historyIndex+1).map(item=><section key={item.record_id}><h2>相談結果</h2><p className="setting-footnote">保存 {dateTime(item.saved_at,true)} · 原予測・実保有とは別の記録です。</p>{item.answer?.research ? <ConsultationReport value={item.answer.research} /> : <pre className="research-text">{item.original_json}</pre>}</section>)}
+      {!showResearch && status.answers.slice(historyIndex, historyIndex + 1).map((item, i) => <section key={i}>
         <h3 className="plain-section-title">{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`}</h3>
         <p>保存時の提案です。現在の保有状態ではありません。</p>
         {item.lines.map(line => <p key={`${line.symbol}-${line.account}`}>

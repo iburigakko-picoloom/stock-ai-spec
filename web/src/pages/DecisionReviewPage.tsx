@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError, apiGet, apiPost } from "../api";
-import { ActionBadge, DecisionSteps, PageHeader, StatePanel, yen } from "../components";
+import { ActionBadge, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { DecisionReview, TodayResponse } from "../types";
 
@@ -81,12 +81,10 @@ export function DecisionReviewPage(): ReactNode {
 
   return (
     <div className="page page--with-sticky">
-      <Link className="back-link" to="/today">← 今日へ戻る</Link>
-      <PageHeader eyebrow="AI提案とは別に保存" title="判断を確認" />
-      <DecisionSteps current="review" />
+      <PageHeader title="判断を確認" backTo="/today" />
       {savedKey === targetKey && <section role="status" className="save-result"><h2>判断を保存しました</h2><p>保有・現金は変更していません。</p><Link className="button button--secondary" to="/today/executions">実行結果を記録</Link></section>}
-      <section className="notice-box"><strong>これは注文画面ではありません</strong><span>証券会社での操作はご自身で行い、結果を後から記録します。</span></section>
-      <section className="section review-list">
+      <p className="setting-footnote">数値モデルの提案をもとに、銘柄ごとの判断を保存します。</p>
+      <section className="mock-card review-list"><h2>銘柄ごとの判断</h2>
         {proposal.lines.filter((line) => line.action !== "SKIP").map((line) => (
           <article className="review-row" key={line.lineId}>
             <div className="review-row__title">
@@ -110,7 +108,7 @@ export function DecisionReviewPage(): ReactNode {
           </article>
         ))}
       </section>
-      <section className="section summary-panel">
+      <section className="mock-card summary-panel">
         <div className="section-title"><div><span>RECALCULATED</span><h2>判断後の見込み</h2></div></div>
         {review ? (
           <>
@@ -139,7 +137,7 @@ export function DecisionReviewPage(): ReactNode {
         <button className="button button--primary" disabled={saving || savedKey === targetKey || !review || review.constraint_violations.length > 0} onClick={() => void save()}>
           {saving ? "保存中…" : savedKey === targetKey ? "判断を保存済み" : "判断を保存"}
         </button>
-        <Link className="text-link" to="/today">提案へ戻る</Link>
+        <div className="link-row"><Link className="text-link" to="/today/executions">取引を記録</Link><Link className="text-link" to="/today">提案へ戻る</Link></div>
       </div>
     </div>
   );

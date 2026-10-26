@@ -1,13 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader } from "../components";
 import { CurrentAccountPanel } from "../mobile/CurrentAccountPanel";
 import type { LocalPortfolio, SavedPortfolio } from "../mobile/personal";
 
 export function HoldingsPage(): ReactNode {
-  return <div className="page account-settings-screen"><Link className="back-link" to="/">← ホームへ</Link><PageHeader title="実保有" />
-    <section className="section"><CurrentAccountPanel mode="holdings" fallback={<InitialHoldings />} /></section>
+  const [params]=useSearchParams();
+  const initial=params.has("initial");
+  return <div className="page account-settings-screen"><PageHeader title={initial ? "初回資産登録" : "実保有"} backTo="/assets" />
+    <section className="section"><CurrentAccountPanel mode="holdings" registration={initial} fallback={<InitialHoldings />} /></section>
     <Link className="button button--secondary" to="/today/executions">約定を記録</Link>
   </div>;
 }
@@ -36,6 +38,10 @@ function InitialHoldings(): ReactNode {
   }
   return <fieldset className="account-form" disabled={!loaded || busy}>
     <p className="setting-footnote">初回の保有を入力し、設定で初回残高を確定します。</p>
+    <h2>現金</h2>
+    {draft.accounts.length ? draft.accounts.map(item=><label key={item.id}>現金残高（円）{draft.accounts.length>1 && ` · ${item.account_type === "nisa" ? "NISA" : item.account_type === "taxable_general" ? "一般口座" : "特定口座"}`}<input inputMode="decimal" value={item.available_cash_yen ?? ""} onChange={e=>setDraft({...draft,accounts:draft.accounts.map(row=>row.id===item.id ? {...row,available_cash_yen:e.target.value || null} : row)})} /></label>) : <label>現金残高（円）<input inputMode="decimal" value="" onChange={e=>{const next=account("specified",draft);setDraft({...draft,accounts:next.accounts.map(row=>row.id===next.id ? {...row,available_cash_yen:e.target.value || null} : row)});}} /></label>}
+    <p className="setting-footnote">同じ現金を複数の口座区分へ重複入力しないでください。</p>
+    <h2>保有</h2>
     {draft.holdings.map((holding, index) => <div className="account-form-card" key={index}>
       <label>銘柄コード<input value={holding.symbol} onChange={e => setDraft({ ...draft, holdings: draft.holdings.map((x, i) => i === index ? { ...x, symbol: e.target.value.toUpperCase() } : x) })} /></label>
       <label>口座区分<select value={Object.entries(classifications).find(([, [kind, withholding]]) => draft.accounts.some(a => a.id === holding.account_id && a.account_type === kind && a.withholding_mode === withholding))?.[0] ?? ""} onChange={e => { const next = account(e.target.value as keyof typeof classifications, draft); setDraft({ ...draft, accounts: next.accounts, holdings: draft.holdings.map((x, i) => i === index ? { ...x, account_id: next.id } : x) }); }}><option value="" disabled>選んでください</option>{Object.entries(classifications).map(([key, value]) => <option key={key} value={key}>{value[2]}</option>)}</select></label>

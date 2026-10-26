@@ -210,8 +210,10 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter: { taxable: "100000", nisa: "25000" }, netImprovement: "-200" } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await screen.findByText("125,000円");
-    expect(screen.getByText("fixture-model").closest("section")).toBeVisible();
-    await userEvent.click(screen.getByText("口座別の現金・推定改善を確認"));
+    expect(screen.getByRole("link", {name:"提案の計算詳細"})).toHaveAttribute("href","/today/details");
+    cleanup();
+    render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
+    await screen.findByText("fixture-model");
     expect(screen.getByText("25,000円")).toBeVisible();
     expect(screen.getByText("-200円")).toHaveClass("text-negative");
   });
@@ -222,9 +224,10 @@ describe("Goal 5 PWA", () => {
       estimatedCashAfter: { bucket: "98000" },
     } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    const details = await screen.findByText("口座別の現金・推定改善を確認");
-    expect(details.closest("section")).toBeVisible();
-    await userEvent.click(details);
+    expect(await screen.findByRole("link",{name:"提案の計算詳細"})).toHaveAttribute("href","/today/details");
+    cleanup();
+    render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
+    const details = await screen.findByText("口座別の現金・推定改善");
     expect(within(details.closest("section")!).getByText("2,000円")).toBeVisible();
     expect(within(screen.getByText("推定税影響").parentElement!).getByText("0円"))
       .toBeInTheDocument();
@@ -233,14 +236,14 @@ describe("Goal 5 PWA", () => {
   it("does not display a zero return before the first Paper observation", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ observations: 0, proposal_return: 0 })));
     render(<MemoryRouter><ValidationPage /></MemoryRouter>);
-    await screen.findByText("Paperの観測はまだありません");
+    await screen.findByText(/Paperの観測はまだありません/);
     expect(screen.queryByText("0.00%")).not.toBeInTheDocument();
   });
 
   it.each([{}, { bucket: " " }, { bucket: "invalid" }])("does not turn unknown cash into a zero balance: %j", async (estimatedCashAfter) => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    const label = await screen.findByText("取引後の推定現金（合計）");
+    const label = await screen.findByText("取引後の推定現金");
     expect(label.parentElement?.querySelector("strong")?.textContent).toBe("—");
   });
 
@@ -290,15 +293,15 @@ describe("Goal 5 PWA", () => {
     }
   });
 
-  it("shows SELL before BUY, folds HOLD, and excludes SKIP from Today", async () => {
+  it("shows SELL before BUY, retains HOLD and excludes SKIP from Today", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(today)));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await screen.findByText("売却会社");
     const content = document.body.textContent || "";
     expect(content.indexOf("売却会社")).toBeLessThan(content.indexOf("購入会社"));
-    expect(screen.getByText("HOLD 1件を確認")).toBeInTheDocument();
+    expect(screen.getByText("保有継続 1銘柄")).toBeInTheDocument();
     expect(screen.queryByText("見送会社")).not.toBeInTheDocument();
-    expect(screen.getByText("保存しても証券会社への注文は行われません")).toBeInTheDocument();
+    expect(screen.getByRole("link", {name:"判断を確認"})).toHaveAttribute("href","/today/review");
   });
 
   it("recalculates 100-share decisions and saves only to the manual-record API", async () => {
@@ -358,6 +361,7 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
     const company = await screen.findByText("購入会社");
+    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"), "buy-line");
     const card = company.closest("section");
     expect(card).not.toBeNull();
     const cardView = within(card as HTMLElement);
@@ -410,7 +414,9 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    await screen.findByText("購入会社");
+    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"),"buy-line");
+    const card = within(screen.getByText("購入会社").closest("section")!);
     await userEvent.clear(card.getByLabelText("平均約定単価"));
     await userEvent.type(card.getByLabelText("平均約定単価"), "1234");
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
@@ -443,7 +449,9 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", fetchMock);
     const uuid = vi.fn(() => "one-record"); vi.stubGlobal("crypto", { randomUUID: uuid });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    await screen.findByText("購入会社");
+    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"),"buy-line");
+    const card = within(screen.getByText("購入会社").closest("section")!);
     const button = card.getByRole("button", { name: "この結果を記録" });
     await userEvent.click(button);
     expect(button).toBeDisabled();
@@ -480,7 +488,9 @@ describe("Goal 5 PWA", () => {
       throw Error(url);
     }));
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    await screen.findByText("購入会社");
+    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"),"buy-line");
+    const card = within(screen.getByText("購入会社").closest("section")!);
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
     await screen.findByText(/約定は記録済みです/);
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
@@ -568,6 +578,6 @@ describe("Goal 5 PWA", () => {
     await userEvent.click(screen.getByRole("tab", { name: "nisa" }));
     expect(screen.getByText("実保有 / nisa")).toBeInTheDocument();
     expect(screen.getAllByText("100株").length).toBeGreaterThan(0);
-    expect(screen.getByText("800円")).toBeInTheDocument();
+    expect(screen.getByText(/加重平均取得 800円/)).toBeInTheDocument();
   });
 });

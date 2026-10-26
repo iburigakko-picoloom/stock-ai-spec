@@ -1,9 +1,25 @@
-import { type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { type ReactNode, useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, SavedAnalysis, TodayResponse } from "../types";
-import { DailyPanel } from "../mobile/DailyPanel";
+import { DailyPanel, DailyStatusLink } from "../mobile/DailyPanel";
+import { TabBar } from "../components";
+import { apiGet } from "../api";
+import type { ConsultationFindings } from "../ConsultationReport";
+
+interface ConsultationView {
+  lines: { symbol: string; account: string; current_shares: number; target_shares: number }[];
+  estimated_cost_yen: string; estimated_cash_after: Record<string,string>;
+}
+
+function MarketOutlook({ findings }: { findings: ConsultationFindings | null }) {
+  return <section className="today-market" aria-label="市場の見通し">
+    <div className="link-row"><strong>市場の見通し</strong><small>ChatGPT{findings ? "・保存済み" : "・未相談"}</small></div>
+    <p>5日 <strong>{findings?.market_5d || "未確認"}</strong> ／ 20日 <strong>{findings?.market_20d || "未確認"}</strong></p>
+    <div className="link-row"><small>{findings ? `出典 ${findings.sources?.length ?? 0}件` : "相談結果を保存すると表示します"}</small><Link className="quiet-link" to="/today/chatgpt/history">相談履歴 ›</Link></div>
+  </section>;
+}
 import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";
 import { isAndroid } from "../mobile/native";
 import { ReferenceAnalysis } from "../mobile/ReferenceAnalysis";
@@ -51,6 +67,17 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
 }
 
 export function TodayPage(): ReactNode {
+  const detailed = useLocation().pathname === "/today/details";
+  const [source, setSource] = useState("model");
+  const [findings, setFindings] = useState<ConsultationFindings | null>(null);
+  const [consultation, setConsultation] = useState<ConsultationView | null>(null);
+  useEffect(() => {
+    if (!isAndroid()) return;
+    let active=true;
+    void apiGet<{research?: {research?: ConsultationFindings}}>("/api/v1/mobile/ranking/20d").then(value=>{if(active) setFindings(value.research?.research ?? null);}).catch(()=>{});
+    void apiGet<{answers: ConsultationView[]}>("/api/v1/mobile/chatgpt-manual/status").then(value=>{if(active) setConsultation(value.answers[0] ?? null);}).catch(()=>{});
+    return ()=>{active=false;};
+  }, []);
   const { data, error, loading, savedAt, reload } = useApiData<TodayResponse>("/api/v1/today");
   if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
   const previous = isAndroid() && (loading || !!savedAt);
@@ -63,68 +90,41 @@ export function TodayPage(): ReactNode {
   const cashAfter = cashValues.length > 0 && cashValues.every((value) => value.trim() !== "" && Number.isFinite(Number(value)))
     ? cashValues.reduce((sum, value) => sum + Number(value), 0) : null;
 
-  return (
-    <div className="page">
-      <PageHeader eyebrow={data.businessDate} title="今日" meta={proposal ? `更新 ${dateTime(proposal.generatedAt)} JST` : undefined} actions={<Link className="button button--secondary consultation-link" to={isAndroid() ? "/ranking" : "/today/chatgpt"}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 18 3 22l5-2a9 9 0 1 0-4-2Z" /></svg>ChatGPTと相談</Link>} />
-      {(proposal || data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY") && <RuntimeBanner mode={data.runtimeMode} />}
-      {previous && <p role="status">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
-      <DailyPanel />
-      {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? (
-        <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" />
-      ) : !proposal ? (
-        <>{((loading && !data.savedAnalysis) || !isAndroid()) && <StatePanel
-          tone={data.isStale ? "warning" : "neutral"}
-          title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"}
-          detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)}
-        />}{data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}{!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} />}{!loading && !data.savedAnalysis && <ProposalReadiness reason={data.blockingReason} />}{!isAndroid() && <Link className="button button--secondary" to="/settings?edit=market">データの更新状況を確認</Link>}</>
-      ) : (
-        <>
-          <section className="proposal-hero" aria-label="今日の提案概要">
-            <div><span>今日の変更</span><strong>{proposal.changeCount}<small>件</small></strong></div>
-            <span className="status-pill">{proposal.isResearchOnly ? "研究用の提案" : "提案を確認できます"}</span>
-          </section>
-          <section className="section">
-            <div className="section-title"><div><span>TODAY'S ACTIONS</span><h2>株数の変更</h2></div><small>現在 → 提案</small></div>
-            {visible && visible.length > 0 ? visible.map((line) => <ProposalRow key={line.lineId} line={line} />) : (
-              <StatePanel title="今日は株数変更なし" detail={proposal.noTradeReason || "HOLD比較後の純改善が基準に届きませんでした。"} />
-            )}
-            {holds.length > 0 && (
-              <section className="hold-section">
-                <h3 className="plain-section-title">HOLD {holds.length}件を確認</h3>
-                {holds.map((line) => <ProposalRow key={line.lineId} line={line} />)}
-              </section>
-            )}
-          </section>
-          <section className="section summary-panel">
-            <div className="section-title"><div><span>ESTIMATE</span><h2>提案サマリー</h2></div></div>
-            <div className="metric-grid metric-grid--2">
-              <Metric label="推定売却額" value={yen(proposal.estimatedSellValue)} />
-              <Metric label="推定購入額" value={yen(proposal.estimatedBuyValue)} />
-              <Metric label="推定取引コスト" value={yen(proposal.estimatedTransactionCost)} />
-              <Metric label="推定税影響" value={yen(proposal.estimatedTaxEffect)} />
-            </div>
-            <div className="summary-total"><span>取引後の推定現金（合計）</span><strong>{yen(cashAfter)}</strong></div>
-            <section className="metadata-details"><h3 className="plain-section-title">口座別の現金・推定改善を確認</h3>
-              <dl className="summary-list">
-                {Object.entries(proposal.estimatedCashAfter).map(([bucket, cash]) => <div key={bucket}><dt>{bucket}</dt><dd>{yen(cash)}</dd></div>)}
-                <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(proposal.estimatedTaxCashWithholding)}</dd></div>
-                <div><dt>何もしない場合に対する推定純改善</dt><dd className={Number(proposal.netImprovement) < 0 ? "text-negative" : undefined}>{yen(proposal.netImprovement)}</dd></div>
-              </dl>
-              <p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p>
-              <p className="explain">推定値です。将来の利益や実際の約定価格を保証しません。</p>
-            </section>
-            {!previous && <Link className="button button--primary summary-review-link" to="/today/review">判断を確認<span aria-hidden="true">›</span></Link>}
-            <p className="explain">保存しても証券会社への注文は行われません</p>
-          </section>
-          <section className="metadata-details proposal-metadata"><h3 className="plain-section-title">提案の基準時刻・モデル詳細</h3>
-            <dl className="summary-list">
-              <div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div>
-              <div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div>
-              <div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div>
-            </dl>
-          </section>
-        </>
-      )}
+  return <div className="page today-page">
+    <PageHeader title={detailed ? "提案の計算詳細" : "今日"} backTo={detailed ? "/today" : undefined} actions={!detailed && <DailyStatusLink />} />
+    {data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
+    {previous && <p role="status" className="setting-footnote">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
+    {!detailed && <MarketOutlook findings={findings} />}
+    {!detailed && <><h2>今日の提案</h2><TabBar label="提案元" options={[["model","数値モデル"],["chatgpt","ChatGPT"]]} value={source} onChange={setSource} panelId="today-source" /></>}
+    <div id="today-source" role="tabpanel" aria-labelledby={`today-source-${source}`}>
+    {source === "chatgpt" && !detailed ? <>
+      {consultation ? <section className="mock-card"><h2>保存したChatGPT提案</h2>{consultation.lines.map(line=><Link className="proposal-row" to={`/stocks/${line.symbol}`} state={{from:"/today"}} key={`${line.symbol}:${line.account}`}><span className="action">{line.target_shares>line.current_shares ? "購入" : line.target_shares<line.current_shares ? "売却" : "継続"}</span><div className="proposal-row__body"><strong>{line.symbol}</strong><span>{line.account}</span></div><div className="proposal-row__shares"><strong>{line.current_shares} → {line.target_shares}</strong><span>株・保存時の提案</span></div></Link>)}<p className="setting-footnote">最新の資金・保有条件で検算してから判断してください。</p><Link className="button button--secondary" to="/today/chatgpt">最新条件で検算</Link></section> : <StatePanel title="保存したChatGPT提案はありません" detail="相談への回答を保存・検算すると、数値モデルの提案と分けて確認できます。" />}
+    </> : !loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" /> : !proposal ? <>
+      {((loading && !data.savedAnalysis) || !isAndroid()) && <StatePanel tone={data.isStale ? "warning" : "neutral"} title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"} detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)} />}
+      {data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}
+      {!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} />}
+      {!loading && !data.savedAnalysis && <ProposalReadiness reason={data.blockingReason} />}
+      <Link className="quiet-link" to="/settings?edit=market">データの更新状況を確認</Link>
+      {detailed && <DailyPanel />}
+    </> : <>
+      {!detailed && <section className="mock-card" aria-label="株数の変更">
+        {visible && visible.length>0 ? visible.map(line=><ProposalRow key={line.lineId} line={line} />) : <StatePanel title="今日は株数変更なし" detail={proposal.noTradeReason || "HOLD比較後の純改善が基準に届きませんでした。"} />}
+        {holds.length>0 && <section className="hold-section"><h3>保有継続 {holds.length}銘柄</h3>{holds.map(line=><ProposalRow key={line.lineId} line={line} />)}</section>}
+      </section>}
+      <section className={detailed ? "section" : "mock-card today-summary"} aria-label="提案サマリー"><h2>提案サマリー</h2>
+        <div className="metric-grid metric-grid--2"><Metric label="推定購入額" value={yen(proposal.estimatedBuyValue)} /><Metric label="推定売却額" value={yen(proposal.estimatedSellValue)} /></div>
+        <div className="summary-total"><span>取引後の推定現金</span><strong>{yen(cashAfter)}</strong></div>
+        <p className="setting-footnote">費用 {yen(proposal.estimatedTransactionCost)} · 税 {yen(proposal.estimatedTaxEffect)}（推定） · {dateTime(proposal.asOf)} JST{proposal.isResearchOnly && " · 研究用"}</p>
+      </section>
+      {!detailed && !previous && <Link className="button button--primary" to="/today/review">判断を確認</Link>}
+      {detailed && <><section className="section"><h2>口座別の現金・推定改善</h2><dl className="summary-list">
+        {Object.entries(proposal.estimatedCashAfter).map(([bucket,cash])=><div key={bucket}><dt>{bucket}</dt><dd>{yen(cash)}</dd></div>)}
+        <div><dt>推定取引コスト</dt><dd>{yen(proposal.estimatedTransactionCost)}</dd></div><div><dt>推定税影響</dt><dd>{yen(proposal.estimatedTaxEffect)}</dd></div>
+        <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(proposal.estimatedTaxCashWithholding)}</dd></div><div><dt>何もしない場合に対する推定純改善</dt><dd className={Number(proposal.netImprovement)<0 ? "text-negative" : undefined}>{yen(proposal.netImprovement)}</dd></div>
+      </dl><p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p></section>
+      <section className="section"><h2>提案の基準時刻・モデル詳細</h2><dl className="summary-list"><div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div><div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div><div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div></dl></section></>}
+    </>}
     </div>
-  );
+    {!detailed && <><div className="two-actions"><Link className="button button--secondary" to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link className="button button--secondary" to="/today/executions">取引を記録 ＋</Link></div><div className="link-row"><Link className="quiet-link" to="/today/chatgpt/history">相談履歴を見る</Link><Link className="quiet-link" to="/today/details">提案の計算詳細</Link></div></>}
+  </div>;
 }

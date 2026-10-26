@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAndroid, StockAI, type DailyStatus } from "./native";
 import { AnalysisProgress } from "./AnalysisProgress";
+import { Link } from "react-router-dom";
+
+export function DailyStatusLink() {
+  const { status, message } = useDailyAutomation();
+  if (!isAndroid()) return null;
+  const complete = status && ["numerical_saved", "research_complete", "consultation_ready"].includes(status.state);
+  return <Link className="header-status" to="/settings?edit=daily">{message ? "更新を確認" : complete ? "更新済み" : status ? labels[status.state]?.split("・")[0] ?? "更新を確認" : "更新を確認"} ›</Link>;
+}
 
 const labels: Record<string, string> = {
   idle: "未開始", queued: "開始待ち", history: "履歴を取得しています", membership: "当日の銘柄一覧を取得しています",
@@ -74,8 +82,8 @@ export function DailyPanel(): ReactNode {
   return <><DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />{daily.status?.state !== "calculating" && <AnalysisProgress />}</>;
 }
 
-export function DailyControls({ status, busy, message, onChange }: {
-  status: DailyStatus | null; busy: boolean; message: string; onChange: (start: boolean) => void;
+export function DailyControls({ status, busy, message, onChange, explanations=true }: {
+  status: DailyStatus | null; busy: boolean; message: string; onChange: (start: boolean) => void; explanations?:boolean;
 }): ReactNode {
   const delayed = status?.state === "waiting_cutoff" && status.day && Date.now() >= Date.parse(`${status.day}T11:30:00+09:00`);
   const stage = status && status.enabled && status.state !== "calculating" ? stages[status.state] : undefined;
@@ -95,11 +103,11 @@ export function DailyControls({ status, busy, message, onChange }: {
     </div>
     {message && <p role="alert">{message}</p>}
     {status && !status.notificationsEnabled && <p>通知はオフです。計算結果はアプリ内に保存します。</p>}
-    <section><h3 className="plain-section-title">取得と実行時刻について</h3>
+    {explanations ? <section><h3 className="plain-section-title">取得と実行時刻について</h3>
       <p>口座・保有・初回台帳とモデル一式を確認し、APIキーを保存してから開始します。初期履歴を取得し、以後は毎営業日の差分と予測・株数の保存へ進みます。モバイル回線を使用します。</p>
       <p>Androidの省電力や通信状態で実行が遅れることがあります。11:30を過ぎた受領を締切内へ戻しません。停止・再起動後も保存済みの続きから再開します。Androidの「強制停止」後はアプリを開いてください。</p>
       <p>ChatGPT連携とモデル設定がある場合は、数値上位20銘柄と全保有を調査します。中断・上限・認証切れは未完了として保存し、調査画面で確認できます。</p>
       {status?.updatedAt && <p>状態の記録：{new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "short", timeStyle: "medium" }).format(new Date(status.updatedAt))} JST</p>}
-    </section>
+    </section> : <Link className="quiet-link" to="/settings/logs">処理状況・実行記録 ›</Link>}
   </section>;
 }

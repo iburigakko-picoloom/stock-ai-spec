@@ -40,10 +40,8 @@ test("earlier judgments remain accessible in history after a new revision", () =
   const nextContext = { ...context, revision: 2, research_as_of: "2026-10-16T12:00:00+09:00" };
   const latest: ResearchRunView = { run: { run_id: "new", context: nextContext }, passes: [], attempts: [], record: null };
   render(<MemoryRouter><CompanyResearchPanel symbol="A" forecast={forecast} runs={[earlier, latest]} records={[record]} onChanged={vi.fn()} /></MemoryRouter>);
-  fireEvent.click(screen.getByText("調査履歴・再調査"));
-  const earlierSummary = screen.getByText(/第1回/);
-  fireEvent.click(earlierSummary);
-  const history = earlierSummary.closest("section")!;
+  fireEvent.change(screen.getByLabelText("調査日時"),{target:{value:"old"}});
+  const history = screen.getByText("調査履歴・再調査").closest("section")!;
   expect(within(history).getByText(first.text)).toBeVisible();
   expect(within(history).getByText(second.text)).toBeVisible();
 });

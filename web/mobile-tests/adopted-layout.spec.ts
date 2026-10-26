@@ -28,7 +28,7 @@ test.beforeEach(async ({ page }) => {
       CapacitorCustomPlatform: { name: "android" },
       Capacitor: {
         PluginHeaders: [
-          { name: "StockAI", methods: ["compute", "keyStatus", "checkUpdate", "installUpdate", "dailyStatus", "saveApiKey", "clearApiKey", "stopDaily", "startDaily", "requestDailyNotifications", "analysisStatus", "readSavedView"].map(name => ({ name, rtype: "promise" })) },
+          { name: "StockAI", methods: ["appInfo", "compute", "keyStatus", "checkUpdate", "installUpdate", "dailyStatus", "saveApiKey", "clearApiKey", "stopDaily", "startDaily", "requestDailyNotifications", "analysisStatus", "readSavedView"].map(name => ({ name, rtype: "promise" })) },
           { name: "StockAIChatGPT", methods: [{ name: "getStatus", rtype: "promise" }] },
         ],
         nativePromise: async (plugin: string, method: string, options?: { method: string; path: string; body?: string }) => {
@@ -36,6 +36,7 @@ test.beforeEach(async ({ page }) => {
           if (method === "compute") return { status: 200, body: await (await fetch(options!.path, {
             method: options!.method, headers: { "Content-Type": "application/json" }, body: options!.method === "POST" ? options!.body : undefined,
           })).json() };
+          if (method === "appInfo") return {applicationId:"jp.stockai.app",versionName:"test-build",versionCode:0};
           if (method === "analysisStatus") return {state:"idle"};
           if (method === "readSavedView") return {available:false};
           if (method === "keyStatus") return { configured: localStorage.getItem("settingsTestKey") !== "missing" };
@@ -94,14 +95,14 @@ test.beforeEach(async ({ page }) => {
 
 const screens = [
   ["home", "/", "ホーム"], ["today", "/today", "今日"], ["ranking", "/ranking", "ランキング"], ["review", "/validation", "検証"], ["settings", "/settings", "設定"],
-  ["detail", "/stocks/1234", "画面試験株式会社"], ["asset-manage", "/assets", "資産管理"], ["asset-register", "/holdings", "実保有"],
+  ["detail", "/stocks/1234", "銘柄詳細"], ["asset-manage", "/assets", "資産管理"], ["asset-register", "/holdings?initial=1", "初回資産登録"],
   ["cash-change", "/assets/cash", "現金残高の変更"], ["holding-correction", "/holdings", "実保有"], ["correction-history", "/assets/history", "残高・修正履歴"],
   ["trade", "/today/executions", "実行結果を記録"], ["trade-history", "/transactions", "取引履歴"], ["decision", "/today/review", "判断を確認"],
   ["consultation", "/today/chatgpt", "ChatGPTと相談"], ["consultation-history", "/today/chatgpt/history", "相談履歴"],
   ["conditions-settings", "/settings?edit=conditions", "運用条件"], ["account-settings", "/settings?edit=taxes", "口座・税・手数料"],
-  ["data-update", "/settings?edit=daily", "自動更新・通知"], ["chatgpt-settings", "/settings?edit=chatgpt", "ChatGPT"],
+  ["data-update", "/settings?edit=daily", "データ更新"], ["chatgpt-settings", "/settings?edit=chatgpt", "ChatGPT"],
   ["backup", "/settings?edit=backup", "バックアップ・復元"], ["app-info", "/settings?edit=about", "アプリ情報・詳細"],
-  ["model-management", "/settings?edit=model", "予測期間・モデル"], ["data-repair", "/settings?edit=repair", "市場データの修復"],
+  ["model-management", "/settings?edit=model", "モデル管理"], ["data-repair", "/settings?edit=repair", "市場データの修復"],
   ["calculation-method", "/settings?edit=method", "計算方式"], ["csv-import", "/settings/csv", "CSV取り込み"], ["process-log", "/settings/logs", "処理状況・実行記録"],
   ["performance-analysis", "/validation/details", "詳細分析"], ["research-history", "/stocks/1234/research", "調査履歴"],
 ];
@@ -143,4 +144,35 @@ test("ranking detail returns with model, filter and scroll intact", async ({page
   await expect(page.getByRole("searchbox")).toHaveValue("画面試験");
   await expect(page.getByRole("tab",{name:"20日・値予測",exact:true})).toHaveAttribute("aria-selected","true");
   await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeGreaterThan(y-5);
+});
+
+test("returning to a settings editor preserves an unsaved draft", async ({page})=>{
+  await page.goto("http://127.0.0.1:5196/#/settings?edit=capital");
+  const input=page.getByLabel("投資上限（円・未定は空欄）");
+  await expect(input).toBeEnabled();
+  await input.fill("730000");
+  await page.getByRole("navigation",{name:"メインナビゲーション"}).getByRole("link",{name:"ホーム",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"ホーム",exact:true,level:1})).toBeVisible();
+  await page.goBack();
+  await expect(input).toHaveValue("730000");
+});
+
+test("unregistered assets show the real initial cash and holding form", async ({page},info)=>{
+  await page.route("**/api/v1/mobile/personal/current",route=>route.fulfill({json:{ledger:null,profile:null,settings:null}}));
+  await page.goto("http://127.0.0.1:5196/#/holdings?initial=1");
+  await expect(page.getByLabel("現金残高（円）")).toBeVisible();
+  await page.getByRole("button",{name:"保有株を追加",exact:true}).click();
+  await expect(page.getByLabel("銘柄コード",{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(()=>window.innerWidth));
+  await page.screenshot({path:info.outputPath("initial-unregistered.png")});
+});
+
+test("execution history retains the selected record when returning from stock detail",async({page})=>{
+  await page.goto("http://127.0.0.1:5196/#/transactions");
+  await page.getByRole("button",{name:"記録を確認",exact:true}).first().click();
+  const selected=page.url();
+  await page.getByRole("link",{name:"銘柄詳細",exact:true}).click();
+  await page.getByRole("link",{name:"← 戻る",exact:true}).click();
+  await expect(page).toHaveURL(selected);
+  await expect(page.getByRole("button",{name:"記録を確認",exact:true}).first()).toHaveAttribute("aria-pressed","true");
 });

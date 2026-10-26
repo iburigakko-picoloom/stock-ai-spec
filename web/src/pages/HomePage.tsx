@@ -1,9 +1,9 @@
 import { type ReactNode, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ActionBadge, Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
+import { Metric, PageHeader, RuntimeBanner, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { HoldingView, HomeResponse } from "../types";
-import { DailyPanel } from "../mobile/DailyPanel";
+import { DailyPanel, DailyStatusLink } from "../mobile/DailyPanel";
 import { ProposalReadiness } from "../mobile/ProposalReadiness";
 import { isAndroid } from "../mobile/native";
 
@@ -33,74 +33,33 @@ export function HomePage(): ReactNode {
     );
   }
 
-  return (
-    <div className="page">
-      <PageHeader eyebrow="実際の状態" title="ホーム" meta={`更新 ${dateTime(data.portfolio.asOf)} JST`} />
-      {loading && <p role="status">{savedAt ? `${dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
-      <RuntimeBanner mode={data.runtimeMode} />
-      <DailyPanel />
-      {data.initialLedger && <p className="explain">初回登録時点の残高です。現金は設定、保有株は「実保有」から更新できます。{data.initialLedger.referencePriceDate && `株価は${data.initialLedger.referencePriceDate}の日足終値を参照しています。`}</p>}
-      <section className="hero-balance" aria-labelledby="assets-title">
-        <p id="assets-title">総資産</p>
-        <strong>{yen(data.portfolio.totalAssets)}</strong>
-        <div className="metric-grid metric-grid--2">
-          <Metric label="現金残高" value={yen(data.portfolio.cashValue)} />
-          <Metric label="株式" value={yen(data.portfolio.equityValue)} />
-        </div>
-        {data.portfolio.reservedCash !== undefined && <p className="explain">確保中 {yen(data.portfolio.reservedCash)} · 買付余力 {yen(data.portfolio.buyingPower ?? "0")}</p>}
-        <Link className="button button--primary home-proposal-link" to="/today">今日の提案を確認<span aria-hidden="true">›</span></Link>
-        <div className="compact-links"><Link className="button button--secondary" to="/assets">資産管理</Link><Link className="button button--secondary" to="/transactions">取引履歴</Link></div>
-      </section>
-
-      <section className="section">
-        <div className="section-title">
-          <div><span>ACTUAL HOLDINGS</span><h2>実保有</h2></div>
-          <small>約定を記録するまで保有は変わりません。</small>
-        </div>
-        {isAndroid() && <Link className="button button--secondary" to="/holdings">保有株を追加・編集</Link>}
-        {groups.length === 0 ? (
-          <StatePanel title="保有株はありません" detail="AI提案だけでは実保有は変わりません。" />
-        ) : (
-          <div className="holding-list">
-            {groups.map(([symbol, holdings]) => {
-              const marketValue = holdings.reduce((sum, item) => sum + Number(item.marketValue), 0);
-              const shares = holdings.reduce((sum, item) => sum + item.shares, 0);
-              if (holdings.length === 1) return <Link className="holding-summary-row" state={{ from: "/" }} to={`/stocks/${symbol}`} key={symbol}>
-                <div><strong>{holdings[0].companyName}</strong><span>{holdings[0].accountBucketId}</span>{holdings[0].latestAction && <ActionBadge action={holdings[0].latestAction} />}</div>
-                <strong>{shares.toLocaleString("ja-JP")}株</strong><b>{yen(marketValue)}</b><span className="row-chevron" aria-hidden="true">›</span>
-              </Link>;
-              return (
-                <section className="holding-group" key={symbol}>
-                  <h3 className="plain-section-title">
-                    <div>
-                      <strong>{holdings[0].companyName}</strong>
-                      <span>{symbol} ・ 合計 {shares.toLocaleString("ja-JP")}株</span>
-                    </div>
-                    <b>{yen(marketValue)}</b>
-
-                  </h3>
-                  {holdings.map((holding) => (
-                    <Link className="holding-row" state={{ from: "/" }} to={`/stocks/${holding.symbol}`} key={holding.accountBucketId}>
-                      <div>
-                        <span>{holding.accountBucketId}</span>
-                        <strong>{holding.shares.toLocaleString("ja-JP")}株</strong>
-                      </div>
-                      <div className="holding-row__right">
-                        <span>{yen(holding.marketValue)}</span>
-                        {holding.latestAction && <ActionBadge action={holding.latestAction} />}
-                      </div>
-                    </Link>
-                  ))}
-                </section>
-              );
-            })}
-          </div>
-        )}
-      </section>
-      <section className="metadata-details">
-        <h3 className="plain-section-title">実状態を正本にしています</h3>
-        <p className="explain">実約定を記録するまで、提案や保存済み判断は保有に反映されません。</p>
-      </section>
-    </div>
-  );
+  return <div className="page home-page">
+    <PageHeader title="ホーム" actions={<DailyStatusLink />} />
+    {loading && <p role="status" className="setting-footnote">{savedAt ? `${dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
+    {data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
+    <p className="home-caption">実際の資産</p>
+    <section className="mock-card" aria-label="資産残高">
+      <div className="home-assets-total"><span>総資産</span><strong>{yen(data.portfolio.totalAssets)}</strong></div>
+      <div className="home-assets-breakdown"><Metric label="株式" value={yen(data.portfolio.equityValue)} /><Metric label="現金" value={yen(data.portfolio.cashValue)} /></div>
+      <small>{data.initialLedger?.referencePriceDate ? `株価：${data.initialLedger.referencePriceDate} 終値` : `残高：${dateTime(data.portfolio.asOf, true)} JST`}</small>
+      <div className="home-assets-cash"><div><span>現金総額</span><b>{yen(data.portfolio.cashValue)}</b></div>
+        {data.portfolio.reservedCash !== undefined && <div><span>確保中</span><b>{yen(data.portfolio.reservedCash)}</b></div>}
+        {data.portfolio.buyingPower !== undefined && <div><span>運用可能</span><b>{yen(data.portfolio.buyingPower)}</b></div>}
+      </div>
+    </section>
+    <div className="home-held-heading"><h2>保有株 <small>{groups.length}銘柄</small></h2><Link className="quiet-link" to="/assets">資産を管理 ›</Link></div>
+    <section className="mock-card" aria-label="実保有">
+      {groups.length === 0 ? <p className="setting-footnote">保有株はありません。</p> : groups.map(([symbol, holdings]) => {
+        const marketValue=holdings.reduce((sum,item)=>sum+Number(item.marketValue),0);
+        const shares=holdings.reduce((sum,item)=>sum+item.shares,0);
+        return <article className="home-held" key={symbol}>
+          <div className="home-held-title"><Link state={{from:"/"}} to={`/stocks/${symbol}`}><small>{symbol}</small><strong>{holdings[0].companyName} ›</strong></Link>
+            <div className="home-held-amount">{yen(marketValue)}<small>{shares.toLocaleString("ja-JP")}株</small></div></div>
+          {holdings.map(holding=><div className="home-held-account" key={holding.accountBucketId}><span>{holding.accountBucketId}{holdings.length>1 && ` · ${holding.shares}株`}</span>{holdings.length>1 && <span>{yen(holding.marketValue)}</span>}</div>)}
+        </article>;
+      })}
+    </section>
+    <Link className="button button--primary" to="/today/executions">＋ 取引を記録</Link>
+    <div className="link-row"><Link className="quiet-link" to="/transactions">取引履歴 ›</Link><Link className="quiet-link" to="/today">今日の提案を見る →</Link></div>
+  </div>;
 }

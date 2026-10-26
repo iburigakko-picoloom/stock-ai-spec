@@ -120,7 +120,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         accounts: profile.portfolio.accounts.map(x => draft.accounts.find(old => old.account_id === x.id) ?? blankAccount(x.id)),
       })}>最新の口座・保有に合わせて見直す</button></div>}
     <fieldset className="account-form" hidden={step === "balances"} disabled={blocked}>
-      <legend className={step !== "all" && !focused && !manualConditions ? "sr-only" : undefined}>現金・税金・費用の入力</legend>
+      <legend className={step !== "all" && !manualConditions ? "sr-only" : undefined}>現金・税金・費用の入力</legend>
       {step !== "all" && !focused && !manualConditions ? <SbiConditions profile={profile} draft={draft} change={change} onManual={() => setManualConditions(true)} currentLedger={!!readiness?.comparison.ledger_portfolio_id} /> : <>
       {step !== "all" && !focused && <button type="button" className="settings-back" onClick={() => setManualConditions(false)}>← かんたん設定へ</button>}
       <div hidden={focused} className="account-form-card"><h3>現金の扱い</h3>
@@ -153,15 +153,19 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         <Amount label="課税口座の想定税率（%）" value={draft.tax_assumptions.taxable_rate_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, taxable_rate_percent: next } })} />
         <Amount label="NISA枠の機会費用の仮定（%）" value={draft.tax_assumptions.nisa_opportunity_cost_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, nisa_opportunity_cost_percent: next } })} />
       </div>
-      <div hidden={step === "taxes"} className="account-form-card"><h3>比較条件</h3>
-      <section><h3 className="plain-section-title">研究用比較で使う条件</h3><p>20日予測で比較し、5日予測は参考とします。売買は100株単位、最大10銘柄、1銘柄10%・同一業種30%まで、現金10%以上。売買総額は資産の100%まで、1銘柄の注文は平均日次売買代金の5%までとします。</p><p>費用・推定税・下側リスク・不確実性を考慮し、現状維持から1,000円以上改善する案を比較します。下側リスク・不確実性は各1倍、追加の集中・下落確率・回転ペナルティと金額バッファーは0です。最大下落率の希望から条件を自動設定せず、損失額を保証しません。NISAの残り購入枠は売却で同日回復させません。</p></section>
-      <label>株数の探索方法<select value={draft.research_decision_policy} onChange={event => change({ ...draft,
+      <div hidden={step === "taxes"} className="account-form-card"><h3>株数探索</h3>
+
+      <label>探索方法<select value={draft.research_decision_policy} onChange={event => change({ ...draft,
         research_decision_policy: event.target.value as PersonalSettings["research_decision_policy"], research_conditions_reviewed: false,
       })}><option value="daily-decision-engine-v3-bounded">300社向け</option>
         <option value="daily-decision-engine-v2">全組合せ</option></select></label>
       <p>{draft.research_decision_policy === "daily-decision-engine-v3-bounded"
         ? "最良の組合せは保証しません。"
         : "計算上限を超える場合は停止します。"}</p>
+      <section className="comparison-conditions"><h3 className="plain-section-title">研究用比較で使う条件</h3>
+        <dl className="summary-list"><div><dt>予測期間</dt><dd>20日で比較・5日は参考</dd></div><div><dt>売買単位 / 最大保有</dt><dd>100株 / 10銘柄</dd></div><div><dt>銘柄 / 業種上限</dt><dd>10% / 30%</dd></div><div><dt>最低現金 / 売買総額上限</dt><dd>資産の10% / 100%</dd></div><div><dt>注文の流動性上限</dt><dd>平均日次売買代金の5%</dd></div><div><dt>現状維持からの改善</dt><dd>1,000円以上</dd></div><div><dt>下側リスク / 不確実性</dt><dd>各1倍</dd></div><div><dt>追加ペナルティ・金額バッファー</dt><dd>0</dd></div></dl>
+        <p className="setting-footnote">費用・推定税を含めて比較します。許容下落率から条件を自動設定せず、損失額を保証しません。NISA枠は売却で同日回復させません。</p>
+      </section>
       <label><input type="checkbox" checked={draft.research_conditions_reviewed} onChange={event => change({ ...draft, research_conditions_reviewed: event.target.checked })} />探索方法を含む研究用の比較条件を確認しました</label>
       </div>
       </>}

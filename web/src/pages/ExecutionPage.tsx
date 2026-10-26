@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
-import { DecisionSteps, PageHeader, StatePanel, yen } from "../components";
+import { PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, TodayResponse } from "../types";
 
@@ -54,6 +54,7 @@ export function ExecutionPage(): ReactNode {
   const today = useApiData<TodayResponse>("/api/v1/today");
   const [decision, setDecision] = useState<SavedDecision | null>(null);
   const [loadingDecision, setLoadingDecision] = useState(true);
+  const [selectedLine,setSelectedLine]=useState("");
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -167,16 +168,15 @@ export function ExecutionPage(): ReactNode {
 
   return (
     <div className="page">
-      <Link className="back-link" to={params.get("symbol") ? `/stocks/${params.get("symbol")}` : "/today"} state={location.state}>← 戻る</Link>
-      <PageHeader eyebrow="証券会社での手動操作後" title="実行結果を記録" />
-      <DecisionSteps current="execution" />
+      <PageHeader title="実行結果を記録" backTo={params.get("symbol") ? `/stocks/${params.get("symbol")}` : "/today"} backState={location.state} />
+      {changed.length>1 && <label>記録する銘柄<select value={selectedLine || changed[0].lineId} onChange={e=>setSelectedLine(e.target.value)}>{changed.map(line=><option key={line.lineId} value={line.lineId}>{line.companyName} · {line.accountBucketId}</option>)}</select></label>}
       <section className="notice-box"><strong>実際の結果だけを入力</strong><span>提案株数ではなく、証券会社で確認した約定株数・単価を記録してください。</span></section>
       {changed.length === 0 ? <StatePanel title="取引しない判断です" /> : changed.map((line) => {
         const target = decisionTargets.get(line.lineId) ?? line.currentShares;
         const orderedShares = Math.abs(target - line.currentShares);
         const entry = entryFor(line);
         return (
-          <section className="execution-card" key={line.lineId}>
+          <section className="execution-card" key={line.lineId} hidden={line.lineId !== (changed.some(item=>item.lineId===selectedLine) ? selectedLine : changed[0]?.lineId)}>
             <div className="execution-card__title"><div><strong>{line.companyName}</strong><span>{line.accountBucketId}</span></div><b>{target > line.currentShares ? "BUY" : "SELL"} {orderedShares}株</b></div>
             <fieldset className="execution-fields" disabled={busy}>
             <label>実行状態<select value={entry.status} onChange={(event) => patchEntry(line, { status: event.target.value })}>

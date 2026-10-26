@@ -32,6 +32,7 @@ export function CompanyResearchPanel({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [local, setLocal] = useState<ResearchRunView | null>(null);
+  const [historyId,setHistoryId]=useState("");
   const android = isAndroid();
   useEffect(() => {
     if (!android) return;
@@ -49,7 +50,7 @@ export function CompanyResearchPanel({
   const current = running ?? matching ?? allRuns.at(-1);
   const lastAttempt = current?.attempts.at(-1);
   const savedRecords = [...records, ...allRuns.flatMap(item => item.record ? [item.record] : [])];
-  const latestRecord = matching?.record ?? savedRecords.sort((a, b) => Date.parse(a.comparison.completed_at) - Date.parse(b.comparison.completed_at)).at(-1);
+  const latestRecord = savedRecords.find(record=>record.research_id === historyId) ?? allRuns.find(item=>item.run.run_id === historyId)?.record ?? matching?.record ?? savedRecords.sort((a, b) => Date.parse(a.comparison.completed_at) - Date.parse(b.comparison.completed_at)).at(-1);
   const partial = current?.record ? null : current?.passes.find(item => item.phase === "independent");
   const enabled = android && !!status?.planEnabled && !!selection?.model && !!forecast?.researchEligible
     && !forecast.isStale;
@@ -81,6 +82,7 @@ export function CompanyResearchPanel({
 
   return <section className="section company-research" aria-labelledby="company-research-title">
     <div className="section-title"><div><span>COMPANY RESEARCH</span><h2 id="company-research-title">ChatGPTの見解</h2></div></div>
+    {(allRuns.length>0 || savedRecords.length>0) && <label>調査日時<select value={historyId} onChange={e=>setHistoryId(e.target.value)}><option value="">現在の設定の最新結果</option>{allRuns.map(item=><option key={item.run.run_id} value={item.run.run_id}>第{item.run.context.revision}回 · {researchTime(item.run.context.research_as_of)} · {item.record ? "保存済み" : "未完了"}</option>)}{records.filter(record=>!allRuns.some(item=>item.record?.research_id === record.research_id)).map(record=><option key={record.research_id} value={record.research_id}>{researchTime(record.comparison.completed_at)} · 保存済み</option>)}</select></label>}
     <p className="explain">市場全体→企業調査→数値予測→全保有と候補の比較、の順に調べます。元の予測と台帳は変更しません。</p>
     {!forecast ? <p>照合する数値予測はまだありません。</p> : <>
       <p className="research-status">{running ? "調査実行中" : lastAttempt?.status === "failed" || lastAttempt?.status === "interrupted"
@@ -107,7 +109,7 @@ export function CompanyResearchPanel({
     {partial && <section className="research-disclosure"><h3 className="plain-section-title">保存済みの独立調査</h3><Findings value={partial} /></section>}
     {(allRuns.length > 0 || latestRecord) && <section className="research-disclosure">
       <h3 className="plain-section-title">調査履歴・再調査</h3>
-      {allRuns.map(item => <section className="research-history" key={item.run.run_id}>
+      {allRuns.filter(item=>item.run.run_id === (historyId || allRuns.at(-1)?.run.run_id)).map(item => <section className="research-history" key={item.run.run_id}>
         <h3 className="plain-section-title">第{item.run.context.revision}回 · {researchTime(item.run.context.research_as_of)} JST<br />
           {item.run.context.configuration.model} · {item.run.context.configuration.effort} · {item.record ? "調査・照合済み" : "未完了"}</h3>
         {item.passes.map(value => <div key={value.pass_id}>

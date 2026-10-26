@@ -16,6 +16,7 @@ export interface ReleaseInfo {
   notes: string; sha256: string; url: string; size: number;
 }
 export interface StockAINative {
+  appInfo(): Promise<{ applicationId: string; versionName: string; versionCode: number }>;
   analysisStatus(): Promise<AnalysisStatus>;
   readSavedView(input: { path: string }): Promise<{ available: boolean; savedAt?: string; readOnly?: boolean; body?: unknown }>;
   dailyStatus(): Promise<DailyStatus>;

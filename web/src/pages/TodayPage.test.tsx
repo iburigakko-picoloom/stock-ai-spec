@@ -7,7 +7,7 @@ import type { TodayResponse } from "../types";
 import { isAndroid } from "../mobile/native";
 
 vi.mock("../hooks", () => ({ useApiData: vi.fn() }));
-vi.mock("../mobile/DailyPanel", () => ({ DailyPanel: () => null }));
+vi.mock("../mobile/DailyPanel", () => ({ DailyPanel: () => null, DailyStatusLink:()=>null }));
 vi.mock("../mobile/native", () => ({ isAndroid: vi.fn(() => false) }));
 afterEach(() => { cleanup(); vi.mocked(isAndroid).mockReturnValue(false); });
 const data: TodayResponse = {

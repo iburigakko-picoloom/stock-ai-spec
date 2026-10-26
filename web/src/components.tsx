@@ -32,7 +32,8 @@ export function dateTime(value: string | null | undefined, showYear = false): st
 }
 
 export function ActionBadge({ action }: { action: Action }): ReactNode {
-  return <span className={`action action--${action.toLowerCase()}`}>{action}</span>;
+  const labels = { BUY:"購入", HOLD:"保有継続", REDUCE:"縮小", SELL:"売却", SKIP:"見送り" };
+  return <span aria-label={action} className={`action action--${action.toLowerCase()}`}>{labels[action]}</span>;
 }
 
 export function PageHeader({
@@ -40,15 +41,20 @@ export function PageHeader({
   title,
   meta,
   actions,
+  backTo,
+  backState,
 }: {
   eyebrow?: string;
   title: string;
   meta?: string;
   actions?: ReactNode;
+  backTo?: string;
+  backState?: unknown;
 }): ReactNode {
   return (
     <header className="page-header app-brand">
       <div className="page-header__line">
+        {backTo && <Link className="header-back" to={backTo} state={backState} aria-label="← 戻る">‹</Link>}
         <span className="brand-mark" aria-hidden="true">株AI</span>
         <h1>{title}</h1>
         {actions && <div className="page-header__actions">{actions}</div>}
@@ -97,13 +103,19 @@ const nav = [
   ["/validation", "M8 3h8 M10 3v7L4 19q-1 2 2 2h12q3 0 2-2l-6-9V3 M7 16h10", "検証"],
   ["/settings", "m10 3-.5 3-2 1-2.8-1L3 10l2.4 2L3 14l1.7 4 2.8-1 2 1 .5 3h4l.5-3 2-1 2.8 1 1.7-4-2.4-2L21 10l-1.7-4-2.8 1-2-1L14 3Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0", "設定"],
 ] as const;
+const adoptedNav: Record<string,string> = {
+  "/ranking":"M5 20v-6h3v6 M11 20V8h3v12 M17 20V3h3v17",
+  "/validation":"M3 3v18h18 M6 16l4-6 4 3 6-8",
+  "/settings":"M4 6h16 M4 12h16 M4 18h16 M10 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0 M18 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0 M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0",
+};
 
 export function AppShell(): ReactNode {
   const location = useLocation();
+  const adopted = !(location.pathname === "/settings" && !new URLSearchParams(location.search).has("edit"));
   const from: unknown = location.state?.from;
-  const stockParent = location.pathname === "/holdings" || location.pathname.startsWith("/assets") || location.pathname === "/transactions" ? "/" : location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : from === "/transactions" ? "/" : "/today" : null;
+  const stockParent = location.pathname === "/holdings" || location.pathname.startsWith("/assets") || location.pathname === "/transactions" ? "/" : location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : (typeof from === "string" && /^\/transactions(?:\?[^#]*)?$/.test(from)) ? "/" : "/today" : null;
   return (
-    <div className="app-shell">
+    <div className={`app-shell${adopted ? " app-shell--adopted" : ""}`}>
       <ScrollMemory />
       <MobileUpdateNotice />
       <a className="skip-link" href="#main">本文へ移動</a>
@@ -113,7 +125,7 @@ export function AppShell(): ReactNode {
       <nav className="bottom-nav" aria-label="メインナビゲーション">
         {nav.map(([to, path, label]) => {
           const content = <>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={adopted ? adoptedNav[to] ?? path : path} /></svg>
             <strong>{label}</strong>
           </>;
           return stockParent ? <Link key={to} to={to} className={stockParent === to ? "active" : undefined} aria-current={stockParent === to ? "page" : undefined}>{content}</Link>

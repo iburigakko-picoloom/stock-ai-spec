@@ -27,74 +27,38 @@ function PaperPerformanceChart({ series }: { series: PaperSeriesPoint[] }): Reac
 }
 
 export function ValidationPage(): ReactNode {
-  const detailed = useLocation().pathname === "/validation/details";
-  const [mode, setMode] = useState("paper");
-  const { data, error, loading } = useApiData<PaperSummary & { blockingReason?: string }>(`/api/v1/validation?mode=${mode}`);
-  const observed = (data?.observations ?? 0) > 0;
-  const weekly = data?.weekly_readouts ?? [];
-  const monthly = data?.monthly_readouts ?? [];
-  return (
-    <div className="page">
-      {detailed && <Link className="back-link" to="/validation">← 検証へ</Link>}
-      <PageHeader eyebrow="提案と実績を振り返る" title={detailed ? "詳細分析" : "検証"} />
-      {!detailed && <Link className="button button--secondary" to="/validation/details">詳細分析</Link>}
-      <TabBar label="検証の種類" options={[["paper", "提案Paper"], ["live", "実運用"], ["historical", "過去検証"]]} value={mode} onChange={setMode} panelId="validation-panel" />
-      <div id="validation-panel" role="tabpanel" aria-labelledby={`validation-panel-${mode}`}>
+  const detailed=useLocation().pathname === "/validation/details";
+  const analysis=new URLSearchParams(useLocation().search).get("analysis");
+  const [mode,setMode]=useState(detailed && ["models","historical"].includes(analysis ?? "") ? analysis! : "paper");
+  const {data,error,loading}=useApiData<PaperSummary & {blockingReason?:string}>(`/api/v1/validation?mode=${mode === "models" ? "paper" : mode}`);
+  const observed=(data?.observations ?? 0)>0;
+  const weekly=data?.weekly_readouts ?? [], monthly=data?.monthly_readouts ?? [];
+  const options=detailed ? [["paper","予測精度"],["models","モデル比較"],["historical","過去検証"]] as const : [["paper","提案成績"],["live","実運用成績"]] as const;
+  return <div className="page validation-page"><PageHeader title={detailed ? "詳細分析" : "検証"} backTo={detailed ? "/validation" : undefined} />
+    <TabBar label="検証の種類" options={options} value={mode} onChange={setMode} panelId="validation-panel" />
+    <div id="validation-panel" role="tabpanel" aria-labelledby={`validation-panel-${mode}`}>
       {loading && data && <p role="status">前回の表示です・更新を確認中…</p>}
-      {loading && !data ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : mode === "paper" && data ? <>
-        <section className="validation-hero">
-          <span>提案戦略（1営業日・記録済み将来観測）</span>
-          <strong>{pct(observed ? data.proposal_return : null)}</strong>
-          {observed ? <small>TOPIX {pct(data.benchmark_return)} / 超過 {pct(data.excess_return)}</small> : <small>Paperの観測はまだありません</small>}
-        </section>
-        <section className="section">
-          <div className="section-heading"><div><span>FORWARD PAPER</span><h2>累積推移</h2></div></div>
+      {loading && !data ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : (mode === "paper" || mode === "models") && data ? <>
+        {!detailed && <section className="mock-card validation-overview">
+          <div className="link-row"><small>提案戦略・1営業日Paper</small><small>{dateTime(data.updated_at)} 更新</small></div>
+          <div className="validation-hero"><strong>{pct(observed ? data.proposal_return : null)}</strong><small>期間リターン</small></div>
           <PaperPerformanceChart series={data.series ?? []} />
-        </section>
-        <section className="section">
-          <div className="metric-grid metric-grid--2">
-            <Metric label="TOPIXとの差" value={pct(observed ? data.excess_return : null)} />
-            <Metric label="最大ドローダウン" value={pct(observed ? data.maximum_drawdown : null)} />
-            <Metric label="平均コスト誤差" value={yen(observed ? data.mean_cost_error : null)} />
-            <Metric label="平均税影響誤差" value={yen(observed ? data.mean_tax_error : null)} />
-          </div>
-        </section>
-        <section className="section metadata-details">
-          <h3 className="plain-section-title">モデル診断の詳細</h3>
-          <div className="section-heading">
-            <div><span>MODEL MONITOR</span><h2>Champion / Challenger</h2></div>
-          </div>
-          <dl className="summary-list">
-            <div><dt>Champion版 / 観測数</dt><dd>{data.champion_version ?? "—"} / {data.champion_observations ?? "—"}件</dd></div>
-            <div><dt>Champion 平均絶対誤差</dt><dd>{pct(data.champion_mean_absolute_error)}</dd></div>
-            <div><dt>Challenger版 / 比較数</dt><dd>{data.challenger_version ?? "—"} / {data.challenger_observations ?? "—"}件</dd></div>
-            <div><dt>Challenger 平均絶対誤差</dt><dd>{pct(data.challenger_mean_absolute_error)}</dd></div>
-            <div><dt>Challenger 勝率</dt><dd>{pct(data.challenger_better_rate)}</dd></div>
-            <div><dt>ドリフト判定</dt><dd>{data.drift_status === "INSUFFICIENT_OBSERVATIONS" ? "観測不足" : data.drift_status === "STABLE" ? "安定" : data.drift_status === "DEGRADED" ? "誤差が増加" : "未確認"}</dd></div>
-            <div><dt>直近/直前の誤差比</dt><dd>{data.drift_ratio == null ? "—" : `${data.drift_ratio.toFixed(2)}x`}</dd></div>
-          </dl>
-          <p className="explain">同じ現行モデル版の{data.drift_window ?? "—"}件ずつを比較します。Challenger比較は同じ組合せの分母だけです。自動的なモデル昇格には使いません。</p>
-        </section>
-        <section className="section metadata-details">
-          <h3 className="plain-section-title">週次・月次</h3>
-          <div className="section-heading">
-            <div><span>PERIODIC READOUT</span><h2>週次・月次</h2></div>
-          </div>
-          {weekly.length === 0 && monthly.length === 0 ? <StatePanel title="確定した将来観測はまだありません" detail="EOD観測を不変記録すると、週次・月次に集計します。" /> : <div className="readout-list">
-            {[...weekly.slice(0, 3), ...monthly.slice(0, 3)].map((item) => <article key={`${item.period}-${item.period_key}`}>
-              <div><strong>{item.period_key}</strong><span>{item.period === "weekly" ? "週次" : "月次"}・{item.observations}件</span></div>
-              <div><b>{pct(item.proposal_return)}</b><small>超過 {pct(item.excess_return)}</small></div>
-            </article>)}
-          </div>}
-        </section>
-        <section className={`readiness ${data.is_decision_ready ? "readiness--ready" : ""}`}>
-          <strong>{data.is_decision_ready ? "最低観測数に到達" : "観測継続中"}</strong>
-          <span>{data.observations} / {data.minimum_observation_count ?? "—"}件 ・ 更新 {dateTime(data.updated_at)}</span>
-          <p>最低件数への到達は収益性やChampion採用を意味しません。</p>
-          {!data.model_monitoring_ready && <p>モデル版ごとの監視・比較件数はまだ不足しています。</p>}
-        </section>
+          <div className="metric-grid metric-grid--2"><Metric label="TOPIXとの差" value={pct(observed ? data.excess_return : null)} /><Metric label="最大下落率" value={pct(observed ? data.maximum_drawdown : null)} /></div>
+          {!observed && <p className="setting-footnote">Paperの観測はまだありません。</p>}
+        </section>}
+        {!detailed && <section className="mock-card"><h2>週次・月次</h2>
+          {weekly.length===0 && monthly.length===0 ? <p className="setting-footnote">確定した将来観測はまだありません</p> : <>{([["週次",weekly],["月次",monthly]] as const).map(([title,rows])=><div key={title}><h3>{title}</h3><table className="compact-table"><thead><tr><th>期間</th><th>リターン</th><th>TOPIXとの差</th></tr></thead><tbody>{rows.map(row=><tr key={row.period_key}><td>{row.period_key}<small> · {row.observations}件</small></td><td>{pct(row.proposal_return)}</td><td>{pct(row.excess_return)}</td></tr>)}</tbody></table></div>)}</>}
+        </section>}
+        {detailed && mode === "paper" && <section className="section"><h2>予測精度</h2><dl className="summary-list"><div><dt>観測件数</dt><dd>{data.observations}件</dd></div><div><dt>平均絶対誤差</dt><dd>{pct(data.champion_mean_absolute_error)}</dd></div><div><dt>費用予測誤差</dt><dd>{yen(observed ? data.mean_cost_error : null)}</dd></div><div><dt>税予測誤差</dt><dd>{yen(observed ? data.mean_tax_error : null)}</dd></div><div><dt>予測対象</dt><dd>記録済みの将来観測</dd></div></dl></section>}
+        {detailed && mode === "models" && <section className="section"><h2>Champion / Challenger</h2><dl className="summary-list">
+          <div><dt>Champion版 / 観測数</dt><dd>{data.champion_version ?? "—"} / {data.champion_observations ?? "—"}件</dd></div><div><dt>Champion 平均絶対誤差</dt><dd>{pct(data.champion_mean_absolute_error)}</dd></div>
+          <div><dt>Challenger版 / 比較数</dt><dd>{data.challenger_version ?? "—"} / {data.challenger_observations ?? "—"}件</dd></div><div><dt>Challenger 平均絶対誤差</dt><dd>{pct(data.challenger_mean_absolute_error)}</dd></div><div><dt>Challenger 勝率</dt><dd>{pct(data.challenger_better_rate)}</dd></div>
+          <div><dt>ドリフト判定</dt><dd>{data.drift_status === "INSUFFICIENT_OBSERVATIONS" ? "観測不足" : data.drift_status === "STABLE" ? "安定" : data.drift_status === "DEGRADED" ? "誤差が増加" : "未確認"}</dd></div><div><dt>直近/直前の誤差比</dt><dd>{data.drift_ratio == null ? "—" : `${data.drift_ratio.toFixed(2)}x`}</dd></div>
+        </dl><p className="setting-footnote">同じ現行モデル版の{data.drift_window ?? "—"}件ずつを比較します。自動的なモデル昇格には使いません。</p></section>}
+        {detailed && <p className="setting-footnote">{data.is_decision_ready ? "最低観測数に到達" : "観測継続中"} · {data.observations} / {data.minimum_observation_count ?? "—"}件{!data.model_monitoring_ready && " · モデル監視の比較件数は不足しています"}</p>}
       </> : <StatePanel title="実運用データはまだありません" detail="実行結果を記録すると表示されます。" />}
-      </div>
     </div>
-  );
+    {!detailed && <section className="mock-card"><h2>詳細分析</h2><Link className="menu-link" to="/validation/details">予測精度 <span>›</span></Link><Link className="menu-link" to="/validation/details?analysis=models">モデル比較 <span>›</span></Link><Link className="menu-link" to="/validation/details?analysis=historical">過去検証 <span>›</span></Link></section>}
+    <div className="link-row"><Link className="quiet-link" to="/settings?edit=model">モデル管理 ›</Link>{detailed && <Link className="quiet-link" to="/validation">振り返りに戻る</Link>}</div>
+  </div>;
 }

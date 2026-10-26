@@ -9,6 +9,14 @@ vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); vi.unstubAllGlobals(); });
 function show() { render(<MemoryRouter><ManualChatGPTPage /></MemoryRouter>); }
 
+test("saved research stays visible in history before a proposal has been reviewed",async()=>{
+  vi.mocked(apiGet).mockResolvedValue({ready:false,reason:"期限切れ",selected_input:null,answers:[],research:[{record_id:"saved",saved_at:"2026-10-26T09:00:00Z",original_json:"保存した回答原本"}]});
+  render(<MemoryRouter initialEntries={["/today/chatgpt/history"]}><ManualChatGPTPage /></MemoryRouter>);
+  expect(await screen.findByText("保存した回答原本")).toBeVisible();
+  expect(screen.queryByText("保存した相談はまだありません")).not.toBeInTheDocument();
+  expect(apiPost).not.toHaveBeenCalled();
+});
+
 test("missing model or inputs stays blocked without export controls", async () => {
   vi.mocked(apiGet).mockResolvedValue({ ready: false, reason: "原予測が未採用です", selected_input: null, answers: [] });
   show();

@@ -4,6 +4,7 @@ import { ApiError, apiPost } from "../api";
 import { PageHeader, StatePanel } from "../components";
 import { useApiData } from "../hooks";
 import type { AppStatus } from "../types";
+import { DailyPanel } from "../mobile/DailyPanel";
 
 interface Conflict { conflict_id: string; code: string; message: string; row_number: number }
 interface ExecutionPreview { preview_id: string; conflicts: Conflict[]; execution_payloads: string[] }
@@ -74,8 +75,8 @@ export function DataOperationsPage(): ReactNode {
 
   return (
     <div className="page">
-      <Link className="back-link" to="/settings">← 設定へ戻る</Link>
-      <PageHeader eyebrow="IMPORT / RECONCILIATION" title={path.endsWith("/csv") ? "CSV取り込み" : path.endsWith("/logs") ? "処理状況・実行記録" : "データ・運用状態"} />
+      <PageHeader backTo="/settings" title={path.endsWith("/csv") ? "CSV取り込み" : path.endsWith("/logs") ? "処理状況・実行記録" : "データ・運用状態"} />
+      {path.endsWith("/logs") && <><DailyPanel /><Link className="quiet-link" to="/settings?edit=repair">不足データを修復</Link></>}
       <div hidden={path.endsWith("/csv")}>
       {status.loading ? <StatePanel title="運用状態を確認しています" /> : status.error ? <StatePanel tone="error" title="運用状態を取得できません" detail={status.error} /> : status.data && <section className={`pipeline-state ${status.data.isStale ? "pipeline-state--warning" : ""}`}>
         <span>{status.data.businessDate}</span><strong>{status.data.pipelineState}</strong><p>{status.data.blockingReason || "直近jobの状態を表示しています。"}</p>

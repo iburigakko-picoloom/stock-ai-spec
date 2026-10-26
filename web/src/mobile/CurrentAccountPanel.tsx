@@ -15,10 +15,11 @@ export function bucketName(bucket: Bucket): string {
     : bucket.account_type === "taxable_specified" ? `特定口座（源泉徴収${bucket.withholding_mode === "withholding" ? "あり" : bucket.withholding_mode === "no_withholding" ? "なし" : "未確認"}）` : "口座区分未確認";
 }
 
-export function CurrentAccountPanel({ mode, fallback, onSaved }: { mode: "cash" | "holdings" | "nisa"; fallback?: ReactNode; onSaved?: () => void }): ReactNode {
+export function CurrentAccountPanel({ mode, fallback, onSaved, registration = false }: { mode: "cash" | "holdings" | "nisa"; fallback?: ReactNode; onSaved?: () => void; registration?: boolean }): ReactNode {
   const [current, setCurrent] = useState<Current | null>(null);
   const [cash, setCash] = useState<{ account_bucket_id: string; total: string; buying_power: string }[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [selectedPosition,setSelectedPosition]=useState(0);
   const [nisa, setNisa] = useState<{ account_bucket_id: string; annual: string; lifetime: string }[]>([]);
   const [preview, setPreview] = useState<{ before: Ledger; after: Ledger; request: Edit } | null>(null);
   const [error, setError] = useState("");
@@ -26,11 +27,15 @@ export function CurrentAccountPanel({ mode, fallback, onSaved }: { mode: "cash" 
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const flight = useRef(false);
+  const loadedInput = useRef("");
   useEffect(() => {
     let active = true;
     void apiGet<Current>("/api/v1/mobile/personal/current").then(value => {
       if (!active) return;
-      setCurrent(value); setError(""); setPreview(null);
+      setCurrent(value); setError("");
+      const identity=JSON.stringify([value.ledger?.portfolio_id,value.profile?.revision_id,value.settings?.revision_id]);
+      if (loadedInput.current === identity) return;
+      loadedInput.current=identity; setPreview(null);
       setPositions(value.ledger?.positions ?? []);
       setCash(value.ledger?.cash.map(x => ({ account_bucket_id: x.account_bucket_id, total: x.available_cash, buying_power: subtract(x.available_cash, x.reserved_cash) })) ?? []);
       setNisa(value.ledger?.tax_states.filter(x => value.ledger?.account_buckets.find(b => b.bucket_id === x.account_bucket_id)?.account_type === "nisa")
@@ -56,6 +61,7 @@ export function CurrentAccountPanel({ mode, fallback, onSaved }: { mode: "cash" 
   }
   if (!current) return <>{error ? <p role="alert">{error}<button className="button" onClick={() => setReload(x => x + 1)}>読み直す</button></p> : <p role="status">現在残高を確認しています…</p>}</>;
   if (!current.ledger) return <>{fallback ?? <p>初回残高を登録すると、ここで実保有を編集できます。</p>}</>;
+  if (registration) return <section className="mock-card"><h2>初回残高は登録済みです</h2><dl className="summary-list"><div><dt>台帳日時</dt><dd>{dateTime(current.ledger.as_of,true)}</dd></div><div><dt>保有明細</dt><dd>{current.ledger.positions.length}件</dd></div></dl><p className="setting-footnote">残高の変更は「現金残高の変更」「保有の訂正」で確認して保存できます。</p></section>;
   const ledger = current.ledger;
   const label = (id: string) => bucketName(ledger.account_buckets.find(x => x.bucket_id === id) ?? preview!.after.account_buckets.find(x => x.bucket_id === id)!);
   const changed = () => { setPreview(null); setMessage(""); };
@@ -63,6 +69,7 @@ export function CurrentAccountPanel({ mode, fallback, onSaved }: { mode: "cash" 
     <p className="setting-footnote">SBI証券 · 現在残高 {dateTime(ledger.as_of)} JST</p>
     <fieldset className="account-form" disabled={busy}>
       {mode === "cash" && <>
+        <h2>変更内容</h2>
         <p className="setting-footnote">現金残高 − 買付余力 ＝ 確保中。初回残高と取引履歴は残ります。</p>
         {cash.map((item, index) => <div className="account-form-card" key={item.account_bucket_id}>
           {cash.length > 1 && <h3>{label(item.account_bucket_id)}</h3>}
@@ -73,8 +80,10 @@ export function CurrentAccountPanel({ mode, fallback, onSaved }: { mode: "cash" 
         {current.profile && <PreviousInput current={current} />}
       </>}
       {mode === "holdings" && <>
+        <h2>保有</h2>
+        {positions.length>1 && <label>訂正する保有<select value={Math.min(selectedPosition,positions.length-1)} onChange={e=>setSelectedPosition(Number(e.target.value))}>{positions.map((item,index)=><option key={index} value={index}>{item.symbol || "新しい保有"} · {label(item.account_bucket_id)} · {item.shares}株</option>)}</select></label>}
         <p className="setting-footnote">SBIの現在の保有に合わせて修正します。売買の記録は「約定を記録」から行ってください。</p>
-        {positions.map((item, index) => <div className="account-form-card" key={index}>
+        {positions.map((item, index) => <div className="account-form-card" key={index} hidden={index !== Math.min(selectedPosition,positions.length-1)}>
           <label>銘柄コード<input value={item.symbol} onChange={e => { changed(); setPositions(positions.map((x, i) => i === index ? { ...x, symbol: e.target.value.toUpperCase() } : x)); }} /></label>
           <label>口座区分<select value={item.account_bucket_id} onChange={e => { changed(); setPositions(positions.map((x, i) => i === index ? { ...x, account_bucket_id: e.target.value } : x)); }}>{ledger.account_buckets.map(b => <option key={b.bucket_id} value={b.bucket_id}>{bucketName(b)}</option>)}
             <option value="new:specified">特定口座（源泉徴収あり）</option><option value="new:specified_no">特定口座（源泉徴収なし）</option><option value="new:general">一般口座</option><option value="new:nisa">NISA（成長投資枠）</option>
@@ -83,7 +92,7 @@ export function CurrentAccountPanel({ mode, fallback, onSaved }: { mode: "cash" 
           {([["average_acquisition_price", "平均取得単価（円）"], ["market_price", "現在の株価（円）"]] as const).map(([key, title]) => <label key={key}>{title}<input inputMode="decimal" value={item[key]} onChange={e => { changed(); setPositions(positions.map((x, i) => i === index ? { ...x, [key]: e.target.value } : x)); }} /></label>)}
           <button type="button" className="button button--secondary" onClick={() => { changed(); setPositions(positions.filter((_, i) => i !== index)); }}>この保有を削除</button>
         </div>)}
-        <button type="button" className="button button--secondary" onClick={() => { changed(); setPositions([...positions, { symbol: "", account_bucket_id: ledger.account_buckets[0].bucket_id, shares: 100, average_acquisition_price: "", market_price: "" }]); }}>保有株を追加</button>
+        <button type="button" className="button button--secondary" onClick={() => { changed(); setSelectedPosition(positions.length); setPositions([...positions, { symbol: "", account_bucket_id: ledger.account_buckets[0].bucket_id, shares: 100, average_acquisition_price: "", market_price: "" }]); }}>保有株を追加</button>
       </>}
       {mode === "nisa" && <>
         <p className="setting-footnote">個別株に使う成長投資枠：年間240万円、保有限度1200万円。残枠はSBIの表示で確認してください。</p>

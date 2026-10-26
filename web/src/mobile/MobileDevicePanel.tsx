@@ -4,6 +4,8 @@ import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { MobileBackupPanel } from "./MobileBackupPanel";
 import { MobilePersonalPanel, accountStepTitles, type AccountStep } from "./MobilePersonalPanel";
+import { PolicySummary } from "./PolicySummary";
+import { AppInfoPanel } from "./AppInfoPanel";
 import { CurrentAccountPanel } from "./CurrentAccountPanel";
 import { SaveProgress } from "./SaveProgress";
 import { ChatGPTPanel } from "./ChatGPTPanel";
@@ -53,7 +55,7 @@ export function MobileUpdateNotice(): ReactNode {
 
 const blank: LocalPortfolio = { schema_version: "manual-portfolio-v1", holdings_status: "unrecorded", investment_budget_yen: null, maximum_drawdown_percent: null, accounts: [], holdings: [] };
 
-const panelTitles = { accounts: "証券口座", capital: "運用資金", risk: "許容下落率", market: "J-Quants・市場データ", model: "予測期間・モデル", daily: "自動更新・通知", chatgpt: "ChatGPT", backup: "バックアップ・復元", about: "アプリ情報・詳細", repair: "市場データの修復", method: "計算方式", conditions: "運用条件", taxes: "口座・税・手数料" };
+const panelTitles = { accounts: "証券口座", capital: "運用資金", risk: "許容下落率", market: "J-Quants・市場データ", model: "モデル管理", daily: "データ更新", chatgpt: "ChatGPT", backup: "バックアップ・復元", about: "アプリ情報・詳細", repair: "市場データの修復", method: "計算方式", conditions: "運用条件", taxes: "口座・税・手数料" };
 type SettingsPanelId = keyof typeof panelTitles;
 const iconPaths = {
   database: "M4 6c0-4 16-4 16 0S4 10 4 6Zm0 0v12c0 4 16 4 16 0V6M4 12c0 4 16 4 16 0",
@@ -108,6 +110,7 @@ export function MobileDevicePanel(): ReactNode {
   const [previewPortfolio, setPreviewPortfolio] = useState<SavedPortfolio | null>(null);
   const [portfolioError, setPortfolioError] = useState("");
   const [readAttempt, setReadAttempt] = useState(0);
+  const loadedPortfolio = useRef<{ revision:string|null; attempt:number }|null>(null);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [messageGroup, setMessageGroup] = useState("account");
@@ -138,7 +141,9 @@ export function MobileDevicePanel(): ReactNode {
     void apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio").then(value => {
       if (!active || finished) return;
       finished = true; window.clearTimeout(timer);
-      setPortfolio(value?.portfolio ?? blank);
+      const revision=value?.revision_id ?? null;
+      if (!loadedPortfolio.current || loadedPortfolio.current.revision !== revision || loadedPortfolio.current.attempt !== readAttempt) setPortfolio(value?.portfolio ?? blank);
+      loadedPortfolio.current={revision,attempt:readAttempt};
       setSavedPortfolio(value);
       setPortfolioLoaded(true);
       setPreviewPortfolio(null); setPortfolioError("");
@@ -173,13 +178,15 @@ export function MobileDevicePanel(): ReactNode {
     const base = savedPortfolio?.portfolio ?? blank;
     const changes = selected === "capital" ? { investment_budget_yen: portfolio.investment_budget_yen }
       : selected === "risk" ? { maximum_drawdown_percent: portfolio.maximum_drawdown_percent }
+        : selected === "conditions" ? { investment_budget_yen: portfolio.investment_budget_yen, maximum_drawdown_percent: portfolio.maximum_drawdown_percent }
         : { accounts: portfolio.accounts, holdings: portfolio.holdings, holdings_status: portfolio.holdings_status };
     const value = await apiPost<SavedPortfolio>("/api/v1/mobile/portfolio", {
       expected_revision_id: savedPortfolio?.revision_id ?? null, portfolio: { ...base, ...changes },
     });
     setSavedPortfolio(value);
     // Keep other editors' drafts, without silently submitting them in this save.
-    setPortfolio(draft => selected === "capital" ? { ...draft, investment_budget_yen: value.portfolio.investment_budget_yen }
+    setPortfolio(draft => selected === "conditions" ? { ...draft, investment_budget_yen: value.portfolio.investment_budget_yen, maximum_drawdown_percent: value.portfolio.maximum_drawdown_percent }
+      : selected === "capital" ? { ...draft, investment_budget_yen: value.portfolio.investment_budget_yen }
       : selected === "risk" ? { ...draft, maximum_drawdown_percent: value.portfolio.maximum_drawdown_percent }
         : { ...draft, accounts: value.portfolio.accounts, holdings: value.portfolio.holdings, holdings_status: value.portfolio.holdings_status });
   }
@@ -207,8 +214,7 @@ export function MobileDevicePanel(): ReactNode {
   const drawdown = overview?.maximum_drawdown_percent;
   return <div className={`device-settings settings-screen${selected ? " settings-screen--editing" : " settings-screen--overview"}${selected === "accounts" ? " account-settings-screen" : ""}`}>
     <header className="settings-page-header app-brand">
-      {selected && <button type="button" className="settings-back" onClick={back}>← {accountStep ? "証券口座へ" : "設定一覧へ"}</button>}
-      <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{accountStep ? accountStepTitles[accountStep] : selected ? panelTitles[selected] : "設定"}</h1></div>
+      <div className="page-header__line">{selected && <button type="button" className="settings-back" aria-label={`← ${accountStep ? "証券口座へ" : "設定一覧へ"}`} onClick={back}>‹</button>}<span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{accountStep ? accountStepTitles[accountStep] : selected ? panelTitles[selected] : "設定"}</h1></div>
     </header>
     {loadError && <p role="alert">{loadError}</p>}
     {!portfolioLoaded && previewPortfolio && <p className="explain">前回保存した設定を表示しています。編集は最新確認後にできます。</p>}
@@ -296,10 +302,11 @@ export function MobileDevicePanel(): ReactNode {
     <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} inputStatus={!portfolioLoaded ? "口座情報を読み込み中です。読込に失敗した場合は、この画面の「口座・保有を読み直す」を押してください。" : savedPortfolio === null ? "口座・保有が未登録です。証券口座と実保有を登録してください。" : "口座・保有の編集が未保存です。保存してから計算してください。"} onBusy={setBusy} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "daily"}>
-    <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />
+    <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} explanations={false} />
     <section className="section"><h2>完了通知</h2><p>通知のオン・オフはAndroidの設定で変更できます。</p>
       <button className="button button--secondary" disabled={daily.busy || !daily.status} onClick={() => void daily.requestNotifications()}>通知の許可を確認</button>
     </section>
+    <section className="section"><h2>データ接続</h2><p>APIキー：{configured === null ? "確認中" : configured ? "設定済み" : "未設定"}</p><label>J-Quants APIキー<input type="password" value={key} autoComplete="off" onChange={event=>setKey(event.target.value)} /></label><div className="two-actions"><button className="button button--secondary" disabled={busy || !key} onClick={()=>void action(async()=>{await StockAI.saveApiKey({apiKey:key});setKey("");setConfigured(true);},"APIキーを保存しました。","data")}>キーを保存</button><button className="button button--secondary" disabled={busy || !configured} onClick={()=>void action(async()=>{await StockAI.clearApiKey();setConfigured(false);},"APIキーを削除しました。","data")}>キーを削除</button></div>{messageGroup === "data" && message && <p role="status">{message}</p>}<button className="text-link" onClick={()=>open("repair")}>市場データの修復</button></section>
     </SettingsPanel>
     <SettingsPanel visible={selected === "chatgpt"}>
       <div className="button-stack"><Link className="button button--secondary" to="/today/chatgpt">手動でChatGPTに相談</Link></div>
@@ -309,7 +316,8 @@ export function MobileDevicePanel(): ReactNode {
     <MobileBackupPanel disabled={busy} onBusy={setBusy} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "about"}>
-      <p>保有・設定はこの端末に保存します。モデルの最終採用と推論の一致確認が完了するまで研究用表示を続けます。</p>
+      <AppInfoPanel />
+      <h2>詳細管理</h2>
       <nav className="settings-list" aria-label="保存済み設定の詳細">
         {[["capital", "資金"], ["broker", "証券会社"], ["accounts", "口座・税金"], ["trading", "取引コスト・制約"], ["decision", "AI判断"], ["model", "モデル"], ["data", "データ・運用状態"]].map(([id, title]) =>
           <Link className="settings-row" to={`/settings/${id}`} key={id}><strong>{title}</strong><b aria-hidden="true">→</b></Link>)}
@@ -322,7 +330,13 @@ export function MobileDevicePanel(): ReactNode {
       </nav>
     </SettingsPanel>
     <SettingsPanel visible={selected === "conditions"}>
-      <nav className="compact-links"><button className="button button--secondary" onClick={() => open("capital")}>運用資金</button><button className="button button--secondary" onClick={() => open("risk")}>許容下落率</button><button className="button button--secondary" onClick={() => open("method")}>株数の探索・比較条件</button></nav>
+      <fieldset className="account-form" disabled={busy || !portfolioLoaded}>
+        <section className="numbered-section"><small>01</small><h2>資金配分</h2><label>投資上限（株式時価・円）<input inputMode="decimal" value={portfolio.investment_budget_yen ?? ""} onChange={e=>setPortfolio({...portfolio,investment_budget_yen:e.target.value || null})} /></label><p className="setting-footnote">現金を除く、全口座の保有株式時価の上限です。</p></section>
+        <section className="numbered-section"><small>02</small><h2>リスク</h2><label>最大許容下落率（%）<input type="number" min="0.01" max="100" step="any" value={portfolio.maximum_drawdown_percent ?? ""} onChange={e=>setPortfolio({...portfolio,maximum_drawdown_percent:e.target.value ? Number(e.target.value) : null})} /></label><p className="setting-footnote">本人の希望条件として保存します。</p></section>
+        {selected === "conditions" && <PolicySummary />}
+        <button className="button button--primary" onClick={()=>void action(savePortfolio,"運用条件を保存しました。")}>設定を保存</button>
+      </fieldset>{messageGroup === "account" && message && <p role="status">{message}</p>}
+      <button className="text-link" onClick={()=>open("method")}>計算方式</button>
     </SettingsPanel>
     <SettingsPanel visible={selected === "method" || selected === "taxes"}>
       <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || accountDirty} step={selected === "method" ? "method" : "taxes"} />

@@ -82,7 +82,7 @@ test("frozen timestamps, excluded candidates and stored output remain readable",
   expect(screen.getByRole("link", { name: "今日の判定を見る" })).toHaveAttribute("href", "/today");
   fireEvent.click(screen.getByText("算出できた予測を見る 1社"));
   expect(screen.getByRole("cell", { name: "4%" })).toBeVisible();
-  fireEvent.click(screen.getByText("履歴不足で予測を見送った候補 1社"));
+  expect(screen.getByRole("heading", { name: "4. 除外銘柄" })).toBeVisible();
   expect(screen.getByText("186A", { exact: true })).toBeVisible();
 });
 test("missing held prediction is incomplete with useful preserved numeric output", async () => {

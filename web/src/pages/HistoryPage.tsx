@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { PageHeader, StatePanel, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 
@@ -10,15 +10,17 @@ export function HistoryPage() {
 }
 function ExecutionHistory() {
   const { data, error, loading } = useApiData<{ records: Execution[]; appliedIds: string[] }>("/api/v1/executions");
-  const [id, setId] = useState("");
+  const [params,setParams]=useSearchParams();
+  const id=params.get("record") ?? "";
+  const setId=(value:string)=>setParams({record:value},{replace:true});
   const rows = [...(data?.records ?? [])].reverse();
   const selected = rows.find(row => row.execution_id === id) ?? rows[0];
-  return <div className="page"><Link className="back-link" to="/assets">← 資産管理へ</Link><PageHeader title="取引履歴" />
+  return <div className="page"><PageHeader title="取引履歴" backTo="/assets" /><Link className="quiet-link" to="/today/executions">取引を追加</Link>
     {error ? <StatePanel tone="error" title="取引履歴を取得できません" detail={error} /> : loading ? <StatePanel title="取引履歴を読み込んでいます" /> : !selected ? <StatePanel title="取引記録はまだありません" /> : <>
-      <label>記録を選択<select className="history-select" value={selected.execution_id} onChange={e => setId(e.target.value)}>{rows.map(row => <option key={row.execution_id} value={row.execution_id}>{dateTime(row.executed_at)} · {row.symbol} · {row.filled_shares}株</option>)}</select></label>
+      <table className="compact-table execution-history-table"><thead><tr><th>注文</th><th>約定</th></tr></thead><tbody>{rows.map(row=><tr key={row.execution_id}><td><small>{dateTime(row.executed_at,true)}</small><p>{row.symbol} / {row.account_bucket_id}</p><p>{row.side === "BUY" ? "買い" : "売り"} {row.ordered_shares}株</p><button className="text-link" onClick={()=>setId(row.execution_id)} aria-pressed={selected.execution_id === row.execution_id}>記録を確認</button></td><td><small>{row.status === "filled" ? "全約定" : row.status === "partially_filled" ? "一部約定" : row.status === "cancelled" ? "取消" : row.status === "expired" ? "失効" : "未約定"}</small><p>{row.filled_shares ? `${row.filled_shares}株 × ${yen(row.average_fill_price)}` : "約定なし"}</p><small>手数料 {yen(row.actual_commission)} / 税 {yen(row.tax_withheld)}</small><p className="setting-footnote">{row.filled_shares===0 ? "残高の変更なし" : data?.appliedIds.includes(row.execution_id) ? "残高へ反映済み" : "残高へ未反映"}</p></td></tr>)}</tbody></table>
       <section className="section"><h2>{selected.symbol} · {selected.side === "BUY" ? "購入" : "売却"}</h2><p>{selected.account_bucket_id}</p>
         <dl className="summary-list"><div><dt>約定株数</dt><dd>{selected.filled_shares}株 / 注文 {selected.ordered_shares}株</dd></div><div><dt>平均約定単価</dt><dd>{yen(selected.average_fill_price)}</dd></div><div><dt>手数料</dt><dd>{yen(selected.actual_commission)}</dd></div><div><dt>その他費用</dt><dd>{yen(selected.actual_other_cost)}</dd></div><div><dt>源泉徴収税</dt><dd>{yen(selected.tax_withheld)}</dd></div><div><dt>残高</dt><dd>{data?.appliedIds.includes(selected.execution_id) ? "反映済み" : "未反映"}</dd></div></dl>
-        <Link className="button button--secondary" to={`/stocks/${selected.symbol}`} state={{ from: "/transactions" }}>銘柄詳細</Link>
+        <Link className="button button--secondary" to={`/stocks/${selected.symbol}`} state={{ from: `/transactions?${params.toString()}` }}>銘柄詳細</Link>
       </section></>}
   </div>;
 }
@@ -26,7 +28,7 @@ function LedgerHistory() {
   const { data, error, loading } = useApiData<Ledger[]>("/api/v1/portfolio/history");
   const [id, setId] = useState("");
   const selected = data?.find(row => row.portfolio_id === id) ?? data?.[0];
-  return <div className="page"><Link className="back-link" to="/assets">← 資産管理へ</Link><PageHeader title="残高・修正履歴" />
+  return <div className="page"><PageHeader title="残高・修正履歴" backTo="/assets" />
     {error ? <StatePanel tone="error" title="残高履歴を取得できません" detail={error} /> : loading ? <StatePanel title="残高履歴を読み込んでいます" /> : !selected ? <StatePanel title="残高履歴はまだありません" /> : <>
       <label>保存した残高<select className="history-select" value={selected.portfolio_id} onChange={e => setId(e.target.value)}>{data?.map(row => <option key={row.portfolio_id} value={row.portfolio_id}>{dateTime(row.as_of, true)} · {row.positions.length}保有</option>)}</select></label>
       <p className="setting-footnote">初回登録・残高修正・約定反映を含む直近100件の台帳です。</p>

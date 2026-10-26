@@ -93,16 +93,19 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
   const symbols = top ? [...new Set([...top, ...[...holdings].sort()])].filter(symbol => available.includes(symbol)) : available.sort();
   const researchConsultation = decision?.blocking_reasons.length === 1 && decision.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE";
   const blockingMessages = [...new Set([...(run?.blocking_reasons ?? []), ...(decision?.blocking_reasons ?? [])].map(reason))];
-  return <section className="section model-panel" aria-label="端末内のモデルと予測">
+  return <div className="model-panel" aria-label="端末内のモデルと予測">
+    <section className="mock-card"><h2>1. 採用モデル</h2>
     <p>{model ? `モデルファイル：${model.imported_bundle_count}件取込済み` : "モデルを確認中…"}</p>
     <p>{model?.model_adopted ? "採用確認済み" : "研究用・正式採用前"}</p>
     {!inputsSaved && <p>{inputStatus ?? "口座・保有の編集を保存してから予測を計算します。"}</p>}
     {model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
-    <div className="button-stack">
+    <dl className="summary-list"><div><dt>予測期間</dt><dd>5日・20日</dd></div></dl></section>
+    <section className="mock-card"><h2>2. モデル取り込み</h2><div className="button-stack">
       <button className="button button--secondary" disabled={disabled} onClick={() => void perform(async () => {
         const content = await StockAI.importModel(); await apiPost("/api/v1/mobile/models/import", content);
         setModel(await apiGet("/api/v1/mobile/models")); setMessage("確認済みのモデル一式を保存しました。");
-      })}>モデル一式を取り込む</button>
+      })}>モデル一式を取り込む</button></div></section>
+    <section className="mock-card"><h2>3. 予測・株数</h2><div className="button-stack">
       <button className="button button--primary" disabled={disabled || !inputsSaved || !model?.bundle_ready} onClick={() => void perform(async () => {
         setCalculating(true);
         setDecision(null);
@@ -116,7 +119,8 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
     {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
       <ReferenceAnalysis hasSaved={referenceSaved} disabled={disabled || calculating} onBusy={onBusy} onSaved={() => setReferenceSaved(true)} />}
     {referenceSaved && <Link className="button button--secondary" to="/ranking">保存したランキングを見る</Link>}
-    {run && <div className="forecast-state">
+    </section>
+    {run && <section className="mock-card forecast-state"><h2>計算結果</h2>
       <p>当日予測の記録：{timestamp(run.scope.as_of)}</p>
       <p>推奨株数：{researchConsultation ? "自動判定なし・ChatGPTで案を検討" : decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>
       {decision?.is_active && <Link className="button button--secondary" to="/today">今日の判定を見る</Link>}
@@ -133,13 +137,13 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
         {run.snapshot && <><p>数値生成：{timestamp(run.snapshot.generated_at)}</p><p>参照情報の受領：{timestamp(run.snapshot.data_as_of)}</p></>}
         {decision && <p>株数判定の生成：{timestamp(decision.checked_at)}</p>}
       </section>
-      {run.excluded_candidates.length > 0 && <section><h3 className="plain-section-title">履歴不足で予測を見送った候補 {run.excluded_candidates.length}社</h3>
-        <p>{run.excluded_candidates.map(x => x.symbol).join("、")}</p></section>}
+
       {symbols.length > 0 && <section><h3 className="plain-section-title">{top ? "上位20と全保有の予測を見る" : "算出できた予測を見る"} {symbols.length}社</h3>
         {ranking.size > 0 && <p>順位スコアは期待リターン率ではありません。20日の順位で表示します。</p>}
         <table><thead><tr><th>銘柄</th>{ranking.size > 0 && <th>20日順位スコア</th>}<th>5日リターン</th><th>20日リターン</th></tr></thead><tbody>{symbols.map(symbol => <tr key={symbol}>
           <td><Link to={`/stocks/${symbol}`}>{symbol}</Link>{holdings.has(symbol) && "（保有）"}</td>{ranking.size > 0 && <td>{ranking.get(symbol)?.toFixed(4) ?? "未提供"}</td>}<td>{percent(five.get(symbol))}</td><td>{percent(twenty.get(symbol))}</td></tr>)}</tbody></table>
       </section>}
-    </div>}
-  </section>;
+    </section>}
+    <section className="mock-card"><h2>4. 除外銘柄</h2>{!run ? <p className="setting-footnote">計算後に表示します。</p> : run.excluded_candidates.length ? <table className="compact-table"><thead><tr><th>銘柄</th><th>理由</th></tr></thead><tbody>{run.excluded_candidates.map(row=><tr key={row.symbol}><td>{row.symbol}</td><td>{reason(row.reason)}</td></tr>)}</tbody></table> : <p className="setting-footnote">保存された計算に除外銘柄はありません。</p>}<Link className="quiet-link" to="/settings?edit=repair">履歴を修復</Link></section>
+  </div>;
 }

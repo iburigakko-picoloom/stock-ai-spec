@@ -30,6 +30,7 @@ export function App(): ReactNode {
         <Route path="assets/:section" element={<AssetManagementPage />} />
         <Route path="transactions" element={<HistoryPage />} />
         <Route path="today" element={<TodayPage />} />
+        <Route path="today/details" element={<TodayPage />} />
         <Route path="today/review" element={<DecisionReviewPage />} />
         <Route path="today/decision" element={<DecisionSavedPage />} />
         <Route path="today/executions" element={<ExecutionPage />} />

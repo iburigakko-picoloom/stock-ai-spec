@@ -277,6 +277,15 @@ public class StockAIPlugin extends Plugin {
         return Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
     }
 
+    @PluginMethod public void appInfo(PluginCall call) {
+        try {
+            String id = getContext().getPackageName();
+            PackageInfo info = getContext().getPackageManager().getPackageInfo(id, 0);
+            call.resolve(new JSObject().put("applicationId", id).put("versionName", info.versionName)
+                .put("versionCode", installedVersion()));
+        } catch (Exception error) { call.reject("アプリ情報を確認できませんでした。"); }
+    }
+
     @PluginMethod public void checkUpdate(PluginCall call) { network(call, () -> {
         JSONObject release = json("https://api.github.com/repos/" + REPO + "/releases/latest");
         if (release.optBoolean("draft") || release.optBoolean("prerelease")) throw new SecurityException();
