@@ -7,6 +7,8 @@
 - 専用合成AVDの冷起動比較は直接読込128ms対Python23213ms、再確認35ms対12387ms。本人Xiaomiや実データ量での実測ではない。最初のAndroidメモ保存試験でワーカー側の部分保存allowlist漏れを検出・修正し、応答後再起動/読戻しまで再確認した。
 - 証拠は `.demo-artifacts/record-memo-release/`。確認用0.1.65と既存非共有Driveへの反映を次工程で行う。本人端末の更新/実計測、実ChatGPT返答、CIは未確認。正式採用HOLD、投資成績の実験/実注文なし。
 
+- 配布完了：同署名0.1.65-candidate/code10065、source `5e660d96cd276f17e3472c3a4955e5e3e4bb1648`、24,086,073 bytes、SHA256 `974c6d6e2359022b6296ebb78b1496225594452ddd905adf8b2eaf5a39ddf64d`。署名/非debug・46assets一致・53PythonのGit byte一致・秘密/モデル/試験データ非混入を検査。専用read-only AVDへ署名版をインストールしcold起動/実ホーム/前面Activityとインストール済みAPK hash一致を確認した。[0.1.65本人用APK](https://drive.google.com/file/d/1dBYOS_pfgCirHq_Su7JlNKACP-4HNkrC/view?usp=drivesdk)を既存非共有StockAIへ保存し、親/size/shared=falseを再読込確認。以前の版を保持。本人Xiaomiの更新と実データ量での体感速度・実ChatGPT返答・CIは未確認。source確定後の追記は配布記録の文書のみ。
+
 ## 2026-10-26 — 新規の手動相談はChatGPTで読む形式へ変更（D263）
 
 - 本人が「取り込み不要」を選択。今日/ランキングの手動相談を、日本語の結論・5日/20日の市場見通し・全対象銘柄表・方針・反対材料・出典リンクで返すプロンプトへ変更。回答JSON/schemaは要求しない。アプリは許可確認→実入力の作成/コピー→ChatGPTを開く導線とし、新規相談に回答欄/保存・検算/分析レポートを表示しない。
