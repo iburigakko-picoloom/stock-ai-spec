@@ -15,9 +15,6 @@ interface PositionPreview { preview_id: string; differences: PositionDifference[
 
 export function DataOperationsPage(): ReactNode {
   const path = useLocation().pathname;
-  const status = useApiData<AppStatus>("/api/v1/status");
-  const jobs = useApiData<{run_id:string;started_at:string;business_date:string;stage:string;status:string;reason_code:string|null}[]>("/api/v1/jobs");
-  const [jobsFilter,setJobsFilter]=useState("all");
   const [kind, setKind] = useState<"executions" | "positions">("executions");
   const [csv, setCsv] = useState("");
   const [executionPreview, setExecutionPreview] = useState<ExecutionPreview | null>(null);
@@ -80,13 +77,7 @@ export function DataOperationsPage(): ReactNode {
     <div className="page">
       <PageHeader backTo="/settings" title={path.endsWith("/csv") ? "CSV取り込み" : path.endsWith("/logs") ? "処理状況・実行記録" : "データ・運用状態"} />
       <div className="subscreen advanced-domain">
-      <div hidden={path.endsWith("/csv")}>
-      <div className="card stack"><section className="advanced-section"><h3 className="section-title">処理状態</h3>{status.loading ? <StatePanel title="運用状態を確認しています" /> : status.error ? <StatePanel tone="error" title="運用状態を取得できません" detail={status.error} /> : status.data && <><KV label="状態" value={status.data.pipelineState} /><KV label="停止理由" value={status.data.blockingReason || "なし"} /><KV label="対象日" value={status.data.businessDate} /></>}</section>
-      <section className="advanced-section"><h3 className="section-title">不足データ</h3><p className="small muted">{status.data?.blockingReason || "保存した停止理由はありません。"}</p><Link className="button secondary" to="/settings?edit=repair">不足データを修復</Link></section>
-      <section className="advanced-section"><h3 className="section-title">実行記録</h3><Field label="表示"><select className="input" value={jobsFilter} onChange={e=>setJobsFilter(e.target.value)}><option value="all">すべて</option><option value="attention">不足・保留</option></select></Field>{jobs.error ? <p role="alert">実行記録を取得できません。</p> : <table className="subtable"><thead><tr><th>時刻</th><th>状態・処理</th><th>対象</th></tr></thead><tbody>{jobs.data?.filter(item=>jobsFilter==="all" || ["BLOCKED","FAILED"].includes(item.status)).map(item=><tr key={item.run_id}><td>{dateTime(item.started_at)}</td><td>{item.status}<small className="block">{item.stage}</small>{item.reason_code && <small className="block">{item.reason_code}</small>}</td><td>{item.business_date}</td></tr>)}</tbody></table>}{!jobs.loading && !jobs.data?.length && <p className="small muted">保存した実行記録はまだありません。</p>}<DailyPanel compact /></section>
-      <section className="advanced-section"><h3 className="section-title">再確認</h3><button className="button secondary" onClick={()=>{status.reload();jobs.reload();}}>記録を再確認</button><div className="subactions"><Link className="button secondary" to="/settings?edit=repair">データ修復</Link><Link className="button secondary" to="/settings?edit=model">モデル管理</Link></div></section></div>
-
-      </div><div hidden={path.endsWith("/logs")} className="card stack"><section className="advanced-section">
+      {!path.endsWith("/csv") && <OperationStatus />}<div hidden={path.endsWith("/logs")} className="card stack"><section className="advanced-section">
         <h3 className="section-title">CSV入力</h3>
         <Field label="CSVの種類"><select className="input" disabled={busy} value={kind} onChange={e=>{invalidate();setKind(e.target.value as "executions"|"positions");}}><option value="executions">約定CSV</option><option value="positions">口座状態CSV</option></select></Field>
         <Field label="CSV"><textarea aria-label="CSV内容" className="input" rows={7} value={csv} onChange={(event) => { if (!flight.current || !attempt.current) { invalidate(); setCsv(event.target.value); } }} placeholder={kind === "executions" ? "execution_id,decision_id,executed_at,..." : "as_of,record_type,symbol,account_bucket_id,...,available_cash,reserved_cash"} /></Field>
@@ -114,4 +105,17 @@ export function DataOperationsPage(): ReactNode {
       </div></div>
     </div>
   );
+}
+
+function OperationStatus(): ReactNode {
+  const status = useApiData<AppStatus>("/api/v1/status");
+  const jobs = useApiData<{run_id:string;started_at:string;business_date:string;stage:string;status:string;reason_code:string|null}[]>("/api/v1/jobs");
+  const [jobsFilter,setJobsFilter]=useState("all");
+  return (<div>
+      <div className="card stack"><section className="advanced-section"><h3 className="section-title">処理状態</h3>{status.loading ? <StatePanel title="運用状態を確認しています" /> : status.error ? <StatePanel tone="error" title="運用状態を取得できません" detail={status.error} /> : status.data && <><KV label="状態" value={status.data.pipelineState} /><KV label="停止理由" value={status.data.blockingReason || "なし"} /><KV label="対象日" value={status.data.businessDate} /></>}</section>
+      <section className="advanced-section"><h3 className="section-title">不足データ</h3><p className="small muted">{status.data?.blockingReason || "保存した停止理由はありません。"}</p><Link className="button secondary" to="/settings?edit=repair">不足データを修復</Link></section>
+      <section className="advanced-section"><h3 className="section-title">実行記録</h3><Field label="表示"><select className="input" value={jobsFilter} onChange={e=>setJobsFilter(e.target.value)}><option value="all">すべて</option><option value="attention">不足・保留</option></select></Field>{jobs.error ? <p role="alert">実行記録を取得できません。</p> : <table className="subtable"><thead><tr><th>時刻</th><th>状態・処理</th><th>対象</th></tr></thead><tbody>{jobs.data?.filter(item=>jobsFilter==="all" || ["BLOCKED","FAILED"].includes(item.status)).map(item=><tr key={item.run_id}><td>{dateTime(item.started_at)}</td><td>{item.status}<small className="block">{item.stage}</small>{item.reason_code && <small className="block">{item.reason_code}</small>}</td><td>{item.business_date}</td></tr>)}</tbody></table>}{!jobs.loading && !jobs.data?.length && <p className="small muted">保存した実行記録はまだありません。</p>}<DailyPanel compact /></section>
+      <section className="advanced-section"><h3 className="section-title">再確認</h3><button className="button secondary" onClick={()=>{status.reload();jobs.reload();}}>記録を再確認</button><div className="subactions"><Link className="button secondary" to="/settings?edit=repair">データ修復</Link><Link className="button secondary" to="/settings?edit=model">モデル管理</Link></div></section></div>
+
+      </div>);
 }

@@ -83,6 +83,7 @@ test.beforeEach(async ({ page }) => {
     }, comparison: { blocking_reasons: [{ code: "FORECAST_MISSING" }], research_only: true } },
   };
   Object.assign(payloads, adoptedPayloads(profile));
+  payloads["/api/v1/home/ledger"]=payloads["/api/v1/home"];
   await page.route("**/api/**", route => {
     if (route.request().method() !== "GET" && !route.request().url().endsWith("/review")) throw new Error("Unexpected write in read-only settings fixture");
     const path = new URL(route.request().url()).pathname;
@@ -183,7 +184,7 @@ for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`
 });
 
 test("unregistered home keeps the adopted layout and real registration route",async({page},info)=>{
-  await page.route("**/api/v1/home",route=>route.fulfill({json:{runtimeMode:"TEST",portfolio:null,holdings:[],initialLedger:null}}));
+  await page.route(/\/api\/v1\/home(?:\/ledger)?$/,route=>route.fulfill({json:{runtimeMode:"TEST",portfolio:null,holdings:[],initialLedger:null}}));
   if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
   await page.goto("http://127.0.0.1:5196/#/");
   await expect(page.locator(".screen-home")).toBeVisible();
@@ -379,4 +380,38 @@ test("execution entry uses one saved context without waiting for today recalcula
     if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`execution-context-${font}.png`),await activeDevice!.screenshot());
     else await page.screenshot({path:info.outputPath(`execution-context-${font}.png`),fullPage:true});
   }
+});
+
+test("home and assets show saved balances with no forecast read and no duplicate balance request",async({page})=>{
+  const reads:string[]=[];page.on("request",request=>{if(request.method()==="GET" && request.url().includes("/api/"))reads.push(new URL(request.url()).pathname);});
+  await page.goto("http://127.0.0.1:5196/#/");
+  await expect(page.getByRole("region",{name:"資産残高"})).toContainText("600,000");
+  expect(reads.filter(path=>path==="/api/v1/home/ledger")).toHaveLength(1);
+  expect(reads.filter(path=>path==="/api/v1/home" || path==="/api/v1/today")).toEqual([]);
+  reads.length=0;
+  await page.getByRole("link",{name:"資産を管理 ›",exact:true}).click();
+  await expect(page.getByRole("region",{name:"保有一覧"})).toContainText("100株");
+  expect(reads.filter(path=>path==="/api/v1/home/ledger")).toHaveLength(1);
+});
+
+test("saved ranking is visible while the expensive current read is still pending",async({page},info)=>{
+  const ranking=adoptedPayloads(null)["/api/v1/mobile/ranking/5d"];
+  await page.evaluate(({ranking})=>{
+    const surface=window as unknown as {Capacitor:{nativePromise:(plugin:string,method:string,options?:{path?:string})=>Promise<unknown>}};
+    const original=surface.Capacitor.nativePromise;
+    surface.Capacitor.nativePromise=async(plugin,method,options)=>{
+      if(method==="readSavedView" && options?.path==="/api/v1/mobile/ranking/5d")return {available:true,readOnly:true,savedAt:"2026-10-26T10:00:00Z",body:ranking};
+      return original(plugin,method,options);
+    };
+  },{ranking});
+  let finish!:()=>Promise<void>;
+  await page.route("**/api/v1/mobile/ranking/5d",route=>{finish=()=>route.fulfill({json:ranking});});
+  await page.goto("http://127.0.0.1:5196/#/ranking");
+  await expect(page.locator(".ranking-table-row").first()).toContainText("画面試験1株式会社");
+  await expect(page.getByRole("status")).toContainText("保存済みの順位を表示中");
+  await expect.poll(()=>typeof finish).toBe("function");
+  if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath("saved-ranking-before-validation.png"),await activeDevice!.screenshot());
+  else await page.screenshot({path:info.outputPath("saved-ranking-before-validation.png")});
+  await finish();
+  await expect(page.getByText("保存済みの順位を表示中・更新を確認しています…")).toHaveCount(0);
 });

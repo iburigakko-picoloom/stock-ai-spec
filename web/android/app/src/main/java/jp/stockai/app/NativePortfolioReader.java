@@ -79,7 +79,7 @@ final class NativePortfolioReader {
                 // No mobile.sqlite3 extraction, SQL scan or model/package loading.
                 try (InputStream input = zip.getInputStream(zip.getEntry("operations.sqlite3"))) { copy(input, ledger); }
             }
-            JSONObject body;
+            Object body;
             try (SQLiteDatabase db = SQLiteDatabase.openDatabase(ledger.getPath(), null,
                     SQLiteDatabase.OPEN_READONLY | SQLiteDatabase.NO_LOCALIZED_COLLATORS)) {
                 ledger.delete();
@@ -116,7 +116,7 @@ final class NativePortfolioReader {
                         .put("saved_at", timestamp(exported.getString("saved_at"))).put("portfolio", revision.getJSONObject("portfolio"));
                 }
                 if (currentView) {
-                    body = currentBody(db, body);
+                    body = currentBody(db, (JSONObject) body);
                     if (body == null) return null;
                 }
                 }
@@ -131,11 +131,8 @@ final class NativePortfolioReader {
         }
     }
 
-    private static JSONObject currentBody(SQLiteDatabase db, JSONObject profile) throws Exception {
-        try (Cursor tables = db.rawQuery("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('portfolio_states','mobile_personal_settings')", null)) {
-            if (!tables.moveToFirst() || tables.getInt(0) != 2) return null;
-        }
-        JSONObject ledger = null, settings = null;
+    static JSONObject latestLedger(SQLiteDatabase db) throws Exception {
+        JSONObject ledger = null;
         Instant latest = null;
         boolean tied = false;
         try (Cursor rows = db.rawQuery("SELECT portfolio_id,as_of,payload,content_hash FROM portfolio_states", null)) {
@@ -151,6 +148,14 @@ final class NativePortfolioReader {
             }
         }
         if (tied || (latest != null && latest.isAfter(Instant.now()))) throw new SecurityException("LEDGER_BASE_CONFLICT");
+        return ledger;
+    }
+
+    private static JSONObject currentBody(SQLiteDatabase db, JSONObject profile) throws Exception {
+        try (Cursor tables = db.rawQuery("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('portfolio_states','mobile_personal_settings')", null)) {
+            if (!tables.moveToFirst() || tables.getInt(0) != 2) return null;
+        }
+        JSONObject ledger = latestLedger(db), settings = null;
         String previous = null;
         int sequence = 0;
         try (Cursor rows = db.rawQuery("SELECT sequence,revision_id,payload,content_hash FROM mobile_personal_settings ORDER BY sequence", null)) {

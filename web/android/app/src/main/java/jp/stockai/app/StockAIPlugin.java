@@ -106,7 +106,7 @@ public class StockAIPlugin extends Plugin {
         background(call, () -> {
         completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
-    @PluginMethod public void readSavedView(PluginCall call) { displayExecutor.execute(() -> {
+    @PluginMethod public void readSavedView(PluginCall call) { executor.execute(() -> {
         try { call.resolve(SavedReadViews.forDatabase(
             getContext().getDatabasePath(LocalStateStore.DATABASE)).read(call.getString("path"))); }
         catch (Exception ignored) { call.reject("保存済み表示を確認できません。", "SAVED_VIEW_INVALID"); }
@@ -131,7 +131,7 @@ public class StockAIPlugin extends Plugin {
 
     DailyAutomation automation() throws Exception { return new DailyAutomation(getContext(), owner().state.database); }
     @PluginMethod public void dailyStatus(PluginCall call) { background(call, () -> call.resolve(new JSObject(automation().status().toString()))); }
-    @PluginMethod public void analysisStatus(PluginCall call) { displayExecutor.execute(() -> {
+    @PluginMethod public void analysisStatus(PluginCall call) { executor.execute(() -> {
         try {
             LocalComputeOwner current = owner();
             call.resolve(current.checkpoints.status(current.analyzing || ManualAnalysisService.isRunning()));

@@ -3,11 +3,20 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { apiPost } from "../api";
 import { DataOperationsPage } from "./DataOperationsPage";
+import { useApiData } from "../hooks";
 
 vi.mock("../api", async importOriginal => ({ ...await importOriginal<object>(), apiPost: vi.fn() }));
-vi.mock("../hooks", () => ({ useApiData: () => ({ loading: false, data: null, error: null }) }));
+vi.mock("../hooks", () => ({ useApiData: vi.fn(() => ({ loading: false, data: null, error: null })) }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const value = { preview_id: "p", imported_as_of: "2026-01-01", differences: [], cash_differences: [] };
+test("CSV input opens without starting unrelated status, log or daily reads",()=>{
+  render(<MemoryRouter initialEntries={["/settings/csv"]}><DataOperationsPage /></MemoryRouter>);
+  expect(screen.getByLabelText("CSV内容")).toBeEnabled();
+  expect(useApiData).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("CSV内容"),{target:{value:"自分のCSV"}});
+  expect(screen.getByLabelText("CSV内容")).toHaveValue("自分のCSV");
+  expect(useApiData).not.toHaveBeenCalled();expect(apiPost).not.toHaveBeenCalled();
+});
 function open() {
   render(<MemoryRouter><DataOperationsPage /></MemoryRouter>);
   fireEvent.change(screen.getByRole("combobox",{name:"CSVの種類"}),{target:{value:"positions"}});

@@ -656,20 +656,11 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {"inserted": inserted, "record": item.model_dump(mode="json")}
 
-    @app.get("/api/v1/home")
-    def home(
-        business_date: Annotated[date | None, Query(alias="businessDate")] = None,
+    def home_view(
+        portfolio: PortfolioState, proposal: PortfolioProposal | None, *, actions: bool,
     ) -> dict[str, object]:
-        selected = business_date or current_time().date()
-        portfolio = store.latest_portfolio()
-        if portfolio is None:
-            return {"portfolio": None, "holdings": [], "blockingReason": "保有未登録"}
-        proposal = _active_proposal(store, selected)
-        proposal_lines = (
-            {(line.symbol, line.account_bucket_id): line for line in proposal.lines}
-            if proposal is not None
-            else {}
-        )
+        proposal_lines = ({(line.symbol, line.account_bucket_id): line for line in proposal.lines}
+                          if proposal is not None else {})
         holdings = []
         for position in portfolio.positions:
             line = proposal_lines.get(position.key)
@@ -683,9 +674,11 @@ def create_app(
                     "currentPrice": str(position.market_price),
                     "marketValue": str(position.market_value),
                     "unrealizedPnlAmount": str(position.market_value - position.book_value),
-                    "latestAction": None if line is None else line.action.value,
-                    "recommendedShares": None if line is None else line.recommended_shares,
-                    "proposalId": None if proposal is None else proposal.proposal_id,
+                    "latestAction": line.action.value if actions and line is not None else None,
+                    "recommendedShares": (
+                        line.recommended_shares if actions and line is not None else None
+                    ),
+                    "proposalId": None if proposal is None or not actions else proposal.proposal_id,
                 }
             )
         cash_value = sum((item.available_cash for item in portfolio.cash), Decimal("0"))
@@ -709,6 +702,25 @@ def create_app(
             "accountLabels": _account_labels(portfolio),
             "blockingReason": None,
         }
+
+    @app.get("/api/v1/home")
+    def home(
+        business_date: Annotated[date | None, Query(alias="businessDate")] = None,
+    ) -> dict[str, object]:
+        selected = business_date or current_time().date()
+        portfolio = store.latest_portfolio()
+        if portfolio is None:
+            return {"portfolio": None, "holdings": [], "blockingReason": "保有未登録"}
+        proposal = _active_proposal(store, selected)
+        return home_view(portfolio, proposal, actions=True)
+
+    @app.get("/api/v1/home/ledger")
+    def home_ledger() -> dict[str, object]:
+        # Display actual saved balances independently from prediction eligibility.
+        portfolio = store.latest_portfolio()
+        if portfolio is None:
+            return {"portfolio": None, "holdings": [], "blockingReason": "保有未登録"}
+        return home_view(portfolio, store.latest_proposal(current_time().date()), actions=False)
 
     @app.get("/api/v1/today")
     def today(

@@ -28,6 +28,8 @@ final class SavedReadViews {
         return path != null && (path.equals("/api/v1/home") || path.equals("/api/v1/today")
             || path.equals("/api/v1/mobile/portfolio")
             || path.matches("/api/v1/mobile/ranking/(5d|20d)")
+            || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}")
+            || path.matches("/api/v1/validation\\?mode=(paper|live|historical)")
             || path.matches("/api/v1/ranking\\?rankType=(overall|5d|20d|morning)&limit=50"));
     }
     private AtomicFile file(String path) throws Exception {

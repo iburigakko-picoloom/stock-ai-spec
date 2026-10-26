@@ -30,14 +30,14 @@ export function ValidationPage(): ReactNode {
   const detailed=useLocation().pathname === "/validation/details";
   const analysis=new URLSearchParams(useLocation().search).get("analysis");
   const [mode,setMode]=useState(detailed && ["models","historical"].includes(analysis ?? "") ? analysis! : "paper");
-  const {data,error,loading}=useApiData<PaperSummary & {blockingReason?:string}>(`/api/v1/validation?mode=${mode === "models" ? "paper" : mode}`);
+  const {data,error,loading,savedAt}=useApiData<PaperSummary & {blockingReason?:string}>(`/api/v1/validation?mode=${mode === "models" ? "paper" : mode}`);
   const observed=(data?.observations ?? 0)>0;
   const weekly=data?.weekly_readouts ?? [], monthly=data?.monthly_readouts ?? [];
   const options=detailed ? [["paper","予測精度"],["models","モデル比較"],["historical","過去検証"]] as const : [["paper","提案成績"],["live","実運用成績"]] as const;
   return <div className="page validation-page"><PageHeader title={detailed ? "詳細分析" : "検証"} backTo={detailed ? "/validation" : undefined} />
     <div className={detailed ? "subscreen advanced-domain" : "screen-review"}><div className={detailed ? "subtabs" : "rev-tabs"} aria-label="検証の種類">{options.map(([id,label])=><button key={id} id={`validation-panel-${id}`} type="button" className={mode===id ? "active" : ""} aria-pressed={mode===id} onClick={()=>setMode(id)}>{label}</button>)}</div>
     <div id="validation-panel" role="tabpanel" aria-labelledby={`validation-panel-${mode}`}>
-      {loading && data && <p role="status">前回の表示です・更新を確認中…</p>}
+      {loading && data && <p role="status">{savedAt ? `${dateTime(savedAt,true)}の保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
       {loading && !data ? <StatePanel title="検証記録を読み込んでいます" /> : error ? <StatePanel tone="error" title="検証記録を取得できません" detail={error} /> : data?.blockingReason ? <StatePanel title={data.blockingReason} /> : (mode === "paper" || mode === "models") && data ? <>
         {!detailed && <section className="card">
           <div className="rev-status"><span>提案戦略・1営業日Paper</span><span>{dateTime(data.updated_at)} 更新</span></div>

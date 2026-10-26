@@ -132,3 +132,32 @@ test("offline invalidates late web success and a changed path owns its loading s
   await act(async () => finishes[1]({ current: true }));
   expect(result.current.data).toEqual({ current: true });
 });
+
+test("saved display paints before heavy validation, while a missing preview never stalls it",async()=>{
+  vi.mocked(isAndroid).mockReturnValue(true);
+  const frames:FrameRequestCallback[]=[];
+  vi.spyOn(window,"requestAnimationFrame").mockImplementation(callback=>{frames.push(callback);return frames.length;});
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({available:true,readOnly:true,savedAt:"2026-01-01T00:00:00Z",body:{saved:7}});
+  const view=renderHook(()=>useApiData("/api/v1/stocks/7203"));
+  await act(async()=>{await Promise.resolve();});
+  expect(view.result.current.data).toEqual({saved:7});expect(view.result.current.loading).toBe(true);expect(apiGet).not.toHaveBeenCalled();
+  act(()=>frames.shift()!(0));expect(apiGet).not.toHaveBeenCalled();
+  await act(async()=>frames.shift()!(16));expect(apiGet).toHaveBeenCalledExactlyOnceWith("/api/v1/stocks/7203");
+  expect(view.result.current.savedAt).toBeNull();view.unmount();vi.mocked(apiGet).mockClear();
+  vi.mocked(StockAI.readSavedView).mockReturnValue(new Promise(()=>{}));
+  vi.useFakeTimers({toFake:["setTimeout","clearTimeout"]});
+  renderHook(()=>useApiData("/api/v1/validation?mode=paper"));
+  expect(apiGet).not.toHaveBeenCalled();await act(async()=>{await vi.advanceTimersByTimeAsync(120);});
+  expect(apiGet).toHaveBeenCalledExactlyOnceWith("/api/v1/validation?mode=paper");
+});
+
+test("leaving a preview before the deferred read prevents obsolete work from entering Python",async()=>{
+  vi.mocked(isAndroid).mockReturnValue(true);
+  const frames:FrameRequestCallback[]=[];
+  vi.spyOn(window,"requestAnimationFrame").mockImplementation(callback=>{frames.push(callback);return frames.length;});
+  const cancel=vi.spyOn(window,"cancelAnimationFrame");
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({available:true,readOnly:true,savedAt:"2026-01-01T00:00:00Z",body:{saved:7}});
+  const view=renderHook(()=>useApiData("/api/v1/today"));await act(async()=>{await Promise.resolve();});view.unmount();
+  act(()=>frames.shift()!(0));await act(async()=>frames.shift()!(16));
+  expect(apiGet).not.toHaveBeenCalled();expect(cancel).toHaveBeenCalled();
+});

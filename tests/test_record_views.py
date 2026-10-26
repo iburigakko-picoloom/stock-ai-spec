@@ -133,3 +133,32 @@ def test_note_rejects_invalid_text_and_requires_manual_intent(tmp_path, text):
         == 422
     )
     assert client.get("/api/v1/stocks/7203/note").json()["revision"] is None
+
+
+def test_home_ledger_does_not_read_predictions_or_recompute_proposal(tmp_path, monkeypatch):
+    client, _ = _client(tmp_path)
+    store = client.app.state.store
+    original = store.latest_portfolio()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("A balance display must not validate predictions")
+
+    for method in (
+        "latest_prediction_snapshot",
+        "latest_archived_prediction",
+        "proposal_inputs_current",
+    ):
+        monkeypatch.setattr(store, method, forbidden)
+    value = client.get("/api/v1/home/ledger").json()
+    assert value["portfolio"]["totalAssets"] == str(
+        sum(row.available_cash for row in original.cash)
+        + sum(row.market_value for row in original.positions)
+    )
+    assert value["portfolio"]["buyingPower"] == str(
+        sum(row.deployable_cash for row in original.cash)
+    )
+    assert all(
+        row["latestAction"] is None and row["recommendedShares"] is None
+        for row in value["holdings"]
+    )
+    assert store.latest_portfolio() == original

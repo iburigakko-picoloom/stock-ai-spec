@@ -636,7 +636,7 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             payload = response.json()
         except ValueError:
             payload = {"detail": "この端末ではJSON形式で書き出してください。"}
-        if path == "/api/v1/home" and response.status_code == 200:
+        if path in ("/api/v1/home", "/api/v1/home/ledger") and response.status_code == 200:
             payload["initialLedger"] = personal.initial_reference(_app.state.store)
         if path == "/api/v1/today" and response.status_code == 200:
             reference = forecasts.reference_view(STATE / "mobile.sqlite3", datetime.now(UTC))

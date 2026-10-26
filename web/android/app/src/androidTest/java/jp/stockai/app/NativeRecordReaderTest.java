@@ -93,4 +93,33 @@ public class NativeRecordReaderTest {
         assertEquals("",note.getString("text"));assertTrue(note.isNull("revision"));
         java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);assertNull(host.get(owner));
     }
+    @Test public void balancesAndHistoriesMatchPythonWithoutStartingOrWaitingForPython() throws Exception {
+        JSONObject fixture=fixture();owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
+        JSONObject expected=fixture.getJSONObject("expected_views");
+        CountDownLatch entered=new CountDownLatch(1), release=new CountDownLatch(1);
+        java.lang.reflect.Field queue=LocalComputeOwner.class.getDeclaredField("queue");queue.setAccessible(true);
+        ((ExecutorService)queue.get(owner)).execute(()->{entered.countDown();try{release.await();}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        long direct=0;
+        try {
+            assertTrue(entered.await(10,TimeUnit.SECONDS));
+            java.util.Iterator<String> paths=expected.keys();
+            while(paths.hasNext()){
+                String path=paths.next();long started=android.os.SystemClock.elapsedRealtime();
+                equalJson(expected.get(path),NativePortfolioReader.readRecords(context,owner.state,path).get("body"));
+                long elapsed=android.os.SystemClock.elapsedRealtime()-started;
+                if(path.equals("/api/v1/home/ledger"))direct=elapsed;
+                android.util.Log.i("StockAIDisplayBenchmark",path+" direct_ms="+elapsed);
+            }
+            java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);assertNull(host.get(owner));
+            owner.readViews.save("/api/v1/stocks/B",new JSONObject().put("status",200).put("body",new JSONObject().put("symbol","B")),owner.state.currentGeneration());
+            assertTrue(owner.readViews.read("/api/v1/stocks/B").getBoolean("available"));
+            assertFalse(SavedReadViews.allowed("/api/v1/proposals/current/decision"));
+            assertFalse(SavedReadViews.allowed("/api/v1/mobile/chatgpt-manual/status"));
+        }finally{release.countDown();}
+        long started=android.os.SystemClock.elapsedRealtime();
+        equalJson(expected.get("/api/v1/home/ledger"),owner.request("GET","/api/v1/home/ledger","null").get(300,TimeUnit.SECONDS).getJSONObject("body"));
+        long cold=android.os.SystemClock.elapsedRealtime()-started;
+        assertTrue(direct<cold);
+        android.util.Log.i("StockAIDisplayBenchmark","home_direct_ms="+direct+" cold_python_ms="+cold);
+    }
 }

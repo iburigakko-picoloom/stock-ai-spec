@@ -10,7 +10,7 @@ export function StockDetailPage(): ReactNode {
   const location = useLocation();
   const from: unknown = location.state?.from;
   const backTo = from === "/" || from === "/ranking" || from === "/assets" || (typeof from==="string" && /^\/today\/review(?:\?source=(?:model|chatgpt))?$/.test(from)) || from === "/today/chatgpt" || (typeof from === "string" && /^\/transactions(?:\?[^#]*)?$/.test(from)) ? from : "/today";
-  const { data, error, loading } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
+  const { data, error, loading, savedAt } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
   const [selectedBucket, setSelectedBucket] = useState<string>(location.state?.bucket ?? "ALL");
   if ((loading && !data) || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /><StockMemo key={symbol} symbol={symbol} /></div>;
 
@@ -38,6 +38,7 @@ export function StockDetailPage(): ReactNode {
   const prediction=data.forecast?.prediction;
   return <div className="page stock-detail">
     <PageHeader title="銘柄詳細" backTo={backTo} />
+    {(loading || savedAt) && <p role="status" className="setting-footnote">{savedAt ? `${dateTime(savedAt,true)}の保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
     <div className="screen-detail"><header className="detail-identity"><div className="detail-code">{symbol}</div><h2>{company}</h2><span className="badge">{totalShares ? "保有中" : "未保有"}</span></header><div className="stack">
     {bucketIds.length>1 && <div className="account-tabs" role="tablist" aria-label="口座の表示"><button role="tab" aria-selected={selectedBucket === "ALL"} className={selectedBucket === "ALL" ? "active" : ""} onClick={()=>setSelectedBucket("ALL")}>合計</button>{bucketIds.map(id=><button role="tab" aria-selected={selectedBucket === id} className={selectedBucket === id ? "active" : ""} key={id} onClick={()=>setSelectedBucket(id)}>{data.accountLabels?.[id] ?? id}</button>)}</div>}
     <section className="card"><h3 className="section-title">実際の保有{selectedBucket!=="ALL" && ` / ${selectedBucket}`}</h3>

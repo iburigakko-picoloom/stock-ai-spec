@@ -7,7 +7,7 @@ import { DailyStatusLink } from "../mobile/DailyPanel";
 import { isAndroid } from "../mobile/native";
 
 export function HomePage(): ReactNode {
-  const { data, error, loading, savedAt } = useApiData<HomeResponse>("/api/v1/home");
+  const { data, error, loading, savedAt } = useApiData<HomeResponse>(isAndroid() ? "/api/v1/home/ledger" : "/api/v1/home");
   const groups = useMemo(() => {
     const result = new Map<string, HoldingView[]>();
     for (const holding of data?.holdings || []) {

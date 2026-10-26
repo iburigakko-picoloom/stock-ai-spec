@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Activity, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
@@ -90,7 +90,7 @@ export function SettingsPanel({ visible, children }: { visible: boolean; childre
   useEffect(() => { if (visible) setVisited(true); }, [visible]);
   // Defer unused panels, but retain drafts and in-flight work after first opening.
   if (!visible && !visited) return null;
-  return <div className="settings-edit-content" hidden={!visible}>{children}</div>;
+  return <Activity mode={visible ? "visible" : "hidden"}><div className="settings-edit-content">{children}</div></Activity>;
 }
 
 export function MobileDevicePanel(): ReactNode {
