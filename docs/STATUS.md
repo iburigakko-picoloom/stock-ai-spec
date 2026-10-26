@@ -1,3 +1,9 @@
+## 2026-10-26 — 採用UIへの改修（D259）
+
+- 添付確定版29画面との対応を先に整理し、白基調の画面、3モデルランキング、資産/取引/相談/調査履歴と詳細設定の導線を実装。設定トップ・5タブ・保存データ/計算方針を維持。
+- 判断保存の同画面表示、約定の未反映差分の即時反映と再試行を実装。値予測と順位スコアを実出力で区別。
+- Vitest191件、Python80件、ESLint/TypeScript/変更Python Ruff成功。29画面の狭幅・文字拡大検査とAndroid35 WebView実表示、ランキング復帰検査成功。
+- 詳細と確認範囲は docs/UI_ADOPTED_20261026.md。確認用同署名0.1.60-candidate/code10060の証拠は .demo-artifacts/ui-adopted-20261026/。本人実機の更新/データ移行と実通信は未確認。
 ## 2026-10-26 — 相談改善・ランキング4欄 APK 0.1.59配布
 
 - 本人依頼で同署名0.1.59-candidate/code10059を作成し、既存の非共有Drive StockAIへ保存。source 91d3c5423faf03cececf38cfe05bcf4f1c2d1076、24,060,053 bytes、SHA256 bfd97287478b6da71c3b6134d95e212444fdb87a40dc78d9abab38870058dd20。Drive id 1WlupuglLsLHFqkUzpQOxpgMe1Z2qqUBT、親folder/size/shared=falseを再読込確認。

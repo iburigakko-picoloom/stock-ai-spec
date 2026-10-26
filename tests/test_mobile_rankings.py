@@ -64,6 +64,24 @@ def test_saved_ranking_any_time_consultation_restore_without_ledger_changes(read
     assert restored["savedInput"]["prompt"] == exported["prompt"]
 
 
+def test_display_metrics_preserve_identity_and_do_not_invent_rank_scores(ready):
+    _, store, path, now, current, _, _ = prepare(ready)
+    assert current["id"] == content_id({
+        "snapshot": current["snapshotId"], "horizon": "20d", "rows": current["rows"],
+    })
+    snapshot, _, _ = rankings._latest(path, store, now)
+    for prediction in snapshot.predictions:
+        if prediction.symbol in current["metrics"]:
+            assert current["metrics"][prediction.symbol] == {
+                "return5d": prediction.expected_return_5d,
+                "return20d": prediction.expected_return_20d,
+                "rank20d": getattr(prediction, "rank_score_20d", None),
+            }
+    assert current["holdingSymbols"] == sorted({
+        p.symbol for p in store.latest_portfolio().positions if p.shares > 0
+    })
+
+
 @pytest.mark.parametrize("case", ["duplicate", "missing", "unknown", "wrong_id"])
 def test_bad_or_old_answers_never_replace_rankings(ready, case):
     _, store, path, now, _current, exported, answer = prepare(ready)

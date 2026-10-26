@@ -808,6 +808,18 @@ def create_app(
     def executions(decision_id: str) -> object:
         return jsonable_encoder(store.executions(decision_id=decision_id), by_alias=True)
 
+    @app.get("/api/v1/portfolio/history")
+    def portfolio_history() -> object:
+        return jsonable_encoder(store.portfolio_history(), by_alias=True)
+
+    @app.get("/api/v1/executions")
+    def execution_history() -> object:
+        current = store.latest_portfolio()
+        return {
+            "records": jsonable_encoder(store.executions(), by_alias=True),
+            "appliedIds": [] if current is None else list(current.applied_execution_ids),
+        }
+
     @app.post("/api/v1/portfolio/apply-executions")
     def apply_recorded_executions(
         body: ApplyExecutionsInput,

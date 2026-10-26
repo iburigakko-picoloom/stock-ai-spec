@@ -9,9 +9,9 @@ export function StockDetailPage(): ReactNode {
   const { symbol = "" } = useParams();
   const location = useLocation();
   const from: unknown = location.state?.from;
-  const backTo = from === "/" || from === "/ranking" ? from : "/today";
+  const backTo = from === "/" || from === "/ranking" || from === "/transactions" ? from : "/today";
   const { data, error, loading, reload } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
-  const [selectedBucket, setSelectedBucket] = useState("ALL");
+  const [selectedBucket, setSelectedBucket] = useState<string>(location.state?.bucket ?? "ALL");
   if (loading || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /></div>;
 
   const bucketIds = Array.from(new Set([
@@ -37,6 +37,7 @@ export function StockDetailPage(): ReactNode {
     <div className="page">
       <Link className="back-link" to={backTo}>← 戻る</Link>
       <PageHeader eyebrow={symbol} title={company} meta={selectedLines.length === 1 ? yen(selectedLines[0].referencePrice) : undefined} />
+      <nav className="compact-links" aria-label="銘柄の記録"><Link className="button button--secondary" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{ from: backTo, bucket: selectedBucket }}>この銘柄の取引を記録</Link><Link className="button button--secondary" to={`/stocks/${symbol}/research`} state={{ from: backTo, bucket: selectedBucket }}>調査履歴</Link></nav>
       {bucketIds.length > 1 && <div className="account-tabs" role="tablist">
         <button role="tab" aria-selected={selectedBucket === "ALL"} className={selectedBucket === "ALL" ? "active" : ""} onClick={() => setSelectedBucket("ALL")}>合計</button>
         {bucketIds.map((bucketId) => <button role="tab" aria-selected={selectedBucket === bucketId} className={selectedBucket === bucketId ? "active" : ""} onClick={() => setSelectedBucket(bucketId)} key={bucketId}>{bucketId}</button>)}
@@ -91,7 +92,7 @@ export function StockDetailPage(): ReactNode {
         </>}
         {data.forecast.mode !== "owner_approved" && <p className="explain">検証用の予測です。採用済みの運用提案として扱いません。</p>}
         {data.forecast.prediction.large_loss_probability === null && <p className="explain">下落確率は未提供です。リスクがないという意味ではありません。</p>}
-        {data.forecast.blockingReasons.length > 0 && <details className="research-disclosure"><summary>予測の未解決事項</summary><ul>{data.forecast.blockingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></details>}
+        {data.forecast.blockingReasons.length > 0 && <section className="research-disclosure"><h3 className="plain-section-title">予測の未解決事項</h3><ul>{data.forecast.blockingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></section>}
       </section>}
       <CompanyResearchPanel symbol={symbol} forecast={data.forecast ?? null} runs={data.researchRuns ?? []} records={data.chatgptResearch ?? []} onChanged={reload} />
     </div>

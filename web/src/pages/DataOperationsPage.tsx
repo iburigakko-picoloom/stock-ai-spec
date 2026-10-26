@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ApiError, apiPost } from "../api";
 import { PageHeader, StatePanel } from "../components";
 import { useApiData } from "../hooks";
@@ -12,6 +12,7 @@ interface CashDifference { account_bucket_id: string; ledger_available_cash: str
 interface PositionPreview { preview_id: string; differences: PositionDifference[]; cash_differences: CashDifference[]; imported_as_of: string }
 
 export function DataOperationsPage(): ReactNode {
+  const path = useLocation().pathname;
   const status = useApiData<AppStatus>("/api/v1/status");
   const [kind, setKind] = useState<"executions" | "positions">("executions");
   const [csv, setCsv] = useState("");
@@ -74,12 +75,13 @@ export function DataOperationsPage(): ReactNode {
   return (
     <div className="page">
       <Link className="back-link" to="/settings">← 設定へ戻る</Link>
-      <PageHeader eyebrow="IMPORT / RECONCILIATION" title="データ・運用状態" />
+      <PageHeader eyebrow="IMPORT / RECONCILIATION" title={path.endsWith("/csv") ? "CSV取り込み" : path.endsWith("/logs") ? "処理状況・実行記録" : "データ・運用状態"} />
+      <div hidden={path.endsWith("/csv")}>
       {status.loading ? <StatePanel title="運用状態を確認しています" /> : status.error ? <StatePanel tone="error" title="運用状態を取得できません" detail={status.error} /> : status.data && <section className={`pipeline-state ${status.data.isStale ? "pipeline-state--warning" : ""}`}>
         <span>{status.data.businessDate}</span><strong>{status.data.pipelineState}</strong><p>{status.data.blockingReason || "直近jobの状態を表示しています。"}</p>
       </section>}
 
-      <section className="section">
+      </div><div hidden={path.endsWith("/logs")}><section className="section">
         <div className="section-title"><div><span>PREVIEW FIRST</span><h2>CSV差分確認</h2></div></div>
         <div className="segmented segmented--2"><button className={kind === "executions" ? "active" : ""} disabled={busy} onClick={() => { invalidate(); setKind("executions"); }}>約定CSV</button><button className={kind === "positions" ? "active" : ""} disabled={busy} onClick={() => { invalidate(); setKind("positions"); }}>口座状態CSV</button></div>
         <textarea aria-label="CSV内容" className="csv-input" value={csv} onChange={(event) => { if (!flight.current || !attempt.current) { invalidate(); setCsv(event.target.value); } }} placeholder={kind === "executions" ? "execution_id,decision_id,executed_at,..." : "as_of,record_type,symbol,account_bucket_id,...,available_cash,reserved_cash"} />
@@ -101,6 +103,7 @@ export function DataOperationsPage(): ReactNode {
       </section>}
       {message && <StatePanel title={message} detail="既存recordは上書きしていません。" />}
       {error && <StatePanel tone="error" title="処理を完了できません" detail={error} />}
+      </div>
     </div>
   );
 }

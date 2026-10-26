@@ -52,7 +52,7 @@ export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }
       {running && <button className="button button--secondary" onClick={() => { stop.current = true; setMessage("今の日付の保存が終わったら停止します。"); }}>この日付の取得後に停止</button>}
     </div>
     <p role="status" aria-live="polite">{message}</p>
-    <details className="market-options"><summary>取得範囲・訂正データ・計算の確認</summary>
+    <section className="market-options"><h3 className="plain-section-title">取得範囲・訂正データ・計算の確認</h3>
       <label>予測対象<select value={policy?.mode ?? "legacy300"} disabled={disabled || running || changingPolicy || !policy} onChange={e => {
         const mode = e.target.value;
         setChangingPolicy(true);
@@ -99,6 +99,6 @@ export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }
         {selection.membership_mode === "preselected" && (selection.excluded?.length ?? 0) > 0 && <ul>{selection.excluded?.map((item, index) => <li key={`${item.symbol}-${index}`}>{item.symbol}：対応する国内普通株として確認できません。</li>)}</ul>}
         <p>全保有のうち条件外：{selection.held_only.join("、") || "なし"}。市場・業種の特徴量は全体の母集団から計算します。</p>
       </div>}
-    </details>
+    </section>
   </section>;
 }

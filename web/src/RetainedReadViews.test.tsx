@@ -19,6 +19,8 @@ vi.mock("./pages/HomePage", () => ({ HomePage: () => <TestPage path="home" /> })
 vi.mock("./pages/TodayPage", () => ({ TodayPage: () => <TestPage path="today" /> }));
 vi.mock("./pages/RankingPage", () => ({ RankingPage: () => <TestPage path="ranking" /> }));
 vi.mock("./pages/ValidationPage", () => ({ ValidationPage: () => <TestPage path="validation" /> }));
+vi.mock("./pages/SettingsPage", () => ({ SettingsPage: () => <p>設定内容</p> }));
+
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 test("Android tab return keeps previous display but waits for fresh data before confirmation", async () => {

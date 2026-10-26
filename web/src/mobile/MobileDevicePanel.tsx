@@ -46,14 +46,14 @@ export function MobileUpdateNotice(): ReactNode {
       <div className="app-update-copy"><strong>新しいバージョンがあります</strong><span>{release.versionName}</span></div>
       <button className="button button--primary app-update-button" disabled={busy} aria-busy={busy} onClick={() => { void install(); }}>{busy ? "確認中…" : "更新"}</button>
     </div>
-    {release.notes && <details className="app-update-details"><summary>変更内容を見る</summary><p tabIndex={0}>{release.notes}</p></details>}
+    {release.notes && <section className="app-update-details"><h3 className="plain-section-title">変更内容を見る</h3><p tabIndex={0}>{release.notes}</p></section>}
     {message && <p className="app-update-message" role="status">{message}</p>}
   </section>;
 }
 
 const blank: LocalPortfolio = { schema_version: "manual-portfolio-v1", holdings_status: "unrecorded", investment_budget_yen: null, maximum_drawdown_percent: null, accounts: [], holdings: [] };
 
-const panelTitles = { accounts: "証券口座", capital: "運用資金", risk: "許容下落率", market: "J-Quants・市場データ", model: "予測期間・モデル", daily: "自動更新・通知", chatgpt: "ChatGPT", backup: "バックアップ・復元", about: "アプリ情報・詳細" };
+const panelTitles = { accounts: "証券口座", capital: "運用資金", risk: "許容下落率", market: "J-Quants・市場データ", model: "予測期間・モデル", daily: "自動更新・通知", chatgpt: "ChatGPT", backup: "バックアップ・復元", about: "アプリ情報・詳細", repair: "市場データの修復", method: "計算方式", conditions: "運用条件", taxes: "口座・税・手数料" };
 type SettingsPanelId = keyof typeof panelTitles;
 const iconPaths = {
   database: "M4 6c0-4 16-4 16 0S4 10 4 6Zm0 0v12c0 4 16 4 16 0V6M4 12c0 4 16 4 16 0",
@@ -113,7 +113,7 @@ export function MobileDevicePanel(): ReactNode {
   const [messageGroup, setMessageGroup] = useState("account");
   const [busy, setBusy] = useState(false);
   const acting = useRef(false);
-  useEffect(() => { heading.current?.focus(); window.scrollTo(0, 0); }, [selected, accountStep]);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [selected, accountStep]);
   useEffect(() => {
     if (!isAndroid()) return;
     void StockAI.keyStatus().then(value => setConfigured(value.configured)).catch(() => setLoadError(value => `${value}APIキーの保存状態を確認できません。再起動してください。`));
@@ -205,7 +205,7 @@ export function MobileDevicePanel(): ReactNode {
   const budget = overview?.investment_budget_yen;
   const budgetValue = budget && Number.isFinite(Number(budget)) ? `¥${Math.round(Number(budget)).toLocaleString("ja-JP")}` : "未設定";
   const drawdown = overview?.maximum_drawdown_percent;
-  return <div className={`device-settings settings-screen${selected === "accounts" ? " account-settings-screen" : ""}`}>
+  return <div className={`device-settings settings-screen${selected ? " settings-screen--editing" : " settings-screen--overview"}${selected === "accounts" ? " account-settings-screen" : ""}`}>
     <header className="settings-page-header app-brand">
       {selected && <button type="button" className="settings-back" onClick={back}>← {accountStep ? "証券口座へ" : "設定一覧へ"}</button>}
       <div className="page-header__line"><span className="brand-mark" aria-hidden="true">株AI</span><h1 ref={heading} tabIndex={-1}>{accountStep ? accountStepTitles[accountStep] : selected ? panelTitles[selected] : "設定"}</h1></div>
@@ -250,13 +250,13 @@ export function MobileDevicePanel(): ReactNode {
       <div className="button-stack">
       <button className="button button--primary" disabled={busy || !portfolioLoaded} onClick={() => void action(savePortfolio, `${selected ? panelTitles[selected] : "口座・保有"}を端末に保存しました。`)}>{selected === "capital" ? "運用資金を保存" : selected === "risk" ? "許容下落率を保存" : "口座・保有を保存"}</button>
       </div>
-      <details className="settings-disclosure"><summary>入力を保存済みの値へ戻す</summary>
+      <section className="settings-disclosure"><h3 className="plain-section-title">入力を保存済みの値へ戻す</h3>
       <p className="setting-footnote">ほかの設定で編集中の内容も、すべて最後に保存した値へ戻します。</p>
       <button className="button button--secondary" disabled={busy} onClick={() => void action(async () => {
         const value = await apiGet<SavedPortfolio | null>("/api/v1/mobile/portfolio");
         setSavedPortfolio(value); setPortfolio(value?.portfolio ?? blank); setPortfolioLoaded(true);
       }, "保存済みの口座・保有を読み直しました。")}>すべての保存済み入力を読み直す</button>
-      </details>
+      </section>
       </fieldset>
     </section>
     {messageGroup === "account" && message && <p role="status">{message}</p>}
@@ -276,7 +276,8 @@ export function MobileDevicePanel(): ReactNode {
       <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || accountDirty}
         step={accountStep ?? "overview"} onStep={openAccount} portfolioStatus={accountStatus} />
     </SettingsPanel>
-    <SettingsPanel visible={selected === "market"}>
+    <SettingsPanel visible={selected === "market" || selected === "repair"}>
+    <div hidden={selected === "repair"}>
     <section className="section">
       <h2>J-Quants APIキー</h2>
       <p>{configured === null ? "確認中" : configured ? "設定済み" : "未設定"}</p>
@@ -289,7 +290,7 @@ export function MobileDevicePanel(): ReactNode {
       </div>
       {messageGroup === "data" && message && <p role="status">{message}</p>}
     </section>
-    <MobileMarketPanel configured={configured === true} disabled={busy} onBusy={setBusy} onBackground={() => open("daily")} />
+    </div><MobileMarketPanel configured={configured === true} disabled={busy} onBusy={setBusy} onBackground={() => open("daily")} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "model"}>
     <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} inputStatus={!portfolioLoaded ? "口座情報を読み込み中です。読込に失敗した場合は、この画面の「口座・保有を読み直す」を押してください。" : savedPortfolio === null ? "口座・保有が未登録です。証券口座と実保有を登録してください。" : "口座・保有の編集が未保存です。保存してから計算してください。"} onBusy={setBusy} />
@@ -302,7 +303,7 @@ export function MobileDevicePanel(): ReactNode {
     </SettingsPanel>
     <SettingsPanel visible={selected === "chatgpt"}>
       <div className="button-stack"><Link className="button button--secondary" to="/today/chatgpt">手動でChatGPTに相談</Link></div>
-      <details className="settings-disclosure"><summary>アカウント連携の設定</summary><ChatGPTPanel /></details>
+      <section className="settings-disclosure"><h3 className="plain-section-title">アカウント連携の設定</h3><ChatGPTPanel /></section>
     </SettingsPanel>
     <SettingsPanel visible={selected === "backup"}>
     <MobileBackupPanel disabled={busy} onBusy={setBusy} />
@@ -314,6 +315,17 @@ export function MobileDevicePanel(): ReactNode {
           <Link className="settings-row" to={`/settings/${id}`} key={id}><strong>{title}</strong><b aria-hidden="true">→</b></Link>)}
       </nav>
       <p><a href="/python/licenses.html" target="_blank" rel="noreferrer">オープンソースの表示・ソース取得先</a></p>
+      <nav className="compact-links" aria-label="詳細管理">
+        {([["conditions", "運用条件"], ["taxes", "口座・税・手数料"], ["model", "モデル管理"], ["repair", "市場データの修復"], ["method", "計算方式"]] as const).map(([id, title]) => <button className="button button--secondary" key={id} onClick={() => open(id)}>{title}</button>)}
+        <Link className="button button--secondary" to="/settings/csv">CSV取り込み</Link>
+        <Link className="button button--secondary" to="/settings/logs">処理状況・実行記録</Link>
+      </nav>
+    </SettingsPanel>
+    <SettingsPanel visible={selected === "conditions"}>
+      <nav className="compact-links"><button className="button button--secondary" onClick={() => open("capital")}>運用資金</button><button className="button button--secondary" onClick={() => open("risk")}>許容下落率</button><button className="button button--secondary" onClick={() => open("method")}>株数の探索・比較条件</button></nav>
+    </SettingsPanel>
+    <SettingsPanel visible={selected === "method" || selected === "taxes"}>
+      <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || accountDirty} step={selected === "method" ? "method" : "taxes"} />
     </SettingsPanel>
   </div>;
 }

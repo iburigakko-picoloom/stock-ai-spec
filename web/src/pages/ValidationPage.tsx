@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Metric, PageHeader, StatePanel, TabBar, dateTime, pct, yen } from "../components";
 import { useApiData } from "../hooks";
 import type { PaperSeriesPoint, PaperSummary } from "../types";
@@ -26,6 +27,7 @@ function PaperPerformanceChart({ series }: { series: PaperSeriesPoint[] }): Reac
 }
 
 export function ValidationPage(): ReactNode {
+  const detailed = useLocation().pathname === "/validation/details";
   const [mode, setMode] = useState("paper");
   const { data, error, loading } = useApiData<PaperSummary & { blockingReason?: string }>(`/api/v1/validation?mode=${mode}`);
   const observed = (data?.observations ?? 0) > 0;
@@ -33,7 +35,9 @@ export function ValidationPage(): ReactNode {
   const monthly = data?.monthly_readouts ?? [];
   return (
     <div className="page">
-      <PageHeader eyebrow="提案と実績を振り返る" title="検証" />
+      {detailed && <Link className="back-link" to="/validation">← 検証へ</Link>}
+      <PageHeader eyebrow="提案と実績を振り返る" title={detailed ? "詳細分析" : "検証"} />
+      {!detailed && <Link className="button button--secondary" to="/validation/details">詳細分析</Link>}
       <TabBar label="検証の種類" options={[["paper", "提案Paper"], ["live", "実運用"], ["historical", "過去検証"]]} value={mode} onChange={setMode} panelId="validation-panel" />
       <div id="validation-panel" role="tabpanel" aria-labelledby={`validation-panel-${mode}`}>
       {loading && data && <p role="status">前回の表示です・更新を確認中…</p>}
@@ -55,8 +59,8 @@ export function ValidationPage(): ReactNode {
             <Metric label="平均税影響誤差" value={yen(observed ? data.mean_tax_error : null)} />
           </div>
         </section>
-        <details className="section metadata-details">
-          <summary>モデル診断の詳細</summary>
+        <section className="section metadata-details">
+          <h3 className="plain-section-title">モデル診断の詳細</h3>
           <div className="section-heading">
             <div><span>MODEL MONITOR</span><h2>Champion / Challenger</h2></div>
           </div>
@@ -70,9 +74,9 @@ export function ValidationPage(): ReactNode {
             <div><dt>直近/直前の誤差比</dt><dd>{data.drift_ratio == null ? "—" : `${data.drift_ratio.toFixed(2)}x`}</dd></div>
           </dl>
           <p className="explain">同じ現行モデル版の{data.drift_window ?? "—"}件ずつを比較します。Challenger比較は同じ組合せの分母だけです。自動的なモデル昇格には使いません。</p>
-        </details>
-        <details className="section metadata-details">
-          <summary>週次・月次</summary>
+        </section>
+        <section className="section metadata-details">
+          <h3 className="plain-section-title">週次・月次</h3>
           <div className="section-heading">
             <div><span>PERIODIC READOUT</span><h2>週次・月次</h2></div>
           </div>
@@ -82,7 +86,7 @@ export function ValidationPage(): ReactNode {
               <div><b>{pct(item.proposal_return)}</b><small>超過 {pct(item.excess_return)}</small></div>
             </article>)}
           </div>}
-        </details>
+        </section>
         <section className={`readiness ${data.is_decision_ready ? "readiness--ready" : ""}`}>
           <strong>{data.is_decision_ready ? "最低観測数に到達" : "観測継続中"}</strong>
           <span>{data.observations} / {data.minimum_observation_count ?? "—"}件 ・ 更新 {dateTime(data.updated_at)}</span>

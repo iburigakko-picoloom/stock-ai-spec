@@ -101,22 +101,22 @@ export function CompanyResearchPanel({
     </>}
     {latestRecord && <>
       <p className="research-preview">{latestRecord.comparison.text.replace(/\s+/g, " ").slice(0, 180)}{latestRecord.comparison.text.length > 180 ? "…" : ""}</p>
-      <details className="research-disclosure"><summary>照合結果と出典を見る</summary><Findings value={latestRecord.comparison} /></details>
-      <details className="research-disclosure"><summary>数値予測を見る前の独立調査</summary><Findings value={latestRecord.independent} /></details>
+      <section className="research-disclosure"><h3 className="plain-section-title">照合結果と出典を見る</h3><Findings value={latestRecord.comparison} /></section>
+      <section className="research-disclosure"><h3 className="plain-section-title">数値予測を見る前の独立調査</h3><Findings value={latestRecord.independent} /></section>
     </>}
-    {partial && <details className="research-disclosure" open><summary>保存済みの独立調査</summary><Findings value={partial} /></details>}
-    {(allRuns.length > 0 || latestRecord) && <details className="research-disclosure">
-      <summary>調査履歴・再調査</summary>
-      {allRuns.map(item => <details className="research-history" key={item.run.run_id}>
-        <summary>第{item.run.context.revision}回 · {researchTime(item.run.context.research_as_of)} JST<br />
-          {item.run.context.configuration.model} · {item.run.context.configuration.effort} · {item.record ? "調査・照合済み" : "未完了"}</summary>
+    {partial && <section className="research-disclosure"><h3 className="plain-section-title">保存済みの独立調査</h3><Findings value={partial} /></section>}
+    {(allRuns.length > 0 || latestRecord) && <section className="research-disclosure">
+      <h3 className="plain-section-title">調査履歴・再調査</h3>
+      {allRuns.map(item => <section className="research-history" key={item.run.run_id}>
+        <h3 className="plain-section-title">第{item.run.context.revision}回 · {researchTime(item.run.context.research_as_of)} JST<br />
+          {item.run.context.configuration.model} · {item.run.context.configuration.effort} · {item.record ? "調査・照合済み" : "未完了"}</h3>
         {item.passes.map(value => <div key={value.pass_id}>
           <h3>{value.phase === "independent" ? "独立調査" : "数値予測との照合"}</h3><Findings value={value} />
         </div>)}
         {item.attempts.filter(attempt => attempt.error_code).map(attempt => <p key={attempt.attempt_id}>{researchTime(attempt.finished_at)} JST · {researchFailure(attempt.error_code)}</p>)}
-      </details>)}
+      </section>)}
       {android && matching?.record && <div className="research-actions"><button className="button button--secondary" disabled={busy || !!running || !enabled}
         onClick={() => void perform(true)}>この設定で新たに再調査</button><p className="setting-footnote">利用枠を使って調べ直し、前の結果も残します。</p></div>}
-    </details>}
+    </section>}
   </section>;
 }

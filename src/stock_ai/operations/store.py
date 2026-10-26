@@ -1790,6 +1790,19 @@ class OperationalStore:
         with self._connect() as connection:
             return _latest_portfolio_connection(connection)
 
+    def portfolio_history(self, *, limit: int = 100) -> tuple[PortfolioState, ...]:
+        """Read immutable ledger versions with the same integrity check as current state."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload, content_hash FROM portfolio_states "
+                "ORDER BY created_at DESC, portfolio_id DESC LIMIT ?",
+                (max(1, min(limit, 100)),),
+            ).fetchall()
+        return tuple(
+            _parse_model(PortfolioState, _checked_payload(row, "portfolio_states"))
+            for row in rows
+        )
+
     def archive_proposal(
         self,
         proposal: PortfolioProposal,

@@ -206,11 +206,11 @@ describe("Goal 5 PWA", () => {
     expect(screen.queryByRole("button", { name: "判断を保存" })).not.toBeInTheDocument();
   });
 
-  it("shows cash from each account without exposing model details by default", async () => {
+  it("shows cash from each account with visible model information", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter: { taxable: "100000", nisa: "25000" }, netImprovement: "-200" } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await screen.findByText("125,000円");
-    expect(screen.getByText("fixture-model").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("fixture-model").closest("section")).toBeVisible();
     await userEvent.click(screen.getByText("口座別の現金・推定改善を確認"));
     expect(screen.getByText("25,000円")).toBeVisible();
     expect(screen.getByText("-200円")).toHaveClass("text-negative");
@@ -223,9 +223,9 @@ describe("Goal 5 PWA", () => {
     } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     const details = await screen.findByText("口座別の現金・推定改善を確認");
-    expect(details.closest("details")).not.toHaveAttribute("open");
+    expect(details.closest("section")).toBeVisible();
     await userEvent.click(details);
-    expect(within(details.closest("details")!).getByText("2,000円")).toBeVisible();
+    expect(within(details.closest("section")!).getByText("2,000円")).toBeVisible();
     expect(within(screen.getByText("推定税影響").parentElement!).getByText("0円"))
       .toBeInTheDocument();
   });
@@ -321,6 +321,7 @@ describe("Goal 5 PWA", () => {
       }
       if (url.endsWith("/decision") && init?.method !== "POST") return jsonResponse(null);
       if (url.endsWith("/decisions")) return jsonResponse({ version: 1 });
+      if (url === "/api/v1/portfolio/apply-executions") return jsonResponse({ ok: true });
       throw new Error(`unexpected URL ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -389,7 +390,7 @@ describe("Goal 5 PWA", () => {
       actualOtherCost: "0",
       taxWithheld: "0",
     });
-    await userEvent.click(screen.getByRole("button", { name: "記録済み約定を実保有へ反映" }));
+    expect(screen.getByRole("button", { name: "実保有へ反映済み" })).toBeDisabled();
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === "/api/v1/portfolio/apply-executions")).toBe(true));
   });
 
@@ -403,6 +404,7 @@ describe("Goal 5 PWA", () => {
       if (url.includes("/executions")) return ++attempts === 1
         ? new Response(JSON.stringify({ detail: "約定単価を確認してください" }), { status: 422,
           headers: { "Content-Type": "application/json" } }) : jsonResponse({ ok: true });
+      if (url === "/api/v1/portfolio/apply-executions") return jsonResponse({ ok: true });
       throw new Error(`unexpected URL ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -418,7 +420,7 @@ describe("Goal 5 PWA", () => {
     await userEvent.clear(card.getByLabelText("平均約定単価"));
     await userEvent.type(card.getByLabelText("平均約定単価"), "1235");
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
-    await screen.findByText("購入会社の実行結果を記録しました。");
+    await screen.findByText("購入会社の実行結果を記録し、未反映の約定だけを残高へ反映しました。");
     expect(attempts).toBe(2);
   });
 
@@ -435,6 +437,7 @@ describe("Goal 5 PWA", () => {
         if (bodies.length === 1) return new Promise<Response>((_, reject) => { rejectFirst = reject; });
         return jsonResponse({ ok: true });
       }
+      if (url === "/api/v1/portfolio/apply-executions") return jsonResponse({ ok: true });
       throw new Error(`unexpected URL ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -452,12 +455,38 @@ describe("Goal 5 PWA", () => {
     await screen.findByText("保存応答を受け取れませんでした");
     expect(button).toBeEnabled();
     await userEvent.click(button);
-    await screen.findByText("購入会社の実行結果を記録しました。");
+    await screen.findByText("購入会社の実行結果を記録し、未反映の約定だけを残高へ反映しました。");
     expect(bodies).toHaveLength(2);
     expect(bodies[1]).toEqual(bodies[0]);
-    expect(uuid).toHaveBeenCalledTimes(1);
+    expect(uuid).toHaveBeenCalledTimes(2);
     expect(card.getByRole("button", { name: "記録済み" })).toBeDisabled();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/orders"))).toBe(false);
+  });
+
+  it("retries failed balance reflection without recording the execution twice", async () => {
+    let records = 0;
+    let applies = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/v1/today") return jsonResponse(today);
+      if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
+        lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
+      if (url === "/api/v1/portfolio/apply-executions") {
+        applies++;
+        if (applies === 1) throw new Error("反映応答なし");
+        return jsonResponse({ ok: true });
+      }
+      if (url.endsWith("/executions")) { records++; return jsonResponse({ ok: true }); }
+      throw Error(url);
+    }));
+    render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
+    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
+    await screen.findByText(/約定は記録済みです/);
+    await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
+    await screen.findByText("購入会社の実行結果を記録し、未反映の約定だけを残高へ反映しました。");
+    expect(records).toBe(1);
+    expect(applies).toBe(2);
   });
 
   it("renders the formal capital and model settings routes without Notifications API", async () => {

@@ -13,7 +13,7 @@ export function ConsultationReport({ value }: { value: ConsultationFindings }) {
   return <>
     <p>5日：{value.market_5d}</p><p>20日：{value.market_20d}</p>
     <p>現金：{value.cash_rationale}</p>
-    <details><summary>企業ごとの調査・出典</summary>
+    <section><h3 className="plain-section-title">企業ごとの調査・出典</h3>
       {value.companies?.map(company => <section key={company.symbol}>
         <h3>{company.symbol}</h3><p>{company.rationale}</p>
         <p>独立調査：{company.independent_research}</p>
@@ -25,6 +25,6 @@ export function ConsultationReport({ value }: { value: ConsultationFindings }) {
         <small> 公開 {source.published_at ? dateTime(source.published_at) : "日時未確認"}・確認 {dateTime(source.observed_at)} JST</small>
       </p>)}
       {!!value.unknowns?.length && <p>未確認：{value.unknowns.join(" / ")}</p>}
-    </details>
+    </section>
   </>;
 }

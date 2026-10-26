@@ -116,6 +116,19 @@ def view(path, store, now, horizon):
         "asOf": snapshot.as_of.isoformat(),
         "priceDate": price_date,
         "rows": rows,
+        # Display metadata is outside the persisted consultation identity. Never
+        # label the legacy return fallback in rows.score as a ranking score.
+        "metrics": {
+            p.symbol: {
+                "return5d": p.expected_return_5d,
+                "return20d": p.expected_return_20d,
+                "rank20d": getattr(p, "rank_score_20d", None),
+            }
+            for p in predictions
+        },
+        "holdingSymbols": [] if portfolio is None else sorted({
+            p.symbol for p in portfolio.positions if p.shares > 0
+        }),
         "total": len(predictions),
         "answer": answer,
         "research": history,

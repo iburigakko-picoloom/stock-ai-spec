@@ -89,10 +89,10 @@ export function TodayPage(): ReactNode {
               <StatePanel title="今日は株数変更なし" detail={proposal.noTradeReason || "HOLD比較後の純改善が基準に届きませんでした。"} />
             )}
             {holds.length > 0 && (
-              <details className="hold-section">
-                <summary>HOLD {holds.length}件を確認</summary>
+              <section className="hold-section">
+                <h3 className="plain-section-title">HOLD {holds.length}件を確認</h3>
                 {holds.map((line) => <ProposalRow key={line.lineId} line={line} />)}
-              </details>
+              </section>
             )}
           </section>
           <section className="section summary-panel">
@@ -104,7 +104,7 @@ export function TodayPage(): ReactNode {
               <Metric label="推定税影響" value={yen(proposal.estimatedTaxEffect)} />
             </div>
             <div className="summary-total"><span>取引後の推定現金（合計）</span><strong>{yen(cashAfter)}</strong></div>
-            <details className="metadata-details"><summary>口座別の現金・推定改善を確認</summary>
+            <section className="metadata-details"><h3 className="plain-section-title">口座別の現金・推定改善を確認</h3>
               <dl className="summary-list">
                 {Object.entries(proposal.estimatedCashAfter).map(([bucket, cash]) => <div key={bucket}><dt>{bucket}</dt><dd>{yen(cash)}</dd></div>)}
                 <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(proposal.estimatedTaxCashWithholding)}</dd></div>
@@ -112,17 +112,17 @@ export function TodayPage(): ReactNode {
               </dl>
               <p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p>
               <p className="explain">推定値です。将来の利益や実際の約定価格を保証しません。</p>
-            </details>
+            </section>
             {!previous && <Link className="button button--primary summary-review-link" to="/today/review">判断を確認<span aria-hidden="true">›</span></Link>}
             <p className="explain">保存しても証券会社への注文は行われません</p>
           </section>
-          <details className="metadata-details proposal-metadata"><summary>提案の基準時刻・モデル詳細</summary>
+          <section className="metadata-details proposal-metadata"><h3 className="plain-section-title">提案の基準時刻・モデル詳細</h3>
             <dl className="summary-list">
               <div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div>
               <div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div>
               <div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div>
             </dl>
-          </details>
+          </section>
         </>
       )}
     </div>

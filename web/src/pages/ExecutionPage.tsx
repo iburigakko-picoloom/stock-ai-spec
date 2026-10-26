@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { DecisionSteps, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
@@ -49,6 +49,8 @@ const initialEntry: EntryState = {
 };
 
 export function ExecutionPage(): ReactNode {
+  const [params] = useSearchParams();
+  const location = useLocation();
   const today = useApiData<TodayResponse>("/api/v1/today");
   const [decision, setDecision] = useState<SavedDecision | null>(null);
   const [loadingDecision, setLoadingDecision] = useState(true);
@@ -61,8 +63,7 @@ export function ExecutionPage(): ReactNode {
   const [applied, setApplied] = useState(false);
   const pending = useRef(false);
   const attempts = useRef(new Map<string, { key: string; id: string; confirmed: boolean }>());
-  const tomorrow = new Date(Date.now() + 86_400_000);
-  const [nextAsOf, setNextAsOf] = useState(localDateTimeValue(tomorrow));
+  const [nextAsOf, setNextAsOf] = useState(localDateTimeValue(new Date()));
   const proposal = today.data?.proposal;
 
   useEffect(() => {
@@ -80,7 +81,7 @@ export function ExecutionPage(): ReactNode {
 
   const savedDecision = decision;
   const decisionTargets = new Map(savedDecision.lines.map((line) => [line.proposal_line_id, line.selected_target_shares]));
-  const changed = proposal.lines.filter((line) => decisionTargets.get(line.lineId) !== line.currentShares);
+  const changed = proposal.lines.filter((line) => decisionTargets.get(line.lineId) !== line.currentShares && (!params.get("symbol") || params.get("symbol") === line.symbol));
 
   function entryFor(line: ProposalLine): EntryState {
     const target = decisionTargets.get(line.lineId) ?? line.currentShares;
@@ -134,11 +135,16 @@ export function ExecutionPage(): ReactNode {
         });
         attempt.confirmed = true;
       }
+      const reflectedAt = new Date();
+      await apiPost("/api/v1/portfolio/apply-executions", {
+        nextAsOf: reflectedAt.toISOString(), nextPortfolioId: `actual-${crypto.randomUUID()}`,
+      });
+      setNextAsOf(localDateTimeValue(reflectedAt));
       setRecorded(current => ({ ...current, [line.lineId]: true }));
-      setApplied(false);
-      setMessage(`${line.companyName}の実行結果を記録しました。`);
+      setApplied(true);
+      setMessage(`${line.companyName}の実行結果を記録し、未反映の約定だけを残高へ反映しました。`);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "実行結果を記録できませんでした");
+      setError(`${attempts.current.get(line.lineId)?.confirmed ? "約定は記録済みです。残高反映を再試行してください。" : ""}${reason instanceof Error ? reason.message : "実行結果を記録できませんでした"}`);
     } finally { pending.current = false; setBusy(false); }
   }
 
@@ -161,6 +167,7 @@ export function ExecutionPage(): ReactNode {
 
   return (
     <div className="page">
+      <Link className="back-link" to={params.get("symbol") ? `/stocks/${params.get("symbol")}` : "/today"} state={location.state}>← 戻る</Link>
       <PageHeader eyebrow="証券会社での手動操作後" title="実行結果を記録" />
       <DecisionSteps current="execution" />
       <section className="notice-box"><strong>実際の結果だけを入力</strong><span>提案株数ではなく、証券会社で確認した約定株数・単価を記録してください。</span></section>
@@ -195,12 +202,12 @@ export function ExecutionPage(): ReactNode {
         );
       })}
       <section className="section preview-panel">
-        <h2>翌日以降の実保有へ反映</h2>
-        <p className="explain">すべての手動注文結果を記録した後、反映時点を確認して実行します。提案株数ではなく、記録済み約定だけを使用します。</p>
+        <h2>残高への反映状況</h2>
+        <p className="explain">記録時に未反映の約定だけを反映します。CSV取込後や反映に失敗した場合は、ここから再試行できます。</p>
         <label>次の保有状態の時点<input type="datetime-local" value={nextAsOf} disabled={busy} onChange={(event) => { setNextAsOf(event.target.value); setApplied(false); }} /></label>
         <button className="button button--primary" disabled={busy || applied} onClick={() => void applyRecorded()}>{applied ? "実保有へ反映済み" : "記録済み約定を実保有へ反映"}</button>
       </section>
-      {message && <StatePanel title={message} detail="翌日状態は確定した実約定だけから更新されます。" />}
+      {message && <StatePanel title={message} detail="保有と現金は確定した実約定だけから更新されます。" />}
       {error && <StatePanel tone="error" title="記録できませんでした" detail={error} />}
     </div>
   );

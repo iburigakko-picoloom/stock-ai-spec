@@ -126,20 +126,20 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
       {run.outcome === "cash_only" && <p>対象銘柄と保有がないため、銘柄の数値予測はありません。</p>}
       {run.phase === "computed" && <p>保存の確定を確認できません。同じ計算を実行すると保存を再開します。</p>}
       {blockingMessages.length > 0 && <ul>{blockingMessages.map(message => <li key={message}>{message}</li>)}</ul>}
-      <details><summary>計算時刻・参照情報</summary>
+      <section><h3 className="plain-section-title">計算時刻・参照情報</h3>
         <p>確認：{timestamp(run.checked_at)}</p>
         <p>この予測の対象方式：{run.scope.universe?.policy === "jquants-scalecat-topix500-v1" ? "TOPIX500" : run.scope.universe?.policy?.startsWith("cap30bn-adv20-top300-") ? "従来300" : "記録を確認してください"}</p>
         <p>最終株価日：{run.scope.universe?.latest_source_date ?? "未確認"}</p>
         {run.snapshot && <><p>数値生成：{timestamp(run.snapshot.generated_at)}</p><p>参照情報の受領：{timestamp(run.snapshot.data_as_of)}</p></>}
         {decision && <p>株数判定の生成：{timestamp(decision.checked_at)}</p>}
-      </details>
-      {run.excluded_candidates.length > 0 && <details><summary>履歴不足で予測を見送った候補 {run.excluded_candidates.length}社</summary>
-        <p>{run.excluded_candidates.map(x => x.symbol).join("、")}</p></details>}
-      {symbols.length > 0 && <details><summary>{top ? "上位20と全保有の予測を見る" : "算出できた予測を見る"} {symbols.length}社</summary>
+      </section>
+      {run.excluded_candidates.length > 0 && <section><h3 className="plain-section-title">履歴不足で予測を見送った候補 {run.excluded_candidates.length}社</h3>
+        <p>{run.excluded_candidates.map(x => x.symbol).join("、")}</p></section>}
+      {symbols.length > 0 && <section><h3 className="plain-section-title">{top ? "上位20と全保有の予測を見る" : "算出できた予測を見る"} {symbols.length}社</h3>
         {ranking.size > 0 && <p>順位スコアは期待リターン率ではありません。20日の順位で表示します。</p>}
         <table><thead><tr><th>銘柄</th>{ranking.size > 0 && <th>20日順位スコア</th>}<th>5日リターン</th><th>20日リターン</th></tr></thead><tbody>{symbols.map(symbol => <tr key={symbol}>
           <td><Link to={`/stocks/${symbol}`}>{symbol}</Link>{holdings.has(symbol) && "（保有）"}</td>{ranking.size > 0 && <td>{ranking.get(symbol)?.toFixed(4) ?? "未提供"}</td>}<td>{percent(five.get(symbol))}</td><td>{percent(twenty.get(symbol))}</td></tr>)}</tbody></table>
-      </details>}
+      </section>}
     </div>}
   </section>;
 }

@@ -43,7 +43,7 @@ test("earlier judgments remain accessible in history after a new revision", () =
   fireEvent.click(screen.getByText("調査履歴・再調査"));
   const earlierSummary = screen.getByText(/第1回/);
   fireEvent.click(earlierSummary);
-  const history = earlierSummary.closest("details")!;
+  const history = earlierSummary.closest("section")!;
   expect(within(history).getByText(first.text)).toBeVisible();
   expect(within(history).getByText(second.text)).toBeVisible();
 });

@@ -85,8 +85,8 @@ export function ChatGPTPanel() {
     </div>}
     <p role="status">{busy ? (signingIn ? "OpenAIの画面でログインしてください。" : "ChatGPTへ接続しています…") : message}</p>
     {signingIn && <div className="button-stack"><button className="button button--secondary" onClick={() => void ChatGPT.cancelSignIn().catch(() => setMessage("ログインの中止を確認できませんでした。画面を開き直してください。"))}>ログインを中止</button></div>}
-    <details className="settings-disclosure">
-      <summary>連携について</summary>
+    <section className="settings-disclosure">
+      <h3 className="plain-section-title">連携について</h3>
       <div className="settings-content">
         <p>利用枠はChatGPT・Codexと共有します。別料金のAPIへ自動切替しません。APIキーや口座残高は調査へ送りません。</p>
         <p>数値モデルの提案とChatGPTの調査は別々に保存・表示します。ここでの接続成功はモデル採用や投資判断の正しさを示すものではありません。</p>
@@ -100,6 +100,6 @@ export function ChatGPTPanel() {
           })}>確認して連携解除</button>
         </div>}
       </div>
-    </details>
+    </section>
   </section>;
 }

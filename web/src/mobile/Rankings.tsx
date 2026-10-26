@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, TabBar, dateTime } from "../components";
 import { useApiData } from "../hooks";
@@ -7,14 +8,14 @@ import { ReferenceAnalysis } from "./ReferenceAnalysis";
 
 interface Ranked { symbol: string; companyName?: string; modelRank: number; score: number | null; expectedReturn: number | null }
 interface Answer { order: { symbol: string; reason: string }[]; savedAt: string; researchId?: string; research?: ConsultationFindings }
-interface Ranking { id: string; generatedAt: string; asOf: string; priceDate: string | null; rows: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null }
+interface Ranking { id: string; generatedAt: string; asOf: string; priceDate: string | null; rows: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null; holdingSymbols?: string[]; metrics?: Record<string, { return5d: number | null; return20d: number | null; rank20d: number | null }> }
 interface Exported { id: string; rankingId?: string; prompt: string; expiresAt: string; canCopy?: boolean }
 
 export function Rankings() {
   const [horizon, setHorizon] = useState("20d");
   return <div className="page"><PageHeader eyebrow="保存した最新の結果" title="ランキング" />
-    <TabBar label="ランキング期間" options={[["overall", "総合"], ["20d", "20日順位"], ["20d-value", "20日値"], ["5d", "5日値"]]} value={horizon} onChange={setHorizon} panelId="saved-ranking" />
-    <div id="saved-ranking" role="tabpanel" aria-labelledby={`saved-ranking-${horizon}`}>{horizon === "overall" ? <StatePanel title="総合ランキングは未導入です" detail="20日順位・20日値・5日値を利用できます。" /> : <RankingBody key={horizon} horizon={horizon} />}</div>
+    <TabBar label="ランキングモデル" options={[["5d", "5日・値予測"], ["20d-value", "20日・値予測"], ["20d", "20日・ランキング"]]} value={horizon} onChange={setHorizon} panelId="saved-ranking" />
+    <div id="saved-ranking" role="tabpanel" aria-labelledby={`saved-ranking-${horizon}`}><RankingBody horizon={horizon} /></div>
   </div>;
 }
 
@@ -23,7 +24,8 @@ function RankingBody({ horizon }: { horizon: string }) {
   const path = `/api/v1/mobile/ranking/${horizon === "20d-value" ? "20d" : horizon}`;
   const { data, error, loading, reload } = useApiData<Ranking>(path);
   const [search, setSearch] = useState("");
-  const [source, setSource] = useState("chatgpt");
+  const [source, setSource] = useState("model");
+  const [heldOnly, setHeldOnly] = useState(false);
   const [consulting, setConsulting] = useState(false);
   const [privateUse, setPrivateUse] = useState(false);
   const [entitled, setEntitled] = useState(false);
@@ -41,8 +43,10 @@ function RankingBody({ horizon }: { horizon: string }) {
   const research = savedResearch ?? data?.research;
   const adjusted = horizon === "20d" && source === "chatgpt" && data?.answer;
   const rows = adjusted ? data.answer!.order.map(item => ({ ...data.rows.find(row => row.symbol === item.symbol)!, reason: item.reason })) : (data?.rows ?? []).map(row => ({ ...row, reason: "" }));
-  if (valueOnly) rows.sort((a, b) => (a.expectedReturn === null ? 1 : 0) - (b.expectedReturn === null ? 1 : 0) || (b.expectedReturn ?? 0) - (a.expectedReturn ?? 0) || a.symbol.localeCompare(b.symbol));
-  const visible = rows.map((row, index) => ({ ...row, rank: index + 1 })).filter(row => `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const metric = (row: Ranked): number | null => valueOnly ? row.expectedReturn : data?.metrics?.[row.symbol]?.rank20d ?? null;
+  if (!adjusted) rows.sort((a, b) => (metric(a) === null ? 1 : 0) - (metric(b) === null ? 1 : 0) || (metric(b) ?? 0) - (metric(a) ?? 0) || a.symbol.localeCompare(b.symbol));
+  const visible = rows.map((row, index) => ({ ...row, rank: adjusted || metric(row) !== null ? `${index + 1}位` : "—" })).filter(row => (!heldOnly || data?.holdingSymbols?.includes(row.symbol)) && `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const percent = (value: number | null | undefined) => value == null ? "未算出" : `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
   return <>
     {loading && <p role="status">{data ? "保存済みの順位を表示中・更新を確認しています…" : "ランキングを読み込んでいます…"}</p>}
     {error && <StatePanel tone="error" title="ランキングを読み込めません" detail={error} />}
@@ -51,12 +55,15 @@ function RankingBody({ horizon }: { horizon: string }) {
       {horizon === "20d" && data.answer && <TabBar label="順位の種類" options={[["chatgpt", "ChatGPT"], ["model", "モデル"]]} value={source} onChange={setSource} panelId="ranking-source" />}
       <div id="ranking-source" role={!valueOnly && data.answer ? "tabpanel" : undefined} aria-labelledby={!valueOnly && data.answer ? `ranking-source-${source}` : undefined}><p>{valueOnly ? `${horizon === "5d" ? "5" : "20"}日の予測リターンが高い順` : adjusted ? "ChatGPTの回答を反映した順位" : "モデルの予測順位"}・上位{rows.length}件</p>
         <label className="search"><span className="sr-only">銘柄名・コードで検索</span><input type="search" placeholder="銘柄名・コードで検索" value={search} onChange={e => setSearch(e.target.value)} /></label>
-        {search.trim() && !visible.length && <p>検索に一致する銘柄がありません。</p>}
-        <div className="ranking-list">{visible.map(row => <div className="ranking-row saved-ranking-row" key={row.symbol}>
-          <strong className="rank-number">{`${row.rank}位`}</strong><div><strong>{row.companyName || row.symbol}</strong>{row.companyName && row.companyName !== row.symbol && <small>{row.symbol}</small>}
+        <div className="ranking-filter"><label className="checkbox"><input type="checkbox" checked={heldOnly} onChange={e => setHeldOnly(e.target.checked)} />保有のみ</label><span>{visible.length}件</span></div>
+        {!visible.length && <p>条件に一致する銘柄がありません。</p>}
+        <div className="ranking-table-head"><span>順位・銘柄</span><span>{valueOnly ? "5日値予測" : "順位スコア"}</span><span>20日値予測</span></div>
+        <div className="ranking-list">{visible.map(row => <Link to={`/stocks/${row.symbol}`} state={{ from: "/ranking" }} className="ranking-row saved-ranking-row" key={row.symbol}>
+          <strong className="rank-number">{row.rank}</strong><div><strong>{row.companyName || row.symbol}</strong>{row.companyName && row.companyName !== row.symbol && <small>{row.symbol}</small>}{data.holdingSymbols?.includes(row.symbol) && <small>保有</small>}
             {adjusted && <small>モデル {row.modelRank}位</small>}{row.reason && <p>{row.reason}</p>}</div>
-          <span>{row.expectedReturn === null ? "—" : `${(row.expectedReturn * 100).toFixed(2)}%`}<small>予測リターン</small></span>
-        </div>)}</div>
+          <span>{valueOnly ? percent(data.metrics?.[row.symbol]?.return5d ?? (horizon === "5d" ? row.expectedReturn : null)) : data.metrics?.[row.symbol]?.rank20d?.toFixed(2) ?? "未算出"}</span>
+          <span>{percent(data.metrics?.[row.symbol]?.return20d ?? (horizon !== "5d" ? row.expectedReturn : null))}</span>
+        </Link>)}</div>
       </div>
       {horizon === "20d" && <button className="button button--secondary" disabled={loading || busy || !rows.length} onClick={() => setConsulting(!consulting)}>ChatGPTと相談</button>}
     </>}

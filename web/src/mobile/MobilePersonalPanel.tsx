@@ -14,7 +14,7 @@ export const accountStepTitles = { portfolio: "現金・買付余力", nisa: "NI
 export type AccountStep = keyof typeof accountStepTitles;
 
 export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, portfolioStatus = "確認中" }: {
-  profile: SavedPortfolio | null; disabled: boolean; step?: AccountStep | "overview" | "all";
+  profile: SavedPortfolio | null; disabled: boolean; step?: AccountStep | "overview" | "all" | "method" | "taxes";
   onStep?: (step: AccountStep) => void; portfolioStatus?: string;
 }) {
   const [saved, setSaved] = useState<SavedSettings | null>(null);
@@ -103,6 +103,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   </section>;
   if (step === "portfolio" || step === "nisa") return null;
   if (!profile || !draft) return <section className="section"><p>{!loaded && !refreshError ? "登録内容を読み込んでいます…" : "先に口座・保有を保存してください。"}</p>{message && <><p role="status">{message}</p><button className="button" disabled={busy} onClick={() => setReload(value => value + 1)}>補足設定を読み直す</button></>}</section>;
+  const focused = step === "method" || step === "taxes";
   const gaps = [...new Set((readiness?.input_gaps ?? []).map(gapLabel))];
   const reasons = [...new Set((readiness?.comparison.blocking_reasons ?? []).map(x => gapLabel(x.code)))];
   return <section className="section account-editor" aria-label="補足設定と初回台帳">
@@ -119,16 +120,16 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         accounts: profile.portfolio.accounts.map(x => draft.accounts.find(old => old.account_id === x.id) ?? blankAccount(x.id)),
       })}>最新の口座・保有に合わせて見直す</button></div>}
     <fieldset className="account-form" hidden={step === "balances"} disabled={blocked}>
-      <legend className={step !== "all" && !manualConditions ? "sr-only" : undefined}>現金・税金・費用の入力</legend>
-      {step !== "all" && !manualConditions ? <SbiConditions profile={profile} draft={draft} change={change} onManual={() => setManualConditions(true)} currentLedger={!!readiness?.comparison.ledger_portfolio_id} /> : <>
-      {step !== "all" && <button type="button" className="settings-back" onClick={() => setManualConditions(false)}>← かんたん設定へ</button>}
-      <div className="account-form-card"><h3>現金の扱い</h3>
+      <legend className={step !== "all" && !focused && !manualConditions ? "sr-only" : undefined}>現金・税金・費用の入力</legend>
+      {step !== "all" && !focused && !manualConditions ? <SbiConditions profile={profile} draft={draft} change={change} onManual={() => setManualConditions(true)} currentLedger={!!readiness?.comparison.ledger_portfolio_id} /> : <>
+      {step !== "all" && !focused && <button type="button" className="settings-back" onClick={() => setManualConditions(false)}>← かんたん設定へ</button>}
+      <div hidden={focused} className="account-form-card"><h3>現金の扱い</h3>
       {!readiness?.comparison.ledger_portfolio_id && <label>口座に入力した現金の意味<select value={draft.cash_basis ?? ""} onChange={event => change({ ...draft, cash_basis: event.target.value as PersonalSettings["cash_basis"] || null })}>
         <option value="">未確認</option><option value="total_including_reserved">確保中の金額を含む総現金</option><option value="deployable_after_reserved">確保中の金額を除いた買付余力</option>
       </select></label>}
       <label><input type="checkbox" checked={draft.budget_basis !== null} onChange={event => change({ ...draft, budget_basis: event.target.checked ? "maximum_total_equity_market_value" : null })} />投資上限は全口座で保有する株式の時価合計に対する上限です</label>
       </div>
-      <div className="account-form-card"><h3>口座ごとの内訳</h3>
+      <div hidden={step === "method"} className="account-form-card"><h3>口座ごとの内訳</h3>
       <label>損益の対象年<input type="number" min="2000" max="2200" value={draft.tax_year ?? ""} onChange={event => change({ ...draft, tax_year: event.target.value ? Number(event.target.value) : null })} /></label>
       {profile.portfolio.accounts.map(source => {
         const item = draft.accounts.find(x => x.account_id === source.id);
@@ -138,22 +139,22 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
           <label>未反映の取引・決済・入出金<select value={item.pending_activity} onChange={event => accountChange(source.id, { pending_activity: event.target.value as AccountSettings["pending_activity"] })}>
             <option value="unknown">まだ確認していない</option><option value="none">未反映のものはない</option><option value="pending">未反映・未決済のものがある</option>
           </select></label>
-          <details className="settings-disclosure"><summary>この口座の税・NISA</summary>
+          <section className="settings-disclosure"><h3 className="plain-section-title">この口座の税・NISA</h3>
           {(Object.entries(taxLabels) as [keyof typeof taxLabels, string][]).filter(([key]) => !(readiness?.comparison.ledger_portfolio_id && key.startsWith("nisa_")) && (source.account_type === "nisa" || !key.startsWith("nisa_") || item[key] !== null)).map(([key, label]) =>
             <Amount key={key} label={label} value={item[key]} change={next => accountChange(source.id, { [key]: next })} />)}
-          </details>
+          </section>
         </fieldset>;
       })}
       </div>
-      <div className="account-form-card"><h3>取引コスト・税の計算条件</h3><p>bpsは1万分の1です。価格差10・ずれ5・価格影響25bpsはアプリの計算仮定で、SBIの手数料ではありません。</p>
+      <div hidden={step === "method"} className="account-form-card"><h3>取引コスト・税の計算条件</h3><p>bpsは1万分の1です。価格差10・ずれ5・価格影響25bpsはアプリの計算仮定で、SBIの手数料ではありません。</p>
         {(Object.entries(costLabels) as [keyof typeof costLabels, string][]).map(([key, label]) => <Amount key={key} label={label} value={draft.cost_assumptions[key]} change={next => change({ ...draft, cost_assumptions: { ...draft.cost_assumptions, [key]: next } })} />)}
         <label><input type="checkbox" checked={draft.cost_assumptions.zero_commission_confirmed} onChange={event => change({ ...draft, cost_assumptions: { ...draft.cost_assumptions, zero_commission_confirmed: event.target.checked } })} />手数料を0とする場合、無料の適用条件を確認しました</label>
         <label>税の条件の適用開始日<input type="date" value={draft.tax_assumptions.effective_from ?? ""} onChange={event => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, effective_from: event.target.value || null } })} /></label>
         <Amount label="課税口座の想定税率（%）" value={draft.tax_assumptions.taxable_rate_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, taxable_rate_percent: next } })} />
         <Amount label="NISA枠の機会費用の仮定（%）" value={draft.tax_assumptions.nisa_opportunity_cost_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, nisa_opportunity_cost_percent: next } })} />
       </div>
-      <div className="account-form-card"><h3>比較条件</h3>
-      <details><summary>研究用比較で使う条件</summary><p>20日予測で比較し、5日予測は参考とします。売買は100株単位、最大10銘柄、1銘柄10%・同一業種30%まで、現金10%以上。売買総額は資産の100%まで、1銘柄の注文は平均日次売買代金の5%までとします。</p><p>費用・推定税・下側リスク・不確実性を考慮し、現状維持から1,000円以上改善する案を比較します。下側リスク・不確実性は各1倍、追加の集中・下落確率・回転ペナルティと金額バッファーは0です。最大下落率の希望から条件を自動設定せず、損失額を保証しません。NISAの残り購入枠は売却で同日回復させません。</p></details>
+      <div hidden={step === "taxes"} className="account-form-card"><h3>比較条件</h3>
+      <section><h3 className="plain-section-title">研究用比較で使う条件</h3><p>20日予測で比較し、5日予測は参考とします。売買は100株単位、最大10銘柄、1銘柄10%・同一業種30%まで、現金10%以上。売買総額は資産の100%まで、1銘柄の注文は平均日次売買代金の5%までとします。</p><p>費用・推定税・下側リスク・不確実性を考慮し、現状維持から1,000円以上改善する案を比較します。下側リスク・不確実性は各1倍、追加の集中・下落確率・回転ペナルティと金額バッファーは0です。最大下落率の希望から条件を自動設定せず、損失額を保証しません。NISAの残り購入枠は売却で同日回復させません。</p></section>
       <label>株数の探索方法<select value={draft.research_decision_policy} onChange={event => change({ ...draft,
         research_decision_policy: event.target.value as PersonalSettings["research_decision_policy"], research_conditions_reviewed: false,
       })}><option value="daily-decision-engine-v3-bounded">300社向け</option>
@@ -172,7 +173,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
       })}>補足設定を保存</button>
     </fieldset>
     {step !== "balances" && gaps.length > 0 && <div><h3>まだ確認が必要な入力</h3><ul>{gaps.map(x => <li key={x}>{x}</li>)}</ul></div>}
-    <div hidden={step === "conditions"} className="account-form-card">
+    <div hidden={step === "conditions" || focused} className="account-form-card">
     <h3>残高を確認して登録</h3>
     <p className="setting-footnote">最初の残高を登録します。登録後は入力欄の編集では変更されません。</p>
     {step === "balances" && loaded && (!saved || dirty || stale) && <p>先に取引の確認を確認・保存してください。{onStep && <button type="button" className="settings-back" onClick={() => onStep("conditions")}>取引の確認を開く →</button>}</p>}
@@ -190,7 +191,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
       })}>この内容を初回台帳に確定</button>
     </>}</div>}
     </div>
-    <div hidden={step === "conditions"}>
+    <div hidden={step === "conditions" || focused}>
     <h3>登録状況</h3><p>{!readiness ? "準備状況を確認中…" : readiness.comparison.ledger_portfolio_id ? "初回台帳は登録済みです。" : "初回台帳は未確定です。"} 採用モデルと最新予測が揃うまで、研究用表示を続けます。</p>
     {reasons.length > 0 && <ul>{reasons.map(x => <li key={x}>{x}</li>)}</ul>}
     </div>

@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ApiError, apiGet, apiPost } from "../api";
 import { ActionBadge, DecisionSteps, PageHeader, StatePanel, yen } from "../components";
 import { useApiData } from "../hooks";
@@ -10,7 +10,7 @@ interface SavedDecision {
 }
 
 export function DecisionReviewPage(): ReactNode {
-  const navigate = useNavigate();
+  const [savedKey, setSavedKey] = useState<string | null>(null);
   const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today");
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [reviewState, setReview] = useState<{ key: string; value: DecisionReview } | null>(null);
@@ -70,7 +70,7 @@ export function DecisionReviewPage(): ReactNode {
       }
       await apiPost(attempt.current.path, attempt.current.body);
       attempt.current = null;
-      navigate("/today/decision");
+      setSavedKey(targetKey);
     } catch (reason) {
       if (reason instanceof ApiError && reason.status === 409) { attempt.current = null; setReview(null); }
       setReviewError(reason instanceof Error ? reason.message : "判断を保存できませんでした");
@@ -84,6 +84,7 @@ export function DecisionReviewPage(): ReactNode {
       <Link className="back-link" to="/today">← 今日へ戻る</Link>
       <PageHeader eyebrow="AI提案とは別に保存" title="判断を確認" />
       <DecisionSteps current="review" />
+      {savedKey === targetKey && <section role="status" className="save-result"><h2>判断を保存しました</h2><p>保有・現金は変更していません。</p><Link className="button button--secondary" to="/today/executions">実行結果を記録</Link></section>}
       <section className="notice-box"><strong>これは注文画面ではありません</strong><span>証券会社での操作はご自身で行い、結果を後から記録します。</span></section>
       <section className="section review-list">
         {proposal.lines.filter((line) => line.action !== "SKIP").map((line) => (
@@ -135,8 +136,8 @@ export function DecisionReviewPage(): ReactNode {
       </section>
       <div className="sticky-action">
         <p>保存しても証券会社への注文は行われません</p>
-        <button className="button button--primary" disabled={saving || !review || review.constraint_violations.length > 0} onClick={() => void save()}>
-          {saving ? "保存中…" : "判断を保存"}
+        <button className="button button--primary" disabled={saving || savedKey === targetKey || !review || review.constraint_violations.length > 0} onClick={() => void save()}>
+          {saving ? "保存中…" : savedKey === targetKey ? "判断を保存済み" : "判断を保存"}
         </button>
         <Link className="text-link" to="/today">提案へ戻る</Link>
       </div>

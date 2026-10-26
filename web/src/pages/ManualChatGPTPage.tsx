@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, dateTime } from "../components";
 import { isAndroid } from "../mobile/native";
@@ -17,6 +17,8 @@ interface ManualStatus { ready: boolean; reason: string | null; selected_input: 
 interface Exported { input_record_id: string; input_snapshot_id: string; expires_at: string; prompt: string }
 
 export function ManualChatGPTPage(): ReactNode {
+  const historyOnly = useLocation().pathname.endsWith("/history");
+  const [historyIndex, setHistoryIndex] = useState(0);
   const [status, setStatus] = useState<ManualStatus | null>(null);
   const [privateUse, setPrivateUse] = useState(false);
   const [entitled, setEntitled] = useState(false);
@@ -92,7 +94,9 @@ export function ManualChatGPTPage(): ReactNode {
   }
   return <div className="page manual-chatgpt">
     <Link className="back-link" to="/today">← 今日へ戻る</Link>
-    <PageHeader eyebrow="本人用の判断支援" title="ChatGPTと相談" />
+    <PageHeader eyebrow="本人用の判断支援" title={historyOnly ? "相談履歴" : "ChatGPTと相談"} />
+    <Link className="button button--secondary" to={historyOnly ? "/today/chatgpt" : "/today/chatgpt/history"}>{historyOnly ? "新しい相談" : "相談履歴"}</Link>
+    <div hidden={historyOnly}>
     <p className="explain">上位20銘柄と全保有を渡して相談します。モデル・推論設定はChatGPT側で選びます。回答は提案として保存します。</p>
     {!android ? <StatePanel title="Androidアプリで利用できます" detail="端末に保存した最新の原予測・口座・設定を使います。" />
       : !status ? <StatePanel title="保存済み入力を確認しています" />
@@ -138,25 +142,28 @@ export function ManualChatGPTPage(): ReactNode {
         <span>{line.symbol} / {status?.account_labels?.[line.account] ?? line.account}</span><strong className="share-change"><span>{line.current_shares}株</span><span aria-hidden="true">→</span><span>{line.target_shares}株</span></strong>
       </div>)}
       <p>費用見込み {Number(review.estimated_cost_yen).toLocaleString("ja-JP")}円</p>
-      <details><summary>理由と根拠</summary>
+      <section><h3 className="plain-section-title">理由と根拠</h3>
         {review.answer?.targets.map(target => <p key={`${target.symbol}-${target.account}`}>
           {target.symbol} / {target.account}：{target.reason}
           {target.sources.map(url => <a key={url} href={url} target="_blank" rel="noreferrer"> 出典</a>)}
         </p>)}
         <p>未確認：{review.answer?.unknowns.join(" / ") || "回答に記載なし"}</p>
         {review.answer && <p>回答の申告時点：{dateTime(review.answer.evidence_as_of)}</p>}
-      </details>
+      </section>
       <p>実注文はご本人が行い、実際の約定を確認した後に記録してください。</p>
     </section>}
-    {!!status?.answers.length && <details className="section"><summary>保存した相談履歴（直近20件）</summary>
-      {status.answers.map((item, i) => <details key={i}>
-        <summary>{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`}</summary>
+    </div>
+    {historyOnly && !status?.answers.length && <StatePanel title={status ? "保存した相談はまだありません" : "相談履歴を確認しています"} detail={error || undefined} />}
+    {historyOnly && !!status?.answers.length && <section className="section"><h3 className="plain-section-title">保存した相談履歴（直近20件）</h3>
+      <label>保存日時<select className="history-select" value={historyIndex} onChange={e => setHistoryIndex(Number(e.target.value))}>{status.answers.map((item, i) => <option key={i} value={i}>{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`}</option>)}</select></label>
+      {status.answers.slice(historyIndex, historyIndex + 1).map((item, i) => <section key={i}>
+        <h3 className="plain-section-title">{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`}</h3>
         <p>保存時の提案です。現在の保有状態ではありません。</p>
         {item.lines.map(line => <p key={`${line.symbol}-${line.account}`}>
           {line.symbol} / {line.account}：{line.current_shares}株 → {line.target_shares}株
         </p>)}
         {item.answer?.targets.map(target => <p key={`${target.symbol}-${target.account}`}>{target.reason}</p>)}
-      </details>)}
-    </details>}
+      </section>)}
+    </section>}
   </div>;
 }

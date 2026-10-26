@@ -6,9 +6,12 @@ import { TodayPage } from "./pages/TodayPage";
 import { RankingPage } from "./pages/RankingPage";
 import { ValidationPage } from "./pages/ValidationPage";
 import { ReadViewActivation } from "./readViewActivation";
+import { SettingsPage } from "./pages/SettingsPage";
+import { HoldingsPage } from "./pages/HoldingsPage";
 
 const views = [
   ["/", HomePage], ["/today", TodayPage], ["/ranking", RankingPage], ["/validation", ValidationPage],
+  ["/settings", SettingsPage], ["/holdings", HoldingsPage],
 ] as const;
 
 export function RetainedReadViews(): ReactNode {

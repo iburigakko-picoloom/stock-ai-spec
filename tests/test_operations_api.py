@@ -88,6 +88,21 @@ def _client(tmp_path: Path) -> tuple[TestClient, PortfolioProposal]:
     return TestClient(create_app(database), base_url="http://127.0.0.1"), proposal
 
 
+def test_history_routes_are_read_only_and_authenticate_ledger_content(tmp_path: Path) -> None:
+    client, _ = _client(tmp_path)
+    store = client.app.state.store
+    original = store.latest_portfolio()
+    response = client.get("/api/v1/portfolio/history")
+    assert response.status_code == 200
+    assert response.json()[0]["portfolio_id"] == original.portfolio_id
+    assert client.get("/api/v1/executions").json() == {"records": [], "appliedIds": []}
+    assert store.latest_portfolio() == original
+    with store._connect() as connection:
+        connection.execute("UPDATE portfolio_states SET content_hash = ?", ("0" * 64,))
+        connection.commit()
+    assert client.get("/api/v1/portfolio/history").status_code == 503
+
+
 def test_today_and_home_keep_proposal_and_actual_portfolio_separate(tmp_path: Path) -> None:
     client, raw_proposal = _client(tmp_path)
     proposal = raw_proposal

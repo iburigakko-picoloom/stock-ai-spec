@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import type { Action } from "./types";
 import { MobileUpdateNotice } from "./mobile/MobileDevicePanel";
+import { ScrollMemory } from "./ScrollMemory";
 
 export function yen(value: string | number | null | undefined): string {
   if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return "—";
@@ -100,9 +101,10 @@ const nav = [
 export function AppShell(): ReactNode {
   const location = useLocation();
   const from: unknown = location.state?.from;
-  const stockParent = location.pathname === "/holdings" ? "/" : location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : "/today" : null;
+  const stockParent = location.pathname === "/holdings" || location.pathname.startsWith("/assets") || location.pathname === "/transactions" ? "/" : location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : from === "/transactions" ? "/" : "/today" : null;
   return (
     <div className="app-shell">
+      <ScrollMemory />
       <MobileUpdateNotice />
       <a className="skip-link" href="#main">本文へ移動</a>
       <main id="main" className="app-main">

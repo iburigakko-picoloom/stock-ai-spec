@@ -31,11 +31,11 @@ test("saved range is restored and stopping remains reachable while other setting
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("取得を停止しました"));
   expect(acquireRange).toHaveBeenCalledWith(plan, expect.any(Function), expect.any(Function), "pending");
 });
-test("range and correction controls are collapsed with missing account setup", async () => {
+test("range and correction controls are visible with missing account setup", async () => {
   render(<MobileMarketPanel configured={false} disabled={false} onBusy={vi.fn()} />);
   await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(4));
   expect(screen.getByRole("button", { name: "履歴の取得を開始・再開" })).toBeDisabled();
-  expect(screen.getByText("取得範囲・訂正データ・計算の確認").closest("details")).not.toHaveAttribute("open");
+  expect(screen.getByText("取得範囲・訂正データ・計算の確認").closest("section")).toBeVisible();
   expect(screen.getByText(/画面を開いて取得します/)).toBeVisible();
 });
 

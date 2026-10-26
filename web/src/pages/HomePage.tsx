@@ -49,6 +49,7 @@ export function HomePage(): ReactNode {
         </div>
         {data.portfolio.reservedCash !== undefined && <p className="explain">確保中 {yen(data.portfolio.reservedCash)} · 買付余力 {yen(data.portfolio.buyingPower ?? "0")}</p>}
         <Link className="button button--primary home-proposal-link" to="/today">今日の提案を確認<span aria-hidden="true">›</span></Link>
+        <div className="compact-links"><Link className="button button--secondary" to="/assets">資産管理</Link><Link className="button button--secondary" to="/transactions">取引履歴</Link></div>
       </section>
 
       <section className="section">
@@ -69,15 +70,15 @@ export function HomePage(): ReactNode {
                 <strong>{shares.toLocaleString("ja-JP")}株</strong><b>{yen(marketValue)}</b><span className="row-chevron" aria-hidden="true">›</span>
               </Link>;
               return (
-                <details className="holding-group" key={symbol} open={holdings.length === 1}>
-                  <summary>
+                <section className="holding-group" key={symbol}>
+                  <h3 className="plain-section-title">
                     <div>
                       <strong>{holdings[0].companyName}</strong>
                       <span>{symbol} ・ 合計 {shares.toLocaleString("ja-JP")}株</span>
                     </div>
                     <b>{yen(marketValue)}</b>
-                    <span className="disclosure-chevron" aria-hidden="true">⌄</span>
-                  </summary>
+
+                  </h3>
                   {holdings.map((holding) => (
                     <Link className="holding-row" state={{ from: "/" }} to={`/stocks/${holding.symbol}`} key={holding.accountBucketId}>
                       <div>
@@ -90,16 +91,16 @@ export function HomePage(): ReactNode {
                       </div>
                     </Link>
                   ))}
-                </details>
+                </section>
               );
             })}
           </div>
         )}
       </section>
-      <details className="metadata-details">
-        <summary>実状態を正本にしています</summary>
+      <section className="metadata-details">
+        <h3 className="plain-section-title">実状態を正本にしています</h3>
         <p className="explain">実約定を記録するまで、提案や保存済み判断は保有に反映されません。</p>
-      </details>
+      </section>
     </div>
   );
 }

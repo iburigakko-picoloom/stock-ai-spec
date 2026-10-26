@@ -95,11 +95,11 @@ export function DailyControls({ status, busy, message, onChange }: {
     </div>
     {message && <p role="alert">{message}</p>}
     {status && !status.notificationsEnabled && <p>通知はオフです。計算結果はアプリ内に保存します。</p>}
-    <details><summary>取得と実行時刻について</summary>
+    <section><h3 className="plain-section-title">取得と実行時刻について</h3>
       <p>口座・保有・初回台帳とモデル一式を確認し、APIキーを保存してから開始します。初期履歴を取得し、以後は毎営業日の差分と予測・株数の保存へ進みます。モバイル回線を使用します。</p>
       <p>Androidの省電力や通信状態で実行が遅れることがあります。11:30を過ぎた受領を締切内へ戻しません。停止・再起動後も保存済みの続きから再開します。Androidの「強制停止」後はアプリを開いてください。</p>
       <p>ChatGPT連携とモデル設定がある場合は、数値上位20銘柄と全保有を調査します。中断・上限・認証切れは未完了として保存し、調査画面で確認できます。</p>
       {status?.updatedAt && <p>状態の記録：{new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "short", timeStyle: "medium" }).format(new Date(status.updatedAt))} JST</p>}
-    </details>
+    </section>
   </section>;
 }

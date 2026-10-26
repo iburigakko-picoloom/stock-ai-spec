@@ -14,11 +14,11 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-test("a new release shows a short notice, keeps notes folded and never starts installation on its own", async () => {
+test("a new release shows a short notice, shows notes and never starts installation on its own", async () => {
   render(<MobileUpdateNotice />);
   expect(await screen.findByText("新しいバージョンがあります")).toBeVisible();
   expect(screen.getByText(release.versionName)).toBeVisible();
-  expect(screen.getByText(release.notes)).not.toBeVisible();
+  expect(screen.getByText(release.notes)).toBeVisible();
   expect(StockAI.installUpdate).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("変更内容を見る"));
   expect(screen.getByText(release.notes)).toBeVisible();
