@@ -4,6 +4,9 @@
 - UI225件、関連Python129件、型/ESLint/Ruff/mypy78成功。APK同梱版Pyodide/SQLiteで検査再利用・書込失効・破損拒否・差分復元が成功。配布用ブラウザー15ケース（29画面320/390px、文字100/150%、モック部品比較と下書き/取引/メモ/表示先行）成功。初回Windowsファイル置換試験はOSがopen DBを保護するため失敗し、OS拒否とclose後置換を別々にassertして成功。検査をskipせず、Android/WASMの置換経路も確認する。
 - Android JVM31件とNative7件成功（初回6件＋CSV修正後1件）。実約定の保存/同ID再試行/残高反映/再起動/バックアップ読戻しがPCと一致し、市場を含むbase archiveのhashは不変。CSV不正入力の未処理ValueErrorを422へ修正し、既存台帳不変を追加2件で確認（関連Python合計131件）。390pxの日時欄を全幅にし、入力エラー復旧の320/390pxブラウザー2件と全29画面15ケースを再確認。最初のNative/ブラウザー失敗ログも保存。署名更新候補のビルド/検証は次工程。工程/原ログは `.demo-artifacts/responsiveness-patch-release/`。本人端末の実データ速度・更新とCIは未確認。実注文/外部AI送信なし。
 
+- 配布完了：同署名0.1.67-candidate/code10067、source `4b2d0bf3c3f10c98c05743e2b04ae268feb9b275`、24,091,613 bytes、SHA256 `f73e29cc1cadc0fe29785dfab9406a065070d3db923273093cab9ac7df74aaf6`。既存署名/非debug・46assets・54PythonのGit byte一致・秘密/モデル/試験データ非混入を検証。初回候補のAPI改行差のみを正規化し、元候補も保全した。追加Android WebView3ケースで全29画面320dp・100/150%、設定下書きと取引入力を確認。通常署名0.1.66→0.1.67を専用read-only AVDへ上書きし、UID/初回install時刻保持・cold起動/ホーム表示・installed APK hash一致を確認。これは合成台帳の保存復元試験と別で、本人データ入りXiaomiの更新成功とはしない。
+- [0.1.67本人用APK](https://drive.google.com/file/d/1oza2GZREX2jwGcwQT9gqIyeoRPmeAU2e/view?usp=drivesdk) を既存非共有StockAIへ新規保存し、親/size/shared=false・owner-onlyを再読込確認。旧APKを保持し公開Releaseなし。本人端末の実データ速度/更新・CIは未確認。当日保存済み判断を要する取引入力条件は変更していない。製品source後は配布記録の文書のみ変更。
+
 ## 2026-10-26 — 表示を先行し、残高/履歴の計算待ちと重複読込を除去（D265）
 
 - 全主要画面とnative/workerの読取経路を調査。Androidホーム/資産一覧の残高を予測適格性の確認から分離し、確定台帳の専用API/Native射影へ接続。取引・残高・処理履歴もPythonのcold起動と計算queueを待たずに取得する。原予測/判断/実約定の検証、モデル・コスト・税・差分反映の方式は維持する。
