@@ -1,3 +1,11 @@
+## 2026-10-26 — 採用HTMLのUI・未登録分岐を修正し0.1.62配布（D261）
+
+- 採用HTMLのCSSと各画面構造へ直接接続。設定トップと5タブを維持し、3モデルの実出力、保存処理、判断/約定/台帳の分離を保全。署名版で見つけた未登録ホームの旧分岐も同じ資産カード/保有一覧へ修正した。詳細と変更ファイルは `UI_ADOPTED_20261026.md` とsource履歴を参照。
+- Vitest197件・関連Python120件成功。型/ESLint/Ruff/mypy77モジュール/build成功。配布用ブラウザー9ケース・Android35の実WebView7ケース成功。全29画面を320dp・文字100/150%で上/中/下まで表示し、未登録・入力と画面復帰を確認。設定トップ以外の28画面105部品×10スタイルを採用HTMLと比較し差分0。投資成績の新規実験・実注文なし。
+- 同署名0.1.62-candidate/code10062、source `0d9c5dd5493a943030f3a7d0e265edcb76c2cf56`、24,083,117 bytes、SHA256 `4adca1f9a0d20df809647a868bcffe43b1a37f7908516323de7a2e7823e60757`。署名/非debug・46assets一致・秘密/モデル/テストデータ非混入・53PythonのGit byte一致を検査。専用read-only AVDへインストールしcold起動・実ホーム・前面Activity・インストール済みAPK hash一致を確認した。
+- 承認済みの非共有StockAIフォルダーの同一ファイルを修正版へ更新し、親/24,083,117 bytes/shared=falseを再読込確認。[本人用APK](https://drive.google.com/file/d/17bEqBED99E8RRsRL2cDpKYU_chqA5bxf/view?usp=drivesdk)。既存の0.1.61以前のファイルは保持。証拠/APKは `.demo-artifacts/ui-exact-release/`。最初の配布前APKと未登録表示の検出証拠は `ui-exact-release-before-empty-home/` に保全。
+- 本人Xiaomi端末での上書き更新/データ移行、実プロバイダー通信、CIは未確認。モデル正式採用HOLDは維持。APKのsource以降は配布結果を記す文書のみを更新し、製品ソース一致を確認する。
+
 ## 2026-10-26 — 採用モックとの構成・寸法の不一致を修正（D260）
 
 - 0.1.60は機能/横幅検査のみでは視覚一致を確認できておらず、本人指摘で再実装。添付の29画面を実表示して並びと寸法を比較し、旧外観パッチを除去。ホーム/今日/検証/銘柄詳細/設定配下を組み直した。
