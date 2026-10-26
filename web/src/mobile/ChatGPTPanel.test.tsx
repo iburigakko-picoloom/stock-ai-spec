@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ChatGPTPanel } from "./ChatGPTPanel";
@@ -13,7 +14,7 @@ test("login loads the actual account models and saving is required before a prob
   vi.mocked(ChatGPT.signIn).mockResolvedValue(connected);
   vi.mocked(ChatGPT.listModels).mockResolvedValue(connected);
   vi.mocked(ChatGPT.saveSelection).mockResolvedValue({ ...connected, selection: { model: "synthetic-model", effort: "high" } });
-  render(<ChatGPTPanel />);
+  render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
   const login = await screen.findByRole("button", { name: "Continue with ChatGPT" });
   await waitFor(() => expect(login).toBeEnabled()); fireEvent.click(login);
   const choose = await screen.findByRole("combobox", { name: "調査モデル" });
@@ -28,7 +29,7 @@ test("login loads the actual account models and saving is required before a prob
 
 test("denied plan permission never triggers models or paid inference", async () => {
   vi.mocked(ChatGPT.signIn).mockResolvedValue({ ...connected, planEnabled: false });
-  render(<ChatGPTPanel />);
+  render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
   const button = await screen.findByRole("button", { name: "Continue with ChatGPT" });
   await waitFor(() => expect(button).toBeEnabled()); fireEvent.click(button);
   await screen.findByText("ログインできました。調査にはChatGPTの利用枠を使う許可が必要です。");
@@ -38,7 +39,7 @@ test("denied plan permission never triggers models or paid inference", async () 
 test("interrupted probe is not displayed as completed and preserves selected settings", async () => {
   vi.mocked(ChatGPT.getStatus).mockResolvedValue({ ...connected, selection: { model: "synthetic-model", effort: "medium" } });
   vi.mocked(ChatGPT.probe).mockRejectedValue(Object.assign(new Error("private-provider-detail"), { code: "RESPONSE_INTERRUPTED" }));
-  render(<ChatGPTPanel />);
+  render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
   const button = await screen.findByRole("button", { name: "検索付きで接続を確認" });
   fireEvent.click(button); await screen.findByText("ChatGPTの回答が完了する前に中断しました。保存済みの結果と設定は保持しています。接続を確認して、中断した段階から再試行してください。");
   expect(screen.queryByText("private-provider-detail")).not.toBeInTheDocument();
@@ -55,7 +56,7 @@ for (const [code, message] of [
 ]) test(`connection failure ${code} preserves settings without automatic requests or reauthorization`, async () => {
   vi.mocked(ChatGPT.getStatus).mockResolvedValue({ ...connected, selection: { model: "synthetic-model", effort: "high" } });
   vi.mocked(ChatGPT.probe).mockRejectedValue(Object.assign(new Error("private-provider-detail"), { code }));
-  render(<ChatGPTPanel />);
+  render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
   fireEvent.click(await screen.findByRole("button", { name: "検索付きで接続を確認" }));
   await screen.findByText(message);
   expect(screen.queryByText("private-provider-detail")).not.toBeInTheDocument();
@@ -73,7 +74,7 @@ test("an expired saved session offers reauthorization and keeps its selected mod
   vi.mocked(ChatGPT.getStatus).mockResolvedValue({ ...selected, connected: false, planEnabled: false, reauthorizationRequired: true });
   vi.mocked(ChatGPT.signIn).mockResolvedValue(selected);
   vi.mocked(ChatGPT.listModels).mockResolvedValue(selected);
-  render(<ChatGPTPanel />);
+  render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
   await screen.findByText("ログインの更新が必要です");
   expect(ChatGPT.signIn).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Continue with ChatGPT" }));
@@ -87,7 +88,7 @@ test("a connected account can explicitly reauthorize and cancel without erasing 
   let rejectLogin!: (error: Error) => void;
   vi.mocked(ChatGPT.signIn).mockReturnValue(new Promise((_, reject) => { rejectLogin = reject; }));
   vi.mocked(ChatGPT.cancelSignIn).mockImplementation(async () => { rejectLogin(new Error("AUTHORIZATION_CANCELLED_OR_EXPIRED")); });
-  render(<ChatGPTPanel />);
+  render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
   await screen.findByText(/利用枠の連携済み/);
   fireEvent.click(screen.getByText("連携について"));
   fireEvent.click(screen.getByRole("button", { name: "ログインし直す" }));
@@ -102,7 +103,7 @@ test("terminal refresh failure updates connection state without exposing raw pro
   const selected = { ...connected, selection: { model: "synthetic-model", effort: "medium" as const } };
   vi.mocked(ChatGPT.getStatus).mockResolvedValueOnce(selected).mockResolvedValue({ ...selected, connected: false, planEnabled: false, reauthorizationRequired: true });
   vi.mocked(ChatGPT.probe).mockRejectedValue(Object.assign(new Error("provider-private-diagnostic"), { code: "invalid_grant" }));
-  render(<ChatGPTPanel />);
+  render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
   fireEvent.click(await screen.findByRole("button", { name: "検索付きで接続を確認" }));
   await screen.findByText("ChatGPTへのログインを更新してください。調査結果とモデル設定は保存されています。");
   expect(screen.queryByText("provider-private-diagnostic")).not.toBeInTheDocument();
@@ -113,7 +114,7 @@ for (const confirmed of [false, true]) {
   test(`logout accurately reports remote revocation confirmed=${confirmed}`, async () => {
     vi.mocked(ChatGPT.getStatus).mockResolvedValue(connected);
     vi.mocked(ChatGPT.signOut).mockResolvedValue({ ...disconnected, accountLabel: connected.accountLabel, revocationConfirmed: confirmed });
-    render(<ChatGPTPanel />);
+    render(<MemoryRouter><ChatGPTPanel /></MemoryRouter>);
     await screen.findByText(/利用枠の連携済み/);
     fireEvent.click(screen.getByText("連携について"));
     const disconnect = screen.getByRole("button", { name: "確認して連携解除" });

@@ -76,10 +76,10 @@ export function useDailyAutomation() {
   return { status, busy, message, change, requestNotifications };
 }
 
-export function DailyPanel(): ReactNode {
+export function DailyPanel({compact=false}:{compact?:boolean}): ReactNode {
   const daily = useDailyAutomation();
   if (!isAndroid()) return null;
-  return <><DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} />{daily.status?.state !== "calculating" && <AnalysisProgress />}</>;
+  return <><DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} explanations={!compact} />{daily.status?.state !== "calculating" && <AnalysisProgress />}</>;
 }
 
 export function DailyControls({ status, busy, message, onChange, explanations=true }: {

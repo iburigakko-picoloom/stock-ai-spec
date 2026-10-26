@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { apiPost } from "../api";
 
-export function ExternalPermissionPanel() {
+export function ExternalPermissionPanel({compact=false}:{compact?:boolean}) {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -17,11 +17,11 @@ export function ExternalPermissionPanel() {
     } catch (reason) { setMessage(reason instanceof Error ? reason.message : "条件を保存できませんでした。"); }
     finally { setBusy(false); }
   }
-  return <section className="research-disclosure"><h3 className="plain-section-title">既存連携の外部送信条件</h3>
-    <p>手動コピーの代わりにアカウント連携を使う場合の確認です。連携先ごとに設定を確認してください。</p>
+  return <section className="research-disclosure">{!compact && <><h3 className="plain-section-title">既存連携の外部送信条件</h3>
+    <p>手動コピーの代わりにアカウント連携を使う場合の確認です。連携先ごとに設定を確認してください。</p></>}
     <label className="checkbox"><input type="checkbox" checked={confirmed} disabled={busy}
       onChange={event => setConfirmed(event.target.checked)} />現在のデータ契約の範囲で、本人分析だけに使用し、連携先も学習利用なし・入力と結果を非公開にしています</label>
-    <p className="setting-footnote">ChatGPTの学習設定とCodexの環境共有設定は別です。公開・共有や学習利用のfeedback送信は行わないでください。</p>
+    {!compact && <p className="setting-footnote">ChatGPTの学習設定とCodexの環境共有設定は別です。公開・共有や学習利用のfeedback送信は行わないでください。</p>}
     <div className="button-stack"><button className="button button--secondary" disabled={!confirmed || busy}
       onClick={() => void save()}>この連携先の条件確認を保存</button></div>
     <p role="status">{message}</p>

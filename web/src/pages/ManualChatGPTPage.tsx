@@ -4,6 +4,7 @@ import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, dateTime } from "../components";
 import { isAndroid } from "../mobile/native";
 import { ConsultationReport, type ConsultationFindings } from "../ConsultationReport";
+import { useApiData } from "../hooks";
 
 interface Review {
   lines: { symbol: string; account: string; current_shares: number; target_shares: number; share_difference: number }[];
@@ -12,8 +13,9 @@ interface Review {
   applied_to_ledger: false;
   answer?: { evidence_as_of: string; targets: { symbol: string; account: string; reason: string; sources: string[] }[]; unknowns: string[] };
 }
-interface SavedResearch { record_id: string; saved_at: string; original_json: string; answer?: { research?: ConsultationFindings } }
-interface ManualStatus { ready: boolean; reason: string | null; selected_input: string | null; saved_input?: Exported | null; saved_input_reason?: string | null; answers: Review[]; account_labels?: Record<string, string>; research?: SavedResearch[] }
+interface ConsultationContext {prediction_as_of:string;securities:{symbol:string;shares:number|null;"5d":{rank:number|null;expected_return:number|null};"20d":{rank:number|null;expected_return:number|null}}[]}
+interface SavedResearch { record_id: string; saved_at: string; original_json: string; answer?: { research?: ConsultationFindings };consultation?:ConsultationContext|null }
+interface ManualStatus { ready: boolean; reason: string | null; selected_input: string | null; saved_input?: Exported | null; saved_input_reason?: string | null; answers: Review[]; account_labels?: Record<string, string>; research?: SavedResearch[];current_context?:ConsultationContext|null;current_shares?:Record<string,number> }
 interface Exported { input_record_id: string; input_snapshot_id: string; expires_at: string; prompt: string }
 
 export function ManualChatGPTPage(): ReactNode {
@@ -25,6 +27,7 @@ export function ManualChatGPTPage(): ReactNode {
   const [entitled, setEntitled] = useState(false);
   const [exported, setExported] = useState<Exported | null>(null);
   const [answer, setAnswer] = useState("");
+  const [showPrompt,setShowPrompt]=useState(false);
   const [review, setReview] = useState<Review | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -32,6 +35,9 @@ export function ManualChatGPTPage(): ReactNode {
   const [findings, setFindings] = useState<ConsultationFindings | null>(null);
   const [error, setError] = useState("");
   const android = isAndroid();
+  const ranking=useApiData<{asOf:string;rows:{symbol:string;companyName?:string;modelRank:number;expectedReturn:number|null}[];holdingSymbols?:string[];metrics?:Record<string,{return5d:number|null;return20d:number|null;rank20d:number|null}>}>("/api/v1/mobile/ranking/20d");
+  const percentage=(value:number|null|undefined)=>value==null ? "未算出" : `${value>0 ? "+" : ""}${(value*100).toFixed(1)}%`;
+  const targets=status?.current_context?.securities ?? ranking.data?.rows?.map(row=>({symbol:row.symbol,shares:status?.current_shares?.[row.symbol] ?? null,"5d":{rank:null,expected_return:ranking.data?.metrics?.[row.symbol]?.return5d ?? null},"20d":{rank:null,expected_return:ranking.data?.metrics?.[row.symbol]?.return20d ?? row.expectedReturn}})) ?? [];
   const researchHistory=status?.research ?? [];
   const showResearch=researchHistory.length>0 && (historyKind === "research" || !status?.answers.length);
   useEffect(() => {
@@ -45,6 +51,7 @@ export function ManualChatGPTPage(): ReactNode {
         setFindings(value.research?.[0]?.answer?.research ?? null);
         if (value.saved_input) {
           setExported(value.saved_input);
+          setShowPrompt(true);
           setMessage("保存済みの入力を再表示しました。有効期限と内容を確認して相談を続けられます。");
         }
       })
@@ -61,8 +68,10 @@ export function ManualChatGPTPage(): ReactNode {
         private_input: privateUse, private_output: privateUse, data_entitlement_confirmed: entitled,
       });
       setExported(prepared);
+      setShowPrompt(true);
       setStatus(previous => previous && { ...previous, selected_input: prepared.input_record_id, saved_input: prepared, saved_input_reason: null });
-      setMessage("入力を保存しました。ChatGPTへコピーし、回答JSONを下へ貼り付けてください。");
+      try {await navigator.clipboard.writeText(prepared.prompt);setMessage("相談文を作成・コピーしました。ChatGPTに貼り付けてください。");}
+      catch {setMessage("入力を保存しました。「プロンプトをコピー」または文章の選択でコピーしてください。");}
     } catch (reason) { setError(reason instanceof Error ? reason.message : "入力を作成できませんでした。"); }
     finally { setBusy(false); }
   }
@@ -98,36 +107,35 @@ export function ManualChatGPTPage(): ReactNode {
   return <div className="page manual-chatgpt">
     <PageHeader title={historyOnly ? "相談履歴" : "ChatGPTと相談"} backTo="/today" />
     {historyOnly && <Link className="quiet-link" to="/today/chatgpt">新しい相談</Link>}
-    <div hidden={historyOnly}>
-    <p className="explain">上位20銘柄と全保有を渡して相談します。モデル・推論設定はChatGPT側で選びます。回答は提案として保存します。</p>
+    <div className="subscreen stack" hidden={historyOnly}>
     {!android ? <StatePanel title="Androidアプリで利用できます" detail="端末に保存した最新の原予測・口座・設定を使います。" />
       : !status ? <StatePanel title="保存済み入力を確認しています" />
       : <>
         {!status.ready && <StatePanel title="最新条件の照合が必要です" detail={status.reason ?? "保存済みの相談への回答は受け取れます。"} />}
-        <section className="section">
-          <h2>利用条件</h2>
-          <label className="checkbox"><input type="checkbox" checked={privateUse} disabled={busy}
-            onChange={event => setPrivateUse(event.target.checked)} />本人の分析だけに使い、学習利用をオフ、会話と結果を非公開にしています</label>
-          <label className="checkbox"><input type="checkbox" checked={entitled} disabled={busy}
-            onChange={event => setEntitled(event.target.checked)} />使用するデータが現在のJ-Quants契約・取得範囲で利用できると確認しました</label>
-          <p className="setting-footnote">共有link・結果の配信や公開・学習利用につながるfeedback送信は行わないでください。
+        <section className="card">
+          <h3 className="section-title">利用条件</h3>
+          <label className="row"><input type="checkbox" checked={privateUse && entitled} disabled={busy}
+            onChange={event => {setPrivateUse(event.target.checked);setEntitled(event.target.checked);}} />本人分析のみ・学習利用オフ・入力と結果は非公開。J-Quants契約の利用範囲を確認しました</label>
+          <p className="subhint">
             <a href="https://jpx-jquants.com/ja/help/usage" target="_blank" rel="noreferrer">J-Quantsの利用条件</a></p>
-        </section><section className="section"><h2>相談文</h2>
+        </section><section className="card"><h3 className="section-title">対象 {targets.length}銘柄</h3><p className="small">上位20銘柄＋全保有 · {dateTime(status?.current_context?.prediction_as_of ?? ranking.data?.asOf,true)} 時点</p><div className="consultation-targets"><table className="subtable"><thead><tr><th>銘柄</th><th>保有</th><th>5日順位</th><th>20日順位</th><th>5日予測</th><th>20日予測</th></tr></thead><tbody>{targets.map(row=><tr key={row.symbol}><td><Link to={`/stocks/${row.symbol}`} state={{from:"/today/chatgpt"}}>{row.symbol} {ranking.data?.rows?.find(item=>item.symbol===row.symbol)?.companyName || ""}</Link></td><td>{row.shares ?? "未確認"}</td><td>{row["5d"].rank ?? "未算出"}</td><td>{row["20d"].rank ?? "未算出"}</td><td>{percentage(row["5d"].expected_return)}</td><td>{percentage(row["20d"].expected_return)}</td></tr>)}</tbody></table></div>{!targets.length && <p className="small muted">相談対象を確認できません。最新の原予測を確認してください。</p>}</section>
+        <section className="card stack"><h3 className="section-title">相談文</h3>
           <div className="button-stack"><button className="button button--primary" disabled={busy || !status.ready || !privateUse || !entitled}
-            onClick={() => void prepare()}>プロンプトを作成</button></div>
+            onClick={() => void prepare()}>作成・コピー</button><button className="button secondary" disabled={!exported} onClick={()=>setShowPrompt(true)}>内容を表示</button></div>
           {status.saved_input_reason && <p className="setting-footnote">{status.saved_input_reason}</p>}
-          {exported && <>
+          {exported && showPrompt && <>
             <p>入力の有効期限：{dateTime(exported.expires_at)}</p>
             <textarea className="csv-input" aria-label="ChatGPTへ渡す入力" readOnly value={exported.prompt} />
             <div className="button-stack"><button className="button button--secondary" disabled={busy} onClick={() => void copy()}>プロンプトをコピー</button></div>
           </>}
+          <a className="button secondary" href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPTを開く</a>
         </section>
-        <section className="section">
-          <h2>回答JSON</h2>
-          <textarea className="csv-input" aria-label="ChatGPTの回答JSON" value={answer} disabled={busy}
+        <section className="card stack">
+          <h3 className="section-title">回答JSON</h3>
+          <textarea className="input" rows={9} aria-label="ChatGPTの回答JSON" value={answer} disabled={busy}
             onChange={event => { setAnswer(event.target.value); setReview(null); }} placeholder="回答JSONをここに貼り付け" />
           <div className="button-stack"><button className="button button--primary" disabled={busy || !answer.trim() || !(exported || status.selected_input)}
-            onClick={() => void importAnswer()}>調査結果を保存</button></div>
+            onClick={() => void importAnswer()}>検証・保存</button></div>
           {findings && <ConsultationReport value={findings} />}
           {researchId && <button className="button button--primary" disabled={busy} onClick={() => {
             setBusy(true); setError(""); setReview(null);
@@ -140,7 +148,7 @@ export function ManualChatGPTPage(): ReactNode {
       </>}
     {message && <p role="status">{message}</p>}
     {error && <StatePanel tone="error" title="処理を完了できません" detail={error} />}
-    {review && <section className="section"><h2>保存したChatGPT提案</h2>
+    {review && <section className="card"><h3 className="section-title">保存したChatGPT提案</h3><Link className="button secondary" to="/today/review?source=chatgpt">ChatGPT案の判断</Link>
       {review.lines.map(line => <div className="difference-row" key={`${line.symbol}-${line.account}`}>
         <span>{line.symbol} / {status?.account_labels?.[line.account] ?? line.account}</span><strong className="share-change"><span>{line.current_shares}株</span><span aria-hidden="true">→</span><span>{line.target_shares}株</span></strong>
       </div>)}
@@ -158,10 +166,10 @@ export function ManualChatGPTPage(): ReactNode {
     </div>
     {!historyOnly && <Link className="quiet-link" to="/today/chatgpt/history">相談履歴</Link>}
     {historyOnly && !status?.answers.length && !researchHistory.length && <StatePanel title={status ? "保存した相談はまだありません" : "相談履歴を確認しています"} detail={error || undefined} />}
-    {historyOnly && status && (!!status.answers.length || !!researchHistory.length) && <section className="section"><h3 className="plain-section-title">保存した相談</h3>
+    {historyOnly && status && (!!status.answers.length || !!researchHistory.length) && <section className="subscreen stack"><div className="card"><h3 className="section-title">保存した相談</h3>
       <label>保存日時<select className="history-select" value={`${showResearch ? "research" : "answer"}:${historyIndex}`} onChange={e => {const [kind,index]=e.target.value.split(":");setHistoryKind(kind);setHistoryIndex(Number(index));}}>{researchHistory.map((item,i)=><option key={item.record_id} value={`research:${i}`}>{dateTime(item.saved_at,true)} · 調査結果</option>)}{status.answers.map((item, i) => <option key={`answer-${i}`} value={`answer:${i}`}>{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`} · 検算済み</option>)}</select></label>
-      {showResearch && researchHistory.slice(historyIndex,historyIndex+1).map(item=><section key={item.record_id}><h2>相談結果</h2><p className="setting-footnote">保存 {dateTime(item.saved_at,true)} · 原予測・実保有とは別の記録です。</p>{item.answer?.research ? <ConsultationReport value={item.answer.research} /> : <pre className="research-text">{item.original_json}</pre>}</section>)}
-      {!showResearch && status.answers.slice(historyIndex, historyIndex + 1).map((item, i) => <section key={i}>
+      </div>{showResearch && researchHistory.slice(historyIndex,historyIndex+1).map(item=><section className="card" key={item.record_id}><h3 className="section-title">相談結果</h3><p className="subhint">保存 {dateTime(item.saved_at,true)}</p>{item.answer?.research ? <ConsultationReport value={item.answer.research} savedShares={Object.fromEntries(item.consultation?.securities.map(row=>[row.symbol,row.shares]) ?? [])} currentShares={status.current_shares} /> : <pre className="research-text">{item.original_json}</pre>}</section>)}
+      {!showResearch && status.answers.slice(historyIndex, historyIndex + 1).map((item, i) => <section className="card" key={i}>
         <h3 className="plain-section-title">{item.answer ? dateTime(item.answer.evidence_as_of) : `保存済み提案 ${i + 1}`}</h3>
         <p>保存時の提案です。現在の保有状態ではありません。</p>
         {item.lines.map(line => <p key={`${line.symbol}-${line.account}`}>

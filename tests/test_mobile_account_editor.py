@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 from mobile.python import account_editor, personal, runtime
 
-from stock_ai.operations.store import OperationalConflictError
+from stock_ai.operations.store import OperationalConflictError, OperationalIntegrityError
 from tests.test_mobile_personal import ACCOUNT, NOW, preview, setup
 from tests.test_mobile_runtime import run
 
@@ -64,6 +64,55 @@ def test_cash_correction_appends_shared_current_state_preserving_history(device)
     assert store.latest_portfolio().portfolio_id == result["portfolio_id"]
     device.initialize(device.export_state())
     assert device._app.state.store.latest_portfolio() == latest
+
+
+def test_correction_note_is_previewed_appended_once_restored_and_hash_checked(device):
+    store, request = prepared(device)
+    request["record"] = {"date": "2026-10-19", "reason": "SBI残高との照合", "kind": "correction"}
+    before = store.latest_portfolio()
+    account_editor.edit(store, request, NOW + timedelta(minutes=1))
+    assert store.latest_portfolio() == before
+    result = account_editor.edit(store, request, NOW + timedelta(minutes=1), confirm=True)
+    assert store.portfolio_edit_record(result["portfolio_id"]) == request["record"]
+    assert account_editor.edit(store, request, NOW + timedelta(minutes=2), confirm=True)[
+        "already_confirmed"
+    ]
+    device.initialize(device.export_state())
+    restored = device._app.state.store
+    assert restored.portfolio_edit_record(result["portfolio_id"]) == request["record"]
+    with restored._connect() as db:
+        db.execute(
+            "UPDATE operational_metadata SET value=? WHERE key=?",
+            (
+                '{"payload":"changed","sha256":"bad"}',
+                "account_edit_record:" + result["portfolio_id"],
+            ),
+        )
+        db.commit()
+    with pytest.raises(OperationalIntegrityError):
+        restored.portfolio_edit_record(result["portfolio_id"])
+
+
+def test_deposit_direction_must_match_the_exact_cash_difference(device):
+    store, request = prepared(device)
+    before = store.latest_portfolio()
+    request["record"] = {"date": "2026-10-19", "reason": "入金", "kind": "deposit"}
+    request["changes"][0].update(
+        total=str(before.cash[0].available_cash - Decimal("0.1")),
+        buying_power=str(before.cash[0].deployable_cash - Decimal("0.1")),
+    )
+    with pytest.raises(ValueError, match="種別"):
+        account_editor.edit(store, request, NOW + timedelta(minutes=1), confirm=True)
+    assert store.latest_portfolio() == before
+    request["changes"][0].update(
+        total=str(before.cash[0].available_cash + Decimal("0.1")),
+        buying_power=str(before.cash[0].deployable_cash + Decimal("0.1")),
+    )
+    account_editor.edit(store, request, NOW + timedelta(minutes=1), confirm=True)
+    assert store.latest_portfolio().cash[0].available_cash - before.cash[
+        0
+    ].available_cash == Decimal("0.1")
+    assert store.latest_portfolio().cash[0].reserved_cash == before.cash[0].reserved_cash
 
 
 def test_holdings_changes_use_tax_bucket_and_do_not_change_cash(device):

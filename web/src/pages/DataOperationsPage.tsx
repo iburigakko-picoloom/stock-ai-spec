@@ -1,10 +1,11 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ApiError, apiPost } from "../api";
-import { PageHeader, StatePanel } from "../components";
+import { PageHeader, StatePanel, dateTime } from "../components";
 import { useApiData } from "../hooks";
 import type { AppStatus } from "../types";
 import { DailyPanel } from "../mobile/DailyPanel";
+import { Field, KV } from "../Adopted";
 
 interface Conflict { conflict_id: string; code: string; message: string; row_number: number }
 interface ExecutionPreview { preview_id: string; conflicts: Conflict[]; execution_payloads: string[] }
@@ -15,6 +16,8 @@ interface PositionPreview { preview_id: string; differences: PositionDifference[
 export function DataOperationsPage(): ReactNode {
   const path = useLocation().pathname;
   const status = useApiData<AppStatus>("/api/v1/status");
+  const jobs = useApiData<{run_id:string;started_at:string;business_date:string;stage:string;status:string;reason_code:string|null}[]>("/api/v1/jobs");
+  const [jobsFilter,setJobsFilter]=useState("all");
   const [kind, setKind] = useState<"executions" | "positions">("executions");
   const [csv, setCsv] = useState("");
   const [executionPreview, setExecutionPreview] = useState<ExecutionPreview | null>(null);
@@ -76,18 +79,21 @@ export function DataOperationsPage(): ReactNode {
   return (
     <div className="page">
       <PageHeader backTo="/settings" title={path.endsWith("/csv") ? "CSV取り込み" : path.endsWith("/logs") ? "処理状況・実行記録" : "データ・運用状態"} />
-      {path.endsWith("/logs") && <><DailyPanel /><Link className="quiet-link" to="/settings?edit=repair">不足データを修復</Link></>}
+      <div className="subscreen advanced-domain">
       <div hidden={path.endsWith("/csv")}>
-      {status.loading ? <StatePanel title="運用状態を確認しています" /> : status.error ? <StatePanel tone="error" title="運用状態を取得できません" detail={status.error} /> : status.data && <section className={`pipeline-state ${status.data.isStale ? "pipeline-state--warning" : ""}`}>
-        <span>{status.data.businessDate}</span><strong>{status.data.pipelineState}</strong><p>{status.data.blockingReason || "直近jobの状態を表示しています。"}</p>
-      </section>}
+      <div className="card stack"><section className="advanced-section"><h3 className="section-title">処理状態</h3>{status.loading ? <StatePanel title="運用状態を確認しています" /> : status.error ? <StatePanel tone="error" title="運用状態を取得できません" detail={status.error} /> : status.data && <><KV label="状態" value={status.data.pipelineState} /><KV label="停止理由" value={status.data.blockingReason || "なし"} /><KV label="対象日" value={status.data.businessDate} /></>}</section>
+      <section className="advanced-section"><h3 className="section-title">不足データ</h3><p className="small muted">{status.data?.blockingReason || "保存した停止理由はありません。"}</p><Link className="button secondary" to="/settings?edit=repair">不足データを修復</Link></section>
+      <section className="advanced-section"><h3 className="section-title">実行記録</h3><Field label="表示"><select className="input" value={jobsFilter} onChange={e=>setJobsFilter(e.target.value)}><option value="all">すべて</option><option value="attention">不足・保留</option></select></Field>{jobs.error ? <p role="alert">実行記録を取得できません。</p> : <table className="subtable"><thead><tr><th>時刻</th><th>状態・処理</th><th>対象</th></tr></thead><tbody>{jobs.data?.filter(item=>jobsFilter==="all" || ["BLOCKED","FAILED"].includes(item.status)).map(item=><tr key={item.run_id}><td>{dateTime(item.started_at)}</td><td>{item.status}<small className="block">{item.stage}</small>{item.reason_code && <small className="block">{item.reason_code}</small>}</td><td>{item.business_date}</td></tr>)}</tbody></table>}{!jobs.loading && !jobs.data?.length && <p className="small muted">保存した実行記録はまだありません。</p>}<DailyPanel compact /></section>
+      <section className="advanced-section"><h3 className="section-title">再確認</h3><button className="button secondary" onClick={()=>{status.reload();jobs.reload();}}>記録を再確認</button><div className="subactions"><Link className="button secondary" to="/settings?edit=repair">データ修復</Link><Link className="button secondary" to="/settings?edit=model">モデル管理</Link></div></section></div>
 
-      </div><div hidden={path.endsWith("/logs")}><section className="section">
-        <div className="section-title"><div><span>PREVIEW FIRST</span><h2>CSV差分確認</h2></div></div>
-        <div className="segmented segmented--2"><button className={kind === "executions" ? "active" : ""} disabled={busy} onClick={() => { invalidate(); setKind("executions"); }}>約定CSV</button><button className={kind === "positions" ? "active" : ""} disabled={busy} onClick={() => { invalidate(); setKind("positions"); }}>口座状態CSV</button></div>
-        <textarea aria-label="CSV内容" className="csv-input" value={csv} onChange={(event) => { if (!flight.current || !attempt.current) { invalidate(); setCsv(event.target.value); } }} placeholder={kind === "executions" ? "execution_id,decision_id,executed_at,..." : "as_of,record_type,symbol,account_bucket_id,...,available_cash,reserved_cash"} />
-        <button className="button button--secondary" disabled={busy || !csv.trim()} onClick={() => void preview()}>書き込まずに差分を確認</button>
+      </div><div hidden={path.endsWith("/logs")} className="card stack"><section className="advanced-section">
+        <h3 className="section-title">CSV入力</h3>
+        <Field label="CSVの種類"><select className="input" disabled={busy} value={kind} onChange={e=>{invalidate();setKind(e.target.value as "executions"|"positions");}}><option value="executions">約定CSV</option><option value="positions">口座状態CSV</option></select></Field>
+        <Field label="CSV"><textarea aria-label="CSV内容" className="input" rows={7} value={csv} onChange={(event) => { if (!flight.current || !attempt.current) { invalidate(); setCsv(event.target.value); } }} placeholder={kind === "executions" ? "execution_id,decision_id,executed_at,..." : "as_of,record_type,symbol,account_bucket_id,...,available_cash,reserved_cash"} /></Field>
+        <button className="button" disabled={busy || !csv.trim()} onClick={() => void preview()}>書き込まずに差分を確認</button>
       </section>
+      <section className="advanced-section"><h3 className="section-title">検証</h3><KV label="状態" value={busy ? "処理中" : executionPreview || positionPreview ? "差分を作成済み" : csv ? "未検証" : "入力待ち"} /><KV label="形式" value={kind==="executions" ? "約定CSV" : "口座状態CSV"} /></section>
+      <section className="advanced-section"><h3 className="section-title">差分プレビュー</h3>{!executionPreview && !positionPreview && <KV label="差分" value="未作成" />}
 
       {executionPreview && <section className="section preview-panel">
         <h2>約定preview</h2><p>候補 {executionPreview.execution_payloads.length}件 / conflict {executionPreview.conflicts.length}件</p>
@@ -102,9 +108,10 @@ export function DataOperationsPage(): ReactNode {
         <label className="checkbox"><input type="checkbox" disabled={busy || confirmLocked} checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />全差分を確認し、新しい実状態として追加する</label>
         <button className="button button--primary" disabled={busy || !confirmed} onClick={() => void confirmImport()}>差分確認済みで反映</button>
       </section>}
+      </section><section className="advanced-section"><h3 className="section-title">反映</h3><KV label="反映先" value={kind==="executions" ? "実際の約定記録" : "確認した保有・現金"} /><button className="button secondary" disabled={busy} onClick={invalidate}>取り消す</button></section>
       {message && <StatePanel title={message} detail="既存recordは上書きしていません。" />}
       {error && <StatePanel tone="error" title="処理を完了できません" detail={error} />}
-      </div>
+      </div></div>
     </div>
   );
 }

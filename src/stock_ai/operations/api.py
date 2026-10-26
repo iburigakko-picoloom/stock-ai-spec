@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from stock_ai.domain import (
     ExecutionRecord,
     PortfolioProposal,
+    PortfolioState,
     UserDecision,
     UserDecisionLine,
 )
@@ -195,6 +196,16 @@ def _require_manual_intent(
             status_code=428,
             detail="manual record confirmation header is required; this does not submit an order",
         )
+
+
+def _account_labels(portfolio: PortfolioState | None) -> dict[str, str]:
+    if portfolio is None:
+        return {}
+    names = {"taxable_specified": "特定口座", "taxable_general": "一般口座", "nisa": "NISA"}
+    return {
+        item.bucket_id: names.get(item.account_type.value, item.account_type.value)
+        for item in portfolio.account_buckets
+    }
 
 
 def _line_view(line: Any) -> dict[str, object]:
@@ -677,14 +688,17 @@ def create_app(
                 "asOf": portfolio.as_of,
                 "totalAssets": str(cash_value + equity_value),
                 "cashValue": str(cash_value),
-                "reservedCash": str(sum(
-                    (item.reserved_cash for item in portfolio.cash), Decimal("0"))),
-                "buyingPower": str(sum(
-                    (item.deployable_cash for item in portfolio.cash), Decimal("0"))),
+                "reservedCash": str(
+                    sum((item.reserved_cash for item in portfolio.cash), Decimal("0"))
+                ),
+                "buyingPower": str(
+                    sum((item.deployable_cash for item in portfolio.cash), Decimal("0"))
+                ),
                 "equityValue": str(equity_value),
                 "holdingsCount": len(portfolio.positions),
             },
             "holdings": holdings,
+            "accountLabels": _account_labels(portfolio),
             "blockingReason": None,
         }
 
@@ -695,8 +709,15 @@ def create_app(
         now = current_time()
         selected_date = business_date or now.date()
         payload = _today(store, selected_date)
-        end = now.replace(year=selected_date.year, month=selected_date.month,
-                          day=selected_date.day, hour=23, minute=59, second=59)
+        payload["accountLabels"] = _account_labels(store.latest_portfolio())
+        end = now.replace(
+            year=selected_date.year,
+            month=selected_date.month,
+            day=selected_date.day,
+            hour=23,
+            minute=59,
+            second=59,
+        )
         snapshot = store.latest_archived_prediction(min(now, end))
         payload["savedAnalysis"] = None
         if snapshot is not None:
@@ -810,7 +831,13 @@ def create_app(
 
     @app.get("/api/v1/portfolio/history")
     def portfolio_history() -> object:
-        return jsonable_encoder(store.portfolio_history(), by_alias=True)
+        return [
+            {
+                **jsonable_encoder(item, by_alias=True),
+                "correctionRecord": store.portfolio_edit_record(item.portfolio_id),
+            }
+            for item in store.portfolio_history()
+        ]
 
     @app.get("/api/v1/executions")
     def execution_history() -> object:
@@ -819,6 +846,15 @@ def create_app(
             "records": jsonable_encoder(store.executions(), by_alias=True),
             "appliedIds": [] if current is None else list(current.applied_execution_ids),
         }
+
+    @app.get("/api/v1/jobs")
+    def job_history() -> object:
+        return jsonable_encoder(
+            sorted(store.jobs(), key=lambda item: (item.started_at, item.run_id), reverse=True)[
+                :100
+            ],
+            by_alias=True,
+        )
 
     @app.post("/api/v1/portfolio/apply-executions")
     def apply_recorded_executions(
@@ -962,35 +998,68 @@ def create_app(
         snapshot = store.latest_prediction_snapshot()
         if snapshot is not None and snapshot.as_of.astimezone(JST).date() > proposal_date:
             snapshot = None
-        prediction = next((
-            item for item in (() if snapshot is None else snapshot.predictions)
-            if item.symbol == symbol
-        ), None)
+        prediction = next(
+            (
+                item
+                for item in (() if snapshot is None else snapshot.predictions)
+                if item.symbol == symbol
+            ),
+            None,
+        )
         if not positions and not lines and prediction is None:
             raise HTTPException(status_code=404, detail="symbol not found")
+        ranks: dict[str, int | None] = {}
+        if snapshot is not None:
+            ranks["total"] = len(snapshot.predictions)
+            for key, field in (
+                ("return5d", "expected_return_5d"),
+                ("return20d", "expected_return_20d"),
+                ("rank20d", "rank_score_20d"),
+            ):
+                available: list[tuple[float, str]] = []
+                for item in snapshot.predictions:
+                    score = getattr(item, field, None)
+                    if score is not None:
+                        available.append((float(score), item.symbol))
+                ordered = sorted(available, key=lambda item: (-item[0], item[1]))
+                ranks[key] = next(
+                    (index + 1 for index, (_, code) in enumerate(ordered) if code == symbol), None
+                )
         return {
             "symbol": symbol,
+            "accountLabels": _account_labels(portfolio),
             "positions": positions,
             "proposalLines": lines,
             "proposal": None if today_proposal is None else _proposal_view(today_proposal),
-            "forecast": None if prediction is None or snapshot is None else {
-                "snapshotId": snapshot.snapshot_id, "asOf": snapshot.as_of,
+            "forecast": None
+            if prediction is None or snapshot is None
+            else {
+                "snapshotId": snapshot.snapshot_id,
+                "asOf": snapshot.as_of,
                 "generatedAt": snapshot.generated_at,
                 "isStale": snapshot.as_of.astimezone(JST).date() != proposal_date,
-                "mode": snapshot.mode, "blockingReasons": snapshot.blocking_reasons,
+                "mode": snapshot.mode,
+                "blockingReasons": snapshot.blocking_reasons,
                 "labelDefinition": snapshot.label_definition,
                 "labelDefinitionSupported": (
                     snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL
                 ),
                 "prediction": prediction.model_dump(mode="json"),
-                "researchEligible": (symbol in snapshot.research_symbols()
-                                     and snapshot.label_definition
-                                     == DAILY_NEXT_SESSION_CLOSE_LABEL),
+                "ranks": ranks,
+                "researchEligible": (
+                    symbol in snapshot.research_symbols()
+                    and snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL
+                ),
             },
-            "researchRuns": [] if snapshot is None else store.research_runs(
-                snapshot.snapshot_id, symbol,
+            "researchRuns": []
+            if snapshot is None
+            else store.research_runs(
+                snapshot.snapshot_id,
+                symbol,
             ),
-            "chatgptResearch": [] if snapshot is None else [
+            "chatgptResearch": []
+            if snapshot is None
+            else [
                 item.model_dump(mode="json")
                 for item in store.chatgpt_research(snapshot.snapshot_id)
                 if item.context.symbol == symbol

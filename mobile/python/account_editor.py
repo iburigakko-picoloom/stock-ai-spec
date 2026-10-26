@@ -1,6 +1,6 @@
 """Explicit current-balance corrections, appended without rewriting history."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import NAMESPACE_URL, uuid5
 
@@ -53,8 +53,20 @@ def edit(store, request, now, *, confirm=False):
         "group",
         "changes",
     }
-    if not isinstance(request, dict) or set(request) != required:
+    if not isinstance(request, dict) or set(request) not in (required, required | {"record"}):
         raise ValueError("Invalid balance edit")
+    record = request.get("record")
+    if record is not None:
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"date", "reason", "kind"}
+            or not isinstance(record["date"], str)
+            or not isinstance(record["reason"], str)
+            or len(record["reason"]) > 500
+            or record["kind"] not in ("deposit", "withdrawal", "correction")
+        ):
+            raise ValueError("Invalid correction record")
+        date.fromisoformat(record["date"])
     identity = "account-edit-" + digest(personal.canonical(request))
     with store._connect() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -219,6 +231,16 @@ def edit(store, request, now, *, confirm=False):
                 raise ValueError("成長投資枠の残枠合計を確認してください。")
         else:
             raise ValueError("Unknown edit group")
+        if record is not None and record["kind"] != "correction":
+            if request["group"] != "cash":
+                raise ValueError("入出金は現金の変更から記録してください。")
+            difference = sum(
+                (_money(x["available_cash"]) for x in value["cash"]), Decimal(0)
+            ) - sum((x.available_cash for x in current.cash), Decimal(0))
+            if (record["kind"] == "deposit" and difference <= 0) or (
+                record["kind"] == "withdrawal" and difference >= 0
+            ):
+                raise ValueError("入出金の種別と金額を確認してください。")
         value.update(portfolio_id=identity, as_of=as_of.isoformat())
         updated = PortfolioState.model_validate(value)
         if not confirm:
@@ -342,5 +364,14 @@ def edit(store, request, now, *, confirm=False):
             columns={"as_of": as_of.isoformat(), "created_at": now.isoformat()},
             payload=personal.canonical(updated.model_dump(mode="json")),
         )
+        if record is not None:
+            payload = personal.canonical({"portfolio_id": identity, "record": record})
+            db.execute(
+                "INSERT INTO operational_metadata(key,value) VALUES(?,?)",
+                (
+                    "account_edit_record:" + identity,
+                    personal.canonical({"payload": payload, "sha256": digest(payload)}),
+                ),
+            )
         db.commit()
         return {"portfolio_id": identity, "already_confirmed": False}

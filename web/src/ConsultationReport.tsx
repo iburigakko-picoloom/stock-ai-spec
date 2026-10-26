@@ -9,17 +9,13 @@ export interface ConsultationFindings {
   unknowns?: string[];
 }
 
-export function ConsultationReport({ value }: { value: ConsultationFindings }) {
+export function ConsultationReport({ value, savedShares, currentShares }: { value: ConsultationFindings; savedShares?:Record<string,number|null>;currentShares?:Record<string,number> }) {
   return <>
-    <p>5日：{value.market_5d}</p><p>20日：{value.market_20d}</p>
+    <div className="subgrid"><div><strong>5営業日</strong><p>{value.market_5d}</p></div><div><strong>20営業日</strong><p>{value.market_20d}</p></div></div>
     <p>現金：{value.cash_rationale}</p>
-    <section><h3 className="plain-section-title">企業ごとの調査・出典</h3>
-      {value.companies?.map(company => <section key={company.symbol}>
-        <h3>{company.symbol}</h3><p>{company.rationale}</p>
-        <p>独立調査：{company.independent_research}</p>
-        <p>5日への影響：{company.impact_5d}</p><p>20日への影響：{company.impact_20d}</p>
-        <p>数値との照合：{company.numerical_comparison}</p>
-      </section>)}
+    <section><h3 className="plain-section-title">企業ごとの調査・出典</h3><table className="subtable consultation-result-table"><thead><tr><th>銘柄・理由</th>{savedShares && <th>相談時保有</th>}{currentShares && <th>現在保有</th>}</tr></thead><tbody>
+      {value.companies?.map(company => <tr key={company.symbol}><td><strong>{company.symbol}</strong><p>{company.rationale}</p><small>独立調査：{company.independent_research}<br />5日への影響：{company.impact_5d}<br />20日への影響：{company.impact_20d}<br />数値との照合：{company.numerical_comparison}</small></td>{savedShares && <td>{savedShares[company.symbol]==null ? "未記録" : `${savedShares[company.symbol]}株`}</td>}{currentShares && <td>{currentShares[company.symbol] ?? 0}株</td>}</tr>)}
+      </tbody></table>
       {value.sources?.map((source, i) => <p key={`${source.url}-${i}`}>
         <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
         <small> 公開 {source.published_at ? dateTime(source.published_at) : "日時未確認"}・確認 {dateTime(source.observed_at)} JST</small>

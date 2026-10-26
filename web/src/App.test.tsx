@@ -146,6 +146,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+async function buyEntry() {
+  const choice=await screen.findByRole("combobox",{name:"銘柄"});
+  await userEvent.selectOptions(choice,"buy-line");
+  const view=within(screen.getByRole("group",{name:"購入会社の取引"}));
+  expect(view.getByLabelText("実行状態")).toHaveValue("open");
+  await userEvent.selectOptions(view.getByLabelText("実行状態"),"filled");
+  await userEvent.clear(view.getByLabelText("約定株数"));
+  await userEvent.type(view.getByLabelText("約定株数"),"100");
+  await userEvent.type(view.getByLabelText("平均約定単価"),"1000");
+  return view;
+}
+
 describe("Goal 5 PWA", () => {
   it("preserves edited targets on identical refresh and blocks save until their review completes", async () => {
     const pending: ((value: Response) => void)[] = [];
@@ -161,11 +173,11 @@ describe("Goal 5 PWA", () => {
     await waitFor(() => expect(pending).toHaveLength(1));
     await act(async () => pending[0](jsonResponse(review)));
     expect(screen.getByRole("button", { name: "判断を保存" })).toBeEnabled();
-    await userEvent.selectOptions(screen.getByLabelText("購入会社の目標株数"), "0");
+    await userEvent.click(screen.getByLabelText("購入会社の提案を採用"));
     expect(screen.getByRole("button", { name: "判断を保存" })).toBeDisabled();
     await waitFor(() => expect(pending).toHaveLength(2));
     act(() => window.dispatchEvent(new Event("focus")));
-    await waitFor(() => expect(screen.getByLabelText("購入会社の目標株数")).toHaveValue("0"));
+    await waitFor(() => expect(screen.getByLabelText("購入会社の提案を採用")).toHaveAttribute("aria-pressed","false"));
     expect(pending).toHaveLength(2);
     await act(async () => pending[1](jsonResponse(review)));
     expect(screen.getByRole("button", { name: "判断を保存" })).toBeEnabled();
@@ -209,13 +221,13 @@ describe("Goal 5 PWA", () => {
   it("shows cash from each account with visible model information", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter: { taxable: "100000", nisa: "25000" }, netImprovement: "-200" } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    await screen.findByText("125,000円");
+    await screen.findByText("¥125,000");
     expect(screen.getByRole("link", {name:"提案の計算詳細"})).toHaveAttribute("href","/today/details");
     cleanup();
     render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
     await screen.findByText("fixture-model");
-    expect(screen.getByText("25,000円")).toBeVisible();
-    expect(screen.getByText("-200円")).toHaveClass("text-negative");
+    expect(screen.getByText("¥25,000")).toBeVisible();
+    expect(screen.getByText("¥-200")).toHaveClass("text-negative");
   });
 
   it("separates zero filing tax from cash withheld in the cash details", async () => {
@@ -228,8 +240,8 @@ describe("Goal 5 PWA", () => {
     cleanup();
     render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
     const details = await screen.findByText("口座別の現金・推定改善");
-    expect(within(details.closest("section")!).getByText("2,000円")).toBeVisible();
-    expect(within(screen.getByText("推定税影響").parentElement!).getByText("0円"))
+    expect(within(details.closest("section")!).getByText("¥2,000")).toBeVisible();
+    expect(within(screen.getByText("推定税影響").parentElement!).getByText("¥0"))
       .toBeInTheDocument();
   });
 
@@ -244,7 +256,7 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     const label = await screen.findByText("取引後の推定現金");
-    expect(label.parentElement?.querySelector("strong")?.textContent).toBe("—");
+    expect(label.parentElement?.querySelector("b")?.textContent).toBe("—");
   });
 
   it("offers settings when no actual portfolio is registered", async () => {
@@ -301,7 +313,7 @@ describe("Goal 5 PWA", () => {
     expect(content.indexOf("売却会社")).toBeLessThan(content.indexOf("購入会社"));
     expect(screen.getByText("保有継続 1銘柄")).toBeInTheDocument();
     expect(screen.queryByText("見送会社")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", {name:"判断を確認"})).toHaveAttribute("href","/today/review");
+    expect(screen.getByRole("link", {name:"判断を確認"})).toHaveAttribute("href","/today/review?source=model");
   });
 
   it("recalculates 100-share decisions and saves only to the manual-record API", async () => {
@@ -330,9 +342,9 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><DecisionReviewPage /></MemoryRouter>);
-    const selector = await screen.findByLabelText("購入会社の目標株数");
-    expect(selector).toHaveDisplayValue("AI提案 100株");
-    expect((await screen.findAllByText("100,000円", {}, { timeout: 2000 })).length).toBeGreaterThan(0);
+    const selector = await screen.findByLabelText("購入会社の提案を採用");
+    expect(selector).toHaveAttribute("aria-pressed","true");
+    expect((await screen.findAllByText("¥100,000", {}, { timeout: 2000 })).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: "判断を保存" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/decisions"))).toBe(true));
     const saveCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/decisions"));
@@ -360,12 +372,11 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    const company = await screen.findByText("購入会社");
-    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"), "buy-line");
-    const card = company.closest("section");
-    expect(card).not.toBeNull();
-    const cardView = within(card as HTMLElement);
+    const cardView = await buyEntry();
     await userEvent.selectOptions(cardView.getByLabelText("実行状態"), "partially_filled");
+    await userEvent.clear(cardView.getByLabelText("注文株数"));
+    await userEvent.type(cardView.getByLabelText("注文株数"),"200");
+    await userEvent.click(cardView.getByRole("checkbox"));
     await userEvent.clear(cardView.getByLabelText("約定株数"));
     await userEvent.type(cardView.getByLabelText("約定株数"), "100");
     await userEvent.clear(cardView.getByLabelText("源泉徴収税額"));
@@ -394,7 +405,7 @@ describe("Goal 5 PWA", () => {
       actualOtherCost: "0",
       taxWithheld: "0",
     });
-    expect(screen.getByRole("button", { name: "実保有へ反映済み" })).toBeDisabled();
+    expect(cardView.getByRole("button", { name: "記録済み" })).toBeDisabled();
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === "/api/v1/portfolio/apply-executions")).toBe(true));
   });
 
@@ -414,9 +425,7 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    await screen.findByText("購入会社");
-    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"),"buy-line");
-    const card = within(screen.getByText("購入会社").closest("section")!);
+    const card = await buyEntry();
     await userEvent.clear(card.getByLabelText("平均約定単価"));
     await userEvent.type(card.getByLabelText("平均約定単価"), "1234");
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
@@ -449,14 +458,12 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", fetchMock);
     const uuid = vi.fn(() => "one-record"); vi.stubGlobal("crypto", { randomUUID: uuid });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    await screen.findByText("購入会社");
-    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"),"buy-line");
-    const card = within(screen.getByText("購入会社").closest("section")!);
+    const card = await buyEntry();
     const button = card.getByRole("button", { name: "この結果を記録" });
     await userEvent.click(button);
     expect(button).toBeDisabled();
     expect(card.getByLabelText("平均約定単価")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "記録済み約定を実保有へ反映" })).toBeDisabled();
+    expect(fetchMock.mock.calls.filter(([url])=>String(url)==="/api/v1/portfolio/apply-executions")).toHaveLength(0);
     await userEvent.dblClick(button);
     expect(bodies).toHaveLength(1);
     await act(async () => { rejectFirst(new Error("保存応答を受け取れませんでした")); });
@@ -488,9 +495,7 @@ describe("Goal 5 PWA", () => {
       throw Error(url);
     }));
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    await screen.findByText("購入会社");
-    await userEvent.selectOptions(screen.getByLabelText("記録する銘柄"),"buy-line");
-    const card = within(screen.getByText("購入会社").closest("section")!);
+    const card = await buyEntry();
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
     await screen.findByText(/約定は記録済みです/);
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
@@ -573,11 +578,11 @@ describe("Goal 5 PWA", () => {
     };
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(detail)));
     render(<MemoryRouter initialEntries={["/stocks/A"]}><StockDetailPage /></MemoryRouter>);
-    await screen.findByText("実保有合計");
+    await screen.findByText("実際の保有");
     expect(screen.getByText("300株")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: "nisa" }));
-    expect(screen.getByText("実保有 / nisa")).toBeInTheDocument();
+    expect(screen.getByText("実際の保有 / nisa")).toBeInTheDocument();
     expect(screen.getAllByText("100株").length).toBeGreaterThan(0);
-    expect(screen.getByText(/加重平均取得 800円/)).toBeInTheDocument();
+    expect(screen.getByText(/加重平均取得 ¥800/)).toBeInTheDocument();
   });
 });

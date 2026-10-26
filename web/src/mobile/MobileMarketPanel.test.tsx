@@ -21,7 +21,7 @@ test("saved range is restored and stopping remains reachable while other setting
   });
   const onBusy = vi.fn();
   const { rerender } = render(<MobileMarketPanel configured disabled={false} onBusy={onBusy} />);
-  const start = screen.getByRole("button", { name: "履歴の取得を開始・再開" });
+  const start = screen.getByRole("button", { name: "履歴を取得" });
   await waitFor(() => expect(start).toBeEnabled());
   fireEvent.click(start);
   rerender(<MobileMarketPanel configured disabled onBusy={onBusy} />);
@@ -34,15 +34,16 @@ test("saved range is restored and stopping remains reachable while other setting
 test("range and correction controls are visible with missing account setup", async () => {
   render(<MobileMarketPanel configured={false} disabled={false} onBusy={vi.fn()} />);
   await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(4));
-  expect(screen.getByRole("button", { name: "履歴の取得を開始・再開" })).toBeDisabled();
-  expect(screen.getByText("取得範囲・訂正データ・計算の確認").closest("section")).toBeVisible();
-  expect(screen.getByText(/画面を開いて取得します/)).toBeVisible();
+  expect(screen.getByRole("button", { name: "履歴を取得" })).toBeDisabled();
+  expect(screen.getByText("対象銘柄・特徴量").closest("section")).toBeVisible();
+  expect(screen.getByLabelText("取得開始日")).toBeVisible();
+  expect(screen.getByLabelText("訂正を確認する日付")).toBeVisible();
 });
 
 test("universe policy is opt in and a failed save keeps the last saved choice", async () => {
   render(<MobileMarketPanel configured disabled={false} onBusy={vi.fn()} />);
   const choice = screen.getByLabelText("予測対象");
-  fireEvent.click(screen.getByText("取得範囲・訂正データ・計算の確認"));
+  fireEvent.click(screen.getByText("対象銘柄・特徴量"));
   await waitFor(() => expect(choice).toBeEnabled());
   expect(choice).toHaveValue("legacy300");
   vi.mocked(apiPost).mockResolvedValueOnce({ mode: "topix500-preview", experimental: true });

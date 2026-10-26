@@ -24,7 +24,8 @@ test("saved rankings show the date, can update any time, and distinguish ChatGPT
     { symbol: "2000", reason: "相談で優先" }, { symbol: "1000", reason: "比較後の順位" },
   ] } }, loading: false, error: null, savedAt: null, reload });
   render(<MemoryRouter><Rankings /></MemoryRouter>);
-  expect(screen.getByText(/株価 2026-10-22/)).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
+  expect(screen.getByText(/2026-10-22 終値/)).toBeVisible();
   fireEvent.click(screen.getByRole("tab", { name: "ChatGPT" }));
   expect(screen.getByText(/ChatGPTの回答を反映した順位/)).toBeVisible();
   expect(screen.getByText("相談で優先")).toBeVisible();
@@ -36,6 +37,7 @@ test("saved rankings show the date, can update any time, and distinguish ChatGPT
 test("consultation exports only after confirmation and imports to its exact ranking", async () => {
   vi.mocked(apiPost).mockResolvedValueOnce({ id: base.id, prompt: "相談する銘柄", expiresAt: "2026-10-27" }).mockResolvedValueOnce({ researchId: "saved", order: [], savedAt: "2026-10-26" }).mockResolvedValueOnce({});
   render(<MemoryRouter><Rankings /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
   fireEvent.click(screen.getByRole("button", { name: "ChatGPTと相談" }));
   expect(screen.getByRole("button", { name: "相談文を作る" })).toBeDisabled();
   for (const input of screen.getAllByRole("checkbox")) fireEvent.click(input);
@@ -54,6 +56,7 @@ test("expired input still accepts results and saved research survives a rejected
   vi.mocked(useApiData).mockReturnValue({ data: { ...base, savedInput: { id: "old", rankingId: base.id, prompt: "期限切れの相談", canCopy: false }, research: { researchId: "saved", order: [], savedAt: "2026-10-24" } }, loading: false, error: null, savedAt: null, reload });
   vi.mocked(apiPost).mockRejectedValueOnce(new Error("調査結果は保存済みです。保有が更新されています"));
   render(<MemoryRouter><Rankings /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
   fireEvent.click(screen.getByRole("button", { name: "ChatGPTと相談" }));
   expect(screen.getByRole("button", { name: "相談文をコピー" })).toBeDisabled();
   fireEvent.change(screen.getByLabelText("回答JSON"), { target: { value: "{}" } });
@@ -67,6 +70,7 @@ test("reopened input is available but changed ranking prevents stale clipboard e
   vi.mocked(useApiData).mockReturnValue({ data: { ...base, savedInput: { id: base.id, prompt: "保存済み相談", expiresAt: "2026-10-27" } }, loading: false, error: null, savedAt: null, reload });
   vi.mocked(apiGet).mockResolvedValue({ ...base, id: "changed" });
   render(<MemoryRouter><Rankings /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
   fireEvent.click(screen.getByRole("button", { name: "ChatGPTと相談" }));
   expect(screen.getByLabelText("ChatGPTへの相談文")).toHaveValue("保存済み相談");
   fireEvent.click(screen.getByRole("button", { name: "相談文をコピー" }));
@@ -75,8 +79,9 @@ test("reopened input is available but changed ranking prevents stale clipboard e
 
  test("search keeps the actual rank instead of renumbering filtered rows", () => {
   render(<MemoryRouter><Rankings /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "2000" } });
-  expect(screen.getByText("2位")).toBeVisible();
+  expect(screen.getByLabelText("2位")).toBeVisible();
   expect(screen.queryByText("1000")).not.toBeInTheDocument();
 });
 
@@ -87,16 +92,17 @@ test("three model tabs separate rank scores from returns and preserve search ran
     { symbol: "3000", modelRank: 3, score: 1, expectedReturn: null },
   ] }, loading: false, error: null, savedAt: null, reload });
   render(<MemoryRouter><Rankings /></MemoryRouter>);
-  for (const name of ["20日・ランキング", "20日・値予測", "5日・値予測"]) expect(screen.getByRole("tab", { name })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
+  for (const name of ["20日・ランキング", "20日・値予測", "5日・値予測"]) expect(screen.getByRole("button", { name })).toBeVisible();
   for (const name of ["20日・値予測", "5日・値予測"]) {
-    fireEvent.click(screen.getByRole("tab", { name }));
+    fireEvent.click(screen.getByRole("button", { name }));
     expect(screen.getByText(/日の予測リターンが高い順/)).toBeVisible();
-    expect(screen.getByText("2000").closest(".ranking-row")).toHaveTextContent("1位");
-    expect(screen.getByText("1000").closest(".ranking-row")).toHaveTextContent("2位");
-    expect(screen.getByText("3000").closest(".ranking-row")).toHaveTextContent("—");
+    expect(screen.getByText("2000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "1位");
+    expect(screen.getByText("1000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "2位");
+    expect(screen.getByText("3000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "—");
     expect(screen.queryByRole("button", { name: "ChatGPTと相談" })).not.toBeInTheDocument();
   }
-  fireEvent.click(screen.getByRole("tab", { name: "20日・ランキング" }));
-  expect(screen.getByText("1000").closest(".ranking-row")).toHaveTextContent("1位");
+  fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
+  expect(screen.getByText("1000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "1位");
   expect(screen.getByRole("button", { name: "ChatGPTと相談" })).toBeEnabled();
 });

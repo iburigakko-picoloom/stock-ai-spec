@@ -11,6 +11,11 @@ export function yen(value: string | number | null | undefined): string {
   return `${Math.round(number).toLocaleString("ja-JP")}円`;
 }
 
+export function currency(value:string|number|null|undefined):string {
+  const formatted=yen(value);
+  return formatted === "—" ? formatted : `¥${formatted.slice(0,-1)}`;
+}
+
 export function pct(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   const sign = value > 0 ? "+" : "";
@@ -52,11 +57,11 @@ export function PageHeader({
   backState?: unknown;
 }): ReactNode {
   return (
-    <header className="page-header app-brand">
+    <header className="page-header phone-top app-brand">
       <div className="page-header__line">
-        {backTo && <Link className="header-back" to={backTo} state={backState} aria-label="← 戻る">‹</Link>}
+        {backTo && <Link className="back-button" to={backTo} state={backState} aria-label="← 戻る">‹</Link>}
         <span className="brand-mark" aria-hidden="true">株AI</span>
-        <h1>{title}</h1>
+        <h1 className="phone-title">{title}</h1>
         {actions && <div className="page-header__actions">{actions}</div>}
       </div>
       {(eyebrow || meta) && <div className="page-header__context">{eyebrow && <p className="eyebrow">{eyebrow}</p>}{meta && <span className="page-header__meta">{meta}</span>}</div>}

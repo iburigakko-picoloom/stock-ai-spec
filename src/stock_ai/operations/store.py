@@ -1803,6 +1803,22 @@ class OperationalStore:
             for row in rows
         )
 
+    def portfolio_edit_record(self, portfolio_id: str) -> dict[str, str] | None:
+        raw = self.metadata("account_edit_record:" + portfolio_id)
+        if raw is None:
+            return None
+        try:
+            envelope = json.loads(raw)
+            payload = _checked_payload_values(
+                envelope["payload"], envelope["sha256"], "account_edit_record"
+            )
+            value = json.loads(payload)
+            if value["portfolio_id"] != portfolio_id or not isinstance(value["record"], dict):
+                raise ValueError("invalid correction record")
+            return dict(value["record"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise OperationalIntegrityError("invalid correction record") from exc
+
     def archive_proposal(
         self,
         proposal: PortfolioProposal,

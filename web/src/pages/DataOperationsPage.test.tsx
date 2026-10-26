@@ -10,7 +10,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const value = { preview_id: "p", imported_as_of: "2026-01-01", differences: [], cash_differences: [] };
 function open() {
   render(<MemoryRouter><DataOperationsPage /></MemoryRouter>);
-  fireEvent.click(screen.getByText("口座状態CSV"));
+  fireEvent.change(screen.getByRole("combobox",{name:"CSVの種類"}),{target:{value:"positions"}});
   fireEvent.change(screen.getByLabelText("CSV内容"), { target: { value: "first" } });
 }
 test("editing CSV invalidates a pending preview response", async () => {

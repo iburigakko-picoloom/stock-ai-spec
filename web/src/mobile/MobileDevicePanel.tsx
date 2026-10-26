@@ -4,7 +4,7 @@ import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { MobileBackupPanel } from "./MobileBackupPanel";
 import { MobilePersonalPanel, accountStepTitles, type AccountStep } from "./MobilePersonalPanel";
-import { PolicySummary } from "./PolicySummary";
+import { AllocationReadout, MinimumCashField, PolicySummary, RiskPolicyFields } from "./PolicySummary";
 import { AppInfoPanel } from "./AppInfoPanel";
 import { CurrentAccountPanel } from "./CurrentAccountPanel";
 import { SaveProgress } from "./SaveProgress";
@@ -13,6 +13,7 @@ import { MobileMarketPanel } from "./MobileMarketPanel";
 import { MobileModelPanel } from "./MobileModelPanel";
 import { DailyControls, useDailyAutomation } from "./DailyPanel";
 import type { LocalPortfolio, SavedPortfolio } from "./personal";
+import { Field, SettingGroup } from "../Adopted";
 
 export function MobileUpdateNotice(): ReactNode {
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
@@ -302,27 +303,25 @@ export function MobileDevicePanel(): ReactNode {
     <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} inputStatus={!portfolioLoaded ? "口座情報を読み込み中です。読込に失敗した場合は、この画面の「口座・保有を読み直す」を押してください。" : savedPortfolio === null ? "口座・保有が未登録です。証券口座と実保有を登録してください。" : "口座・保有の編集が未保存です。保存してから計算してください。"} onBusy={setBusy} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "daily"}>
-    <DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} explanations={false} />
-    <section className="section"><h2>完了通知</h2><p>通知のオン・オフはAndroidの設定で変更できます。</p>
+    <div className="subscreen sub-settings"><div className="ss-compact"><SettingGroup number="01" title="更新状況"><DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} explanations={false} /></SettingGroup>
+    <SettingGroup number="02" title="自動更新・通知"><p className="small muted">通知のオン・オフはAndroidの設定で変更できます。</p>
       <button className="button button--secondary" disabled={daily.busy || !daily.status} onClick={() => void daily.requestNotifications()}>通知の許可を確認</button>
-    </section>
-    <section className="section"><h2>データ接続</h2><p>APIキー：{configured === null ? "確認中" : configured ? "設定済み" : "未設定"}</p><label>J-Quants APIキー<input type="password" value={key} autoComplete="off" onChange={event=>setKey(event.target.value)} /></label><div className="two-actions"><button className="button button--secondary" disabled={busy || !key} onClick={()=>void action(async()=>{await StockAI.saveApiKey({apiKey:key});setKey("");setConfigured(true);},"APIキーを保存しました。","data")}>キーを保存</button><button className="button button--secondary" disabled={busy || !configured} onClick={()=>void action(async()=>{await StockAI.clearApiKey();setConfigured(false);},"APIキーを削除しました。","data")}>キーを削除</button></div>{messageGroup === "data" && message && <p role="status">{message}</p>}<button className="text-link" onClick={()=>open("repair")}>市場データの修復</button></section>
+    </SettingGroup>
+    <SettingGroup number="03" title="データ接続"><p className="small muted">APIキー：{configured === null ? "確認中" : configured ? "設定済み" : "未設定"}</p><Field label="J-Quants APIキー"><input className="input" type="password" value={key} autoComplete="off" onChange={event=>setKey(event.target.value)} /></Field><div className="subactions"><button className="button secondary" disabled={busy || !key} onClick={()=>void action(async()=>{await StockAI.saveApiKey({apiKey:key});setKey("");setConfigured(true);},"APIキーを保存しました。","data")}>キーを保存</button><button className="button secondary" disabled={busy || !configured} onClick={()=>void action(async()=>{await StockAI.clearApiKey();setConfigured(false);},"APIキーを削除しました。","data")}>キーを削除</button></div>{messageGroup === "data" && message && <p role="status">{message}</p>}<button className="text-link" onClick={()=>open("repair")}>市場データの修復</button></SettingGroup></div></div>
     </SettingsPanel>
     <SettingsPanel visible={selected === "chatgpt"}>
-      <div className="button-stack"><Link className="button button--secondary" to="/today/chatgpt">手動でChatGPTに相談</Link></div>
-      <section className="settings-disclosure"><h3 className="plain-section-title">アカウント連携の設定</h3><ChatGPTPanel /></section>
+      <ChatGPTPanel />
     </SettingsPanel>
     <SettingsPanel visible={selected === "backup"}>
     <MobileBackupPanel disabled={busy} onBusy={setBusy} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "about"}>
       <AppInfoPanel />
-      <h2>詳細管理</h2>
+      <h3 className="plain-section-title">詳細管理</h3>
       <nav className="settings-list" aria-label="保存済み設定の詳細">
         {[["capital", "資金"], ["broker", "証券会社"], ["accounts", "口座・税金"], ["trading", "取引コスト・制約"], ["decision", "AI判断"], ["model", "モデル"], ["data", "データ・運用状態"]].map(([id, title]) =>
           <Link className="settings-row" to={`/settings/${id}`} key={id}><strong>{title}</strong><b aria-hidden="true">→</b></Link>)}
       </nav>
-      <p><a href="/python/licenses.html" target="_blank" rel="noreferrer">オープンソースの表示・ソース取得先</a></p>
       <nav className="compact-links" aria-label="詳細管理">
         {([["conditions", "運用条件"], ["taxes", "口座・税・手数料"], ["model", "モデル管理"], ["repair", "市場データの修復"], ["method", "計算方式"]] as const).map(([id, title]) => <button className="button button--secondary" key={id} onClick={() => open(id)}>{title}</button>)}
         <Link className="button button--secondary" to="/settings/csv">CSV取り込み</Link>
@@ -330,12 +329,12 @@ export function MobileDevicePanel(): ReactNode {
       </nav>
     </SettingsPanel>
     <SettingsPanel visible={selected === "conditions"}>
-      <fieldset className="account-form" disabled={busy || !portfolioLoaded}>
-        <section className="numbered-section"><small>01</small><h2>資金配分</h2><label>投資上限（株式時価・円）<input inputMode="decimal" value={portfolio.investment_budget_yen ?? ""} onChange={e=>setPortfolio({...portfolio,investment_budget_yen:e.target.value || null})} /></label><p className="setting-footnote">現金を除く、全口座の保有株式時価の上限です。</p></section>
-        <section className="numbered-section"><small>02</small><h2>リスク</h2><label>最大許容下落率（%）<input type="number" min="0.01" max="100" step="any" value={portfolio.maximum_drawdown_percent ?? ""} onChange={e=>setPortfolio({...portfolio,maximum_drawdown_percent:e.target.value ? Number(e.target.value) : null})} /></label><p className="setting-footnote">本人の希望条件として保存します。</p></section>
-        {selected === "conditions" && <PolicySummary />}
-        <button className="button button--primary" onClick={()=>void action(savePortfolio,"運用条件を保存しました。")}>設定を保存</button>
-      </fieldset>{messageGroup === "account" && message && <p role="status">{message}</p>}
+      <div className="subscreen sub-settings"><fieldset className="account-form" disabled={busy || !portfolioLoaded}><div className="ss-compact">
+        <SettingGroup number="01" title="資金配分"><AllocationReadout /><Field label="投資上限（株式時価・円）"><input className="input" inputMode="decimal" value={portfolio.investment_budget_yen ?? ""} onChange={e=>setPortfolio({...portfolio,investment_budget_yen:e.target.value || null})} /></Field><MinimumCashField /></SettingGroup>
+        <SettingGroup number="02" title="リスク"><Field label="最大許容下落率（%）"><input className="input" type="number" min="0.01" max="100" step="any" value={portfolio.maximum_drawdown_percent ?? ""} onChange={e=>setPortfolio({...portfolio,maximum_drawdown_percent:e.target.value ? Number(e.target.value) : null})} /></Field><RiskPolicyFields /></SettingGroup>
+        {selected === "conditions" && <PolicySummary />}</div>
+        <div className="subactions"><button className="button" onClick={()=>void action(savePortfolio,"運用条件を保存しました。")}>設定を保存</button></div>
+      </fieldset>{messageGroup === "account" && message && <p className="ss-status" role="status">{message}</p>}</div>
       <button className="text-link" onClick={()=>open("method")}>計算方式</button>
     </SettingsPanel>
     <SettingsPanel visible={selected === "method" || selected === "taxes"}>

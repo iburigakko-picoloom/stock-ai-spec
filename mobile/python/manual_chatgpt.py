@@ -13,6 +13,7 @@ from stock_ai.operations.chatgpt_manual import (
     validate_saved_answer,
     verify_exchange_records,
 )
+from stock_ai.operations.consultation import consultation_context
 from stock_ai.operations.daily import PredictionSnapshot, content_id
 from stock_ai.operations.personal import PersonalComparison
 
@@ -96,13 +97,50 @@ def status(path, store, now):
                 ).fetchone()[0]
             )
         )
-        answers = [
-            read_record(row[0])["review"]
+        answer_records = [
+            (row[0].removeprefix("chatgpt-manual:answer:"), read_record(row[1]))
             for row in db.execute(
-                "SELECT value FROM operational_metadata WHERE key LIKE 'chatgpt-manual:answer:%' "
+                "SELECT key,value FROM operational_metadata "
+                "WHERE key LIKE 'chatgpt-manual:answer:%' "
                 "ORDER BY rowid DESC LIMIT 20"
             )
         ]
+        answers = [receipt["review"] for _, receipt in answer_records]
+        decision_source = None
+        if current is not None and answer_records:
+            record_id, receipt = answer_records[0]
+            row = db.execute(
+                "SELECT value FROM operational_metadata WHERE key=?",
+                ("chatgpt-manual:input:" + receipt["input_record_id"],),
+            ).fetchone()
+            package = {} if row is None else read_record(row[0])["package"]
+            portfolio = current[2]
+            aliases = {
+                f"A{i}": b.bucket_id
+                for i, b in enumerate(
+                    sorted(portfolio.account_buckets, key=lambda b: b.bucket_id), 1
+                )
+            }
+            if (
+                package.get("comparison_id") == current[1].comparison_id
+                and package.get("prediction_snapshot_id") == current[3].snapshot_id
+                and package.get("account_snapshot_id")
+                == content_id(portfolio.model_dump(mode="json"))
+                and all(line["account"] in aliases for line in receipt["review"]["lines"])
+            ):
+                decision_source = {
+                    "recordId": record_id,
+                    "checkedAt": receipt["checked_at"],
+                    "lines": [
+                        {
+                            "symbol": line["symbol"],
+                            "accountBucketId": aliases[line["account"]],
+                            "currentShares": line["current_shares"],
+                            "targetShares": line["target_shares"],
+                        }
+                        for line in receipt["review"]["lines"]
+                    ],
+                }
         research = [
             {"record_id": row[0].removeprefix("chatgpt-manual:research:"), **read_record(row[1])}
             for row in db.execute(
@@ -111,6 +149,14 @@ def status(path, store, now):
                 "ORDER BY rowid DESC LIMIT 20"
             )
         ]
+        for item in research:
+            source = db.execute(
+                "SELECT value FROM operational_metadata WHERE key=?",
+                ("chatgpt-manual:input:" + item["input_record_id"],),
+            ).fetchone()
+            item["consultation"] = (
+                None if source is None else read_record(source[0])["package"].get("consultation")
+            )
     saved_input, saved_input_reason = None, None
     if saved is not None and current is not None:
         value, comparison, portfolio, forecast = current
@@ -152,7 +198,17 @@ def status(path, store, now):
         "research": research,
         "reply_input": None if saved is None else {"input_record_id": selected[0]},
         "answers": answers,
+        "decision_source": decision_source,
         "account_labels": labels,
+        "current_context": None
+        if current is None
+        else consultation_context(current[3], current[2], now=current[1].checked_at),
+        "current_shares": {}
+        if portfolio is None
+        else {
+            symbol: sum(p.shares for p in portfolio.positions if p.symbol == symbol)
+            for symbol in {p.symbol for p in portfolio.positions}
+        },
     }
 
 

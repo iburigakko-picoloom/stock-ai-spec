@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "../api";
 import { SaveProgress } from "./SaveProgress";
 import { SbiConditions } from "./SbiConditions";
+import { Link } from "react-router-dom";
+import { Field, KV, SettingGroup } from "../Adopted";
 import { blankAccount, costLabels, emptySettings, gapLabel, taxLabels, type AccountSettings,
   type InitialLedgerPreview, type PersonalSettings, type Readiness, type SavedPortfolio,
   type SavedSettings, type SettingsResponse } from "./personal";
@@ -106,6 +108,35 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   const focused = step === "method" || step === "taxes";
   const gaps = [...new Set((readiness?.input_gaps ?? []).map(gapLabel))];
   const reasons = [...new Set((readiness?.comparison.blocking_reasons ?? []).map(x => gapLabel(x.code)))];
+  async function saveSettings() {
+    const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
+    draftTouched.current=false; setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false); setMessage("保存しました。"); refresh();
+  }
+  if (focused) return <div className={`subscreen ${step==="taxes" ? "sub-settings" : "advanced-domain"}`}>
+    {busy && <SaveProgress label="端末で確認・保存中…" />}
+    {disabled && <p role="status">口座・保有に未保存の変更があります。先に保存してください。</p>}
+    {stale && <div className="card"><p>口座・保有が更新されています。補足設定を見直してください。</p><button className="button secondary" disabled={disabled || busy} onClick={()=>change({...draft,portfolio_revision_id:profile.revision_id,research_conditions_reviewed:false,accounts:profile.portfolio.accounts.map(x=>draft.accounts.find(old=>old.account_id===x.id) ?? blankAccount(x.id))})}>最新の口座・保有に合わせて見直す</button></div>}
+    <fieldset className="account-form" disabled={blocked}>
+    {step==="taxes" ? <div className="ss-compact">
+      <SettingGroup number="01" title="口座・税区分"><KV label="証券口座" value={`登録済み・${profile.portfolio.accounts.length}口座`} /><KV label="管理対象" value={profile.portfolio.accounts.map(x=>x.name).join("・")} /><Field label="対象年"><input className="input" type="number" min="2000" max="2200" value={draft.tax_year ?? ""} onChange={e=>change({...draft,tax_year:e.target.value ? Number(e.target.value) : null})} /></Field>
+      {profile.portfolio.accounts.map(x=><KV key={x.id} label={x.name} value={x.account_type==="nisa" ? "NISA" : x.account_type==="taxable_general" ? "一般口座" : `特定口座・源泉徴収${x.withholding_mode==="withholding" ? "あり" : x.withholding_mode==="no_withholding" ? "なし" : "未確認"}`} />)}</SettingGroup>
+      <SettingGroup number="02" title="年間損益・NISA">{profile.portfolio.accounts.map(source=>{const item=draft.accounts.find(x=>x.account_id===source.id);return item && <div className="stack" key={source.id}><h4 className="small muted">{source.name}</h4><Field label="未反映の取引・決済・入出金"><select className="input" value={item.pending_activity} onChange={e=>accountChange(source.id,{pending_activity:e.target.value as AccountSettings["pending_activity"]})}><option value="unknown">まだ確認していない</option><option value="none">未反映のものはない</option><option value="pending">未反映・未決済のものがある</option></select></Field>
+      {(Object.entries(taxLabels) as [keyof typeof taxLabels,string][]).filter(([key])=>!(readiness?.comparison.ledger_portfolio_id && key.startsWith("nisa_")) && (source.account_type==="nisa" || !key.startsWith("nisa_") || item[key]!==null)).map(([key,label])=><Field key={key} label={label}><input className="input" inputMode="decimal" value={item[key] ?? ""} onChange={e=>accountChange(source.id,{[key]:e.target.value || null})} /></Field>)}</div>;})}
+      <Link className="quiet-link" to="/settings?edit=accounts&step=nisa">現在のNISA残枠を確認・変更 ›</Link></SettingGroup>
+      <SettingGroup number="03" title="手数料・計算前提">{(Object.entries(costLabels) as [keyof typeof costLabels,string][]).map(([key,label])=><Field key={key} label={label}><input className="input" inputMode="decimal" value={draft.cost_assumptions[key] ?? ""} onChange={e=>change({...draft,cost_assumptions:{...draft.cost_assumptions,[key]:e.target.value || null}})} /></Field>)}
+      <label className="row"><input type="checkbox" checked={draft.cost_assumptions.zero_commission_confirmed} onChange={e=>change({...draft,cost_assumptions:{...draft.cost_assumptions,zero_commission_confirmed:e.target.checked}})} />無料の適用条件を確認しました</label>
+      <Field label="税の条件の適用開始日"><input className="input" type="date" value={draft.tax_assumptions.effective_from ?? ""} onChange={e=>change({...draft,tax_assumptions:{...draft.tax_assumptions,effective_from:e.target.value || null}})} /></Field>
+      <Field label="課税口座の想定税率（%）"><input className="input" inputMode="decimal" value={draft.tax_assumptions.taxable_rate_percent ?? ""} onChange={e=>change({...draft,tax_assumptions:{...draft.tax_assumptions,taxable_rate_percent:e.target.value || null}})} /></Field>
+      <Field label="NISA枠の機会費用の仮定（%）"><input className="input" inputMode="decimal" value={draft.tax_assumptions.nisa_opportunity_cost_percent ?? ""} onChange={e=>change({...draft,tax_assumptions:{...draft.tax_assumptions,nisa_opportunity_cost_percent:e.target.value || null}})} /></Field></SettingGroup>
+    </div> : <div className="card stack">
+      <section className="advanced-section"><h3 className="section-title">予測対象</h3><Field label="対象銘柄の選び方"><input className="input" readOnly value="保存モデルの対象集合・全保有" /></Field><Field label="予測期間"><input className="input" readOnly value="5日・20日" /></Field></section>
+      <section className="advanced-section"><h3 className="section-title">株数探索</h3><Field label="探索方法"><select className="input" value={draft.research_decision_policy} onChange={e=>change({...draft,research_decision_policy:e.target.value as PersonalSettings["research_decision_policy"],research_conditions_reviewed:false})}><option value="daily-decision-engine-v3-bounded">300社向け</option><option value="daily-decision-engine-v2">全組合せ</option></select></Field><KV label="売買単位" value="100株" /><p className="small muted">{draft.research_decision_policy==="daily-decision-engine-v3-bounded" ? "最良の組合せは保証しません。" : "計算上限を超える場合は停止します。"}</p></section>
+      <section className="advanced-section"><h3 className="section-title">研究用条件</h3><KV label="最大保有銘柄数" value="10銘柄" /><KV label="銘柄 / 業種上限" value="10% / 30%" /><KV label="最低現金 / 売買総額上限" value="資産の10% / 100%" /><KV label="注文の流動性上限" value="平均日次売買代金の5%" /><KV label="現状維持からの改善" value="1,000円以上" /><KV label="下側リスク / 不確実性" value="各1倍" /><KV label="追加ペナルティ・金額バッファー" value="0" /></section>
+      <section className="advanced-section"><h3 className="section-title">保存</h3><label className="row"><input type="checkbox" checked={draft.research_conditions_reviewed} onChange={e=>change({...draft,research_conditions_reviewed:e.target.checked})} />探索方法を含む研究用の比較条件を確認しました</label></section>
+    </div>}
+    <div className="subactions"><button className="button" onClick={()=>void act(saveSettings)}>{step==="taxes" ? "設定を保存" : "計算方式を保存"}</button>{step==="method" && <Link className="button secondary" to="/settings?edit=conditions">日常の運用条件</Link>}</div>
+    </fieldset>{!busy && message && <p className="ss-status" role="status">{message}</p>}{refreshError && <p role="status">{refreshError}</p>}
+  </div>;
   return <section className="section account-editor" aria-label="補足設定と初回台帳">
     {step === "all" && <h2>残高の登録</h2>}
     {busy && <SaveProgress label="端末で確認・保存中…" />}
@@ -129,7 +160,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
       </select></label>}
       <label><input type="checkbox" checked={draft.budget_basis !== null} onChange={event => change({ ...draft, budget_basis: event.target.checked ? "maximum_total_equity_market_value" : null })} />投資上限は全口座で保有する株式の時価合計に対する上限です</label>
       </div>
-      <div hidden={step === "method"} className="account-form-card"><h3>口座ごとの内訳</h3>
+      <div className="account-form-card"><h3>口座ごとの内訳</h3>
       <label>損益の対象年<input type="number" min="2000" max="2200" value={draft.tax_year ?? ""} onChange={event => change({ ...draft, tax_year: event.target.value ? Number(event.target.value) : null })} /></label>
       {profile.portfolio.accounts.map(source => {
         const item = draft.accounts.find(x => x.account_id === source.id);
@@ -146,14 +177,14 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         </fieldset>;
       })}
       </div>
-      <div hidden={step === "method"} className="account-form-card"><h3>取引コスト・税の計算条件</h3><p>bpsは1万分の1です。価格差10・ずれ5・価格影響25bpsはアプリの計算仮定で、SBIの手数料ではありません。</p>
+      <div className="account-form-card"><h3>取引コスト・税の計算条件</h3><p>bpsは1万分の1です。価格差10・ずれ5・価格影響25bpsはアプリの計算仮定で、SBIの手数料ではありません。</p>
         {(Object.entries(costLabels) as [keyof typeof costLabels, string][]).map(([key, label]) => <Amount key={key} label={label} value={draft.cost_assumptions[key]} change={next => change({ ...draft, cost_assumptions: { ...draft.cost_assumptions, [key]: next } })} />)}
         <label><input type="checkbox" checked={draft.cost_assumptions.zero_commission_confirmed} onChange={event => change({ ...draft, cost_assumptions: { ...draft.cost_assumptions, zero_commission_confirmed: event.target.checked } })} />手数料を0とする場合、無料の適用条件を確認しました</label>
         <label>税の条件の適用開始日<input type="date" value={draft.tax_assumptions.effective_from ?? ""} onChange={event => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, effective_from: event.target.value || null } })} /></label>
         <Amount label="課税口座の想定税率（%）" value={draft.tax_assumptions.taxable_rate_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, taxable_rate_percent: next } })} />
         <Amount label="NISA枠の機会費用の仮定（%）" value={draft.tax_assumptions.nisa_opportunity_cost_percent} change={next => change({ ...draft, tax_assumptions: { ...draft.tax_assumptions, nisa_opportunity_cost_percent: next } })} />
       </div>
-      <div hidden={step === "taxes"} className="account-form-card"><h3>株数探索</h3>
+      <div className="account-form-card"><h3>株数探索</h3>
 
       <label>探索方法<select value={draft.research_decision_policy} onChange={event => change({ ...draft,
         research_decision_policy: event.target.value as PersonalSettings["research_decision_policy"], research_conditions_reviewed: false,

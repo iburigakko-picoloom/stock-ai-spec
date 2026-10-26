@@ -48,10 +48,12 @@ def test_legacy_label_archives_keep_original_content_and_identity() -> None:
 def test_stock_view_distinguishes_label_semantics_without_changing_archive(tmp_path, legacy):
     app = create_app(tmp_path / "operations.sqlite3")
     original = daily_snapshot()
-    snapshot = PredictionSnapshot.create(**{
-        **original.model_dump(exclude={"snapshot_id"}),
-        **({"label_definition": QUOTE_SESSION_LABEL} if legacy else {}),
-    })
+    snapshot = PredictionSnapshot.create(
+        **{
+            **original.model_dump(exclude={"snapshot_id"}),
+            **({"label_definition": QUOTE_SESSION_LABEL} if legacy else {}),
+        }
+    )
     app.state.store.append_prediction_snapshot(snapshot)
     client = TestClient(app, base_url="http://127.0.0.1")
     response = client.get(f"/api/v1/stocks/A?businessDate={AS_OF.date().isoformat()}")
@@ -60,6 +62,14 @@ def test_stock_view_distinguishes_label_semantics_without_changing_archive(tmp_p
     assert view["labelDefinition"] == snapshot.label_definition
     assert view["labelDefinitionSupported"] is (not legacy)
     assert view["researchEligible"] is (not legacy)
+    expected = sorted(
+        snapshot.predictions, key=lambda item: (-item.expected_return_20d, item.symbol)
+    )
+    assert view["ranks"]["return20d"] == next(
+        index + 1 for index, item in enumerate(expected) if item.symbol == "A"
+    )
+    assert view["ranks"]["total"] == len(snapshot.predictions)
+    assert view["ranks"]["rank20d"] is None  # A return head never becomes a ranking head.
     assert app.state.store.prediction_snapshot(snapshot.snapshot_id) == snapshot
 
 

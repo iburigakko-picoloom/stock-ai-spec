@@ -40,7 +40,7 @@ test("one file imports the reviewed bundle and refreshes saved status", async ()
 test("first model import is available without a previously installed bundle", async () => {
   vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? { ...model, approved_bundle_count: 0, imported_bundle_count: 0, bundle_ready: false } : null);
   panel();
-  await screen.findByText("モデルファイル：0件取込済み");
+  await screen.findByText("0件取込済み");
   expect(screen.getByRole("button", { name: "モデル一式を取り込む" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "当日の予測・株数を計算・保存" })).toBeDisabled();
 });
@@ -173,6 +173,6 @@ test("cutoff rejection is shown once and never claims a saved prediction", async
   fireEvent.click(button);
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("予測は未完了"));
   expect(screen.getAllByText("11:30の締切後に計算できます。")).toHaveLength(1);
-  expect(screen.getByText("モデルファイル：1件取込済み")).toBeVisible();
+  expect(screen.getByText("1件取込済み")).toBeVisible();
   expect(screen.getByRole("status")).not.toHaveTextContent("保存しました");
 });

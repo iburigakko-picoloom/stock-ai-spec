@@ -57,6 +57,7 @@ export interface SavedAnalysis {
 }
 
 export interface TodayResponse {
+  accountLabels?: Record<string,string>;
   savedAnalysis?: SavedAnalysis | null;
   businessDate: string;
   pipelineState: string;
@@ -91,6 +92,7 @@ export interface HoldingView {
 }
 
 export interface HomeResponse {
+  accountLabels?: Record<string,string>;
   initialLedger?: { confirmedAt: string; referencePriceDate: string | null } | null;
   runtimeMode: string;
   portfolio: PortfolioSummary | null;
@@ -197,6 +199,7 @@ export interface PaperReadout {
 }
 
 export interface StockDetail {
+  accountLabels?: Record<string,string>;
   symbol: string;
   positions: Array<{
     symbol: string;
@@ -208,6 +211,7 @@ export interface StockDetail {
   proposalLines: ProposalLine[];
   proposal: DailyProposal | null;
   forecast: {
+    ranks?:{return5d:number|null;return20d:number|null;rank20d:number|null;total:number};
     snapshotId: string; asOf: string; generatedAt: string; isStale: boolean;
     mode: "research" | "paper" | "owner_approved"; blockingReasons: string[];
     labelDefinition?: string; labelDefinitionSupported?: boolean;

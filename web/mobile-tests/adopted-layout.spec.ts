@@ -1,7 +1,7 @@
 import { expect, test as base, _android } from "@playwright/test";
 import { adoptedPayloads } from "./adopted-fixture";
 import process from "node:process";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import type { AndroidDevice } from "playwright";
 let activeDevice: AndroidDevice | undefined;
 const test = base.extend({
@@ -66,6 +66,7 @@ test.beforeEach(async ({ page }) => {
     maximum_drawdown_percent: 10, accounts: [{ id: "synthetic-account", name: "試験用口座", account_type: "taxable_specified", withholding_mode: "withholding", available_cash_yen: "500000" }], holdings: [],
   } };
   const payloads: Record<string, unknown> = {
+    "/api/v1/jobs": [],
     "/api/v1/settings": { runtimeMode: "TEST", data: {}, runtime: {} },
     "/api/v1/mobile/portfolio": profile,
     "/api/v1/mobile/personal/current": { ledger: null, profile, settings: null },
@@ -96,8 +97,8 @@ test.beforeEach(async ({ page }) => {
 const screens = [
   ["home", "/", "ホーム"], ["today", "/today", "今日"], ["ranking", "/ranking", "ランキング"], ["review", "/validation", "検証"], ["settings", "/settings", "設定"],
   ["detail", "/stocks/1234", "銘柄詳細"], ["asset-manage", "/assets", "資産管理"], ["asset-register", "/holdings?initial=1", "初回資産登録"],
-  ["cash-change", "/assets/cash", "現金残高の変更"], ["holding-correction", "/holdings", "実保有"], ["correction-history", "/assets/history", "残高・修正履歴"],
-  ["trade", "/today/executions", "実行結果を記録"], ["trade-history", "/transactions", "取引履歴"], ["decision", "/today/review", "判断を確認"],
+  ["cash-change", "/assets/cash", "現金残高の変更"], ["holding-correction", "/holdings", "保有の訂正"], ["correction-history", "/assets/history", "残高・修正履歴"],
+  ["trade", "/today/executions", "取引記録"], ["trade-history", "/transactions", "取引履歴"], ["decision", "/today/review", "判断を確認"],
   ["consultation", "/today/chatgpt", "ChatGPTと相談"], ["consultation-history", "/today/chatgpt/history", "相談履歴"],
   ["conditions-settings", "/settings?edit=conditions", "運用条件"], ["account-settings", "/settings?edit=taxes", "口座・税・手数料"],
   ["data-update", "/settings?edit=daily", "データ更新"], ["chatgpt-settings", "/settings?edit=chatgpt", "ChatGPT"],
@@ -108,21 +109,33 @@ const screens = [
 ];
 for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`29 adopted screens ${width}px`, async ({page}, info) => {
   test.setTimeout(180_000);
-  await page.setViewportSize({width,height:800});
+  if(process.env.STOCKAI_ANDROID_UI)expect(await page.evaluate(()=>window.innerWidth)).toBe(width);
+  else await page.setViewportSize({width,height:800});
   const errors: string[]=[]; page.on("pageerror", e=>errors.push(e.message));
   for (const [name,path,title] of screens) {
     await page.goto(`http://127.0.0.1:5196/#${path}`);
     await expect(page.getByRole("heading",{name:title,exact:true,level:1})).toBeVisible();
-    await expect(page.getByText(/読み込んでいます|現在残高を確認しています|モデルを確認中/).filter({visible:true})).toHaveCount(0);
+    await expect(page.getByText(/読み込んでいます|現在残高を確認しています|モデルを確認中|判断内容を準備しています|実行結果入力を準備しています|今日の状態を確認しています|保存済み入力を確認しています/).filter({visible:true})).toHaveCount(0);
     await expect(page.getByRole("navigation",{name:"メインナビゲーション"}).getByRole("link")).toHaveCount(5);
     for (const font of [100,150]) {
       await page.addStyleTag({content:`html{font-size:${font}%}`});
+      await page.evaluate(()=>document.querySelector(".app-main")!.scrollTo(0,0));
       expect(await page.evaluate(()=>document.documentElement.scrollWidth), `${name} at ${font}%`).toBeLessThanOrEqual(width);
-      const overflow = await page.locator('input:visible,select:visible,textarea:visible,button:visible').evaluateAll(nodes=>nodes.filter(n=>{const r=n.getBoundingClientRect();return r.left < -1 || r.right > window.innerWidth+1}).map(n=>n.outerHTML.slice(0,150)));
+      expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth),`${name} main horizontal scroll`).toBeLessThanOrEqual(1);
+      const overflow = await page.locator('input:visible,select:visible,textarea:visible,button:visible,a.button:visible').evaluateAll(nodes=>nodes.filter(n=>{const r=n.getBoundingClientRect();return r.left < -1 || r.right > window.innerWidth+1}).map(n=>n.outerHTML.slice(0,150)));
       expect(overflow, `${name} controls`).toEqual([]);
+      const overlaps=await page.locator('input:visible,select:visible,textarea:visible,button:visible,a.button:visible').evaluateAll(nodes=>{
+        const controls=nodes.map(node=>({node,r:node.getBoundingClientRect()})).filter(({r})=>r.width>0 && r.height>0);
+        const result:string[]=[];
+        for(let i=0;i<controls.length;i++)for(let j=i+1;j<controls.length;j++){
+          const a=controls[i],b=controls[j];if(a.node.contains(b.node)||b.node.contains(a.node))continue;
+          if(Math.min(a.r.right,b.r.right)-Math.max(a.r.left,b.r.left)>2 && Math.min(a.r.bottom,b.r.bottom)-Math.max(a.r.top,b.r.top)>2)result.push(`${a.node.outerHTML.slice(0,80)} / ${b.node.outerHTML.slice(0,80)}`);
+        }return result;
+      });
+      expect(overlaps,`${name} overlapping controls`).toEqual([]);
       if (process.env.STOCKAI_ANDROID_UI) {
         for (const position of [0,0.5,1]) {
-          await page.evaluate(p=>window.scrollTo(0,(document.documentElement.scrollHeight-window.innerHeight)*p),position);
+          await page.evaluate(p=>{const main=document.querySelector(".app-main")!;main.scrollTo(0,(main.scrollHeight-main.clientHeight)*p);},position);
           await writeFile(info.outputPath(`${name}-${font}-${position}.png`), await activeDevice!.screenshot());
         }
       } else await page.screenshot({path:info.outputPath(`${name}-${font}.png`),fullPage:true});
@@ -131,19 +144,53 @@ for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`
   expect(errors).toEqual([]);
 });
 
+test("adopted HTML typography and controls match the implementation",async({page},info)=>{
+  test.skip(!!process.env.STOCKAI_ANDROID_UI,"Reference CSS comparison runs in Edge; Android runs all route and overlap checks.");
+  test.setTimeout(180_000);
+  await page.setViewportSize({width:390,height:844});
+  const source=await readFile("../../.codex-remote-attachments/01a175f6-f76f-70a1-a798-51257e37d7de/e3e392c4-ea41-48cd-b708-9a30cd048fd1/1-stock-ui-mock-offline.html","utf8");
+  const reference=await page.context().newPage();
+  await reference.setViewportSize({width:390,height:844});
+  await reference.route("**/adopted-reference*",route=>route.fulfill({contentType:"text/html",body:source}));
+  const selectors=[".card",".section-title","input.input","select.input","textarea.input",".button:not(.secondary):not(.button--secondary):not(.ghost)",".button.secondary,.button--secondary",".button.ghost",".home-balance-line",".ranking-table-row",".ss-group"];
+  const properties=["fontFamily","fontSize","fontWeight","lineHeight","paddingTop","paddingRight","paddingBottom","paddingLeft","borderRadius","borderTopColor"];
+  const evidence:unknown[]=[];
+  const differences:unknown[]=[];
+  for(const [name,path] of screens.filter(([name])=>name!=="settings")){
+    await page.goto(`http://127.0.0.1:5196/#${path}`);
+    await expect(page.locator(".page h1,.settings-page-header h1").filter({visible:true})).toBeVisible();
+    await expect(page.getByText(/読み込んでいます|現在残高を確認しています|モデルを確認中|判断内容を準備しています|実行結果入力を準備しています|今日の状態を確認しています|保存済み入力を確認しています/).filter({visible:true})).toHaveCount(0);
+    await reference.goto(`http://127.0.0.1:5196/adopted-reference?screen=${name}#${name}`);
+    await reference.locator(".app-screen").waitFor();
+    for(const selector of selectors){
+      const actual=page.locator(".app-main").locator(selector).filter({visible:true}).first();
+      const expected=reference.locator(".app-screen").locator(selector).filter({visible:true}).first();
+      if(!await actual.count() || !await expected.count())continue;
+      const read=(node:Element,props:string[])=>{const style=getComputedStyle(node);return Object.fromEntries(props.map(p=>[p,style[p as keyof CSSStyleDeclaration]]));};
+      const observed=await actual.evaluate(read,properties), accepted=await expected.evaluate(read,properties);
+      evidence.push({screen:name,selector,observed,accepted});
+      if(JSON.stringify(observed)!==JSON.stringify(accepted))differences.push({screen:name,selector,observed,accepted});
+    }
+  }
+  await writeFile(info.outputPath("mock-style-comparison.json"),JSON.stringify(evidence,null,2));
+  expect(evidence.length).toBeGreaterThan(60);
+  expect(differences).toEqual([]);
+  await reference.close();
+});
+
 test("ranking detail returns with model, filter and scroll intact", async ({page})=>{
   await page.goto("http://127.0.0.1:5196/#/ranking");
-  await page.getByRole("tab",{name:"20日・値予測",exact:true}).click();
+  await page.getByRole("button",{name:"20日・値予測",exact:true}).click();
   await page.getByRole("searchbox").fill("画面試験");
-  const stock=page.locator(".saved-ranking-row").nth(12);
+  const stock=page.locator(".ranking-table-row").nth(12);
   // Use the shared detail route with a fixture for this selected symbol.
   await page.route("**/api/v1/stocks/1246", route=>route.fulfill({json:{positions:[],proposalLines:[],forecast:null,researchRuns:[],chatgptResearch:[]}}));
   await stock.scrollIntoViewIfNeeded();
-  const y=await page.evaluate(()=>window.scrollY);
+  const y=await page.evaluate(()=>document.querySelector(".app-main")!.scrollTop);
   await stock.click(); await page.getByRole("link",{name:"← 戻る",exact:true}).click();
   await expect(page.getByRole("searchbox")).toHaveValue("画面試験");
-  await expect(page.getByRole("tab",{name:"20日・値予測",exact:true})).toHaveAttribute("aria-selected","true");
-  await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeGreaterThan(y-5);
+  await expect(page.getByRole("button",{name:"20日・値予測",exact:true})).toHaveAttribute("aria-pressed","true");
+  await expect.poll(()=>page.evaluate(()=>document.querySelector(".app-main")!.scrollTop)).toBeGreaterThan(y-5);
 });
 
 test("returning to a settings editor preserves an unsaved draft", async ({page})=>{
@@ -175,4 +222,16 @@ test("execution history retains the selected record when returning from stock de
   await page.getByRole("link",{name:"← 戻る",exact:true}).click();
   await expect(page).toHaveURL(selected);
   await expect(page.getByRole("button",{name:"記録を確認",exact:true}).first()).toHaveAttribute("aria-pressed","true");
+});
+
+test("judgment source and unsaved adoption survive stock detail and return",async({page})=>{
+  await page.goto("http://127.0.0.1:5196/#/today/review?source=model");
+  const choice=page.getByRole("button",{name:"画面試験株式会社の提案を採用",exact:true});
+  await expect(choice).toHaveAttribute("aria-pressed","true");
+  await choice.click();
+  await expect(choice).toHaveAttribute("aria-pressed","false");
+  await page.getByRole("link",{name:"画面試験株式会社",exact:true}).click();
+  await page.getByRole("link",{name:"← 戻る",exact:true}).click();
+  await expect(choice).toHaveAttribute("aria-pressed","false");
+  await expect(page.getByRole("button",{name:"数値モデル",exact:true})).toHaveAttribute("aria-pressed","true");
 });

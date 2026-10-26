@@ -8,10 +8,12 @@ import { ValidationPage } from "./pages/ValidationPage";
 import { ReadViewActivation } from "./readViewActivation";
 import { SettingsPage } from "./pages/SettingsPage";
 import { HoldingsPage } from "./pages/HoldingsPage";
+import { DecisionReviewPage } from "./pages/DecisionReviewPage";
 
 const views = [
   ["/", HomePage], ["/today", TodayPage], ["/ranking", RankingPage], ["/validation", ValidationPage],
   ["/settings", SettingsPage], ["/holdings", HoldingsPage],
+  ["/today/review", DecisionReviewPage],
 ] as const;
 
 export function RetainedReadViews(): ReactNode {

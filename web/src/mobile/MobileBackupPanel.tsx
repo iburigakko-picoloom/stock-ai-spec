@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { StockAI, type BackupPreview } from "./native";
 import { restoreMobileBackup } from "./runtime";
+import { Field, SettingGroup } from "../Adopted";
 
 export function MobileBackupPanel({ disabled, onBusy }: { disabled: boolean; onBusy: (value: boolean) => void }) {
   const [password, setPassword] = useState("");
@@ -20,18 +21,18 @@ export function MobileBackupPanel({ disabled, onBusy }: { disabled: boolean; onB
     finally { setBusy(false); onBusy(false); }
   }
   const blocked = busy || disabled;
-  return <div aria-label="データのバックアップ"><section className="numbered-section"><small>01</small><h2>書き出し</h2>
-    <p>保有・設定・履歴をパスワード付きで保存します。APIキーは含めません。</p>
-    <label>バックアップのパスワード（12文字以上）<input type="password" autoComplete="new-password" maxLength={1024} value={password} disabled={blocked} onChange={event => setPassword(event.target.value)} /></label>
+  return <div className="subscreen sub-settings" aria-label="データのバックアップ"><div className="ss-compact"><SettingGroup number="01" title="書き出し">
+    <p className="subhint">保有・設定・履歴をパスワード付きで保存します。APIキーは含めません。</p>
+    <Field label="バックアップのパスワード（12文字以上）"><input className="input" type="password" autoComplete="new-password" maxLength={1024} value={password} disabled={blocked} onChange={event => setPassword(event.target.value)} /></Field>
     <div className="button-stack">
-      <button className="button" disabled={blocked || password.length < 12} onClick={() => void run(() => StockAI.exportBackup({ password }), "バックアップを保存しました。パスワードを別の安全な場所に保管してください。")}>バックアップを書き出す</button></div></section>
-    <section className="numbered-section"><small>02</small><h2>復元ファイル</h2><div className="button-stack">
+      <button className="button" disabled={blocked || password.length < 12} onClick={() => void run(() => StockAI.exportBackup({ password }), "バックアップを保存しました。パスワードを別の安全な場所に保管してください。")}>バックアップを書き出す</button></div></SettingGroup>
+    <SettingGroup number="02" title="復元ファイル"><div className="button-stack">
       <button className="button button--secondary" disabled={blocked || password.length < 12} onClick={() => void run(async () => {
         setPreview(null); setConfirmed(false);
         setPreview(await StockAI.importBackup({ password }));
       }, "復元ファイルを確認しました。復元すると現在の保有・設定・履歴を置き換えます。")}>復元ファイルを選ぶ</button>
     </div>
-    </section><section className="numbered-section"><small>03</small><h2>復元内容の確認</h2>
+    </SettingGroup><SettingGroup number="03" title="差分確認">
     {!preview && <p className="setting-footnote">復元ファイルは未選択です。</p>}
     {preview && <div>
       <label><input type="checkbox" checked={confirmed} disabled={blocked} onChange={event => setConfirmed(event.target.checked)} />現在の保有・設定・履歴を、このバックアップへ置き換えることを確認しました。</label>
@@ -47,5 +48,5 @@ export function MobileBackupPanel({ disabled, onBusy }: { disabled: boolean; onB
       </div>
     </div>}
     <p role="status">{busy ? "バックアップを処理しています…" : message}</p>
-  </section></div>;
+  </SettingGroup></div></div>;
 }

@@ -70,6 +70,29 @@ def test_manual_exchange_restores_exact_json_and_never_updates_actual_state(read
     assert replay == result
     assert store.metadata("chatgpt-manual:answer:" + result["record_id"]) == saved
     assert len(manual_chatgpt.status(path, store, NOW)["answers"]) == 1
+    context = json.loads(exported["prompt"].split("\n入力:\n")[1])["consultation"]
+    status = manual_chatgpt.status(path, store, NOW)
+    assert status["research"][0]["consultation"] == context
+    assert status["decision_source"]["recordId"] == result["record_id"]
+    assert status["decision_source"]["checkedAt"] == NOW.isoformat()
+    assert all(
+        line["accountBucketId"]
+        in {bucket.bucket_id for bucket in store.latest_portfolio().account_buckets}
+        for line in status["decision_source"]["lines"]
+    )
+    assert [
+        (line["symbol"], line["currentShares"], line["targetShares"])
+        for line in status["decision_source"]["lines"]
+    ] == [
+        (line["symbol"], line["current_shares"], line["target_shares"])
+        for line in result["review"]["lines"]
+    ]
+    assert status["current_shares"] == {
+        symbol: sum(
+            item.shares for item in store.latest_portfolio().positions if item.symbol == symbol
+        )
+        for symbol in {item.symbol for item in store.latest_portfolio().positions}
+    }
     device.initialize(device.export_state())
     restored = device._app.state.store
     assert restored.metadata("chatgpt-manual:answer:" + result["record_id"]) == saved

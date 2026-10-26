@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGet, apiPost } from "../api";
 import { acquireMembership, acquireRange, defaultPlan, type AcquisitionMode, type MarketPlan, type MarketStatus, type MembershipStatus, type UniversePolicy, type UniversePreview } from "./market";
+import { KV } from "../Adopted";
+import { dateTime } from "../components";
 
 export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }: {
   configured: boolean; disabled: boolean; onBusy: (value: boolean) => void; onBackground?: () => void;
@@ -41,19 +43,33 @@ export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }
     catch (error) { setMessage(error instanceof Error ? error.message : "データを確認できません。"); }
     finally { onBusy(false); }
   }
-  return <section className="section" aria-label="市場データ">
-    <h2>市場データ</h2>
-    <p>保存済みの最終日：{status?.latest_data_date ?? "未取得"}</p>
-    <p>{plan.first_day}〜{plan.last_day}。保存済みの日付を除いて取得し、通信中断後は取得済みページから再開します。APIの速度制限があるため、初回は数時間かかる場合があります。</p>
-    <p>手動では画面を開いて取得します。画面を閉じて続ける場合は、初回取得も含む自動更新を開始してください。</p>
-    <div className="button-stack">
-      {onBackground && <button className="button button--primary" disabled={disabled || running || !configured} onClick={onBackground}>バックグラウンド取得の設定へ</button>}
-      <button className="button button--primary" disabled={disabled || !configured || !loaded || running} onClick={() => void run(plan)}>履歴の取得を開始・再開</button>
-      {running && <button className="button button--secondary" onClick={() => { stop.current = true; setMessage("今の日付の保存が終わったら停止します。"); }}>この日付の取得後に停止</button>}
-    </div>
+  const hasSavedRange=(status?.completed_dates ?? []).some(day=>day>=plan.first_day && day<=plan.last_day);
+  return <div className="subscreen advanced-domain" aria-label="市場データ"><div className="card stack"><section className="advanced-section">
+    <h3 className="section-title">履歴データ</h3>
+      <label>取得開始日<input className="input" type="date" disabled={disabled || running} value={plan.first_day} onChange={e => setPlan({ ...plan, first_day: e.target.value })} /></label>
+      <label>取得終了日<input className="input" type="date" disabled={disabled || running} value={plan.last_day} onChange={e => setPlan({ ...plan, last_day: e.target.value })} /></label>
+    <KV label="処理状況" value={running ? "取得中" : loaded ? "停止中" : "確認中"} /><KV label="最終保存日" value={status?.latest_data_date ?? "未取得"} />
+    <div className="subactions"><button className="button" disabled={disabled || !configured || !loaded || running || hasSavedRange} onClick={() => void run(plan)}>履歴を取得</button><button className="button secondary" disabled={disabled || !configured || !loaded || running || !hasSavedRange} onClick={() => void run(plan)}>再開</button></div>
+    <button className="button secondary" style={{marginTop:8,width:"100%"}} disabled={!running} onClick={() => { stop.current = true; setMessage("今の日付の保存が終わったら停止します。"); }}>この日付の取得後に停止</button>
+    {onBackground && <button className="quiet-link" aria-label="バックグラウンド取得の設定へ" disabled={disabled || running || !configured} onClick={onBackground}>自動更新で取得 ›</button>}
+    <p className="subhint">画面を開いて取得します。最大2年、保存済みの続きから再開します。</p>
     <p role="status" aria-live="polite">{message}</p>
-    <section className="market-options"><h3 className="plain-section-title">取得範囲・訂正データ・計算の確認</h3>
-      <label>予測対象<select value={policy?.mode ?? "legacy300"} disabled={disabled || running || changingPolicy || !policy} onChange={e => {
+    </section><section className="advanced-section"><h3 className="section-title">銘柄一覧</h3>
+      <KV label="最終取得" value={membership?.latest_received_at ? dateTime(membership.latest_received_at,true) : "未取得"} /><KV label="11:30までの受領" value={membership?.eligible_received_at ? dateTime(membership.eligible_received_at,true) : "未確認"} />
+      <div className="subactions">
+        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured} onClick={() => void inspect(async () => {
+          const saved = await acquireMembership(); setMembership(saved); setSelection(null);
+          setMessage(saved.available_at_cutoff ? saved.is_business_day ? "当日の銘柄一覧を確認しました。" : "カレンダーで当日の休場を確認しました。" : "11:30後の受領です。今日の数値予測へは使えません。");
+        })}>当日の銘柄一覧を取得・再開</button>
+        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured} onClick={() => void inspect(async () => {
+          const saved = await acquireMembership(true); setMembership(saved); setSelection(null);
+          setMessage("銘柄一覧を取り直しました。11:30を過ぎて受領した情報は今日の数値予測へ使いません。");
+        })}>当日の銘柄一覧を最初から再取得</button>
+      </div></section><section className="advanced-section"><h3 className="section-title">訂正・指定日</h3>      <label>訂正を確認する日付<input className="input" type="date" disabled={disabled || running} value={refreshDay} onChange={e => setRefreshDay(e.target.value)} /></label>
+<div className="button-stack">
+        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured || !refreshDay} onClick={() => void run({ first_day: refreshDay, last_day: refreshDay }, "corrections")}>この日付の訂正を取得・再開</button>
+        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured || !refreshDay} onClick={() => void run({ first_day: refreshDay, last_day: refreshDay }, "restart")}>この日付を最初から再取得</button>
+      </div></section><section className="advanced-section"><h3 className="section-title">対象銘柄・特徴量</h3>      <label>予測対象<select className="input" value={policy?.mode ?? "legacy300"} disabled={disabled || running || changingPolicy || !policy} onChange={e => {
         const mode = e.target.value;
         setChangingPolicy(true);
         void inspect(async () => {
@@ -64,22 +80,7 @@ export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }
         });
       }}><option value="legacy300">従来300</option><option value="topix500-preview">TOPIX500</option></select></label>
       <p>{policy?.mode === "topix500-preview" ? "TOPIX500の規模3区分の全銘柄と全保有を対象にします。研究用で、実機確認中です。" : "時価総額300億円以上・売買代金上位300銘柄と全保有を対象にします。"}</p>
-      <p>当日の銘柄一覧・直近受領：{membership?.latest_received_at ?? "未取得"}。11:30までに受領した利用対象：{membership?.eligible_received_at ?? "未確認"}</p>
-      <label>開始日<input type="date" disabled={disabled || running} value={plan.first_day} onChange={e => setPlan({ ...plan, first_day: e.target.value })} /></label>
-      <label>終了日<input type="date" disabled={disabled || running} value={plan.last_day} onChange={e => setPlan({ ...plan, last_day: e.target.value })} /></label>
-      <p>最大2年分。初期値は特徴量の履歴用に420日前からです。契約外の期間や不足データを自動的に補いません。</p>
-      <label>訂正を確認する日付<input type="date" disabled={disabled || running} value={refreshDay} onChange={e => setRefreshDay(e.target.value)} /></label>
-      <div className="button-stack">
-        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured} onClick={() => void inspect(async () => {
-          const saved = await acquireMembership(); setMembership(saved); setSelection(null);
-          setMessage(saved.available_at_cutoff ? saved.is_business_day ? "当日の銘柄一覧を確認しました。" : "カレンダーで当日の休場を確認しました。" : "11:30後の受領です。今日の数値予測へは使えません。");
-        })}>当日の銘柄一覧を取得・再開</button>
-        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured} onClick={() => void inspect(async () => {
-          const saved = await acquireMembership(true); setMembership(saved); setSelection(null);
-          setMessage("銘柄一覧を取り直しました。11:30を過ぎて受領した情報は今日の数値予測へ使いません。");
-        })}>当日の銘柄一覧を最初から再取得</button>
-        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured || !refreshDay} onClick={() => void run({ first_day: refreshDay, last_day: refreshDay }, "corrections")}>この日付の訂正を取得・再開</button>
-        <button className="button button--secondary" disabled={disabled || running || !loaded || !configured || !refreshDay} onClick={() => void run({ first_day: refreshDay, last_day: refreshDay }, "restart")}>この日付を最初から再取得</button>
+<div className="button-stack">
         <button className="button button--secondary" disabled={disabled || running || !status?.latest_data_date} onClick={() => void inspect(async () => {
           setSelection(await apiGet<UniversePreview>("/api/v1/mobile/market/current-universe")); setMessage("対象抽出の受領記録を確認しました。");
         })}>候補と全保有の対象を確認</button>
@@ -100,5 +101,5 @@ export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }
         <p>全保有のうち条件外：{selection.held_only.join("、") || "なし"}。市場・業種の特徴量は全体の母集団から計算します。</p>
       </div>}
     </section>
-  </section>;
+  </div></div>;
 }
