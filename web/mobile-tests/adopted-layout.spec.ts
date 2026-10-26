@@ -107,6 +107,44 @@ const screens = [
   ["calculation-method", "/settings?edit=method", "計算方式"], ["csv-import", "/settings/csv", "CSV取り込み"], ["process-log", "/settings/logs", "処理状況・実行記録"],
   ["performance-analysis", "/validation/details", "詳細分析"], ["research-history", "/stocks/1234/research", "調査履歴"],
 ];
+
+test("settings keeps its content while all five tabs share adopted navigation",async({page},info)=>{
+  test.setTimeout(90_000);
+  const properties=["fontFamily","fontSize","lineHeight","paddingTop","paddingRight","paddingBottom","paddingLeft","borderRadius","backgroundColor"];
+  for(const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])){
+    if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width,height:800});
+    for(const font of [100,150]){
+      let expected:unknown;
+      for(const [name,path,title] of screens.slice(0,5)){
+        await page.goto(`http://127.0.0.1:5196/#${path}`);
+        await page.addStyleTag({content:`html{font-size:${font}%}`});
+        await expect(page.getByRole("heading",{name:title,exact:true,level:1})).toBeVisible();
+        const nav=page.getByRole("navigation",{name:"メインナビゲーション"});
+        await expect(nav.getByRole("link")).toHaveText(["ホーム","今日","ランキング","検証","設定"]);
+        await expect(nav.getByRole("link",{name:title,exact:true})).toHaveAttribute("aria-current","page");
+        const actual=await nav.evaluate((node,props)=>{
+          const style=(element:Element)=>{const css=getComputedStyle(element);return Object.fromEntries(props.map(key=>[key,css[key as keyof CSSStyleDeclaration]]));};
+          const rect=node.getBoundingClientRect();
+          return {style:style(node),width:rect.width,height:rect.height,bottom:rect.bottom,
+            links:[...node.querySelectorAll("a")].map(link=>({style:style(link),icon:link.querySelector("path")?.getAttribute("d")})),
+            active:style(node.querySelector("a.active")!),
+            activeLabelWeight:getComputedStyle(node.querySelector("a.active strong")!).fontWeight};
+        },properties);
+        if(expected)expect(actual,`${name} ${width}px ${font}%`).toEqual(expected);else expected=actual;
+        // WebView's visual height can contain a fractional CSS pixel; innerHeight is integer-rounded.
+        expect(actual.bottom).toBeCloseTo(await page.evaluate(()=>visualViewport?.height ?? innerHeight),3);
+        if(name==="settings"){
+          await expect(page.locator(".app-shell--adopted")).toHaveCount(0);
+          expect(await page.locator(".settings-menu-row").count()).toBeGreaterThan(0);
+          if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`settings-nav-${width}-${font}.png`),await activeDevice!.screenshot());
+          else await page.screenshot({path:info.outputPath(`settings-nav-${width}-${font}.png`),fullPage:true});
+          expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+        }
+      }
+    }
+  }
+});
+
 for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`29 adopted screens ${width}px`, async ({page}, info) => {
   test.setTimeout(180_000);
   if(process.env.STOCKAI_ANDROID_UI)expect(await page.evaluate(()=>window.innerWidth)).toBe(width);

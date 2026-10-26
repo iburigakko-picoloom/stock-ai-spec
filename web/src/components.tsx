@@ -127,10 +127,10 @@ export function AppShell(): ReactNode {
       <main id="main" className="app-main">
         <Outlet />
       </main>
-      <nav className="bottom-nav" aria-label="メインナビゲーション">
+      <nav className="bottom-nav bottom-nav--adopted" aria-label="メインナビゲーション">
         {nav.map(([to, path, label]) => {
           const content = <>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={adopted ? adoptedNav[to] ?? path : path} /></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={adoptedNav[to] ?? path} /></svg>
             <strong>{label}</strong>
           </>;
           return stockParent ? <Link key={to} to={to} className={stockParent === to ? "active" : undefined} aria-current={stockParent === to ? "page" : undefined}>{content}</Link>

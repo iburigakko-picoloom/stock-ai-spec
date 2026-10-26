@@ -102,3 +102,9 @@
 source `0d9c5dd5493a943030f3a7d0e265edcb76c2cf56` の同署名0.1.62-candidate/code10062を生成・検査した。24,083,117 bytes、SHA256 `4adca1f9a0d20df809647a868bcffe43b1a37f7908516323de7a2e7823e60757`。配布用46assetsとソース/署名の一致、非debug、モデル/市場/秘密/試験データ非同梱を確認。専用read-only Android35の320dpで署名版をcold起動し、未登録ホームの新構成を実表示、インストール済みAPKのhashまで一致した。本人の台帳や鍵は使用していない。
 
 [Driveの確認用APK](https://drive.google.com/file/d/17bEqBED99E8RRsRL2cDpKYU_chqA5bxf/view?usp=drivesdk) は既存非共有StockAI内の同一IDを修正版へ更新済み。親/サイズ/shared=falseを再読込確認。証拠は `.demo-artifacts/ui-exact-release/verified.json`、`signed-launch.json`、`signed-launch-home.png`、`drive-upload-status.json`。この配布記録以降の文書コミットとAPKのビルドsourceを区別する。本人端末の上書き更新/既存データ移行、実通信とCIは未確認。実注文なし。
+
+## D262 — 設定本文を保ち、共通下部タブを揃える
+
+本人の補足に従い、設定トップの本文はそのまま、共通ナビを他4タブと同じ採用デザインへ変更した。対象は `components.tsx` の共通アイコンと `adopted.css` のナビスタイルだけ。設定本文のCSSと入力/保存処理・タブの名前/行先・スクロール方式は変更しない。
+
+Vitest197件、型/ESLint/build、配布用ブラウザー10ケース成功。追加の1ケースで全5タブのナビの寸法・余白・文字・アイコン・選択状態を比較し、320/390px・100/150%で一致を確認。実Android35/320dp・100/150%でも同じ比較と設定の実表示を確認。WebViewの小数を含む表示高さはvisualViewportで測定する。製品Python/nativeは前版と同一のため、それらの回帰証拠は0.1.62から再利用する。確認用APKと配布証拠は `.demo-artifacts/settings-nav-release/`。

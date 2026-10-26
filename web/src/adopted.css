@@ -14,12 +14,14 @@
 .app-shell--adopted .page-header__actions { margin-left:auto; max-width:44%; }
 .app-shell--adopted .header-status { background:none; border:0; padding:3px 0; font-size:.625rem; color:#636d73; display:block; text-align:right; }
 .app-shell--adopted .back-button,.app-shell--adopted .settings-back { display:inline-grid; place-items:center; flex:none; width:29px; height:29px; min-height:29px; padding:0; margin:0; background:transparent; border:0; border-radius:6px; color:#526176; font-size:1.1875rem; }
-.app-shell--adopted .bottom-nav { position:static; transform:none; order:initial; inset:auto; width:100%; display:flex; justify-content:space-around; flex:none; height:auto; min-height:68px; padding:8px calc(4px + var(--app-safe-right)) calc(7px + var(--app-safe-bottom)) calc(4px + var(--app-safe-left)); background:white; border-top:1px solid #e4e8ef; border-bottom:0; }
-.app-shell--adopted .bottom-nav a { border:0; background:transparent; display:grid; justify-items:center; justify-content:normal; align-items:center; flex-direction:column; min-width:44px; min-height:0; gap:4px; color:#526176; font-size:.625rem; padding:3px 5px; border-radius:0; text-align:center; }
-.app-shell--adopted .bottom-nav a strong { font-size:inherit; font-weight:400; line-height:1.6; }
-.app-shell--adopted .bottom-nav a.active { color:#2859a6; background:transparent; }
-.app-shell--adopted .bottom-nav a.active strong { font-weight:600; }
-.app-shell--adopted .bottom-nav svg { height:20px; width:20px; stroke-width:1.8; }
+/* Navigation is shared even when the settings top keeps its existing content. */
+.bottom-nav.bottom-nav--adopted { width:min(100%,600px); display:flex; justify-content:space-around; flex:none; height:auto; min-height:68px; padding:8px calc(4px + var(--app-safe-right)) calc(7px + var(--app-safe-bottom)) calc(4px + var(--app-safe-left)); background:white; border-top:1px solid #e4e8ef; border-bottom:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.875rem; line-height:1.6; }
+.app-shell--adopted .bottom-nav { position:static; transform:none; order:initial; inset:auto; width:100%; }
+.bottom-nav.bottom-nav--adopted a { border:0; background:transparent; display:grid; justify-items:center; justify-content:normal; align-items:center; flex-direction:column; min-width:44px; min-height:0; gap:4px; color:#526176; font-size:.625rem; padding:3px 5px; border-radius:0; text-align:center; }
+.bottom-nav.bottom-nav--adopted a strong { font-size:inherit; font-weight:400; line-height:1.6; }
+.bottom-nav.bottom-nav--adopted a.active { color:#2859a6; background:transparent; }
+.bottom-nav.bottom-nav--adopted a.active strong { font-weight:600; }
+.bottom-nav.bottom-nav--adopted svg { height:20px; width:20px; stroke-width:1.8; }
 .app-shell--adopted .section { border:0; border-radius:0; margin:0 0 12px; padding:0; box-shadow:none; background:white; }
 .app-shell--adopted .button--secondary { background:white; border:1px solid #dfe4e8; color:#293445; }
 .app-shell--adopted a.button { text-decoration:none; }
