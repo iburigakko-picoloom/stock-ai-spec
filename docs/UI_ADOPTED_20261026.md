@@ -90,3 +90,9 @@
 検証：Vitest197件成功。関連Python120件成功に加え、判断元の接続変更後に手動相談13件を再確認（120件に含む）。Ruff、TypeScript、ESLint、mypy77モジュール、production build成功。配布用ビルドでブラウザー8ケース成功、29画面を320/390px・100/150%文字で確認。設定トップを除く28画面の105部品について、採用HTMLと文字・余白・角丸・枠など10項目を比較し差分0。Android35の実WebViewでも320dp・100/150%で全29画面と上/中/下の端末キャプチャ、状態保持を確認し6ケース成功。HTMLの比較ケースはブラウザー側で実行し、Android側は重複実行しない。
 
 証拠は `.demo-artifacts/ui-fidelity/production-browser/`、`production-android/`、各試験ログ。無関係なPython整形を復元した4ファイルはAST一致を確認した。APK生成・署名・同梱物・配布の結果は `.demo-artifacts/ui-exact-release/` に記録する。本人端末の上書き更新と実プロバイダー通信は未確認。実注文なし。
+
+### 署名版で検出した未登録ホームの修正
+
+最終起動で資産未登録時だけ旧ホームの説明と自動処理が残る分岐を検出した。登録済みと同じ採用カード・残高・保有一覧を使い、未登録値は「—」のまま初回登録へ接続する。自動処理はヘッダーから既存のデータ更新画面で操作する。表示だけの初期残高は作らない。旧文言を前提としたUI試験を新しい構成・未算出値・登録先の確認へ更新した。
+
+未登録分岐を加えた配布用ブラウザー9ケースとVitest197件が成功。Androidの再起動後にlocalhost転送が未設定で接続拒否となった初回検査は成功扱いにせず、転送を復元。追加確認では全画面表示は成功したが、初回フォームのブラウザー画像取得で接続が閉じたため、他のAndroid画像と同じ端末キャプチャへ統一。最終再実行は7成功・HTML比較の重複1件をskip。最終証拠は `.demo-artifacts/ui-fidelity/final-empty-browser/`、`verified-android-final/`、`vitest-verified.log`。配布前の初回APKと検出画像は `.demo-artifacts/ui-exact-release-before-empty-home/` に保全し、Driveの同じ本人用ファイルを修正版で置き換える。

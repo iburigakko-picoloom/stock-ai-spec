@@ -259,11 +259,14 @@ describe("Goal 5 PWA", () => {
     expect(label.parentElement?.querySelector("b")?.textContent).toBe("—");
   });
 
-  it("offers settings when no actual portfolio is registered", async () => {
+  it("keeps the asset layout and registration route when no portfolio is registered", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ portfolio: null, holdings: [], runtimeMode: "LIVE" })));
     render(<MemoryRouter><HomePage /></MemoryRouter>);
-    await screen.findByText("表示できる資産台帳がありません");
-    expect(screen.getByRole("link", { name: "登録・口座の設定を確認" })).toHaveAttribute("href", "/settings");
+    await screen.findByText("資産はまだ登録されていません");
+    expect(screen.getByRole("region", { name: "資産残高" })).toContainElement(screen.getByText("総資産"));
+    expect(screen.getByText("総資産").nextElementSibling).toHaveTextContent("—");
+    expect(screen.getByRole("link", { name: "初回資産登録" })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: "資産を管理 ›" })).toHaveAttribute("href", "/assets");
     expect(screen.queryByText("0円")).not.toBeInTheDocument();
   });
 

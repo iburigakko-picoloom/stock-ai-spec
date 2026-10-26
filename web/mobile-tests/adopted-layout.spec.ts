@@ -144,6 +144,24 @@ for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`
   expect(errors).toEqual([]);
 });
 
+test("unregistered home keeps the adopted layout and real registration route",async({page},info)=>{
+  await page.route("**/api/v1/home",route=>route.fulfill({json:{runtimeMode:"TEST",portfolio:null,holdings:[],initialLedger:null}}));
+  if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
+  await page.goto("http://127.0.0.1:5196/#/");
+  await expect(page.locator(".screen-home")).toBeVisible();
+  await expect(page.getByRole("region",{name:"資産残高"})).toContainText("資産はまだ登録されていません");
+  await expect(page.getByRole("heading",{name:"毎日の自動処理"})).toHaveCount(0);
+  await expect(page.getByRole("link",{name:"初回資産登録",exact:true})).toHaveAttribute("href","#/holdings?initial=1");
+  for(const font of [100,150]){
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+    if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`unregistered-home-${font}.png`),await activeDevice!.screenshot());
+    else await page.screenshot({path:info.outputPath(`unregistered-home-${font}.png`),fullPage:true});
+  }
+  await page.getByRole("link",{name:"初回資産登録",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"初回資産登録",exact:true})).toBeVisible();
+});
+
 test("adopted HTML typography and controls match the implementation",async({page},info)=>{
   test.skip(!!process.env.STOCKAI_ANDROID_UI,"Reference CSS comparison runs in Edge; Android runs all route and overlap checks.");
   test.setTimeout(180_000);
@@ -211,7 +229,8 @@ test("unregistered assets show the real initial cash and holding form", async ({
   await page.getByRole("button",{name:"保有株を追加",exact:true}).click();
   await expect(page.getByLabel("銘柄コード",{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(()=>window.innerWidth));
-  await page.screenshot({path:info.outputPath("initial-unregistered.png")});
+  if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath("initial-unregistered.png"),await activeDevice!.screenshot());
+  else await page.screenshot({path:info.outputPath("initial-unregistered.png")});
 });
 
 test("execution history retains the selected record when returning from stock detail",async({page})=>{

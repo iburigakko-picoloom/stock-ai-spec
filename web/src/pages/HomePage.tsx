@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { PageHeader, RuntimeBanner, StatePanel, dateTime, currency as yen } from "../components";
 import { useApiData } from "../hooks";
 import type { HoldingView, HomeResponse } from "../types";
-import { DailyPanel, DailyStatusLink } from "../mobile/DailyPanel";
-import { ProposalReadiness } from "../mobile/ProposalReadiness";
+import { DailyStatusLink } from "../mobile/DailyPanel";
 import { isAndroid } from "../mobile/native";
 
 export function HomePage(): ReactNode {
@@ -17,21 +16,8 @@ export function HomePage(): ReactNode {
     return [...result.entries()];
   }, [data]);
 
-  if ((loading && !data) || error) return <div className="page"><PageHeader eyebrow="実際の状態" title="ホーム" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "実資産を読み込んでいます" : "資産データを取得できません"} detail={error} /></div>;
-  if (!data?.portfolio) {
-    return (
-      <div className="page">
-        <PageHeader eyebrow="実際の状態" title="ホーム" />
-        {savedAt && <p role="status">{dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。最新情報を確認中…</p>}
-        {data?.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
-        <DailyPanel />
-        {(loading || !isAndroid()) && <StatePanel title={loading ? "最新の資産状態を確認中です" : "表示できる資産台帳がありません"} detail={loading ? "登録状態を確認しています。" : "入力の保存後に、残高の確定が必要です。"} />}
-        {!loading && <ProposalReadiness />}
-        {isAndroid() && <Link className="button button--secondary" to="/holdings">実保有を登録・編集</Link>}
-        {!isAndroid() && <Link className="button button--secondary" to="/settings">登録・口座の設定を確認</Link>}
-      </div>
-    );
-  }
+  if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="実際の状態" title="ホーム" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "実資産を読み込んでいます" : "資産データを取得できません"} detail={error} /></div>;
+  const portfolio = data.portfolio;
 
   return <div className="page home-page">
     <PageHeader title="ホーム" actions={<DailyStatusLink />} />
@@ -39,13 +25,16 @@ export function HomePage(): ReactNode {
     {data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
     <div className="screen-home"><div className="stack"><div className="muted small">実際の資産</div>
     <section className="card" aria-label="資産残高">
-      <div className="home-balance-line"><span className="muted small">総資産</span><b>{yen(data.portfolio.totalAssets)}</b></div>
-      <div className="home-inline-metrics"><span>株式 <b>{yen(data.portfolio.equityValue)}</b></span><span>現金 <b>{yen(data.portfolio.cashValue)}</b></span></div>
-      <div className="home-demo" style={{marginTop:10}}>{data.initialLedger?.referencePriceDate ? `株価：${data.initialLedger.referencePriceDate} 終値` : `残高：${dateTime(data.portfolio.asOf, true)} JST`}</div>
-      <div className="home-account"><div className="row spread"><span>現金総額</span><b>{yen(data.portfolio.cashValue)}</b></div>
-        {data.portfolio.reservedCash !== undefined && <div className="row spread"><span>確保中</span><b>{yen(data.portfolio.reservedCash)}</b></div>}
-        {data.portfolio.buyingPower !== undefined && <div className="row spread"><span>運用可能</span><b>{yen(data.portfolio.buyingPower)}</b></div>}
+      <div className="home-balance-line"><span className="muted small">総資産</span><b>{portfolio ? yen(portfolio.totalAssets) : "—"}</b></div>
+      <div className="home-inline-metrics"><span>株式 <b>{portfolio ? yen(portfolio.equityValue) : "—"}</b></span><span>現金 <b>{portfolio ? yen(portfolio.cashValue) : "—"}</b></span></div>
+      <div className="home-demo" style={{marginTop:10}}>{data.initialLedger?.referencePriceDate ? `株価：${data.initialLedger.referencePriceDate} 終値` : portfolio ? `残高：${dateTime(portfolio.asOf, true)} JST` : "資産はまだ登録されていません"}</div>
+      {portfolio ? <div className="home-account"><div className="row spread"><span>現金総額</span><b>{yen(portfolio.cashValue)}</b></div>
+        {portfolio.reservedCash !== undefined && <div className="row spread"><span>確保中</span><b>{yen(portfolio.reservedCash)}</b></div>}
+        {portfolio.buyingPower !== undefined && <div className="row spread"><span>運用可能</span><b>{yen(portfolio.buyingPower)}</b></div>}
+      </div> : <div className="home-account">
+        <Link className="button secondary full" to={isAndroid() ? "/holdings?initial=1" : "/settings"}>初回資産登録</Link>
       </div>
+      }
     </section>
     <div className="home-heading"><h3>保有株 <span className="muted small">{groups.length}銘柄</span></h3><Link className="home-link" to="/assets">資産を管理 ›</Link></div>
     <section className="card" aria-label="実保有"><div>
