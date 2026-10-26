@@ -290,4 +290,4 @@ def test_schema3_backup_migrates_without_research_or_forecast_loss(tmp_path: Pat
     assert migrated.chatgpt_research(snapshot.snapshot_id) == ()
     assert migrated.verify_integrity()["chatgpt_research_passes"] == 0
     with sqlite3.connect(restored_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 6

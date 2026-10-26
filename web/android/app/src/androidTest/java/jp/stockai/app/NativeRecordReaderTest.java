@@ -43,8 +43,9 @@ public class NativeRecordReaderTest {
         } else if(left instanceof Number) assertEquals(((Number)left).doubleValue(),((Number)right).doubleValue(),0);
         else assertEquals(left,right);
     }
-    JSONObject fixture() throws Exception {
-        try(java.io.InputStream input=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("record-reader-fixture.json")){
+    JSONObject fixture() throws Exception { return fixture("record-reader-fixture.json"); }
+    JSONObject fixture(String name) throws Exception {
+        try(java.io.InputStream input=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open(name)){
             java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
             byte[] buffer=new byte[8192];int count;
             while((count=input.read(buffer))!=-1)bytes.write(buffer,0,count);
@@ -85,6 +86,32 @@ public class NativeRecordReaderTest {
         owner.closeForTest().get(30,TimeUnit.SECONDS);owner=LocalComputeOwner.get(context,file);
         equalJson(result.getJSONObject("body"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/stocks/7203/note").getJSONObject("body"));
         equalJson(fixture.getJSONObject("expected_execution"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-context").getJSONObject("body"));
+    }
+    @Test public void manualTradeWithoutDecisionCommitsAtomicallyAndSurvivesRetryRestore() throws Exception {
+        JSONObject fixture=fixture("manual-trade-fixture.json");
+        owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
+        equalJson(fixture.get("context"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-entry-context").get("body"));
+        java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);
+        assertNull(host.get(owner));
+        String path="/api/v1/executions/manual";
+        JSONObject bad=new JSONObject(fixture.getJSONObject("trade_body").toString()).put("averageFillPrice","999999");
+        assertEquals(422,owner.request("POST",path,bad.toString()).get(300,TimeUnit.SECONDS).getInt("status"));
+        assertEquals(0,owner.request("GET","/api/v1/executions","null").get(300,TimeUnit.SECONDS).getJSONObject("body").getJSONArray("records").length());
+        String body=fixture.getJSONObject("trade_body").toString();
+        JSONObject result=owner.request("POST",path,body).get(300,TimeUnit.SECONDS);
+        assertEquals(result.toString(),201,result.getInt("status"));
+        equalJson(fixture.get("expected_trade"),result.get("body"));
+        try(LocalStateStore.StartupLease lease=owner.state.openStartupLease()){assertNotNull(lease.operations);}
+        owner.closeForTest().get(30,TimeUnit.SECONDS);owner=LocalComputeOwner.get(context,file);
+        assertEquals(201,owner.request("POST",path,body).get(300,TimeUnit.SECONDS).getInt("status"));
+        JSONObject expected=fixture.getJSONObject("expected_after");
+        java.util.Iterator<String> paths=expected.keys();
+        while(paths.hasNext()){String read=paths.next();equalJson(expected.get(read),NativePortfolioReader.readRecords(context,owner.state,read).get("body"));}
+        String backup=owner.readState().get(300,TimeUnit.SECONDS).getString("payload");
+        owner.closeForTest().get(30,TimeUnit.SECONDS);owner=LocalComputeOwner.get(context,file);
+        owner.state.write(owner.state.currentGeneration(),backup);
+        equalJson(expected.get("/api/v1/home/ledger"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/home/ledger").get("body"));
+        assertTrue(owner.request("GET","/api/v1/execution-context","null").get(300,TimeUnit.SECONDS).getJSONObject("body").isNull("decision"));
     }
     @Test public void emptyStateDoesNotStartPython() throws Exception {
         JSONObject result=NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-context").getJSONObject("body");

@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, dateTime, currency as yen } from "../components";
 import { Field, FormGroup, KV } from "../Adopted";
+import { ManualExecutionPage } from "./ManualExecutionPage";
 import type { ProposalLine } from "../types";
 
 interface DecisionLine {
@@ -77,14 +78,16 @@ export function ExecutionPage(): ReactNode {
   const decision=context?.decision;
 
   useEffect(() => {
-    if(applyOnly){setLoadingDecision(false);return;}
+    if(applyOnly || params.has("manual")){setLoadingDecision(false);return;}
     let active=true;
     apiGet<ExecutionContext>("/api/v1/execution-context")
       .then(value=>{if(active)setContext(value);})
       .catch((reason: unknown) => {if(active)setLoadError(reason instanceof Error ? reason.message : "判断を取得できません");})
       .finally(() => {if(active)setLoadingDecision(false);});
     return ()=>{active=false;};
-  }, [applyOnly]);
+  }, [applyOnly, params]);
+
+  if (!applyOnly && (params.has("manual") || (!loadingDecision && !loadError && (!proposal || !decision)))) return <ManualExecutionPage />;
 
   if (!applyOnly && (loadingDecision || loadError || !proposal || !decision)) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="実行結果を記録" /><StatePanel tone={loadError ? "error" : "neutral"} title={loadingDecision ? "実行結果入力を準備しています" : loadError ? "入力を準備できません" : "実行待ちの保存済み判断がありません"} detail={loadError} /></div>;
 
@@ -178,6 +181,7 @@ export function ExecutionPage(): ReactNode {
     <div className="page">
       <PageHeader title={params.has("apply") ? "記録済み約定の反映" : "取引記録"} backTo={params.has("apply") ? "/transactions" : params.get("symbol") ? `/stocks/${params.get("symbol")}` : "/today"} backState={location.state} />
       <div className="subscreen stack">
+      {!applyOnly && <Link className="quiet-link" to={`/today/executions?manual=1${params.get("symbol") ? `&symbol=${params.get("symbol")}` : ""}`}>提案以外の取引を記録</Link>}
       {proposal && savedDecision && <p className="small muted">{dateTime(proposal.asOf,true)} の保存済み判断 · 第{savedDecision.version}版</p>}
       {!params.has("apply") && (changed.length === 0 ? <StatePanel title="取引しない判断です" /> : changed.map((line) => {
         const target = decisionTargets.get(line.lineId) ?? line.currentShares;

@@ -4,7 +4,7 @@ export function operationsOnly(method?: string, path = ""): boolean {
     ["/api/v1/mobile/portfolio", "/api/v1/mobile/personal/settings",
       "/api/v1/mobile/personal/initial/preview", "/api/v1/mobile/personal/initial/confirm",
       "/api/v1/mobile/personal/current/preview", "/api/v1/mobile/personal/current/confirm",
-      "/api/v1/portfolio/apply-executions", "/api/v1/imports/executions/preview",
+      "/api/v1/executions/manual", "/api/v1/portfolio/apply-executions", "/api/v1/imports/executions/preview",
       "/api/v1/imports/positions/preview"].includes(path)
     || /^\/api\/v1\/stocks\/[A-Z0-9]{1,10}\/note$/.test(path)
     || /^\/api\/v1\/proposals\/[^/?#]+\/decisions$/.test(path)

@@ -8,7 +8,7 @@ import { DailyPanel, DailyStatusLink } from "../mobile/DailyPanel";
 function MarketOutlook() {
   return <section className="today-market" aria-label="市場の見通し">
     <b>市場の見通し</b><p>市場全体と保有株・候補の分析は、ChatGPTの会話で確認できます。</p>
-    <Link className="button ghost" to="/today/chatgpt">ChatGPTに相談 ↗</Link>
+
   </section>;
 }
 import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";
@@ -75,15 +75,15 @@ export function TodayPage(): ReactNode {
     <div className="screen-today">
     {data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
     {previous && <p role="status" className="setting-footnote">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
-    {!detailed && <MarketOutlook />}
+    {detailed && <MarketOutlook />}
     {!detailed && <div className="today-heading"><h3>今日の提案</h3></div>}
     <div id="today-source">
     {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" /> : !proposal ? <>
       {((loading && !data.savedAnalysis) || !isAndroid()) && <StatePanel tone={data.isStale ? "warning" : "neutral"} title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"} detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)} />}
       {data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}
       {!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} />}
-      {!loading && !data.savedAnalysis && <ProposalReadiness reason={data.blockingReason} />}
-      <Link className="quiet-link" to="/settings?edit=market">データの更新状況を確認</Link>
+      {detailed && !loading && !data.savedAnalysis && <ProposalReadiness reason={data.blockingReason} />}
+      {detailed && <Link className="quiet-link" to="/settings?edit=market">データの更新状況を確認</Link>}
       {detailed && <DailyPanel />}
     </> : <>
       {!detailed && <section className="card" style={{marginTop:12}} aria-label="株数の変更">
@@ -102,7 +102,8 @@ export function TodayPage(): ReactNode {
       <section className="section"><h2>提案の基準時刻・モデル詳細</h2><dl className="summary-list"><div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div><div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div><div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div></dl></section></>}
     </>}
     </div>
-    {!detailed && <div className="today-actions">{proposal && !previous && <Link className="button" to="/today/review">判断を確認</Link>}<div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions">取引を記録 ＋</Link></div><Link className="quiet-link" to="/today/chatgpt/history">保存済み記録（閲覧のみ）</Link><Link className="quiet-link" to="/today/details">提案の計算詳細</Link></div>}
+    {detailed && <Link className="quiet-link" to="/today/chatgpt/history">保存済み記録（閲覧のみ）</Link>}
+    {!detailed && <div className="today-actions">{proposal && !previous && <Link className="button" to="/today/review">判断を確認</Link>}<div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions?manual=1">取引を記録 ＋</Link></div><Link className="quiet-link" to="/today/details">詳細・更新状況</Link></div>}
     </div>
   </div>;
 }

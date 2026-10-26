@@ -208,6 +208,7 @@ describe("Goal 5 PWA", () => {
     await screen.findByText("今日の提案をまだ表示できません");
     expect(screen.queryByText("購入会社")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "判断を確認" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "詳細・更新状況" }));
     expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings?edit=market");
   });
 
@@ -224,7 +225,7 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter: { taxable: "100000", nisa: "25000" }, netImprovement: "-200" } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await screen.findByText("¥125,000");
-    expect(screen.getByRole("link", {name:"提案の計算詳細"})).toHaveAttribute("href","/today/details");
+    expect(screen.getByRole("link", {name:"詳細・更新状況"})).toHaveAttribute("href","/today/details");
     cleanup();
     render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
     await screen.findByText("fixture-model");
@@ -238,7 +239,7 @@ describe("Goal 5 PWA", () => {
       estimatedCashAfter: { bucket: "98000" },
     } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    expect(await screen.findByRole("link",{name:"提案の計算詳細"})).toHaveAttribute("href","/today/details");
+    expect(await screen.findByRole("link",{name:"詳細・更新状況"})).toHaveAttribute("href","/today/details");
     cleanup();
     render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
     const details = await screen.findByText("口座別の現金・推定改善");

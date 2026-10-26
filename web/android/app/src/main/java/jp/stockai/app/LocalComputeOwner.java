@@ -170,6 +170,7 @@ final class LocalComputeOwner {
             || path.equals("/api/v1/mobile/personal/current/preview")
             || path.equals("/api/v1/mobile/personal/current/confirm")
             || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}/note")
+            || path.equals("/api/v1/executions/manual")
             || path.equals("/api/v1/portfolio/apply-executions")
             || path.equals("/api/v1/imports/executions/preview")
             || path.equals("/api/v1/imports/positions/preview")

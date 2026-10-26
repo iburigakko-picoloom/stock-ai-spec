@@ -1170,6 +1170,26 @@ class OperationalStore:
                 );
                 """
             )
+            # Preserve all legacy execution payloads/hashes and their real FK.
+            # Only the optional relationship changes; no synthetic decision rows.
+            if any(
+                row[1] == "decision_id" and row[3]
+                for row in connection.execute("PRAGMA table_info(executions)")
+            ):
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    "CREATE TABLE executions_optional (execution_id TEXT PRIMARY KEY, "
+                    "decision_id TEXT, executed_at TEXT NOT NULL, payload TEXT NOT NULL, "
+                    "content_hash TEXT NOT NULL, "
+                    "FOREIGN KEY(decision_id) REFERENCES user_decisions(decision_id))"
+                )
+                connection.execute(
+                    "INSERT INTO executions_optional SELECT "
+                    "execution_id,decision_id,executed_at,payload,content_hash FROM executions"
+                )
+                connection.execute("DROP TABLE executions")
+                connection.execute("ALTER TABLE executions_optional RENAME TO executions")
+            connection.execute("PRAGMA user_version=6")
             connection.commit()
 
     @staticmethod
@@ -2335,7 +2355,7 @@ class OperationalStore:
                 },
                 payload=payload,
             )
-            if inserted and update_daily_status:
+            if inserted and update_daily_status and execution.decision_id is not None:
                 proposal = self.proposal(self.decision(execution.decision_id).proposal_id)
                 day = proposal.as_of.astimezone(JST).date()
                 previous = self.daily_status(day)
@@ -2377,6 +2397,10 @@ class OperationalStore:
             _verify_hashed_row(table, row)
             return _parse_model(model, _checked_payload(row, table))
 
+        if execution.decision_id is None:
+            raise OperationalConflictError(
+                "unlinked executions require the manual transaction endpoint"
+            )
         decision = load("user_decisions", "decision_id", execution.decision_id, UserDecision)
         if execution.executed_at < decision.saved_at:
             raise OperationalTimelineError("execution timestamp cannot precede the saved decision")
@@ -2439,6 +2463,71 @@ class OperationalStore:
         return tuple(
             _parse_model(ExecutionRecord, _checked_payload(row, "executions")) for row in rows
         )
+
+    def record_manual_execution(
+        self, execution: ExecutionRecord, *, now: datetime
+    ) -> PortfolioState:
+        """Atomically record an actual trade and apply only still-unapplied fills."""
+        if execution.decision_id is not None or execution.source != "manual":
+            raise ValueError("manual entry must not invent a decision")
+        if execution.executed_at > now:
+            raise ValueError("約定日時は現在以前を指定してください。")
+        payload = _canonical_payload(execution)
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = _latest_portfolio_connection(connection)
+            if current is None:
+                raise OperationalConflictError("先に初回資産を登録してください。")
+            existing = connection.execute(
+                "SELECT * FROM executions WHERE execution_id=?", (execution.execution_id,)
+            ).fetchone()
+            if existing is not None:
+                _verify_hashed_row("executions", existing)
+                if _checked_payload(existing, "executions") != payload:
+                    raise OperationalConflictError("同じ取引IDに異なる内容は保存できません。")
+                return current
+            if execution.account_bucket_id not in {x.bucket_id for x in current.account_buckets}:
+                raise ValueError("登録済みの口座を選択してください。")
+            if execution.executed_at <= current.as_of:
+                raise ValueError(
+                    "残高の基準時刻より後の取引を入力してください。既に残高に含む取引は重ねて登録できません。"
+                )
+            if now <= current.as_of:
+                raise OperationalConflictError("残高の基準時刻を確認してください。")
+            pending = tuple(
+                x
+                for x in self.executions()
+                if x.filled_shares > 0 and x.execution_id not in current.applied_execution_ids
+            )
+            updated = (
+                apply_executions(
+                    current,
+                    (*pending, execution),
+                    next_as_of=max(x.executed_at for x in (*pending, execution)),
+                    next_portfolio_id="manual-" + execution.execution_id,
+                )
+                if execution.filled_shares
+                else current
+            )
+            self._insert_immutable(
+                connection,
+                table="executions",
+                identity_column="execution_id",
+                identity=execution.execution_id,
+                columns={"decision_id": None, "executed_at": execution.executed_at.isoformat()},
+                payload=payload,
+            )
+            if updated is not current:
+                self._insert_immutable(
+                    connection,
+                    table="portfolio_states",
+                    identity_column="portfolio_id",
+                    identity=updated.portfolio_id,
+                    columns={"as_of": updated.as_of.isoformat(), "created_at": now.isoformat()},
+                    payload=_canonical_payload(updated),
+                )
+            connection.commit()
+            return updated
 
     def apply_unapplied_executions(
         self,
@@ -3202,6 +3291,8 @@ class OperationalStore:
                     )
                 )
             try:
+                if execution.decision_id is None:
+                    raise KeyError("decision_id")
                 self.decision(execution.decision_id)
             except KeyError:
                 conflicts.append(

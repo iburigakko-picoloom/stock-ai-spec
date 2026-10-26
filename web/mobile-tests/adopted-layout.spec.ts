@@ -415,3 +415,29 @@ test("saved ranking is visible while the expensive current read is still pending
   await finish();
   await expect(page.getByText("保存済みの順位を表示中・更新を確認しています…")).toHaveCount(0);
 });
+
+
+test("manual trade is available without a saved judgment and fits narrow Android", async ({page},info)=>{
+  if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
+  await page.route("**/api/v1/execution-context",route=>route.fulfill({json:{proposal:null,decision:null,accountLabels:{}}}));
+  await page.route("**/api/v1/execution-entry-context",route=>route.fulfill({json:{portfolioId:"synthetic",asOf:"2026-10-01T09:00:00+09:00",accountLabels:{bucket:"試験口座"},holdings:[]}}));
+  await page.route("**/api/v1/executions/manual",route=>route.fulfill({json:{applied:true}}));
+  await page.goto("http://127.0.0.1:5196/#/today/executions");
+  await expect(page.getByLabel("銘柄コード")).toBeVisible();
+  await expect(page.getByText("実行待ちの保存済み判断がありません")).toHaveCount(0);
+  for(const font of [100,150]){
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    expect(await page.locator(".app-main").evaluate(n=>n.scrollWidth-n.clientWidth)).toBeLessThanOrEqual(1);
+    const outside=await page.locator("input:visible,select:visible,button:visible").evaluateAll(nodes=>nodes.filter(n=>{const r=n.getBoundingClientRect();return r.left < -1 || r.right > innerWidth+1}).map(n=>n.outerHTML));
+    expect(outside).toEqual([]);
+    if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`manual-trade-${font}.png`),await activeDevice!.screenshot());
+    else await page.screenshot({path:info.outputPath(`manual-trade-${font}.png`),fullPage:true});
+  }
+  await page.getByLabel("銘柄コード").fill("7203");
+  await page.getByLabel("約定株数").fill("100");
+  await page.getByLabel("平均約定単価").fill("1000.25");
+  await page.getByRole("button",{name:"取引を記録",exact:true}).click();
+  await expect(page.getByRole("status")).toContainText("約定した株数と金額だけ");
+  await expect(page.getByRole("button",{name:"記録済み"})).toBeDisabled();
+});

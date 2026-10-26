@@ -725,7 +725,7 @@ class UserDecision(DomainModel):
 
 class ExecutionRecord(DomainModel):
     execution_id: str = Field(min_length=1)
-    decision_id: str = Field(min_length=1)
+    decision_id: str | None = Field(default=None, min_length=1)
     executed_at: datetime
     symbol: str = Field(min_length=1)
     account_bucket_id: str = Field(min_length=1)

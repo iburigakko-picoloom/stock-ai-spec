@@ -774,6 +774,44 @@ def create_app(
             }
         return payload
 
+    @app.get("/api/v1/execution-entry-context")
+    def manual_execution_context() -> dict[str, object]:
+        ledger = store.latest_portfolio()
+        return {
+            "portfolioId": None if ledger is None else ledger.portfolio_id,
+            "asOf": None if ledger is None else ledger.as_of.isoformat(),
+            "accountLabels": _account_labels(ledger),
+            "holdings": []
+            if ledger is None
+            else [
+                {"symbol": x.symbol, "accountBucketId": x.account_bucket_id, "shares": x.shares}
+                for x in ledger.positions
+            ],
+        }
+
+    @app.post("/api/v1/executions/manual", status_code=201)
+    def manual_execution(
+        body: ExecutionInput, _intent: Annotated[None, Depends(_require_manual_intent)]
+    ) -> object:
+        try:
+            if not body.symbol.isascii() or not body.symbol.isalnum() or len(body.symbol) > 10:
+                raise ValueError("銘柄コードを確認してください。")
+            execution = ExecutionRecord.model_validate(
+                {
+                    **body.model_dump(exclude={"confirm_difference"}),
+                    "decision_id": None,
+                    "source": "manual",
+                }
+            )
+            ledger = store.record_manual_execution(execution, now=current_time())
+        except (ValueError, KeyError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return {
+            "execution": jsonable_encoder(execution),
+            "portfolioId": ledger.portfolio_id,
+            "applied": execution.execution_id in ledger.applied_execution_ids,
+        }
+
     @app.get("/api/v1/execution-context")
     def execution_context() -> dict[str, object]:
         # Actual fills refer to the saved judgment, even after an earlier fill
@@ -783,12 +821,27 @@ def create_app(
         decision = None if proposal is None else store.latest_decision(proposal.proposal_id)
         return {
             "businessDate": day.isoformat(),
-            "proposal": None if proposal is None else {
-                "proposalId": proposal.proposal_id, "asOf": proposal.as_of.isoformat(),
-                "lines": [{key: value for key, value in _line_view(line).items() if key in {
-                    "lineId", "symbol", "companyName", "accountBucketId", "currentShares",
-                    "referencePrice",
-                }} for line in proposal.lines],
+            "proposal": None
+            if proposal is None
+            else {
+                "proposalId": proposal.proposal_id,
+                "asOf": proposal.as_of.isoformat(),
+                "lines": [
+                    {
+                        key: value
+                        for key, value in _line_view(line).items()
+                        if key
+                        in {
+                            "lineId",
+                            "symbol",
+                            "companyName",
+                            "accountBucketId",
+                            "currentShares",
+                            "referencePrice",
+                        }
+                    }
+                    for line in proposal.lines
+                ],
             },
             "decision": None if decision is None else jsonable_encoder(decision),
             "accountLabels": _account_labels(

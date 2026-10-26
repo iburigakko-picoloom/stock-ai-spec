@@ -13,13 +13,14 @@ import org.json.JSONObject;
 /** Small committed record views. No prediction validation, model loading, or writes. */
 final class NativeRecordViews {
     static boolean handles(String path) {
-        return "/api/v1/execution-context".equals(path)
+        return "/api/v1/execution-entry-context".equals(path) || "/api/v1/execution-context".equals(path)
             || "/api/v1/home/ledger".equals(path) || "/api/v1/executions".equals(path)
             || "/api/v1/portfolio/history".equals(path) || "/api/v1/jobs".equals(path)
             || (path != null && path.matches("/api/v1/stocks/[A-Z0-9]{1,10}/note"));
     }
     private static String day() { return LocalDate.now(ZoneId.of("Asia/Tokyo")).toString(); }
     static Object empty(String path) throws Exception {
+        if (path.equals("/api/v1/execution-entry-context")) return new JSONObject().put("portfolioId",JSONObject.NULL).put("asOf",JSONObject.NULL).put("accountLabels",new JSONObject()).put("holdings",new JSONArray());
         if (path.equals("/api/v1/portfolio/history") || path.equals("/api/v1/jobs")) return new JSONArray();
         if (path.equals("/api/v1/executions")) return new JSONObject().put("records", new JSONArray()).put("appliedIds", new JSONArray());
         if (path.equals("/api/v1/home/ledger")) return new JSONObject().put("portfolio", JSONObject.NULL).put("holdings", new JSONArray()).put("blockingReason", "保有未登録").put("initialLedger", JSONObject.NULL);
@@ -143,6 +144,13 @@ final class NativeRecordViews {
         return records;
     }
     static Object read(SQLiteDatabase db, String path) throws Exception {
+        if(path.equals("/api/v1/execution-entry-context")) {
+            JSONObject ledger=NativePortfolioReader.latestLedger(db);
+            if(ledger==null)return empty(path);
+            JSONArray holdings=new JSONArray(), positions=ledger.getJSONArray("positions");
+            for(int i=0;i<positions.length();i++){JSONObject row=positions.getJSONObject(i);holdings.put(new JSONObject().put("symbol",row.getString("symbol")).put("accountBucketId",row.getString("account_bucket_id")).put("shares",row.getLong("shares")));}
+            return new JSONObject().put("portfolioId",ledger.getString("portfolio_id")).put("asOf",NativePortfolioReader.timestamp(ledger.getString("as_of"))).put("accountLabels",labels(ledger)).put("holdings",holdings);
+        }
         String required = path.equals("/api/v1/home/ledger") ? "mobile_initial_previews" : path.equals("/api/v1/jobs") ? "automation_jobs" : path.equals("/api/v1/executions") ? "executions" : "portfolio_states";
         try(Cursor row=db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?",new String[]{required})) {if(!row.moveToFirst())return null;}
         if (path.equals("/api/v1/home/ledger")) return home(db);
