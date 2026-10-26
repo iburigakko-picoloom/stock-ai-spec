@@ -108,3 +108,5 @@ source `0d9c5dd5493a943030f3a7d0e265edcb76c2cf56` の同署名0.1.62-candidate/c
 本人の補足に従い、設定トップの本文はそのまま、共通ナビを他4タブと同じ採用デザインへ変更した。対象は `components.tsx` の共通アイコンと `adopted.css` のナビスタイルだけ。設定本文のCSSと入力/保存処理・タブの名前/行先・スクロール方式は変更しない。
 
 Vitest197件、型/ESLint/build、配布用ブラウザー10ケース成功。追加の1ケースで全5タブのナビの寸法・余白・文字・アイコン・選択状態を比較し、320/390px・100/150%で一致を確認。実Android35/320dp・100/150%でも同じ比較と設定の実表示を確認。WebViewの小数を含む表示高さはvisualViewportで測定する。製品Python/nativeは前版と同一のため、それらの回帰証拠は0.1.62から再利用する。確認用APKと配布証拠は `.demo-artifacts/settings-nav-release/`。
+
+同署名0.1.63-candidate/code10063を検査し、専用read-only Android35で署名版の設定トップと新しい共通タブを実表示。インストール済みAPK hashも一致した。source `8b28b817b578c3224b72b33a42a823707823c4d7`、24,083,141 bytes、SHA256 `048674018955c9931567808c510bdbef9467654ee06b78e4803d999e25e8eb05`。[Drive確認用APK](https://drive.google.com/file/d/1k7SiEWiil6b8CgK_x0pfckErVQTaxUdu/view?usp=drivesdk)は既存非共有StockAI内へ保存し、親/size/shared=falseを再読込確認。本人データを使用せず、本人Xiaomi更新/実通信/CIは未確認。証拠は同フォルダーのverified.json・signed-launch.json・signed-settings-second.png・drive-upload-status.json。
