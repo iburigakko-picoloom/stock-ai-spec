@@ -164,7 +164,7 @@ describe("Goal 5 PWA", () => {
   it("preserves edited targets on identical refresh and blocks save until their review completes", async () => {
     const pending: ((value: Response) => void)[] = [];
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      if (String(input) === "/api/v1/today") return Promise.resolve(jsonResponse(structuredClone(today)));
+      if (String(input).startsWith("/api/v1/today")) return Promise.resolve(jsonResponse(structuredClone(today)));
       if (String(input).endsWith("/review")) return new Promise<Response>(resolve => pending.push(resolve));
       throw new Error(`unexpected ${input}`);
     });
@@ -345,7 +345,7 @@ describe("Goal 5 PWA", () => {
   it("recalculates 100-share decisions and saves only to the manual-record API", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url === "/api/v1/today") return jsonResponse(today);
+      if (url.startsWith("/api/v1/today")) return jsonResponse(today);
       if (url.endsWith("/review")) {
         return jsonResponse({
           proposal_id: "proposal-1",

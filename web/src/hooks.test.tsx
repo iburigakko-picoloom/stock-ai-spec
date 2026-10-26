@@ -161,3 +161,18 @@ test("leaving a preview before the deferred read prevents obsolete work from ent
   act(()=>frames.shift()!(0));await act(async()=>frames.shift()!(16));
   expect(apiGet).not.toHaveBeenCalled();expect(cancel).toHaveBeenCalled();
 });
+
+
+test("input pages disable periodic and focus refresh while explicit reload still works", async () => {
+  vi.useFakeTimers();
+  try {
+    vi.mocked(isAndroid).mockReturnValue(true);
+    vi.mocked(apiGet).mockResolvedValue({ ready: true });
+    const { result } = renderHook(() => useApiData("/input", { pollMs: 0, refreshOnFocus: false }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(180_000); window.dispatchEvent(new Event("focus")); });
+    expect(apiGet).toHaveBeenCalledTimes(1);
+    await act(async () => result.current.reload());
+    expect(apiGet).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); }
+});

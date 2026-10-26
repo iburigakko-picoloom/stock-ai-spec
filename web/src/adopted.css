@@ -77,3 +77,6 @@
 @container (max-width:360px) { .app-shell--adopted .subgrid { grid-template-columns:minmax(0,1fr); } }
 
 .app-shell--adopted .subtabs a.button.secondary { border-color:#dfe4e8; }
+
+/* Keep the entire execution timestamp readable in the narrow two-column form. */
+.execution-entry .field:has(input[type="datetime-local"]) { grid-column: 1 / -1; }

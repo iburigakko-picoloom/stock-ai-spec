@@ -22,6 +22,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   const [saved, setSaved] = useState<SavedSettings | null>(null);
   const [draft, setDraft] = useState<PersonalSettings | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [readinessBusy, setReadinessBusy] = useState(false);
   const [preview, setPreview] = useState<InitialLedgerPreview | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -38,19 +39,17 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
     refreshEpoch.current++;
     setLoaded(false);
     let cancelled = false;
-    void Promise.all([
-      apiGet<SettingsResponse>("/api/v1/mobile/personal/settings"),
-      apiGet<Readiness>("/api/v1/mobile/personal/readiness"),
-    ]).then(([result, ready]) => {
+    // Comparison and price-backed preview run only on explicit request.
+    void apiGet<SettingsResponse>("/api/v1/mobile/personal/settings").then(result => {
       if (cancelled) return;
-      setSaved(result.saved); setReadiness(ready); setRefreshError("");
+      setSaved(result.saved); setRefreshError("");
       setDraft(previous => draftTouched.current && previous ? previous : result.saved?.settings ?? (result.current_portfolio ? emptySettings(result.current_portfolio) : null));
       setLoaded(true); setPreview(null); setConfirm(false);
     }).catch(() => { if (!cancelled) { setRefreshError("入力状況を確認できません。もう一度読み込んでください。"); setMessage("補足設定を読み込めません。保存済みの口座・保有を読み直してください。"); } });
     return () => { cancelled = true; invalidateRefresh(); };
   }, [reload, profile?.revision_id, invalidateRefresh]);
   useEffect(() => {
-    invalidateRefresh(); setReadiness(null); setPreview(null); setConfirm(false);
+    invalidateRefresh(); setReadiness(null); setReadinessBusy(false); setRefreshError(""); setPreview(null); setConfirm(false);
   }, [profile?.revision_id, invalidateRefresh]);
   useEffect(() => {
     if (loaded && profile) setDraft(previous => previous ?? emptySettings(profile));
@@ -66,28 +65,30 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
     if (acting.current) return;
     acting.current = true;
     refreshEpoch.current++;
+    setReadiness(null); setReadinessBusy(false); setRefreshError("");
     setBusy(true); setMessage("");
     try { await task(); }
     catch (error) { setMessage(error instanceof Error ? error.message : "入力と保存状態を確認してください。"); }
     finally { acting.current = false; setBusy(false); }
   }
   function refresh() {
+    if (readinessBusy) return;
     const epoch = ++refreshEpoch.current;
-    setReadiness(null); setRefreshError("");
+    setReadiness(null); setReadinessBusy(true); setRefreshError("");
     void apiGet<Readiness>("/api/v1/mobile/personal/readiness").then(value => {
       if (epoch === refreshEpoch.current) setReadiness(value);
     }).catch(() => {
-      if (epoch === refreshEpoch.current) setRefreshError("保存済みです。準備状況の再取得に失敗しました。");
-    });
+      if (epoch === refreshEpoch.current) setRefreshError("準備状況を取得できませんでした。もう一度確認してください。");
+    }).finally(() => { if (epoch === refreshEpoch.current) setReadinessBusy(false); });
   }
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(saved?.settings ?? (profile ? emptySettings(profile) : null));
   const ownGaps = readiness?.input_gaps.filter(code => ![
     "manual_input", "accounts", "holdings_status", "available_cash_yen", "account_classification",
     "average_acquisition_price_yen", "investment_budget_yen", "maximum_drawdown_percent",
   ].includes(code)) ?? [];
-  const settingsStatus = refreshError ? "確認できません" : dirty ? "未保存" : !loaded || !readiness ? "確認中"
+  const settingsStatus = refreshError ? "確認できません" : dirty ? "未保存" : !loaded ? "確認中"
     : !saved ? "未入力" : stale || ownGaps.length > 0 ? "要確認" : "入力済み";
-  const ledgerStatus = refreshError ? "確認できません" : !readiness ? "確認中"
+  const ledgerStatus = refreshError ? "確認できません" : !readiness ? "未確認"
     : readiness.comparison.ledger_portfolio_id ? "登録済み" : "未登録";
   if (step === "overview") return <section className="account-setup-menu" aria-label="証券口座の登録項目">
     {([
@@ -100,6 +101,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
       <span className={`account-setup-status${status === "入力済み" || status === "登録済み" ? " account-setup-status--done" : ""}`}>{status}</span>
       <span className="account-setup-arrow" aria-hidden="true">›</span>
     </button>)}
+    <button className="button button--secondary" disabled={blocked || readinessBusy} onClick={refresh}>{readinessBusy ? "準備状況を確認中…" : "準備状況を確認"}</button>
     {refreshError && <p role="alert">{refreshError}</p>}
     {refreshError && <button className="button button--secondary" onClick={() => setReload(value => value + 1)}>入力状況を再確認</button>}
   </section>;
@@ -110,7 +112,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
   const reasons = [...new Set((readiness?.comparison.blocking_reasons ?? []).map(x => gapLabel(x.code)))];
   async function saveSettings() {
     const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
-    draftTouched.current=false; setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false); setMessage("保存しました。"); refresh();
+    draftTouched.current=false; setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false); setMessage("保存しました。");
   }
   if (focused) return <div className={`subscreen ${step==="taxes" ? "sub-settings" : "advanced-domain"}`}>
     {busy && <SaveProgress label="端末で確認・保存中…" />}
@@ -204,7 +206,7 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
         const result = await apiPost<SettingsResponse>("/api/v1/mobile/personal/settings", { expected_revision_id: saved?.revision_id ?? null, settings: draft });
         draftTouched.current = false;
         setSaved(result.saved); setDraft(result.saved!.settings); setPreview(null); setConfirm(false);
-        setMessage("保存しました。"); refresh();
+        setMessage("保存しました。");
       })}>補足設定を保存</button>
     </fieldset>
     {step !== "balances" && gaps.length > 0 && <div><h3>まだ確認が必要な入力</h3><ul>{gaps.map(x => <li key={x}>{x}</li>)}</ul></div>}
@@ -222,12 +224,12 @@ export function MobilePersonalPanel({ profile, disabled, step = "all", onStep, p
       <label><input type="checkbox" checked={confirm} onChange={event => setConfirm(event.target.checked)} />この口座・保有・現金・税の保存内容を初回台帳に確定します</label>
       <button className="button" disabled={blocked || !confirm} onClick={() => void act(async () => {
         await apiPost("/api/v1/mobile/personal/initial/confirm", { preview_id: preview.preview_id, confirmed: true });
-        setPreview(null); setConfirm(false); setMessage("残高を登録しました。ホームで確認できます。"); refresh();
+        setPreview(null); setConfirm(false); setMessage("残高を登録しました。ホームで確認できます。");
       })}>この内容を初回台帳に確定</button>
     </>}</div>}
     </div>
     <div hidden={step === "conditions" || focused}>
-    <h3>登録状況</h3><p>{!readiness ? "準備状況を確認中…" : readiness.comparison.ledger_portfolio_id ? "初回台帳は登録済みです。" : "初回台帳は未確定です。"} 採用モデルと最新予測が揃うまで、研究用表示を続けます。</p>
+    <h3>登録状況</h3><button className="button button--secondary" disabled={blocked || readinessBusy} onClick={refresh}>{readinessBusy ? "準備状況を確認中…" : "準備状況を確認"}</button><p>{!readiness ? "準備状況は未確認です。" : readiness.comparison.ledger_portfolio_id ? "初回台帳は登録済みです。" : "初回台帳は未確定です。"} 採用モデルと最新予測が揃うまで、研究用表示を続けます。</p>
     {reasons.length > 0 && <ul>{reasons.map(x => <li key={x}>{x}</li>)}</ul>}
     </div>
     {!busy && message && <p role="status">{message}</p>}

@@ -169,7 +169,17 @@ final class LocalComputeOwner {
             || path.equals("/api/v1/mobile/personal/initial/confirm")
             || path.equals("/api/v1/mobile/personal/current/preview")
             || path.equals("/api/v1/mobile/personal/current/confirm")
-            || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}/note"));
+            || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}/note")
+            || path.equals("/api/v1/portfolio/apply-executions")
+            || path.equals("/api/v1/imports/executions/preview")
+            || path.equals("/api/v1/imports/positions/preview")
+            || path.matches("/api/v1/proposals/[^/?#]+/decisions")
+            || path.matches("/api/v1/decisions/[^/?#]+/executions")
+            || path.matches("/api/v1/imports/(executions|positions)/[^/?#]+/confirm"));
+    }
+
+    static boolean requiresPersistence(String method, String path) {
+        return "POST".equals(method) && !path.matches("/api/v1/proposals/[^/?#]+/review");
     }
 
     CompletableFuture<JSObject> request(String method, String path, String body) {
@@ -193,7 +203,7 @@ final class LocalComputeOwner {
                     int status = result.getInt("status");
                     if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
                     if (analysis) checkpoints.response(status, result.optJSONObject("body"));
-                    if ("POST".equals(method)) {
+                    if (requiresPersistence(method, path)) {
                         if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
                         long previous = generation;
                         generation = operations ? state.commitOperations(generation, reply.state)

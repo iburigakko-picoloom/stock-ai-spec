@@ -46,6 +46,7 @@ SOURCE_FILES = [
     "operations/manual_settings.py",
     "operations/personal.py",
     "operations/api.py",
+    "operations/integrity.py",
 ]
 
 

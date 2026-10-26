@@ -138,6 +138,7 @@ public class LocalComputeOwnerTest {
         JSObject home = result(owner.request("GET", "/api/v1/home", "null"));
         long generation = owner.state.currentGeneration();
         assertTrue(owner.readViews.read("/api/v1/home").getBoolean("readOnly"));
+        assertTrue(owner.readViews.read("/api/v1/mobile/portfolio").getBoolean("readOnly"));
         assertEquals(home.getJSONObject("body").toString(), owner.readViews.read("/api/v1/home").getJSONObject("body").toString());
         try (LocalStateStore.StartupLease leases = owner.state.openStartupLease()) {
             assertNotNull("Personal save stays an independent operations overlay", leases.operations);
@@ -152,9 +153,26 @@ public class LocalComputeOwnerTest {
         try {
             assertTrue(entered.await(10, TimeUnit.SECONDS));
             assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
+            assertTrue(owner.readViews.read("/api/v1/mobile/portfolio").getBoolean("available"));
             try { owner.readViews.read("/api/v1/today/review"); fail("Unsafe route cached"); }
             catch (IllegalArgumentException expected) { }
         } finally { release.countDown(); }
+    }
+
+    @Test public void readOnlyReviewDoesNotPublishStateAndImportsUseOperationsOverlay() throws Exception {
+        result(owner.request("GET", "/api/v1/health", "null"));
+        long generation = owner.state.currentGeneration();
+        JSObject review = result(owner.request("POST", "/api/v1/proposals/missing/review", "{\"selectedTargets\":{}}"));
+        assertTrue(review.getInteger("status") >= 400);
+        assertEquals(generation, owner.state.currentGeneration());
+        for (String path : new String[]{"/api/v1/imports/positions/preview", "/api/v1/imports/executions/preview"}) {
+            assertTrue(LocalComputeOwner.operationsOnly("POST", path));
+            assertEquals(422, result(owner.request("POST", path, "{\"csvText\":\"invalid csv\"}")).getInt("status"));
+            try (LocalStateStore.StartupLease saved = owner.state.openStartupLease()) {
+                assertNotNull(saved.operations);
+            }
+        }
+        assertFalse(LocalComputeOwner.operationsOnly("POST", "/api/v1/mobile/market/ingest"));
     }
 
     private java.util.concurrent.ExecutorService ownerQueue() throws Exception {

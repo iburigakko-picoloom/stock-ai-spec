@@ -12,7 +12,7 @@ interface SavedDecision {
 
 export function DecisionReviewPage(): ReactNode {
   const [savedKey, setSavedKey] = useState<string | null>(null);
-  const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today");
+  const { data, error, loading } = useApiData<TodayResponse>("/api/v1/today?includeSavedAnalysis=false", { pollMs: 0, refreshOnFocus: false });
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [reviewState, setReview] = useState<{ key: string; value: DecisionReview } | null>(null);
   const [draftProposal, setDraftProposal] = useState("");

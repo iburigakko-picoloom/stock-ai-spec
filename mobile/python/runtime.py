@@ -82,7 +82,17 @@ def _restore_archive(archive: zipfile.ZipFile, *, operations_only=False) -> None
             with closing(sqlite3.connect(uri, uri=True)) as probe:
                 if probe.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                     raise ValueError("Invalid SQLite integrity")
+        # A live observer must release its WAL handles before replacing files.
+        # Close only after every staged snapshot has passed validation.
+        if _app is not None:
+            _app.state.integrity_guard.close()
         for name in names:
+            # The final connection may have been read-only, so SQLite cannot
+            # checkpoint/unlink the old WAL on close. This isolated interpreter
+            # has no live writer here: retire sidecars with the replaced DB,
+            # otherwise old committed pages can overwrite the restored snapshot.
+            for suffix in ("-wal", "-shm", "-journal"):
+                (STATE / (name + suffix)).unlink(missing_ok=True)
             (staged / name).replace(STATE / name)
 
 
@@ -137,6 +147,8 @@ class StateImport:
 
 def initialize(encoded: str = "") -> dict:
     global _app
+    if _app is not None:
+        _app.state.integrity_guard.close()
     STATE.mkdir(exist_ok=True)
     if encoded:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded, validate=True))) as archive:

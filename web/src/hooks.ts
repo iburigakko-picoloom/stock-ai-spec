@@ -3,7 +3,7 @@ import { apiGet } from "./api";
 import { isAndroid, StockAI } from "./mobile/native";
 import { ReadViewActivation } from "./readViewActivation";
 
-export function useApiData<T>(path: string): {
+export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = true }: { pollMs?: number; refreshOnFocus?: boolean } = {}): {
   data: T | null; error: string | null; loading: boolean; savedAt: string | null; reload: () => void;
 } {
   const activation = useContext(ReadViewActivation);
@@ -84,15 +84,17 @@ export function useApiData<T>(path: string): {
     };
     trigger.current = refresh;
     if (available()) refresh(); else offline();
-    document.addEventListener("visibilitychange", visible);
-    window.addEventListener("focus", visible);
+    if (refreshOnFocus) {
+      document.addEventListener("visibilitychange", visible);
+      window.addEventListener("focus", visible);
+    }
     window.addEventListener("online", visible);
     window.addEventListener("offline", offline);
     // A periodic check must not invalidate an unfinished authoritative read.
     // Cold Android restoration can exceed one minute; superseding it on every
     // tick otherwise discards its result and immediately queues another read.
     // Explicit reload/focus still invalidates work after a possible change.
-    const timer = window.setInterval(() => { if (!occupied) visible(); }, 60_000);
+    const timer = pollMs > 0 ? window.setInterval(() => { if (!occupied) visible(); }, pollMs) : null;
     return () => {
       active = false;
       window.clearTimeout(deferred); window.cancelAnimationFrame(frame);
@@ -101,9 +103,9 @@ export function useApiData<T>(path: string): {
       window.removeEventListener("focus", visible);
       window.removeEventListener("online", visible);
       window.removeEventListener("offline", offline);
-      window.clearInterval(timer);
+      if (timer !== null) window.clearInterval(timer);
     };
-  }, [path, activation]);
+  }, [path, activation, pollMs, refreshOnFocus]);
   return { data: result.path === path ? result.value : null, error, savedAt: result.path === path ? savedAt : null,
     loading: loading || result.path !== path || result.activation !== activation, reload };
 }

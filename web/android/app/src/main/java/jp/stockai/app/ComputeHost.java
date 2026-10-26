@@ -158,7 +158,7 @@ final class ComputeHost {
             identity = ++requestId;
             pending = response; incoming = source; expectedGeneration = generation;
             transferPhase = "dispatch";
-            stateExpected = source != null || "POST".equals(command.optString("method"));
+            stateExpected = source != null || LocalComputeOwner.requiresPersistence(command.optString("method"), command.optString("path"));
             optimizedStartup = initialization && command.optBoolean("optimized_startup");
             deferredStartup = optimizedStartup && command.optBoolean("defer_initialize");
         }

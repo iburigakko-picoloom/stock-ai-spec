@@ -93,6 +93,42 @@ public class NativeRecordReaderTest {
         assertEquals("",note.getString("text"));assertTrue(note.isNull("revision"));
         java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);assertNull(host.get(owner));
     }
+    @Test public void executionWritesCommitOnlyOperationsAndSurviveReopenWithoutDoubleApplication() throws Exception {
+        JSONObject fixture=fixture();owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
+        owner.request("GET","/api/v1/health","null").get(300,TimeUnit.SECONDS);
+        String baseHash;
+        try(LocalStateStore.StartupLease lease=owner.state.openStartupLease()){baseHash=lease.base.expectedHash;}
+        String path="/api/v1/decisions/synthetic-record-reader/executions";
+        String body=fixture.getJSONObject("trade_body").toString();
+        JSONObject response=owner.request("POST",path,body).get(300,TimeUnit.SECONDS);
+        assertEquals(201,response.getInt("status"));equalJson(fixture.get("expected_trade"),response.get("body"));
+        try(LocalStateStore.StartupLease lease=owner.state.openStartupLease()){
+            assertNotNull(lease.operations);assertEquals(baseHash,lease.base.expectedHash);
+        }
+        owner.closeForTest().get(30,TimeUnit.SECONDS);owner=LocalComputeOwner.get(context,file);
+        // A response-loss retry after reopening must retain the original execution ID.
+        assertEquals(201,owner.request("POST",path,body).get(300,TimeUnit.SECONDS).getInt("status"));
+        JSONObject applied=owner.request("POST","/api/v1/portfolio/apply-executions",fixture.getJSONObject("apply_body").toString()).get(300,TimeUnit.SECONDS);
+        assertEquals(200,applied.getInt("status"));equalJson(fixture.get("expected_apply"),applied.get("body"));
+        try(LocalStateStore.StartupLease lease=owner.state.openStartupLease()){
+            assertNotNull(lease.operations);assertEquals(baseHash,lease.base.expectedHash);
+        }
+        owner.closeForTest().get(30,TimeUnit.SECONDS);owner=LocalComputeOwner.get(context,file);
+        JSONObject expected=fixture.getJSONObject("expected_after");
+        java.util.Iterator<String> paths=expected.keys();
+        while(paths.hasNext()){
+            String read=paths.next();equalJson(expected.get(read),NativePortfolioReader.readRecords(context,owner.state,read).get("body"));
+        }
+        // Retrying the identical apply may be rejected as old, but must never change balances.
+        owner.request("POST","/api/v1/portfolio/apply-executions",fixture.getJSONObject("apply_body").toString()).get(300,TimeUnit.SECONDS);
+        equalJson(expected.get("/api/v1/home/ledger"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/home/ledger").get("body"));
+        // Full backup composition must also include the durable operations overlay.
+        String backup=owner.readState().get(300,TimeUnit.SECONDS).getString("payload");
+        owner.closeForTest().get(30,TimeUnit.SECONDS);owner=LocalComputeOwner.get(context,file);
+        owner.state.write(owner.state.currentGeneration(),backup);
+        equalJson(expected.get("/api/v1/home/ledger"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/home/ledger").get("body"));
+        equalJson(expected.get("/api/v1/executions"),owner.request("GET","/api/v1/executions","null").get(300,TimeUnit.SECONDS).get("body"));
+    }
     @Test public void balancesAndHistoriesMatchPythonWithoutStartingOrWaitingForPython() throws Exception {
         JSONObject fixture=fixture();owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
         JSONObject expected=fixture.getJSONObject("expected_views");

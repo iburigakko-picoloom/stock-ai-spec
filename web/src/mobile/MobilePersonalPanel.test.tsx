@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { apiGet, apiPost } from "../api";
 import { MobilePersonalPanel } from "./MobilePersonalPanel";
@@ -15,7 +15,7 @@ test("profile revision changes preserve edits and require explicit rebase", asyn
   rerender(<MobilePersonalPanel profile={{ ...profile, revision_id: "d".repeat(64) }} disabled={false} />);
   expect(year).toHaveValue(2025);
   expect(screen.getByRole("button", { name: "補足設定を保存" })).toBeDisabled();
-  expect(apiGet).toHaveBeenCalledTimes(reads + 2);
+  expect(apiGet).toHaveBeenCalledTimes(reads + 1);
   await waitFor(() => expect(screen.getByRole("button", { name: "最新の口座・保有に合わせて見直す" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "最新の口座・保有に合わせて見直す" }));
   expect(year).toHaveValue(2025);
@@ -134,7 +134,9 @@ test("overview distinguishes saved inputs, missing supplements and confirmed bal
   render(<MobilePersonalPanel profile={profile} disabled={false} step="overview" onStep={onStep} portfolioStatus="入力済み" />);
   await waitFor(() => expect(screen.getByRole("button", { name: /取引の確認/ })).toHaveTextContent("未入力"));
   expect(screen.getByRole("button", { name: /現金・買付余力/ })).toHaveTextContent("入力済み");
-  expect(screen.getByRole("button", { name: /初回残高/ })).toHaveTextContent("登録済み");
+  expect(screen.getByRole("button", { name: /初回残高/ })).toHaveTextContent("未確認");
+  fireEvent.click(screen.getByRole("button", { name: "準備状況を確認" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /初回残高/ })).toHaveTextContent("登録済み"));
   expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /初回残高/ }));
   expect(onStep).toHaveBeenCalledWith("balances");
@@ -161,4 +163,28 @@ test("overview never labels failed reads as missing or completed", async () => {
   await screen.findByRole("alert");
   expect(screen.getByRole("button", { name: /取引の確認/ })).toHaveTextContent("確認できません");
   expect(screen.getByRole("button", { name: /初回残高/ })).toHaveTextContent("確認できません");
+});
+
+
+test("settings open and save without enqueuing comparison or price preview", async () => {
+  let resolveReady!: (value: Readiness) => void;
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("readiness")
+    ? new Promise<Readiness>(resolve => { resolveReady = resolve; })
+    : { saved: null, current_portfolio: profile });
+  const { rerender } = render(<MobilePersonalPanel profile={profile} disabled={false} />);
+  const save = await screen.findByRole("button", { name: "補足設定を保存" });
+  expect(save).toBeEnabled();
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  const saved = { revision_id: "b".repeat(64), saved_at: profile.saved_at, settings: emptySettings(profile) };
+  vi.mocked(apiPost).mockResolvedValue({ saved, current_portfolio: profile });
+  fireEvent.click(save);
+  await screen.findByText("保存しました。");
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "準備状況を確認" }));
+  expect(apiGet).toHaveBeenCalledTimes(2);
+  expect(save).toBeEnabled();
+  expect(screen.getByRole("button", { name: "準備状況を確認中…" })).toBeDisabled();
+  rerender(<MobilePersonalPanel profile={{ ...profile, revision_id: "d".repeat(64) }} disabled={false} />);
+  await act(async () => { resolveReady(ready); });
+  expect(screen.queryByText(/初回台帳は未確定です/)).not.toBeInTheDocument();
 });

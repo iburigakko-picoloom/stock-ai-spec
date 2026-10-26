@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -47,6 +48,7 @@ from stock_ai.operations.daily import (
     prediction_score,
     validate_research_link,
 )
+from stock_ai.operations.integrity import IntegrityGuard
 from stock_ai.operations.models import (
     DailyOperationStatus,
     PaperReadoutPeriod,
@@ -364,6 +366,14 @@ def create_app(
     clock: Callable[[], datetime] | None = None,
 ) -> FastAPI:
     store = OperationalStore(database_path)
+    integrity = IntegrityGuard(store)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            integrity.close()
 
     def current_time() -> datetime:
         value = datetime.now(JST) if clock is None else clock()
@@ -377,8 +387,10 @@ def create_app(
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         description="Local decision-support API. It cannot submit securities orders.",
+        lifespan=lifespan,
     )
     app.state.store = store
+    app.state.integrity_guard = integrity
 
     @app.middleware("http")
     async def security_headers(
@@ -399,7 +411,11 @@ def create_app(
                 return JSONResponse(status_code=403, content={"detail": "local origin required"})
         if request.url.path.startswith("/api/"):
             try:
-                store.verify_integrity()
+                request.state.integrity_counts = integrity.verify()
+            except OperationalStorageBusyError:
+                return JSONResponse(status_code=503, content={
+                    "code": "STORAGE_BUSY", "detail": "保存処理中です。再試行してください。",
+                })
             except OperationalIntegrityError:
                 return JSONResponse(
                     status_code=503,
@@ -440,8 +456,8 @@ def create_app(
         )
 
     @app.get("/api/v1/health")
-    def health() -> dict[str, object]:
-        counts = store.verify_integrity()
+    def health(request: Request) -> dict[str, object]:
+        counts = request.state.integrity_counts
         return {
             "status": "ok",
             "orderSubmissionAvailable": False,
@@ -725,11 +741,14 @@ def create_app(
     @app.get("/api/v1/today")
     def today(
         business_date: Annotated[date | None, Query(alias="businessDate")] = None,
+        include_saved_analysis: Annotated[bool, Query(alias="includeSavedAnalysis")] = True,
     ) -> dict[str, object]:
         now = current_time()
         selected_date = business_date or now.date()
         payload = _today(store, selected_date)
         payload["accountLabels"] = _account_labels(store.latest_portfolio())
+        if not include_saved_analysis:
+            return payload
         end = now.replace(
             year=selected_date.year,
             month=selected_date.month,
@@ -951,11 +970,14 @@ def create_app(
         body: CsvPreviewInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        preview = store.preview_execution_csv(
-            body.csv_text,
-            preview_id=body.preview_id,
-            created_at=current_time(),
-        )
+        try:
+            preview = store.preview_execution_csv(
+                body.csv_text,
+                preview_id=body.preview_id,
+                created_at=current_time(),
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         return jsonable_encoder(preview, by_alias=True)
 
     @app.post("/api/v1/imports/executions/{preview_id}/confirm")
@@ -974,11 +996,14 @@ def create_app(
         body: CsvPreviewInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        preview = store.preview_position_reconciliation_csv(
-            body.csv_text,
-            preview_id=body.preview_id,
-            created_at=current_time(),
-        )
+        try:
+            preview = store.preview_position_reconciliation_csv(
+                body.csv_text,
+                preview_id=body.preview_id,
+                created_at=current_time(),
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         return jsonable_encoder(preview, by_alias=True)
 
     @app.post("/api/v1/imports/positions/{preview_id}/confirm")
