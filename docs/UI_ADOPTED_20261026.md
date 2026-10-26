@@ -118,3 +118,5 @@ Vitest197件、型/ESLint/build、配布用ブラウザー10ケース成功。�
 変更は共通の読み物用prompt関数、手動/ランキングのexport表示、ManualChatGPTPage/Rankings/Todayの案内。旧manual検証moduleは変更せず、入力検証・原本・バックアップと履歴を保持する。UI200件、Python104件、型/ESLint/Ruff/mypy77、配布用build成功。ブラウザー11ケースで29画面と新規相談コピー/外部リンク/回答欄なしを確認。証拠は `.demo-artifacts/chatgpt-readable-release/`。実際のChatGPTへは送信していない。
 
 Android35/320dpでも新しい相談の作成/コピー/外部リンクと回答欄なしの1ケースが成功し、100/150%で実キャプチャ。クリップボードとデータは試験境界を使い、製品APKには含めない。署名版のcold起動はnativeコード不変の前版証拠と区別する。
+
+同署名0.1.64-candidate/code10064、source `47886df05754b9ce797d8d3b521aefb83b637db7`、24,084,689 bytes、SHA256 `5a54150487ad8aaca6019d299cd516b754085023b375a228d0b3774d48f7b0d5`を検査し、[非共有Driveへ保存](https://drive.google.com/file/d/1K0xdPpXLGXGX9kostsKmIdms97VagX_p/view?usp=drivesdk)。親/size/shared=falseを再読込確認。署名/46assets/53Pythonの一致、秘密/市場/モデル/fixture非同梱を確認。本人端末更新・実ChatGPTの返答とCIは未確認で、nativeコードが不変のため署名版cold起動を今回実施済みとはしない。証拠は同リリースフォルダーのverified.jsonとdrive-upload-status.json。

@@ -6,6 +6,8 @@
 - 実Android35の320dpでも新規相談の作成/コピー/外部リンク・回答欄なしを1ケースで確認し、文字100/150%を実キャプチャ。外部ChatGPTそのものには遷移/送信せず、clipboardとAPIの境界fixtureだけを置く。これらは製品へ同梱しない。
 - 証拠/APK工程は `.demo-artifacts/chatgpt-readable-release/`。外部ChatGPTへの実送信/実返答、本人Xiaomi・実通信・CIは未確認。投資成績の実験/実注文なし。確認用APKとDrive反映は次の工程。
 
+- 配布完了：同署名0.1.64-candidate/code10064、source `47886df05754b9ce797d8d3b521aefb83b637db7`、24,084,689 bytes、SHA256 `5a54150487ad8aaca6019d299cd516b754085023b375a228d0b3774d48f7b0d5`。署名/非debug・46assets一致・53PythonのGit byte一致・秘密/モデル/試験データ非混入を検査。[0.1.64本人用APK](https://drive.google.com/file/d/1K0xdPpXLGXGX9kostsKmIdms97VagX_p/view?usp=drivesdk)を承認済み非共有StockAIへ保存し、親/size/shared=falseを再読込確認。旧版は保持。nativeコード不変につき署名版cold起動は今回は再実行せず、今回の実WebView相談フロー試験と区別する。ビルドsource以降は配布記録の文書だけを更新する。本人端末更新と実ChatGPTの返答・CIは未確認。
+
 ## 2026-10-26 — 設定トップの下部タブも採用デザインへ統一（D262）
 
 - 「設定トップの維持」は本文だけとする本人補足へ対応。`components.tsx`のアイコン選択と`adopted.css`の共通ナビを設定トップの外観判定から分離した。設定項目/本文CSS/保存処理/スクロールと5つの名前・行先を維持。
