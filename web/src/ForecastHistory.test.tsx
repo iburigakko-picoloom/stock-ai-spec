@@ -14,15 +14,18 @@ afterEach(cleanup);
 
 test("shows both periods and separate same-day forecasts without a second action",async()=>{
   const view=render(<ForecastHistory symbol="7203" />);
-  const graph=await screen.findByRole("img",{name:"5日と20日の保存予測の推移"});
+  const graph=await screen.findByRole("img",{name:"5日と20日の保存予測の折れ線グラフ"});
   expect(graph).toBeVisible();
   expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/stocks/7203/forecast-history?days=90");
   expect(screen.getByText("5日 未提供 / 20日 0.00%")).toBeVisible();
-  fireEvent.click(view.container.querySelectorAll(".forecast-bars-group")[0]);
+  fireEvent.click(view.container.querySelectorAll(".forecast-point-group")[0]);
   expect(screen.getByText("5日 +2.00% / 20日 -5.00%")).toBeVisible();
   fireEvent.change(screen.getByLabelText("数値を見る日"),{target:{value:"reference:b"}});
   expect(screen.getByText("5日 未提供 / 20日 0.00%")).toBeVisible();
-  expect(view.container.querySelectorAll("svg rect")).toHaveLength(3);
+  expect(view.container.querySelectorAll("svg circle[data-series='5日']")).toHaveLength(1);
+  expect(view.container.querySelectorAll("svg polygon[data-series='20日']")).toHaveLength(2);
+  expect(view.container.querySelectorAll("line.forecast-line-segment[data-series='5日']")).toHaveLength(0);
+  expect(view.container.querySelectorAll("line.forecast-line-segment[data-series='20日']")).toHaveLength(1);
   expect(screen.queryByRole("button",{name:"5日"})).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button",{name:"1か月"}));
   await waitFor(()=>expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/stocks/7203/forecast-history?days=30"));

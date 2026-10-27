@@ -122,7 +122,7 @@ test("stock details fit narrow screens with large position values", async ({page
   expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`forecast bars fit ${width}px and show both horizons`, async ({page},info) => {
+for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`forecast lines fit ${width}px and show both horizons`, async ({page},info) => {
   if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width,height:800});
   let calls=0;
   await page.route("**/api/v1/mobile/stocks/1234/forecast-history?*", route=>{
@@ -132,19 +132,21 @@ for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`
   });
   await page.goto("http://127.0.0.1:5196/#/stocks/1234");
   const chart=page.getByRole("region",{name:"モデル予測の推移"});
-  await expect(chart.getByRole("img",{name:"5日と20日の保存予測の推移"})).toBeVisible();
+  await expect(chart.getByRole("img",{name:"5日と20日の保存予測の折れ線グラフ"})).toBeVisible();
   expect(calls).toBe(1);
   await expect(chart.getByText("5日 +2.00% / 20日 -5.00%").first()).toBeVisible();
-  expect(await chart.locator("svg rect").count()).toBe(24);
-  expect(await chart.locator(".forecast-bars-scroll").evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
+  expect(await chart.locator("circle[data-series='5日']").count()).toBe(12);
+  expect(await chart.locator("polygon[data-series='20日']").count()).toBe(12);
+  expect(await chart.locator(".forecast-line-segment").count()).toBe(22);
+  expect(await chart.locator(".forecast-plot-scroll").evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
   for (const font of [100,150]) {
     await page.addStyleTag({content:`html{font-size:${font}%}`});
     expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
-    const overflow=await chart.locator("button,.forecast-bars-scroll").evaluateAll(nodes=>nodes.filter(node=>{
+    const overflow=await chart.locator("button,.forecast-plot-scroll").evaluateAll(nodes=>nodes.filter(node=>{
       const r=node.getBoundingClientRect();return r.left < -1 || r.right > window.innerWidth+1;
     }).map(node=>node.outerHTML.slice(0,100)));
     expect(overflow).toEqual([]);
-    if (!process.env.STOCKAI_ANDROID_UI && font===150) await chart.locator(".forecast-bars-frame").screenshot({path:info.outputPath(`forecast-bars-${width}.png`)});
+    if (!process.env.STOCKAI_ANDROID_UI && font===150) await chart.locator(".forecast-plot-frame").screenshot({path:info.outputPath(`forecast-lines-${width}.png`)});
   }
 });
 
