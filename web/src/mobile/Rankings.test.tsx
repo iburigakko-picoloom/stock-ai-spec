@@ -128,6 +128,28 @@ test("holding and search filters keep model ranks and a refreshed result changes
   expect(screen.getByText("2000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "1位");
 });
 
+test("loads missing company names without changing ranks and supports name search", async () => {
+  vi.mocked(useApiData).mockReturnValue({data:{...base,snapshotId:"snapshot-a"},loading:false,error:null,savedAt:null,reload});
+  vi.mocked(apiGet).mockResolvedValue({snapshotId:"snapshot-a",names:{"1000":"合成企業甲","2000":"合成企業乙"}});
+  render(<MemoryRouter><Rankings /></MemoryRouter>);
+  expect(await screen.findByText("合成企業乙")).toBeVisible();
+  expect(screen.getByText("合成企業乙").closest(".ranking-table-row")).toHaveTextContent("2000");
+  fireEvent.change(screen.getByRole("searchbox"),{target:{value:"合成企業乙"}});
+  expect(screen.getByLabelText("2位")).toBeVisible();
+  expect(screen.queryByText("合成企業甲")).not.toBeInTheDocument();
+  expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/ranking/5d/names");
+});
+
+test("ignores names from a different forecast snapshot", async () => {
+  vi.mocked(useApiData).mockReturnValue({data:{...base,snapshotId:"new"},loading:false,error:null,savedAt:null,reload});
+  vi.mocked(apiGet).mockResolvedValue({snapshotId:"old",names:{"1000":"古い銘柄名"}});
+  render(<MemoryRouter><Rankings /></MemoryRouter>);
+  await waitFor(()=>expect(apiGet).toHaveBeenCalled());
+  expect(screen.queryByText("古い銘柄名")).not.toBeInTheDocument();
+  expect(screen.getByText("1000")).toBeVisible();
+  expect(await screen.findByText("一部の銘柄名を確認できませんでした。銘柄コードを表示しています。")).toBeVisible();
+});
+
 test("large ranking draws automatically while filters use every result and preserve its rank", () => {
   const rows=Array.from({length:150},(_,index)=>({symbol:String(1000+index),modelRank:index+1,score:150-index,expectedReturn:(150-index)/10000}));
   vi.mocked(useApiData).mockReturnValue({data:{...base,rows,total:rows.length,holdingSymbols:["1149"]},loading:false,error:null,savedAt:null,reload});

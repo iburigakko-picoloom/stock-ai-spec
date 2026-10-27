@@ -2,7 +2,7 @@ import json
 from datetime import timedelta
 
 import pytest
-from mobile.python import forecasts, rankings
+from mobile.python import forecasts, market, rankings
 
 from stock_ai.operations.daily import PredictionSnapshot, content_id
 from tests.test_consultation_context import findings
@@ -95,6 +95,56 @@ def test_display_metrics_preserve_identity_and_do_not_invent_rank_scores(ready):
     assert current["holdingSymbols"] == sorted({
         p.symbol for p in store.latest_portfolio().positions if p.shares > 0
     })
+
+
+def test_display_names_use_verified_master_without_changing_ranking_identity(ready):
+    from tests.test_mobile_market import payload
+    from tests.test_mobile_runtime import run
+
+    device, store, path, now, before, exported, _ = prepare(ready)
+    names = rankings.display_names(path, store, now, "20d")
+    assert names["snapshotId"] == before["snapshotId"]
+    assert names["names"]["1000"] == "Synthetic fixture"
+    assert names["names"]["7203"] == "synthetic fixture"
+    response = run(device, "GET", "/api/v1/mobile/ranking/20d/names")
+    assert response["status"] == 200
+    assert response["body"] == names
+    later = payload()
+    later["received_at"] = (now + timedelta(days=1)).isoformat()
+    later["datasets"]["security_master"][0]["CoName"] = "future correction"
+    market.ingest(path, later)
+    after_names = rankings.display_names(path, store, now + timedelta(days=2), "20d")
+    assert after_names["names"]["7203"] == "synthetic fixture"
+    after = rankings.view(path, store, now + timedelta(days=2), "20d")
+    assert after["id"] == before["id"]
+    assert after["rows"] == before["rows"]
+    assert after["savedInput"]["id"] == exported["id"]
+
+
+def test_display_names_rejects_tampered_master(ready):
+    from mobile.python.storage import connect
+
+    _, store, path, now, *_ = prepare(ready)
+    with connect(path) as db:
+        db.execute("UPDATE market_batches SET payload_hash=? WHERE dataset='security_master'",
+                   ("0" * 64,))
+    with pytest.raises(ValueError, match="Stored candidate source changed"):
+        rankings.display_names(path, store, now, "20d")
+
+
+def test_display_names_uses_the_forecast_frozen_membership(ready, monkeypatch):
+    _, store, path, now, *_ = prepare(ready)
+    snapshot, receipt, _ = rankings._latest(path, store, now)
+    receipt["scope"]["universe"]["membership_acquisition_id"] = "frozen-membership"
+    monkeypatch.setattr(rankings, "_latest", lambda *args: (snapshot, receipt, None))
+    calls = []
+    def reference(source_path, acquisition, cutoff):
+        calls.append((source_path, acquisition, cutoff))
+        return {"datasets": {"security_master": [{"Code": "72030", "CoName": "Frozen name"}]}}
+    monkeypatch.setattr(rankings.membership, "reference", reference)
+    result = rankings.display_names(path, store, now, "20d")
+    assert result["names"]["7203"] == "Frozen name"
+    assert calls == [(path, "frozen-membership", snapshot.as_of)]
 
 
 @pytest.mark.parametrize("case", ["duplicate", "missing", "unknown", "wrong_id"])

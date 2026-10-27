@@ -1,7 +1,8 @@
 """Saved rankings and snapshot-bound manual ChatGPT ordering, without ledger writes."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from stock_ai.operations.chatgpt_manual import ExternalAiPermission
 from stock_ai.operations.consultation import (
@@ -13,7 +14,8 @@ from stock_ai.operations.consultation import (
 from stock_ai.operations.daily import content_id
 from stock_ai.operations.manual_portfolio import strict_json
 
-from . import forecasts, market
+from . import forecasts, market, membership, universe
+from .storage import connect
 
 
 def _read(store, key):
@@ -50,6 +52,56 @@ def _latest(path, store, now):
             receipt = reference
             price_date = reference["scope"]["universe"]["latest_source_date"]
     return snapshot, receipt, price_date
+
+
+def display_names(path, store, now, horizon):
+    """Resolve display-only names using observations available at the snapshot time."""
+    if horizon not in ("5d", "20d"):
+        raise ValueError("5日または20日を選んでください")
+    snapshot, receipt, _ = _latest(path, store, now)
+    if snapshot is None:
+        return None
+    wanted = set(snapshot.research_symbols())
+    names = {}
+    receipt_snapshot = receipt.get("snapshot") if receipt else None
+    scope = (receipt.get("scope", {}) if receipt_snapshot
+             and receipt_snapshot.get("snapshot_id") == snapshot.snapshot_id else {})
+    if scope:
+        names.update({row["symbol"]: row["company_name"]
+                      for row in scope.get("universe", {}).get("new_candidates", [])
+                      if row.get("symbol") in wanted and row.get("company_name")})
+    missing = wanted - names.keys()
+    cutoff = snapshot.as_of
+
+    def add(rows):
+        for row in rows:
+            code, name = row.get("Code"), row.get("CoName")
+            if (isinstance(code, str) and len(code) == 5 and code.endswith("0")
+                    and code[:-1] in missing and isinstance(name, str) and name.strip()):
+                names[code[:-1]] = name.strip()
+        missing.difference_update(names)
+
+    if missing:
+        acquisition = scope.get("universe", {}).get("membership_acquisition_id")
+        observed = (membership.reference(path, acquisition, cutoff) if acquisition
+                    else membership.snapshot(path, cutoff))
+        if observed is not None:
+            add(observed["datasets"]["security_master"])
+    if missing:
+        with connect(path) as db:
+            row = db.execute(
+                "SELECT day FROM market_batches WHERE dataset='security_master' "
+                "AND day<=? AND received_at<=? "
+                "ORDER BY day DESC,received_at DESC,sequence DESC LIMIT 1",
+                (cutoff.astimezone(ZoneInfo("Asia/Tokyo")).date().isoformat(),
+                 cutoff.astimezone(UTC).isoformat(timespec="microseconds")),
+            ).fetchone()
+        if row is not None:
+            for _, records, _ in universe._observations(
+                path, "security_master", row[0], row[0], cutoff
+            ):
+                add(records)
+    return {"snapshotId": snapshot.snapshot_id, "names": names}
 
 
 def view(path, store, now, horizon):

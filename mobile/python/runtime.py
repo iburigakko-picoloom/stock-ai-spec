@@ -457,6 +457,8 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             args = (STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC), horizon)
             if len(parts) == 1 and method == "GET":
                 result = rankings.view(*args)
+            elif len(parts) == 2 and parts[1] == "names" and method == "GET":
+                result = rankings.display_names(*args)
             elif (len(parts) == 2 and method == "POST"
                   and parts[1] in ("export", "answer", "research", "review")):
                 operation = {"export": rankings.export, "answer": rankings.import_answer,
