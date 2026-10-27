@@ -7,6 +7,7 @@ import json
 import sqlite3
 import zipfile
 from contextlib import closing
+from unittest.mock import Mock
 
 import pytest
 from mobile.python import runtime
@@ -69,6 +70,61 @@ def test_checked_startup_skips_unchanged_and_saves_only_changed_database(device,
 
     monkeypatch.setattr(device, "initialize", market_migration)
     assert device.initialize_checked() == {"persistence": "full"}
+
+
+def test_unchanged_startup_reuses_integrity_proof_for_first_read(device, monkeypatch):
+    original_create = device.create_app
+    verifiers = []
+    def traced_create(*args, **kwargs):
+        app = original_create(*args, **kwargs)
+        verify = Mock(wraps=app.state.store.verify_integrity)
+        monkeypatch.setattr(app.state.store, "verify_integrity", verify)
+        verifiers.append(verify)
+        return app
+    monkeypatch.setattr(device, "create_app", traced_create)
+    device.initialize()
+    assert verifiers[-1].call_count == 1
+    assert run(device, "GET", "/api/v1/today?includeSavedAnalysis=false")["status"] == 200
+    assert verifiers[-1].call_count == 1
+
+
+def test_startup_rechecks_and_rejects_corruption_during_reconciliation(device, monkeypatch):
+    from stock_ai.operations.store import OperationalIntegrityError
+    from tests.conftest import AS_OF, portfolio
+
+    device._app.state.store.append_portfolio(portfolio(), created_at=AS_OF)
+    initialize = device.personal.initialize
+    def corrupt_after_initial_check(store, path, now):
+        initialize(store, path, now)
+        with closing(sqlite3.connect(store.path)) as db:
+            db.execute("UPDATE portfolio_states SET content_hash='corrupt'")
+            db.commit()
+    monkeypatch.setattr(device.personal, "initialize", corrupt_after_initial_check)
+    with pytest.raises(OperationalIntegrityError):
+        device.initialize()
+
+
+def test_startup_rechecks_after_legitimate_store_change(device, monkeypatch):
+    original_create = device.create_app
+    verifiers = []
+    def traced_create(*args, **kwargs):
+        app = original_create(*args, **kwargs)
+        verify = Mock(wraps=app.state.store.verify_integrity)
+        monkeypatch.setattr(app.state.store, "verify_integrity", verify)
+        verifiers.append(verify)
+        return app
+    initialize = device.personal.initialize
+    def change_after_initial_check(store, path, now):
+        initialize(store, path, now)
+        with closing(sqlite3.connect(store.path)) as db:
+            db.execute("INSERT INTO operational_metadata VALUES('startup_probe','v1')")
+            db.commit()
+    monkeypatch.setattr(device, "create_app", traced_create)
+    monkeypatch.setattr(device.personal, "initialize", change_after_initial_check)
+    device.initialize()
+    assert verifiers[-1].call_count == 2
+    assert run(device, "GET", "/api/v1/today?includeSavedAnalysis=false")["status"] == 200
+    assert verifiers[-1].call_count == 2
 
 
 def test_split_startup_overlay_preserves_market_and_rejects_market_in_overlay(device):

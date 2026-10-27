@@ -171,7 +171,9 @@ def initialize(encoded: str = "") -> dict:
         if isinstance(route, APIRoute):
             adapt(route.dependant)
             route.app = request_response(route.get_route_handler())
-    _app.state.store.verify_integrity()
+    # Seed the same file/version-aware proof used by API reads. Startup
+    # reconciliation can write to the store, so check it again afterward.
+    _app.state.integrity_guard.verify()
     with mobile_db() as db:
         db.execute(
             "CREATE TABLE IF NOT EXISTS manual_inputs ("
@@ -185,7 +187,7 @@ def initialize(encoded: str = "") -> dict:
     personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
     decisions.initialize(STATE / "mobile.sqlite3")
     decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store)
-    _app.state.store.verify_integrity()
+    _app.state.integrity_guard.verify()
     return {"research_only": True, "order_submission": False}
 
 
