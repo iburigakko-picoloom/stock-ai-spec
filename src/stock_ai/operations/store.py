@@ -1179,13 +1179,13 @@ class OperationalStore:
                 connection.execute("BEGIN IMMEDIATE")
                 connection.execute(
                     "CREATE TABLE executions_optional (execution_id TEXT PRIMARY KEY, "
-                    "decision_id TEXT, executed_at TEXT NOT NULL, payload TEXT NOT NULL, "
-                    "content_hash TEXT NOT NULL, "
+                    "decision_id TEXT, executed_at TEXT NOT NULL, content_hash TEXT NOT NULL, "
+                    "payload TEXT NOT NULL, "
                     "FOREIGN KEY(decision_id) REFERENCES user_decisions(decision_id))"
                 )
                 connection.execute(
                     "INSERT INTO executions_optional SELECT "
-                    "execution_id,decision_id,executed_at,payload,content_hash FROM executions"
+                    "execution_id,decision_id,executed_at,content_hash,payload FROM executions"
                 )
                 connection.execute("DROP TABLE executions")
                 connection.execute("ALTER TABLE executions_optional RENAME TO executions")

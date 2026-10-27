@@ -99,6 +99,75 @@ def test_schema_changes_and_automatic_records_are_not_accepted(migrated, tmp_pat
         verify_capsule(runtime.export_state().encode("ascii"), legacy, tmp_path / "unexpected")
 
 
+@pytest.mark.parametrize("column", ["decision_id", "content_hash", "payload"])
+def test_nonempty_execution_migration_still_rejects_changed_legacy_cells(
+    migrated, tmp_path, column
+):
+    legacy, state = migrated
+    with closing(sqlite3.connect(state / "operations.sqlite3")) as db:
+        db.execute(f'UPDATE executions SET "{column}"=?', ("synthetic-tampering",))
+        db.commit()
+    with pytest.raises(ValueError, match="typed cells"):
+        verify_capsule(
+            runtime.export_state().encode("ascii"), legacy, tmp_path / "executions-changed"
+        )
+
+
+def test_nonempty_execution_migration_rejects_unreviewed_schema_changes(migrated, tmp_path):
+    legacy, state = migrated
+    with closing(sqlite3.connect(state / "operations.sqlite3")) as db:
+        db.execute("ALTER TABLE executions RENAME COLUMN decision_id TO changed_decision")
+        db.commit()
+    with pytest.raises(ValueError, match=r"schema objects|columns"):
+        verify_capsule(
+            runtime.export_state().encode("ascii"), legacy, tmp_path / "executions-schema"
+        )
+
+
+def test_new_reference_runs_must_be_empty_and_match_reviewed_schema(migrated, tmp_path):
+    legacy, state = migrated
+    with closing(sqlite3.connect(state / "mobile.sqlite3")) as db:
+        db.execute("INSERT INTO mobile_reference_runs VALUES (1,'test','test','{}','test','test')")
+        db.commit()
+    with pytest.raises(ValueError, match="automatic records"):
+        verify_capsule(runtime.export_state().encode("ascii"), legacy, tmp_path / "reference-data")
+    with closing(sqlite3.connect(state / "mobile.sqlite3")) as db:
+        db.execute("DELETE FROM mobile_reference_runs")
+        db.execute("ALTER TABLE mobile_reference_runs ADD COLUMN unexpected TEXT")
+        db.commit()
+    with pytest.raises(ValueError, match=r"reference run schema|reference run columns"):
+        verify_capsule(
+            runtime.export_state().encode("ascii"), legacy, tmp_path / "reference-schema"
+        )
+
+
+def test_already_migrated_execution_layout_and_rows_survive_reopen(migrated, tmp_path, monkeypatch):
+    _, state = migrated
+    with closing(sqlite3.connect(state / "operations.sqlite3")) as db:
+        db.execute(
+            "CREATE TABLE executions_previous (execution_id TEXT PRIMARY KEY, "
+            "decision_id TEXT, executed_at TEXT NOT NULL, payload TEXT NOT NULL, "
+            "content_hash TEXT NOT NULL, "
+            "FOREIGN KEY(decision_id) REFERENCES user_decisions(decision_id))"
+        )
+        db.execute(
+            "INSERT INTO executions_previous SELECT "
+            "execution_id,decision_id,executed_at,payload,content_hash FROM executions"
+        )
+        db.execute("DROP TABLE executions")
+        db.execute("ALTER TABLE executions_previous RENAME TO executions")
+        db.commit()
+        original_columns = list(db.execute("PRAGMA table_info(executions)"))
+        original_rows = list(db.execute("SELECT * FROM executions ORDER BY execution_id"))
+    payload = runtime.export_state()
+    monkeypatch.setattr(runtime, "STATE", tmp_path / "previous-layout-reopened")
+    runtime.initialize(payload)
+    runtime._app.state.store.verify_integrity()
+    with closing(sqlite3.connect(runtime.STATE / "operations.sqlite3")) as db:
+        assert list(db.execute("PRAGMA table_info(executions)")) == original_columns
+        assert list(db.execute("SELECT * FROM executions ORDER BY execution_id")) == original_rows
+
+
 def test_unpinned_or_non_synthetic_fixture_cannot_reach_a_device(tmp_path, monkeypatch):
     encoded = FIXTURE.read_bytes()
     with pytest.raises(ValueError, match="fixture bytes changed"):
@@ -256,10 +325,16 @@ def test_legacy_archive_has_git_blob_bytes_under_both_checkout_line_endings(tmp_
 
     pins = json.loads(PINS.read_text())
     for name, expected in pins["source_sha256"].items():
-        original = subprocess.check_output([
-            "git", "-c", "safe.directory=" + ROOT.as_posix(),
-            "show", pins["source_commit"] + ":" + name,
-        ], cwd=ROOT)
+        original = subprocess.check_output(
+            [
+                "git",
+                "-c",
+                "safe.directory=" + ROOT.as_posix(),
+                "show",
+                pins["source_commit"] + ":" + name,
+            ],
+            cwd=ROOT,
+        )
         assert digest(original) == expected, name
     receipts = []
     count = int(os.environ.get("GIT_CONFIG_COUNT", "0"))

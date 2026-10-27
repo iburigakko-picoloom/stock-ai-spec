@@ -35,8 +35,11 @@ final class AnalysisCheckpoints {
     }
     synchronized String begin(Context context, long generation, String body) throws Exception {
         String code;
-        try (java.io.InputStream input = context.getAssets().open("public/python/build-info.json")) {
-            code = new JSONObject(new String(input.readAllBytes(), StandardCharsets.UTF_8)).getString("source_commit");
+        try (java.io.InputStream input = context.getAssets().open("public/python/build-info.json");
+                java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096]; int length;
+            while ((length = input.read(buffer)) != -1) output.write(buffer, 0, length);
+            code = new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8)).getString("source_commit");
         }
         String inputKey = code + ":" + body + ":" + LocalDate.now(ZoneId.of("Asia/Tokyo"));
         String key = generation + ":" + inputKey;

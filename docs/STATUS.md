@@ -1,3 +1,9 @@
+## 2026-10-27 — GitHub CIの移行・Android互換性エラーを修正（D294–D295）
+
+- GitHub run `40445906894` はPythonの旧データ検証4件とAndroid lintで失敗。旧約定テーブルを手動記録対応へ移行する際、内容は同じでも `payload` と `content_hash` の列順が入れ替わっていたため、旧列順を保つよう移行を修正。すでに旧版APKで移行済みの別順序も、再起動でスキーマ・全取引行が変わらないことを合成データで確認。
+- 旧データ検証は `decision_id` のnullable化のみを許可し、新しい `mobile_reference_runs` は指定のschema・列・空テーブルのみ許可。旧取引の各セル変更、schema変更、新テーブルへの勝手な記録を拒否する試験を追加。旧/移行済み・合成fixture・取引読取27件、口座・保存・取引関連117件、Ruff成功。旧APK候補の後に製品コードが変わったため、その候補は最新版ではない。
+- Android最小API 26で使えない `InputStream.readAllBytes` を同じ内容を読む互換実装に変更し、Android `lintDebug` が成功。前回CIはAndroidテスト実行前に止まったため、修正コミットでCIを再実行して確認する。本人端末の既存データと署名付きAPK上書きは未確認。
+
 ## 2026-10-27 — Android CI用の合成記録を準備（D293）
 
 - Android CIが直接読取テスト用の2つのfixtureを含まず失敗することを発見。実コードの契約を使い、隔離一時ディレクトリから当日の合成判断・約定・残高・メモを生成し、AndroidテストAPKへ含める手順を追加。既存fixtureは上書きしない。生成後の約定・現金・保有数、SQLite archive、上書き拒否のPython 1件とRuffが成功。生成した2件がローカルのAndroidテストAPKにbyte一致で含まれることも確認した。製品APKには含めない。

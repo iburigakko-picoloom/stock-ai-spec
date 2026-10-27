@@ -25,6 +25,39 @@ ROOT = Path(__file__).resolve().parents[1]
 PINS = ROOT / "scripts/fixtures/android-upgrade-source.json"
 FIXTURE = ROOT / "web/android/app/src/androidTest/assets/legacy-upgrade.json"
 CURRENT_VERSION = 20000
+# The manual-execution migration only makes decision_id optional. It preserves
+# the original column order, every legacy row, and the original foreign key.
+EXECUTIONS_OPTIONAL_SCHEMA = [
+    "table",
+    "executions",
+    "executions",
+    'CREATE TABLE "executions" (execution_id TEXT PRIMARY KEY, '
+    "decision_id TEXT, executed_at TEXT NOT NULL, content_hash TEXT NOT NULL, "
+    "payload TEXT NOT NULL, FOREIGN KEY(decision_id) REFERENCES user_decisions(decision_id))",
+]
+EXECUTIONS_OPTIONAL_COLUMNS = [
+    [0, "execution_id", "TEXT", 0, None, 1],
+    [1, "decision_id", "TEXT", 0, None, 0],
+    [2, "executed_at", "TEXT", 1, None, 0],
+    [3, "content_hash", "TEXT", 1, None, 0],
+    [4, "payload", "TEXT", 1, None, 0],
+]
+REFERENCE_RUNS_SCHEMA = [
+    "table",
+    "mobile_reference_runs",
+    "mobile_reference_runs",
+    "CREATE TABLE mobile_reference_runs(sequence INTEGER PRIMARY KEY,run_id TEXT NOT NULL UNIQUE,"
+    "scope_hash TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,"
+    "content_hash TEXT NOT NULL,phase TEXT NOT NULL)",
+]
+REFERENCE_RUNS_COLUMNS = [
+    [0, "sequence", "INTEGER", 0, None, 1],
+    [1, "run_id", "TEXT", 1, None, 0],
+    [2, "scope_hash", "TEXT", 1, None, 0],
+    [3, "payload", "TEXT", 1, None, 0],
+    [4, "content_hash", "TEXT", 1, None, 0],
+    [5, "phase", "TEXT", 1, None, 0],
+]
 
 
 def digest(value: bytes) -> str:
@@ -142,7 +175,10 @@ def verify_capsule(payload: bytes, fixture: dict, destination: Path) -> dict:
             if any(actual["tables"].get(name) != proof for name, proof in expected.items()):
                 raise ValueError("A legacy table's typed cells changed")
             added = set(actual["tables"]) - set(expected)
-            if added != set(fixture["known_new_tables"][info.filename]) or any(
+            allowed_added = set(fixture["known_new_tables"][info.filename])
+            if info.filename == "mobile.sqlite3":
+                allowed_added.add("mobile_reference_runs")
+            if added != allowed_added or any(
                 actual["tables"][name]
                 != fixture["new_table_initial_rows"][info.filename].get(
                     name, {"rows": 0, "typed_cells_sha256": digest(b"")}
@@ -158,19 +194,33 @@ def verify_capsule(payload: bytes, fixture: dict, destination: Path) -> dict:
                         "WHERE name NOT LIKE 'sqlite_%'"
                     )
                 }
+                if info.filename == "mobile.sqlite3":
+                    if (
+                        actual_schema.get(("table", "mobile_reference_runs"))
+                        != REFERENCE_RUNS_SCHEMA
+                    ):
+                        raise ValueError("Reviewed reference run schema changed")
+                    if [
+                        list(row) for row in db.execute("PRAGMA table_info(mobile_reference_runs)")
+                    ] != REFERENCE_RUNS_COLUMNS:
+                        raise ValueError("Reviewed reference run columns changed")
                 for row in fixture["legacy_schema"][info.filename]:
-                    expected_schema = (
-                        migrations[row[1]]["schema"]
-                        if row[0] == "table" and row[1] in migrations
-                        else row
-                    )
+                    if info.filename == "operations.sqlite3" and row[:2] == ["table", "executions"]:
+                        expected_schema = EXECUTIONS_OPTIONAL_SCHEMA
+                    elif row[0] == "table" and row[1] in migrations:
+                        expected_schema = migrations[row[1]]["schema"]
+                    else:
+                        expected_schema = row
                     if actual_schema.get((row[0], row[1])) != expected_schema:
                         raise ValueError("Legacy schema objects changed")
                 for table, columns in fixture["legacy_columns"][info.filename].items():
                     quoted = '"' + table.replace('"', '""') + '"'
-                    expected_columns = (
-                        migrations[table]["columns"] if table in migrations else columns
-                    )
+                    if info.filename == "operations.sqlite3" and table == "executions":
+                        expected_columns = EXECUTIONS_OPTIONAL_COLUMNS
+                    else:
+                        expected_columns = (
+                            migrations[table]["columns"] if table in migrations else columns
+                        )
                     if [
                         list(row) for row in db.execute(f"PRAGMA table_info({quoted})")
                     ] != expected_columns:
