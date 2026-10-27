@@ -25,9 +25,17 @@ export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = 
     let pending = false;
     let deferred = 0;
     let frame = 0;
+    let foregroundFrame = 0;
+    let foregroundTimer = 0;
+    let foregroundScheduled = false;
     const available = () => isAndroid() || navigator.onLine;
+    const clearForeground = (): void => {
+      foregroundScheduled = false;
+      window.cancelAnimationFrame(foregroundFrame); window.clearTimeout(foregroundTimer);
+      foregroundFrame = 0; foregroundTimer = 0;
+    };
     const drain = (): void => {
-      if (!active || occupied || !pending || !available()) return;
+      if (!active || occupied || !pending || foregroundScheduled || !available()) return;
       pending = false;
       occupied = true;
       const started = epoch;
@@ -77,12 +85,28 @@ export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = 
         }).catch(fresh);
       } else fresh();
     };
-    const refresh = (): void => { epoch++; pending = true; drain(); };
+    const refresh = (): void => { clearForeground(); epoch++; pending = true; drain(); };
     const visible = (): void => {
       if (document.visibilityState === "visible" && available()) refresh();
     };
+    const foreground = (): void => {
+      if (document.visibilityState !== "visible" || !available()) return;
+      // Both events can describe one return to the app. Invalidate old reads
+      // immediately, then dispatch once after the browser has delivered them.
+      epoch++; pending = true; setLoading(true);
+      if (foregroundScheduled) return;
+      foregroundScheduled = true;
+      const dispatch = (): void => {
+        if (!foregroundScheduled) return;
+        clearForeground();
+        if (active) drain();
+      };
+      foregroundFrame = window.requestAnimationFrame(dispatch);
+      foregroundTimer = window.setTimeout(dispatch, 120);
+    };
     const offline = (): void => {
       if (isAndroid()) { refresh(); return; }
+      clearForeground();
       epoch++; pending = false;
       setResult({ path, activation, value: null });
       setError("オフラインです。古い提案は表示しません。"); setLoading(false);
@@ -90,10 +114,10 @@ export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = 
     trigger.current = refresh;
     if (available()) refresh(); else offline();
     if (refreshOnFocus) {
-      document.addEventListener("visibilitychange", visible);
-      window.addEventListener("focus", visible);
+      document.addEventListener("visibilitychange", foreground);
+      window.addEventListener("focus", foreground);
     }
-    window.addEventListener("online", visible);
+    window.addEventListener("online", foreground);
     window.addEventListener("offline", offline);
     // A periodic check must not invalidate an unfinished authoritative read.
     // Cold Android restoration can exceed one minute; superseding it on every
@@ -103,10 +127,11 @@ export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = 
     return () => {
       active = false;
       window.clearTimeout(deferred); window.cancelAnimationFrame(frame);
+      clearForeground();
       if (trigger.current === refresh) trigger.current = () => undefined;
-      document.removeEventListener("visibilitychange", visible);
-      window.removeEventListener("focus", visible);
-      window.removeEventListener("online", visible);
+      document.removeEventListener("visibilitychange", foreground);
+      window.removeEventListener("focus", foreground);
+      window.removeEventListener("online", foreground);
       window.removeEventListener("offline", offline);
       if (timer !== null) window.clearInterval(timer);
     };

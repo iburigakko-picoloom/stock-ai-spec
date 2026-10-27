@@ -115,6 +115,67 @@ test("Android rereads authoritative local results when offline or returning from
   await waitFor(() => expect(result.current.data).toEqual({ saved: 3 }));
 });
 
+test("a visibility and focus burst causes only one fresh read", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiGet).mockResolvedValueOnce({ initial: true })
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const { result } = renderHook(() => useApiData("/first"));
+  await waitFor(() => expect(result.current.data).toEqual({ initial: true }));
+  act(() => { document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); window.dispatchEvent(new Event("online")); });
+  expect(result.current.loading).toBe(true);
+  await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2));
+  await act(async () => finish({ fresh: true }));
+  await waitFor(() => expect(result.current.data).toEqual({ fresh: true }));
+  expect(apiGet).toHaveBeenCalledTimes(2);
+});
+
+test("foreground events invalidate an old read immediately before the combined refresh", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  const finishes: ((value: unknown) => void)[] = [];
+  vi.mocked(apiGet).mockImplementation(() => new Promise(resolve => finishes.push(resolve)));
+  let frame!: FrameRequestCallback;
+  vi.spyOn(window,"requestAnimationFrame").mockImplementation(callback => { frame = callback; return 1; });
+  const { result } = renderHook(() => useApiData("/first"));
+  act(() => { document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); });
+  await act(async () => finishes[0]({ obsolete: true }));
+  expect(result.current.data).toBeNull();
+  expect(result.current.loading).toBe(true);
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  act(() => frame(0));
+  expect(apiGet).toHaveBeenCalledTimes(2);
+  await act(async () => finishes[1]({ fresh: true }));
+  expect(result.current.data).toEqual({ fresh: true });
+  expect(result.current.loading).toBe(false);
+});
+
+test("foreground refresh still runs when animation frames are paused", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  vi.mocked(isAndroid).mockReturnValue(true);
+  vi.spyOn(window,"requestAnimationFrame").mockReturnValue(1);
+  const { result } = renderHook(() => useApiData("/first"));
+  await act(async () => { await Promise.resolve(); });
+  expect(result.current.data).toEqual({ saved: 1 });
+  act(() => { window.dispatchEvent(new Event("focus")); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(119); });
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(apiGet).toHaveBeenCalledTimes(2);
+});
+
+test("leaving during a scheduled foreground refresh never starts the old screen's read", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let frame!: FrameRequestCallback;
+  vi.spyOn(window,"requestAnimationFrame").mockImplementation(callback => { frame = callback; return 1; });
+  const view = renderHook(() => useApiData("/first"));
+  await act(async () => { await Promise.resolve(); });
+  act(() => { window.dispatchEvent(new Event("focus")); });
+  view.unmount();
+  await act(async () => { frame(0); await vi.advanceTimersByTimeAsync(120); });
+  expect(apiGet).toHaveBeenCalledTimes(1);
+});
+
 test("web offline behavior still hides a potentially stale proposal", async () => {
   vi.mocked(isAndroid).mockReturnValue(false);
   const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
@@ -136,7 +197,7 @@ test("pending refreshes drain once and superseded responses never publish", asyn
   act(() => { result.current.reload(); result.current.reload(); window.dispatchEvent(new Event("focus")); });
   expect(apiGet).toHaveBeenCalledTimes(1);
   await act(async () => finishes[0]({ stale: true }));
-  expect(apiGet).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2));
   expect(result.current.data).toBeNull();
   expect(result.current.loading).toBe(true);
   await act(async () => finishes[1]({ fresh: true }));
