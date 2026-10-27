@@ -45,7 +45,14 @@ public class LocalComputeOwnerTest {
     }
 
     @Test public void restoreInvalidatesHomeCopyQueuedDuringTheRestoreInterval() throws Exception {
-        JSObject original=result(owner.request("POST","/api/v1/mobile/portfolio",emptyProfile()));
+        String accountId="00000000-0000-4000-8000-000000000001";
+        JSONObject profile=new JSONObject(emptyProfile()).put("holdings_status","recorded").put("investment_budget_yen","1000000")
+            .put("accounts",new org.json.JSONArray().put(new JSONObject().put("id",accountId).put("name","synthetic-account")
+                .put("account_type","taxable_specified").put("withholding_mode","withholding").put("available_cash_yen","250000")))
+            .put("holdings",new org.json.JSONArray().put(new JSONObject().put("account_id",accountId).put("symbol","7203")
+                .put("shares",100).put("average_acquisition_price_yen","1234.50")));
+        JSObject original=result(owner.request("POST","/api/v1/mobile/portfolio",profile.toString()));
+        assertEquals(200,original.getInt("status"));
         String payload=result(owner.readState()).getString("payload");
         long generation=owner.state.currentGeneration();
         owner.readViews.clear();
@@ -59,9 +66,12 @@ public class LocalComputeOwnerTest {
             while(owner.readViews.epoch()==before && !restoring.isDone() && android.os.SystemClock.elapsedRealtime()<deadline) Thread.sleep(10);
             assertNotEquals("Restore must begin by clearing historical displays",before,owner.readViews.epoch());
             assertFalse("Restore finished before the race could be exercised",restoring.isDone());
-            long during=owner.readViews.epoch();
+            long during=before+1;
+            assertEquals("Restore must still be between its two display clears",during,owner.readViews.epoch());
             String old=new JSONObject().put("status",200).put("body",new JSONObject().put("synthetic_old",true)).toString();
             owner.readViews.saveAsyncIfUnchanged("/api/v1/home/ledger",old,generation,during);
+            assertEquals("The old copy must actually have been queued during restore",1,
+                ((java.util.concurrent.ThreadPoolExecutor)viewWriter(owner.readViews)).getQueue().size());
             assertTrue("Restore must publish a new state generation",result(restoring).getLong("generation")>generation);
         } finally {release.countDown();}
         drainViews(owner.readViews);
