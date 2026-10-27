@@ -105,6 +105,10 @@ on:
         type: choice
         options: [screen-wake-and-scheduler, unforced]
         default: screen-wake-and-scheduler
+      upgrade_diagnostics_only:
+        description: 'Run only the synthetic Android upgrade investigation; never release'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -115,6 +119,7 @@ concurrency:
 
 jobs:
   verify:
+    if: ${{ !inputs.upgrade_diagnostics_only }}
     runs-on: ubuntu-24.04
     # Budget the complete serial sequence: observed pre-feature work is ~39m.
     # Keep the independent 15m capacity/12m feature and app 600s/RAM guards.
@@ -306,6 +311,7 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - name: Android persistence tests
+        if: ${{ !inputs.upgrade_diagnostics_only }}
         id: native_tests
         working-directory: web/android
         run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest,jp.stockai.app.LegacyUpgradeSeedTest,jp.stockai.app.UpgradeCompatibilityTest,jp.stockai.app.ResearchEnsembleComputeTest
@@ -326,6 +332,7 @@ jobs:
           (folder / 'report.json').write_text(json.dumps({'events': rows, 'latest': rows[-1]}, indent=2))
           PY
       - name: Real worker recovery and OS dispatch evidence
+        if: ${{ !inputs.upgrade_diagnostics_only }}
         timeout-minutes: 20
         env:
           LIFECYCLE_DELIVERY: ${{ inputs.lifecycle_delivery || 'screen-wake-and-scheduler' }}
@@ -383,7 +390,7 @@ jobs:
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
   android-history:
-    if: ${{ always() && !cancelled() && needs.android.outputs.native_apks_ready == 'success' }}
+    if: ${{ always() && !cancelled() && !inputs.upgrade_diagnostics_only && needs.android.outputs.native_apks_ready == 'success' }}
     needs: [verify, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -474,7 +481,7 @@ jobs:
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
   release:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !inputs.upgrade_diagnostics_only
     needs: [verify, android, android-history]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
