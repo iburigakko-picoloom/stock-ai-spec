@@ -6,6 +6,7 @@ import { apiGet } from "./api";
 import { useApiData } from "./hooks";
 import { RetainedReadViews } from "./RetainedReadViews";
 
+const renders = vi.hoisted(() => ({ home:vi.fn(), today:vi.fn(), ranking:vi.fn(), validation:vi.fn(), settings:vi.fn() }));
 vi.mock("./api", () => ({ apiGet: vi.fn() }));
 vi.mock("./mobile/native", () => ({ isAndroid: () => true, StockAI: {} }));
 function TestPage({ path }: { path: string }) {
@@ -15,13 +16,25 @@ function TestPage({ path }: { path: string }) {
     <button disabled={loading || !!error || !data}>確定 {path}</button>
   </section>;
 }
-vi.mock("./pages/HomePage", () => ({ HomePage: () => <TestPage path="home" /> }));
-vi.mock("./pages/TodayPage", () => ({ TodayPage: () => <TestPage path="today" /> }));
-vi.mock("./pages/RankingPage", () => ({ RankingPage: () => <TestPage path="ranking" /> }));
-vi.mock("./pages/ValidationPage", () => ({ ValidationPage: () => <TestPage path="validation" /> }));
-vi.mock("./pages/SettingsPage", () => ({ SettingsPage: () => <p>設定内容</p> }));
+vi.mock("./pages/HomePage", () => ({ HomePage: () => {renders.home();return <TestPage path="home" />;} }));
+vi.mock("./pages/TodayPage", () => ({ TodayPage: () => {renders.today();return <TestPage path="today" />;} }));
+vi.mock("./pages/RankingPage", () => ({ RankingPage: () => {renders.ranking();return <TestPage path="ranking" />;} }));
+vi.mock("./pages/ValidationPage", () => ({ ValidationPage: () => {renders.validation();return <TestPage path="validation" />;} }));
+vi.mock("./pages/SettingsPage", () => ({ SettingsPage: () => {renders.settings();return <p>設定内容</p>;} }));
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+
+test("startup does not render tabs which have never been opened", async () => {
+  vi.mocked(apiGet).mockResolvedValue({text:"home"});
+  render(<MemoryRouter><Routes><Route element={<RetainedReadViews />}><Route index element={<p>unused</p>} /></Route></Routes></MemoryRouter>);
+  await screen.findByText("home");
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,30));});
+  expect(renders.home).toHaveBeenCalled();
+  expect(renders.today).not.toHaveBeenCalled();
+  expect(renders.ranking).not.toHaveBeenCalled();
+  expect(renders.validation).not.toHaveBeenCalled();
+  expect(renders.settings).not.toHaveBeenCalled();
+});
 
 test("Android tab return keeps previous display but waits for fresh data before confirmation", async () => {
   const user = userEvent.setup();
