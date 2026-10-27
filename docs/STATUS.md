@@ -1,5 +1,7 @@
 ## 2026-10-28 — 既存証拠の棚卸しと株数比較の試作（D318）
 
+- 非共有Driveへ確認用[0.1.79候補](https://drive.google.com/file/d/1_tJdGJBcXyggzJLaOHw-LEidLFXzFNgs/view?usp=drivesdk)を追加。source `151adf46d7cd9f74e76da011b752e6ec4e30ef03`、`jp.stockai.app`、versionCode 10079、24,135,673 bytes、SHA-256 `1f132489a9e889dc0a024524717a8f65b22be5bba475a7196d21dc41e74d4ced`。同一署名・非debug・資産とsourceの一致を照合し、専用エミュレーターで0.1.77から上書きして初回install時刻維持と起動を確認。本人端末・本人データの確認ではない。後続`dd88f92`はCI設定と記録のみ。
+- GitHub [CI 40600279358](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/40600279358)はsourceの総合検査実行中、追加検査を含む[CI 40600650665](https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/40600650665)は待機中。いずれも結果確定前。公開版の更新なし。
 - [棚卸し](EVIDENCE_INVENTORY_20261028.md)で既存ledgerの8ファイルをreceiptとhash照合し、5日・20日の対象と欠落を整理。受領時刻・凍結証拠と最終holdoutは未完で、他の母集団や開発評価と混ぜない。本人の端末データは読んでいない。
 - 20日予測と既存の費用・税・口座制約を用いて固定株数案をHOLDと比較する研究用関数を追加。売却予定額を先に買付へ使わず、NISAの確認済み残枠を検査する。リスク未評価・予測由来未認証を明示し、自動候補生成・アプリへの株数提案や採用はしていない。
 - 検証画面に保存済み日次予測receiptの照合・読取を明示操作で追加。基準日・作成時刻・予測/除外を表示し、前向き評価への登録や実績の採点とは区別する。台帳は変更しない。スクロール位置が遷移直前のイベント待ちで失われる問題と、狭い画面の更新通知を修正。
