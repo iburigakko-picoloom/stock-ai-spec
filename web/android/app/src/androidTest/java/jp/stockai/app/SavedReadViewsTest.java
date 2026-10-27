@@ -119,4 +119,28 @@ public class SavedReadViewsTest {
             release.countDown(); reader.shutdownNow(); control.shutdownNow(); views.clear(); dir.delete();
         }
     }
+
+    @Test public void replacementWhileDecryptingCannotPublishThePreviousView() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "replace-read-" + System.nanoTime());
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1), release = new java.util.concurrent.CountDownLatch(1);
+        List<Runnable> jobs = new ArrayList<>();
+        SavedReadViews views = new SavedReadViews(dir, jobs::add, bytes -> {
+            entered.countDown();
+            if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("TEST_TIMEOUT");
+            return LocalStateStore.decrypt(bytes);
+        });
+        java.util.concurrent.ExecutorService reader = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            views.save("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "old")), 1);
+            java.util.concurrent.Future<com.getcapacitor.JSObject> pending = reader.submit(() -> views.read("/api/v1/home"));
+            assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            views.saveAsync("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "new")).toString(), 2);
+            jobs.remove(0).run();
+            release.countDown();
+            assertFalse("An older decrypted view cannot overwrite the new one", pending.get(10, java.util.concurrent.TimeUnit.SECONDS).getBoolean("available"));
+            assertEquals("new", views.read("/api/v1/home").getJSONObject("body").getString("id"));
+        } finally {
+            release.countDown(); reader.shutdownNow(); views.clear(); dir.delete();
+        }
+    }
 }
