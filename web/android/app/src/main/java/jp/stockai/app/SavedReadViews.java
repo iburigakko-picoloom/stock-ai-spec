@@ -34,7 +34,10 @@ final class SavedReadViews {
     interface Decoder { String decrypt(byte[] cipher) throws Exception; }
     private final Decoder decoder;
     private long epoch;
-    private long fileRevision;
+    private final Map<String, Long> fileRevisions = new HashMap<>();
+    private long nextFileRevision;
+    private long revisionFor(String path) { return fileRevisions.getOrDefault(path, 0L); }
+    private void changedFile(String path) { fileRevisions.put(path, ++nextFileRevision); }
     private long nextTicket;
     private final Map<String, Long> latest = new HashMap<>();
     SavedReadViews(File directory) {
@@ -66,9 +69,9 @@ final class SavedReadViews {
             .put("savedAt", Instant.now().toString()).put("generation", generation)
             .put("body", result.get("body"));
         byte[] cipher = LocalStateStore.encrypt(envelope.toString());
-        if (cipher.length > MAX_BYTES) { file(path).delete(); fileRevision++; return; }
+        if (cipher.length > MAX_BYTES) { file(path).delete(); changedFile(path); return; }
         AtomicFile target = file(path); FileOutputStream stream = null;
-        try { stream = target.startWrite(); stream.write(cipher); target.finishWrite(stream); fileRevision++; }
+        try { stream = target.startWrite(); stream.write(cipher); target.finishWrite(stream); changedFile(path); }
         catch (Exception error) { if (stream != null) target.failWrite(stream); throw error; }
     }
     /** Queue only an optional encrypted display copy; the authoritative response never waits for it. */
@@ -96,9 +99,9 @@ final class SavedReadViews {
                     synchronized (this) {
                         if (epoch != capturedEpoch || !Long.valueOf(ticket).equals(latest.get(path))) return;
                         AtomicFile target = file(path);
-                        if (cipher == null || cipher.length > MAX_BYTES) { target.delete(); fileRevision++; return; }
+                        if (cipher == null || cipher.length > MAX_BYTES) { target.delete(); changedFile(path); return; }
                         FileOutputStream stream = null;
-                        try { stream = target.startWrite(); stream.write(cipher); target.finishWrite(stream); fileRevision++; }
+                        try { stream = target.startWrite(); stream.write(cipher); target.finishWrite(stream); changedFile(path); }
                         catch (Exception error) { if (stream != null) target.failWrite(stream); throw error; }
                     }
                 } catch (Exception error) {
@@ -126,7 +129,7 @@ final class SavedReadViews {
             if (target.getBaseFile().length() > MAX_BYTES) throw new SecurityException("DISPLAY_TOO_LARGE");
             cipher = target.readFully();
             readEpoch = epoch;
-            readRevision = fileRevision;
+            readRevision = revisionFor(path);
         }
         JSONObject value;
         try {
@@ -136,12 +139,12 @@ final class SavedReadViews {
                 throw new SecurityException("DISPLAY_INVALID");
         } catch (Exception error) {
             synchronized (this) {
-                if (epoch != readEpoch || fileRevision != readRevision) { delivery.accept(new JSObject().put("available", false)); return; }
+                if (epoch != readEpoch || revisionFor(path) != readRevision) { delivery.accept(new JSObject().put("available", false)); return; }
             }
             throw error;
         }
         synchronized (this) {
-            if (epoch != readEpoch || fileRevision != readRevision) { delivery.accept(new JSObject().put("available", false)); return; }
+            if (epoch != readEpoch || revisionFor(path) != readRevision) { delivery.accept(new JSObject().put("available", false)); return; }
             delivery.accept(new JSObject().put("available", true).put("savedAt", value.getString("savedAt"))
                 .put("readOnly", true).put("body", value.get("body")));
         }
@@ -152,7 +155,7 @@ final class SavedReadViews {
         return result[0];
     }
     synchronized void clear() {
-        epoch++; fileRevision++; latest.clear();
+        epoch++; fileRevisions.clear(); latest.clear();
         File[] files = directory.listFiles();
         if (files != null) for (File file : files) new AtomicFile(file).delete();
     }

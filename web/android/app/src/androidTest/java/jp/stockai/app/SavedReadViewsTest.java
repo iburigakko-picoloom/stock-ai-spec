@@ -143,4 +143,30 @@ public class SavedReadViewsTest {
             release.countDown(); reader.shutdownNow(); views.clear(); dir.delete();
         }
     }
+
+    @Test public void unrelatedViewReplacementDoesNotInvalidateAValidPendingRead() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "unrelated-read-" + System.nanoTime());
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1), release = new java.util.concurrent.CountDownLatch(1);
+        List<Runnable> jobs = new ArrayList<>();
+        SavedReadViews views = new SavedReadViews(dir, jobs::add, bytes -> {
+            entered.countDown();
+            if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("TEST_TIMEOUT");
+            return LocalStateStore.decrypt(bytes);
+        });
+        java.util.concurrent.ExecutorService reader = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            views.save("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "home")), 1);
+            java.util.concurrent.Future<com.getcapacitor.JSObject> pending = reader.submit(() -> views.read("/api/v1/home"));
+            assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            views.saveAsync("/api/v1/today", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "today")).toString(), 1);
+            jobs.remove(0).run();
+            release.countDown();
+            com.getcapacitor.JSObject result = pending.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertTrue("Another path must not discard this view", result.getBoolean("available"));
+            assertEquals("home", result.getJSONObject("body").getString("id"));
+            assertEquals("today", views.read("/api/v1/today").getJSONObject("body").getString("id"));
+        } finally {
+            release.countDown(); reader.shutdownNow(); views.clear(); dir.delete();
+        }
+    }
 }
