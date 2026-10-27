@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { ManualChatGPTPage } from "./ManualChatGPTPage";
@@ -117,4 +117,19 @@ test("a failed new export preserves the saved readable prompt",async()=>{
   fireEvent.click(screen.getByRole("button",{name:"作成・コピー"}));
   expect(await screen.findByText("入力条件が変わりました")).toBeVisible();
   expect(input).toHaveValue(savedInput.prompt);
+});
+
+
+test("consultation status is read before the optional ranking and remains usable while it loads", async () => {
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  vi.mocked(useApiData).mockReturnValue({data:null,loading:true,error:null,savedAt:null,reload:vi.fn()});
+  show();
+  expect(useApiData).toHaveBeenLastCalledWith("/api/v1/mobile/ranking/20d", { enabled: false });
+  expect(apiGet).toHaveBeenCalledExactlyOnceWith("/api/v1/mobile/chatgpt-manual/status");
+  await act(async () => { finish({ ready:true,reason:null,selected_input:null,answers:[] }); });
+  expect(useApiData).toHaveBeenLastCalledWith("/api/v1/mobile/ranking/20d", { enabled: true });
+  expect(screen.getByRole("button", { name:"作成・コピー" })).toBeVisible();
+  expect(screen.getByText("相談対象を確認しています…")).toBeVisible();
+  expect(screen.queryByText("相談対象を確認できません。最新の原予測を確認してください。")).not.toBeInTheDocument();
 });
