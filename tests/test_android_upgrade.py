@@ -20,6 +20,7 @@ from scripts.android_upgrade_check import (
     fixture_bytes,
     prepare_base,
     verify_capsule,
+    verify_upgrade_proof,
 )
 
 
@@ -40,6 +41,33 @@ def test_failed_upgrade_instrumentation_keeps_diagnostics_and_fails(tmp_path, mo
         encoding="utf-8"
     ) == "FAILURES!!!\nsynthetic failure"
     assert "Upgrade phase verify instrumentation output" in capsys.readouterr().out
+
+
+def test_upgrade_proof_requires_one_migration_and_an_unchanged_read_only_reopen():
+    prepared = {"uid": 12345, "signature_sha256": "synthetic", "generation": 1}
+    migrated = {
+        **prepared,
+        "version_code": CURRENT_VERSION,
+        "phase": "verify",
+        "generation": 2,
+        "credential_retained": True,
+        "export_sha256": "synthetic-export",
+    }
+    verify_upgrade_proof(migrated, prepared, prepared, "verify")
+    reopened = {**migrated, "phase": "reopen"}
+    verify_upgrade_proof(reopened, prepared, migrated, "reopen")
+    for changed in (
+        {**reopened, "generation": 3},
+        {**reopened, "uid": 99999},
+        {**reopened, "signature_sha256": "changed"},
+        {**reopened, "credential_retained": False},
+    ):
+        with pytest.raises(ValueError, match="identity, generation"):
+            verify_upgrade_proof(changed, prepared, migrated, "reopen")
+    with pytest.raises(ValueError, match="exported state"):
+        verify_upgrade_proof({**reopened, "export_sha256": "changed"}, prepared, migrated, "reopen")
+    with pytest.raises(ValueError, match="identity, generation"):
+        verify_upgrade_proof({**migrated, "generation": 1}, prepared, prepared, "verify")
 
 
 @pytest.fixture

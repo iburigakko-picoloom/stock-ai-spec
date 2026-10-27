@@ -229,6 +229,24 @@ def verify_capsule(payload: bytes, fixture: dict, destination: Path) -> dict:
     return result
 
 
+def verify_upgrade_proof(proof: dict, prepared: dict, previous: dict, phase: str) -> None:
+    if phase not in {"verify", "reopen"}:
+        raise ValueError("Unexpected upgrade phase")
+    if (
+        proof.get("version_code") != CURRENT_VERSION
+        or proof.get("phase") != phase
+        or proof.get("uid") != prepared["uid"]
+        or proof.get("signature_sha256") != prepared["signature_sha256"]
+        or proof.get("generation") != previous["generation"] + (phase == "verify")
+        or proof.get("credential_retained") is not True
+    ):
+        raise ValueError("Package identity, generation or retained key changed")
+    if phase == "reopen" and (
+        not previous.get("export_sha256") or proof.get("export_sha256") != previous["export_sha256"]
+    ):
+        raise ValueError("Read-only reopen changed the exported state")
+
+
 class UpgradeController(Controller):
     def instrument_upgrade(self, case: str, method: str, phase: str) -> dict:
         if not self.guarded:
@@ -306,15 +324,7 @@ class UpgradeController(Controller):
         previous = prepared
         for phase in ["verify", "reopen"]:
             proof = self.instrument_upgrade("jp.stockai.app.UpgradeCompatibilityTest", phase, phase)
-            if (
-                proof.get("version_code") != CURRENT_VERSION
-                or proof.get("phase") != phase
-                or proof.get("uid") != prepared["uid"]
-                or proof.get("signature_sha256") != prepared["signature_sha256"]
-                or proof.get("generation") != previous["generation"] + 1
-                or proof.get("credential_retained") is not True
-            ):
-                raise ValueError("Package identity, generation or retained key changed")
+            verify_upgrade_proof(proof, prepared, previous, phase)
             payload = self.adb("exec-out", "run-as", PACKAGE, "cat", "files/upgrade-export.b64")
             if (
                 len(payload) != proof["export_characters"]

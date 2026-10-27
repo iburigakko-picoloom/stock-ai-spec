@@ -66,8 +66,9 @@ public class UpgradeCompatibilityTest {
             equalJson(fixture.getJSONObject("profile"), profile.getJSONObject("body"));
             equalJson(fixture.getJSONObject("settings"), settings.getJSONObject("body"));
             JSObject migrated = owner.readState().get(30, TimeUnit.SECONDS);
-            assertEquals(original.getLong("generation") + 1, migrated.getLong("generation"));
+            assertEquals(original.getLong("generation") + ("verify".equals(phase) ? 1 : 0), migrated.getLong("generation"));
             String payload = migrated.getString("payload");
+            if ("reopen".equals(phase)) assertEquals(original.getString("export_sha256"), LegacyUpgradeSeedTest.sha(payload));
             LegacyUpgradeSeedTest.save(context, "upgrade-export.b64", payload);
             proof.put("phase", phase).put("generation", migrated.getLong("generation"))
                 .put("export_characters", payload.length()).put("export_sha256", LegacyUpgradeSeedTest.sha(payload))
