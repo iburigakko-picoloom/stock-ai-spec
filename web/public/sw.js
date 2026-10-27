@@ -28,6 +28,6 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         return response;
       })
-      .catch(() => caches.match(request, { ignoreVary: url.pathname.startsWith("/assets/") }).then((cached) => cached || caches.match("/"))),
+      .catch(() => caches.match(request, { ignoreVary: url.origin === self.location.origin && url.pathname.startsWith("/assets/") }).then((cached) => cached || caches.match("/"))),
   );
 });
