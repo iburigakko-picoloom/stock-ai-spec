@@ -8,7 +8,7 @@ const test = base.extend({
   page: async ({ page }, runPage) => {
     if (!process.env.STOCKAI_ANDROID_UI) { await runPage(page); return; }
     const devices = await _android.devices();
-    const device = devices.find(d => d.serial() === "emulator-5554");
+    const device = devices.find(d => d.serial() === (process.env.STOCKAI_ANDROID_SERIAL ?? "emulator-5554"));
     if (!device) throw Error("Dedicated emulator is unavailable");
     activeDevice = device;
     await device.shell("am start -n org.chromium.webview_shell/.WebViewBrowserActivity");
