@@ -185,6 +185,7 @@ jobs:
           npm run build
           npx playwright install --with-deps chromium
           npx playwright test --config playwright.mobile.config.ts
+          npx playwright test --config playwright.offline.config.ts
           npx playwright test --config playwright.compute.config.ts
           npx playwright test e2e/company-research.spec.ts e2e/tax-cash.spec.ts e2e/execution-recovery.spec.ts
           npx playwright test e2e/reference-layout.spec.ts

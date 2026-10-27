@@ -24,9 +24,9 @@ test("ranking completes and restores model, search and scroll after stock detail
   });
   await page.goto("/#/ranking");
   const rows=page.locator(".ranking-table-row");
-  await expect(rows).toHaveCount(150);
+  await expect(rows).toHaveCount(20);
   await page.getByRole("button",{name:"20日・ランキング"}).click();
-  await expect(rows).toHaveCount(150);
+  await expect(rows).toHaveCount(20);
   const saved=await page.evaluate(()=>{
     const main=document.querySelector<HTMLElement>(".app-shell--adopted .app-main")!;
     main.scrollTo(0,Math.floor((main.scrollHeight-main.clientHeight)*0.7));return main.scrollTop;
@@ -34,13 +34,12 @@ test("ranking completes and restores model, search and scroll after stock detail
   expect(saved).toBeGreaterThan(0);
   await page.waitForTimeout(100);
   await rows.last().evaluate(link=>(link as HTMLAnchorElement).click());
-  await expect(page).toHaveURL(/#\/stocks\/1149$/);
+  await expect(page).toHaveURL(/#\/stocks\/1019$/);
   await page.goBack();
   await expect(page).toHaveURL(/#\/ranking$/);
-  await expect(rows).toHaveCount(150);
+  await expect(rows).toHaveCount(20);
   await expect(page.getByRole("button",{name:"20日・ランキング"})).toHaveAttribute("aria-pressed","true");
   await expect.poll(()=>page.evaluate(()=>document.querySelector<HTMLElement>(".app-shell--adopted .app-main")!.scrollTop)).toBe(saved);
-  await expect(rows.last()).toContainText("合成企業149");
   await page.getByRole("searchbox").fill("合成企業149");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("1149");

@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { PageHeader, StatePanel, dateTime, pct, currency as yen } from "../components";
 import { useApiData } from "../hooks";
 import type { PaperSeriesPoint, PaperSummary } from "../types";
+import { ForwardEvidencePanel } from "./ForwardEvidencePanel";
 
 function PaperPerformanceChart({ series }: { series: PaperSeriesPoint[] }): ReactNode {
   if (series.length < 2) return <div className="chart-empty" role="status"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="7" y="31" width="7" height="12" rx="2" /><rect x="21" y="19" width="7" height="24" rx="2" /><rect x="35" y="5" width="7" height="38" rx="2" /></svg><p>観測データが揃うと表示します</p><small>チャートに必要な観測が不足しています。1営業日Paperを2件以上記録すると表示します。</small></div>;
@@ -58,6 +59,7 @@ export function ValidationPage(): ReactNode {
         {detailed && <p className="setting-footnote">{data.is_decision_ready ? "最低観測数に到達" : "観測継続中"} · {data.observations} / {data.minimum_observation_count ?? "—"}件{!data.model_monitoring_ready && " · モデル監視の比較件数は不足しています"}</p>}
       </> : <StatePanel title="実運用データはまだありません" detail="実行結果を記録すると表示されます。" />}
     </div>
+    {!detailed && <ForwardEvidencePanel />}
     {!detailed && <section className="card"><h3 className="rev-title">詳細分析</h3><Link className="rev-link" to="/validation/details"><span>予測精度</span><b>›</b></Link><Link className="rev-link" to="/validation/details?analysis=models"><span>モデル比較</span><b>›</b></Link><Link className="rev-link" to="/validation/details?analysis=historical"><span>過去検証</span><b>›</b></Link></section>}
     <div className="rev-bottom-links"><Link className="button ghost" to="/settings?edit=model">モデル管理 ›</Link>{detailed && <Link className="quiet-link" to="/validation">振り返りに戻る</Link>}</div></div>
   </div>;

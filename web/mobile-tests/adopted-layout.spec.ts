@@ -353,11 +353,10 @@ test("adopted HTML typography and controls match the implementation",async({page
   test.skip(!!process.env.STOCKAI_ANDROID_UI,"Reference CSS comparison runs in Edge; Android runs all route and overlap checks.");
   test.setTimeout(180_000);
   await page.setViewportSize({width:390,height:844});
-  const source=await readFile("../../.codex-remote-attachments/01a175f6-f76f-70a1-a798-51257e37d7de/e3e392c4-ea41-48cd-b708-9a30cd048fd1/1-stock-ui-mock-offline.html","utf8");
-  const reference=await page.context().newPage();
-  await reference.setViewportSize({width:390,height:844});
-  await reference.route("**/adopted-reference*",route=>route.fulfill({contentType:"text/html",body:source}));
-  const selectors=[".card",".section-title","input.input","select.input","textarea.input",".button:not(.secondary):not(.button--secondary):not(.ghost)",".button.secondary,.button--secondary",".button.ghost",".home-balance-line",".ranking-table-row",".ss-group"];
+  // Golden values were measured from the user-provided accepted HTML. Keeping
+  // only CSS properties here avoids shipping its demo data and scripts.
+  const golden=JSON.parse(await readFile("mobile-tests/adopted-style-golden.json","utf8")) as {rows:{screen:string;selector:string;accepted:Record<string,string>}[]};
+  expect(golden.rows.length).toBe(104);
   const properties=["fontFamily","fontSize","fontWeight","lineHeight","paddingTop","paddingRight","paddingBottom","paddingLeft","borderRadius","borderTopColor"];
   const evidence:unknown[]=[];
   const differences:unknown[]=[];
@@ -365,25 +364,18 @@ test("adopted HTML typography and controls match the implementation",async({page
     await page.goto(`http://127.0.0.1:5196/#${path}`);
     await expect(page.locator(".page h1,.settings-page-header h1").filter({visible:true})).toBeVisible();
     await expect(page.getByText(/読み込んでいます|現在残高を確認しています|モデルを確認中|判断内容を準備しています|実行結果入力を準備しています|今日の状態を確認しています|保存済み入力を確認しています/).filter({visible:true})).toHaveCount(0);
-    await reference.goto(`http://127.0.0.1:5196/adopted-reference?screen=${name}#${name}`);
-    await reference.locator(".app-screen").waitFor();
-    for(const selector of selectors){
-      // The user removed the model/ChatGPT source switch. Compare the remaining
-      // save/trade controls with their counterparts, rather than with removed tabs.
-      const matching=name==="decision" && selector.startsWith(".button") ? `.subactions ${selector}` : selector;
+    for(const item of golden.rows.filter(row=>row.screen===name)){
+      const matching=name==="decision" && item.selector.startsWith(".button") ? `.subactions ${item.selector}` : item.selector;
       const actual=page.locator(".app-main").locator(matching).filter({visible:true}).first();
-      const expected=reference.locator(".app-screen").locator(matching).filter({visible:true}).first();
-      if(!await actual.count() || !await expected.count())continue;
-      const read=(node:Element,props:string[])=>{const style=getComputedStyle(node);return Object.fromEntries(props.map(p=>[p,style[p as keyof CSSStyleDeclaration]]));};
-      const observed=await actual.evaluate(read,properties), accepted=await expected.evaluate(read,properties);
-      evidence.push({screen:name,selector,observed,accepted});
-      if(JSON.stringify(observed)!==JSON.stringify(accepted))differences.push({screen:name,selector,observed,accepted});
+      if(!await actual.count())continue;
+      const observed=await actual.evaluate((node,props)=>{const style=getComputedStyle(node);return Object.fromEntries(props.map(p=>[p,style[p as keyof CSSStyleDeclaration]]));},properties);
+      evidence.push({screen:name,selector:item.selector,observed,accepted:item.accepted});
+      if(JSON.stringify(observed)!==JSON.stringify(item.accepted))differences.push({screen:name,selector:item.selector,observed,accepted:item.accepted});
     }
   }
   await writeFile(info.outputPath("mock-style-comparison.json"),JSON.stringify(evidence,null,2));
   expect(evidence.length).toBeGreaterThan(60);
   expect(differences).toEqual([]);
-  await reference.close();
 });
 
 test("ranking detail returns with model, filter and scroll intact", async ({page})=>{
@@ -712,4 +704,26 @@ for (const panel of ["market", "model"]) test(`leaving ${panel} skips its not-ye
     const calls=await page.evaluate(()=>(window as unknown as {__settingsCalls:{operation?:string;path?:string}[]}).__settingsCalls);
     expect(calls.filter(call=>call.operation === "GET" && later.includes(call.path ?? ""))).toEqual([]);
   } finally {release();}
+});
+
+
+test("daily evidence opens on request and fits a narrow screen",async({page})=>{
+  let requests=0;
+  await page.route("**/api/v1/mobile/forward-evidence",route=>{
+    requests++;
+    return route.fulfill({json:{runs:[{run_id:"synthetic-daily",as_of:"2026-10-26T11:30:00+09:00",generated_at:"2026-10-26T11:32:00+09:00",prediction_count:489,excluded_candidates:[{}],has_5d_return:true,has_20d_return:true,has_20d_rank:true}]}});
+  });
+  await page.setViewportSize({width:320,height:800});
+  await page.goto("/#/validation");
+  const panel=page.getByRole("region",{name:"日次予測の記録"});
+  await expect(panel).toBeVisible();
+  expect(requests).toBe(0);
+  await panel.getByRole("button",{name:"記録を確認"}).click();
+  await expect(panel.getByText(/489銘柄 · 予測対象外 1銘柄/)).toBeVisible();
+  expect(requests).toBe(1);
+  await expect(panel.getByText(/実績との比較や最終評価はまだ/)).toBeVisible();
+  for(const font of [100,150]){
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  }
 });

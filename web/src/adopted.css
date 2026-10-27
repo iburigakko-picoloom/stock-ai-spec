@@ -100,3 +100,6 @@
 
 /* Keep the entire execution timestamp readable in the narrow two-column form. */
 .execution-entry .field:has(input[type="datetime-local"]) { grid-column: 1 / -1; }
+
+/* Keep the adopted compact design while retaining a 48px settings touch target. */
+.app-shell--adopted .device-settings .button { min-height: 48px; }

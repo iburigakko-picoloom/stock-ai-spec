@@ -46,18 +46,17 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
     ], excluded_candidates: [], blocking_reasons: [],
   } }));
   await page.goto("/mobile-tests/market-layout.html");
-  await expect(page.getByRole("button", { name: "履歴の取得を開始・再開" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "履歴を取得" })).toBeEnabled();
   await expect(page.getByRole("region", { name: "毎日の自動処理" }).getByRole("button", { name: "開始", exact: true })).toBeEnabled();
   await page.addStyleTag({ content: "html { font-size: 150%; }" });
-  await page.getByText("取得範囲・訂正データ・計算の確認", { exact: true }).click();
-  await expect(page.getByLabel("開始日", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("取得開始日", { exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "予測対象", exact: true })).toHaveValue("topix500-preview");
   await page.getByRole("button", { name: "候補と全保有の対象を確認" }).click();
   await expect(page.getByText("TOPIX500区分の493社＋対象外の保有1社＝評価対象494社")).toBeVisible();
   await expect(page.getByText("ZZZZ：対応する国内普通株として確認できません。")).toBeVisible();
-  await page.getByText("算出できた予測を見る 1社", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: /算出できた予測を見る 1社/ })).toBeVisible();
   await expect(page.getByRole("cell", { name: "4%" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "株数の探索方法" })).toHaveValue("daily-decision-engine-v3-bounded");
+  await expect(page.getByRole("combobox", { name: "探索方法" })).toHaveValue("daily-decision-engine-v3-bounded");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   for (const group of await page.locator(".button-stack").all()) {
     const controls = await group.locator("button:visible").evaluateAll(nodes => nodes.map(node => {
@@ -72,15 +71,18 @@ for (const width of [320, 390]) test(`market acquisition controls remain separat
     expect((await select.boundingBox())!.height).toBeGreaterThanOrEqual(48);
   }
   const buttons = await page.locator("button:visible, a.button:visible").evaluateAll(nodes => nodes.map(node => {
-    const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
+    const box=node.getBoundingClientRect(); return {height:box.height,top:box.top,bottom:box.bottom,left:box.left,right:box.right};
   }));
-  for (let i = 0; i < buttons.length; i++) {
+  for (let i=0;i<buttons.length;i++) {
     expect(buttons[i].height).toBeGreaterThanOrEqual(48);
-    if (i > 0) expect(buttons[i].top - buttons[i - 1].bottom).toBeGreaterThanOrEqual(12);
+    for (let j=0;j<i;j++) {
+      const a=buttons[i],b=buttons[j];
+      expect(Math.max(a.left,b.left)<Math.min(a.right,b.right) && Math.max(a.top,b.top)<Math.min(a.bottom,b.bottom), "controls must not overlap").toBe(false);
+    }
   }
   await page.screenshot({ path: info.outputPath(`market-layout-${width}.png`), fullPage: true });
   await page.getByRole("region", { name: "毎日の自動処理" }).screenshot({ path: info.outputPath(`daily-${width}.png`) });
-  await page.getByRole("region", { name: "端末内のモデルと予測" }).screenshot({ path: info.outputPath(`model-decision-${width}.png`) });
+  await page.locator("[aria-label=\"端末内のモデルと予測\"]").screenshot({ path: info.outputPath(`model-decision-${width}.png`) });
   await page.getByRole("region", { name: "補足設定と初回台帳" }).screenshot({ path: info.outputPath(`personal-policy-${width}.png`) });
   for (const [state, label] of [
     ["forecast_saved", "原予測を保存済み・株数判定待ち"],

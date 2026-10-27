@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./mobile-tests",
+  testIgnore: "**/offline-screen-bundles.spec.ts",
   fullyParallel: false,
   workers: 1,
   timeout: 180_000,

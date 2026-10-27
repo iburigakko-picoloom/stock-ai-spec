@@ -49,7 +49,7 @@ export function MobileUpdateNotice(): ReactNode {
       <div className="app-update-copy"><strong>新しいバージョンがあります</strong><span>{release.versionName}</span></div>
       <button className="button button--primary app-update-button" disabled={busy} aria-busy={busy} onClick={() => { void install(); }}>{busy ? "確認中…" : "更新"}</button>
     </div>
-    {release.notes && <section className="app-update-details"><h3 className="plain-section-title">変更内容を見る</h3><p tabIndex={0}>{release.notes}</p></section>}
+    {release.notes && <section className="app-update-details" aria-label="更新内容"><p tabIndex={0}>{release.notes}</p></section>}
     {message && <p className="app-update-message" role="status">{message}</p>}
   </section>;
 }

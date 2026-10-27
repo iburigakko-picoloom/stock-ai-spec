@@ -49,7 +49,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .app-update-details summary { display: flex; align-items: center; gap: 8px; min-height: 48px; color: var(--blue); cursor: pointer; }
 .app-update-details summary::before { content: "+"; }
 .app-update-details[open] summary::before { content: "−"; }
-.app-update-details p { max-height: 30vh; margin: 8px 0 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-update-details p { max-height: 3em; margin: 8px 0 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .app-update-message { margin: 12px 0 0; font-size: .8rem; overflow-wrap: anywhere; }
 .app-brand { padding: 0; color: var(--ink); }
 .brand-mark { flex-shrink: 0; padding-right: 12px; border-right: 1px solid #a9bfd5; color: var(--ink); font-size: 1.45rem; line-height: 1.2; font-weight: 850; letter-spacing: -.04em; white-space: nowrap; }

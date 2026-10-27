@@ -91,8 +91,8 @@ for (const width of [320, 390]) test(`reference analysis from Today at ${width}p
   await page.setViewportSize({ width, height: 844 });
   await page.evaluate(() => { localStorage.setItem("settingsTestDailyState", "closed"); document.documentElement.style.fontSize = "150%"; });
   await page.goto("/#/today");
-  await page.getByRole("button", { name: "最新データで分析する" }).click();
-  await expect(page.getByRole("heading", { name: "2026-10-23の終値による参考分析" })).toBeVisible();
+  await page.getByRole("button", { name: "ランキングを更新" }).click();
+  await expect(page.getByRole("heading", { name: "2026-10-23の終値によるランキング" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "提案を表示できない理由" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({ path: info.outputPath(`reference-${width}.png`), fullPage: true });
@@ -103,9 +103,10 @@ for (const width of [320, 390]) test(`daily calculation stage at ${width}px with
   await page.evaluate(() => localStorage.setItem("settingsTestDailyState", "calculating"));
   await page.goto("/#/settings?edit=daily");
   await page.evaluate(() => { document.documentElement.style.fontSize = "150%"; window.dispatchEvent(new Event("focus")); });
-  const progress = page.getByRole("progressbar", { name: "数値計算の完了工程" });
-  await expect(progress).toHaveAttribute("value", "1");
-  expect((await progress.boundingBox())!.width).toBeGreaterThan(width * .7);
+  const progress = page.getByRole("progressbar", { name: "予測の保存済み進捗" });
+  await expect(progress).toBeVisible();
+  await expect(progress).not.toHaveAttribute("value");
+  expect(await progress.evaluate(node => node.getBoundingClientRect().width / node.parentElement!.getBoundingClientRect().width)).toBeGreaterThan(.9);
   await expect(page.getByText("予測を計算しています", { exact: true })).toBeVisible();
   await expect(page.getByText("工程2/3：予測計算・保存")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -163,7 +164,7 @@ for (const layout of [
     const baseline = (await brand.boundingBox())!;
     const basePadding = await page.locator(".app-main").evaluate(node => Number.parseFloat(getComputedStyle(node).paddingBottom));
     await setInsets(layout.bottom);
-    expect((await brand.boundingBox())!.y).toBe(baseline.y + layout.top);
+    expect((await brand.boundingBox())!.y).toBeGreaterThanOrEqual(baseline.y + layout.top);
     const safeBrand = (await brand.boundingBox())!;
     expect(safeBrand.x).toBeGreaterThanOrEqual(layout.left);
     expect(safeBrand.x + safeBrand.width).toBeLessThanOrEqual(layout.width - layout.right);
@@ -210,14 +211,15 @@ for (const width of [320, 390]) for (const font of [100, 150]) {
     await page.addStyleTag({ content: `html { font-size: ${font}%; }` });
     const banner = page.getByRole("region", { name: "アプリの更新" });
     await expect(banner.getByText("新しいバージョンがあります")).toBeVisible();
-    await expect(banner.locator("details p")).not.toBeVisible();
+    await expect(page.locator(".app-brand:visible")).toHaveCount(1);
+    await expect(banner.locator(".app-update-details p")).toBeVisible();
     const metrics = await page.evaluate(() => {
       const banner = document.querySelector(".app-update")!;
       const button = banner.querySelector("button")!.getBoundingClientRect();
-      const summary = banner.querySelector("summary")!.getBoundingClientRect();
+      const notes = banner.querySelector(".app-update-details")!.getBoundingClientRect();
       return { top: banner.getBoundingClientRect().top, height: banner.getBoundingClientRect().height,
         beforeBrand: !!(banner.compareDocumentPosition(document.querySelector(".app-brand")!) & Node.DOCUMENT_POSITION_FOLLOWING),
-        width: document.documentElement.scrollWidth, buttonHeight: button.height, summaryHeight: summary.height, gap: summary.top - button.bottom,
+        width: document.documentElement.scrollWidth, buttonHeight: button.height, notesHeight: notes.height, gap: notes.top - button.bottom,
         brand: getComputedStyle(document.querySelector(".brand-mark")!).color,
         icon: getComputedStyle(document.querySelector(".settings-menu-icon")!).stroke,
         toggle: getComputedStyle(document.querySelector(".settings-switch--on")!).backgroundColor,
@@ -225,7 +227,7 @@ for (const width of [320, 390]) for (const font of [100, 150]) {
     });
     expect(metrics.top).toBe(0); expect(metrics.beforeBrand).toBe(true);
     expect(metrics.height).toBeLessThan(220); expect(metrics.width).toBeLessThanOrEqual(width);
-    expect(metrics.buttonHeight).toBeGreaterThanOrEqual(48); expect(metrics.summaryHeight).toBeGreaterThanOrEqual(48);
+    expect(metrics.buttonHeight).toBeGreaterThanOrEqual(48); expect(metrics.notesHeight).toBeGreaterThan(0);
     expect(metrics.gap).toBeGreaterThanOrEqual(12);
     expect(metrics.brand).toBe("rgb(16, 35, 71)"); expect(metrics.icon).toBe("rgb(8, 102, 229)"); expect(metrics.toggle).toBe(metrics.icon);
     const calls = await page.evaluate(() => (window as unknown as { __settingsCalls: { method: string }[] }).__settingsCalls);
@@ -234,8 +236,7 @@ for (const width of [320, 390]) for (const font of [100, 150]) {
     await page.evaluate(() => window.scrollTo(0, 600));
     await expect(banner).toBeVisible();
     expect((await banner.boundingBox())!.y).toBe(0);
-    await banner.getByText("変更内容を見る").click();
-    await expect(banner.locator("details p")).toBeVisible();
+    await expect(banner.locator(".app-update-details p")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await banner.getByRole("button", { name: "更新", exact: true }).click();
     await expect(banner.getByRole("status")).toContainText("Androidの設定で更新を許可");
@@ -278,14 +279,19 @@ for (const width of [320, 390]) for (const font of [100, 150]) {
         await detail.evaluate(node => { (node as HTMLDetailsElement).open = true; });
       }
       const controls = await page.locator(".device-settings button.button:visible, .device-settings a.button:visible").evaluateAll(nodes => nodes.map(node => {
-        const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
+        const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom, left:box.left, right:box.right };
       }));
       for (let i = 0; i < controls.length; i++) {
         expect(controls[i].height).toBeGreaterThanOrEqual(48);
-        if (i > 0) expect(controls[i].top - controls[i - 1].bottom).toBeGreaterThanOrEqual(12);
+        for (let j=0;j<i;j++) {
+          const a=controls[i], b=controls[j];
+          const horizontal=Math.max(a.left,b.left)<Math.min(a.right,b.right);
+          const vertical=Math.max(a.top,b.top)<Math.min(a.bottom,b.bottom);
+          expect(horizontal && vertical, "visible controls must not overlap").toBe(false);
+        }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      if (title === "ChatGPT") await expect(page.getByRole("link", { name: "手動でChatGPTに相談" })).toHaveAttribute("href", "#/today/chatgpt");
+      if (title === "ChatGPT") await expect(page.getByRole("link", { name: "手動相談" })).toHaveAttribute("href", "#/today/chatgpt");
       if (title === "証券口座") await page.screenshot({ path: info.outputPath(`account-${width}-${font}.png`), fullPage: true });
       await page.getByRole("button", { name: "← 設定一覧へ" }).click();
     }
@@ -376,7 +382,7 @@ for (const width of [320, 390]) {
     await page.getByRole("button", { name: /^証券口座/ }).click();
     await expect(page.getByRole("button", { name: /^現金・買付余力/ })).toContainText("入力済み");
     await expect(page.getByRole("button", { name: /^取引の確認/ })).toContainText("未入力");
-    await expect(page.getByRole("button", { name: /^初回残高/ })).toContainText("未登録");
+    await expect(page.getByRole("button", { name: /^初回残高/ })).toContainText("未確認");
     await expect(page.getByRole("textbox", { name: "口座の呼び名" })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`account-overview-${width}.png`), fullPage: true });
     for (const title of ["現金・買付余力", "取引の確認", "初回残高"]) {

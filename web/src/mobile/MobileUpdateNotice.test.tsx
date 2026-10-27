@@ -20,8 +20,8 @@ test("a new release shows a short notice, shows notes and never starts installat
   expect(screen.getByText(release.versionName)).toBeVisible();
   expect(screen.getByText(release.notes)).toBeVisible();
   expect(StockAI.installUpdate).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText("変更内容を見る"));
-  expect(screen.getByText(release.notes)).toBeVisible();
+  expect(screen.getByRole("region", { name: "更新内容" })).toContainElement(screen.getByText(release.notes));
+  expect(screen.getByText(release.notes)).toHaveAttribute("tabindex", "0");
 });
 
 test("the current version does not show an update banner", async () => {

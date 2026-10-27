@@ -30,7 +30,8 @@ test("restoration observers disconnect once a delayed page reaches its saved pos
   act(() => frames.shift()!(0));
   expect(resizeInstances[0].disconnect).toHaveBeenCalled();
   expect(mutationInstances[0].disconnect).toHaveBeenCalled();
-  main.scrollTop = 450; fireEvent.scroll(main);
+  // Navigation must capture the current position even if its scroll event is still queued.
+  main.scrollTop = 450;
   fireEvent.click(screen.getByText("other")); act(() => frames.shift()!(0));
   height = 500;
   fireEvent.click(screen.getByText("home")); act(() => frames.shift()!(0));

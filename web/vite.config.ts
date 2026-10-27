@@ -20,6 +20,7 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 5173,
+    watch: { ignored: ["**/.demo-artifacts/**"] },
     proxy: {
       "/api": "http://127.0.0.1:8765",
     },

@@ -31,6 +31,7 @@ from . import (
     explanations,
     forecast_history,
     forecasts,
+    forward_evidence,
     manual_chatgpt,
     market,
     membership,
@@ -322,6 +323,14 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         raise RuntimeError("Runtime not initialized")
     if method not in {"GET", "POST"} or not path.startswith("/api/v1/") or "://" in path:
         return {"status": 400, "body": {"detail": "Unsupported local operation"}}
+    if path == "/api/v1/mobile/forward-evidence" and method == "GET":
+        try:
+            return {"status": 200, "body": forward_evidence.inventory(
+                STATE / "mobile.sqlite3", _app.state.store, now=datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "保存した日次予測の記録を確認できません。"}}
     history = re.fullmatch(
         r"/api/v1/mobile/stocks/([A-Z0-9]{4})/forecast-history(?:\?days=(30|90|180|366))?",
         path,

@@ -39,6 +39,8 @@ export function ScrollMemory() {
     window.addEventListener("touchstart", stop, { passive: true });
     window.addEventListener("wheel", stop, { passive: true });
     return () => {
+      // A navigation may occur before the browser dispatches the latest scroll event.
+      if (!restoring) positions.current.set(route, scrollTop());
       stop(); cancelAnimationFrame(frame);
       window.removeEventListener("scroll", remember);
       main?.removeEventListener("scroll",remember);
