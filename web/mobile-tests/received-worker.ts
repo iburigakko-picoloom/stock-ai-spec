@@ -32,7 +32,7 @@ path, store = runtime.STATE / 'mobile.sqlite3', runtime._app.state.store
 ledger = store.latest_portfolio()
 assert store.latest_prediction_snapshot() is None
 assert forecasts.latest(path) is None and decisions.latest(path) is None
-numerical = await runtime.request('POST', '/api/v1/mobile/daily/generate', 'null')
+numerical = await runtime.request('POST', '/api/v1/mobile/daily/generate', '{}')
 assert numerical['status'] == 200, numerical
 numerical = numerical['body']
 assert numerical['phase'] == 'published', numerical['blocking_reasons']
@@ -42,7 +42,10 @@ assert snapshot.holding_symbols == ('1023',)
 assert snapshot.mode == 'research' and snapshot.adoption_review_id is None
 assert not models.status(path, store)['model_adopted']
 assert len(numerical['data_proof']['source_snapshot_ids']) == 5
-assert numerical['data_proof'] == fixture['wasm_data_proof']
+assert numerical['data_proof'] == fixture['wasm_data_proof'], [
+    key for key in numerical['data_proof'].keys() | fixture['wasm_data_proof'].keys()
+    if numerical['data_proof'].get(key) != fixture['wasm_data_proof'].get(key)
+]
 assert snapshot.data_snapshot_id == fixture['wasm_data_snapshot_id']
 assert numerical['scope']['universe']['membership_verified']
 assert snapshot.data_as_of < snapshot.as_of == datetime.fromisoformat(fixture['cutoff'])
