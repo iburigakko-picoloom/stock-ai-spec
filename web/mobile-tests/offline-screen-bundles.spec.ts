@@ -22,3 +22,33 @@ test("unvisited screen bundles remain available after the installed web app goes
     expect(errors).toEqual([]);
   }
 });
+
+
+test("an open old version can use its cached screen chunk after the server updates", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.reload();
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  const result = await page.evaluate(async () => {
+    const path = "/assets/OldScreen-abcdefgh.js";
+    const cache = await caches.open("stock-ai-shell-v1");
+    await cache.put(path, new Response("export const oldVersion = true;", { headers: { "Content-Type": "text/javascript" } }));
+    const response = await fetch(path);
+    return { status: response.status, body: await response.text() };
+  });
+  expect(result).toEqual({ status: 200, body: "export const oldVersion = true;" });
+});
+
+
+test("an HTML fallback is not cached as a missing script", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.reload();
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  const cached = await page.evaluate(async () => {
+    const path = "/assets/MissingScreen-abcdefgh.js";
+    await fetch(path);
+    return !!(await (await caches.open("stock-ai-shell-v1")).match(path));
+  });
+  expect(cached).toBe(false);
+});

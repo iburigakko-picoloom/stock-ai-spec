@@ -21,6 +21,25 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || url.pathname.startsWith("/api/")) {
     return;
   }
+  // Hashed build assets are immutable, and an older open page may still need
+  // its own chunk after deployment has removed that chunk from the server.
+  const immutableAsset = url.origin === self.location.origin
+    && /^\/assets\/.+-[A-Za-z0-9_-]{8,}\.(js|css)$/.test(url.pathname);
+  if (immutableAsset) {
+    event.respondWith(caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(request, { ignoreVary: true });
+      if (cached) return cached;
+      const response = await fetch(request);
+      const type = response.headers.get("content-type") || "";
+      const isAsset = url.pathname.endsWith(".css") ? /^text\/css(?:;|$)/i.test(type)
+        : /^(?:text|application)\/(?:x-)?javascript(?:;|$)/i.test(type);
+      if (response.ok && isAsset) {
+        try { await cache.put(request, response.clone()); } catch { /* Cache failure must not block the live file. */ }
+      }
+      return response;
+    }));
+    return;
+  }
   event.respondWith(
     fetch(request)
       .then((response) => {
