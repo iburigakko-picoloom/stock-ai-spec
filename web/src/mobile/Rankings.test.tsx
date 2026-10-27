@@ -62,7 +62,7 @@ test("archive retains old findings but cannot submit, validate or adopt a respon
 });
 
 test("reopened input is available but changed ranking prevents stale clipboard export", async () => {
-  vi.mocked(useApiData).mockReturnValue({ data: { ...base, savedInput: { id: base.id, prompt: "保存済み相談", expiresAt: "2026-10-27",responseMode:"chatgpt-readable-report-v1" } }, loading: false, error: null, savedAt: null, reload });
+  vi.mocked(useApiData).mockReturnValue({ data: { ...base, savedInput: { id: base.id, prompt: "保存済み相談", expiresAt: "2026-10-27",responseMode:"chatgpt-readable-report-v2" } }, loading: false, error: null, savedAt: null, reload });
   vi.mocked(apiGet).mockResolvedValue({ ...base, id: "changed" });
   render(<MemoryRouter><Rankings /></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "20日・ランキング" }));
@@ -73,7 +73,7 @@ test("reopened input is available but changed ranking prevents stale clipboard e
 });
 
 test("new ranking consultation copies the readable report prompt without importing an answer",async()=>{
-  const exported={id:"report-input",rankingId:base.id,prompt:"本文と表で分析する相談文",expiresAt:"2026-10-27",canCopy:true,responseMode:"chatgpt-readable-report-v1"};
+  const exported={id:"report-input",rankingId:base.id,prompt:"本文と表で分析する相談文",expiresAt:"2026-10-27",canCopy:true,responseMode:"chatgpt-readable-report-v2"};
   const clipboard=vi.fn().mockResolvedValue(undefined);
   vi.stubGlobal("navigator",{clipboard:{writeText:clipboard}});
   vi.mocked(apiPost).mockResolvedValue(exported);

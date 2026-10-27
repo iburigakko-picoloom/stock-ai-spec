@@ -49,7 +49,7 @@ export function StockDetailPage(): ReactNode {
   const selectedLines = selectedBucket === "ALL"
     ? data.proposalLines
     : data.proposalLines.filter((item) => item.accountBucketId === selectedBucket);
-  const company = data.proposalLines[0]?.companyName || symbol;
+  const company = data.proposalLines[0]?.companyName || rankingPreview?.companyName || symbol;
   const totalShares = selectedPositions.reduce((sum, item) => sum + item.shares, 0);
   const weightedAverage = totalShares === 0
     ? null
@@ -59,7 +59,6 @@ export function StockDetailPage(): ReactNode {
     ) / totalShares;
 
   const marketValue=selectedPositions.reduce((sum,item)=>sum+item.shares*Number(item.market_price),0);
-  const research=data.chatgptResearch?.at(-1) ?? data.researchRuns?.filter(run=>run.record).at(-1)?.record;
   const prediction=data.forecast?.prediction;
   return <div className="page stock-detail">
     <PageHeader title="銘柄詳細" backTo={backTo} />
@@ -87,17 +86,12 @@ export function StockDetailPage(): ReactNode {
       </div>)}
       <Link className="button ghost" to="/today">全体の提案 ›</Link>
     </section>
-    <section className="card"><div className="row spread"><h3 className="section-title">ChatGPT調査</h3><span className="badge">{research ? "保存済み" : "未調査"}</span></div>
-      {research ? <><small>{dateTime(research.comparison.completed_at,true)}</small><p>{research.comparison.text.split("\n")[0]}</p></> : <p className="setting-footnote">保存した調査・中断した処理は調査履歴で確認できます。</p>}
-      <Link className="button secondary" to={`/stocks/${symbol}/research`} state={{from:backTo,bucket:selectedBucket}}>調査履歴 ›</Link>
-    </section>
     <div className="detail-foot"><Link className="button" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{from:backTo,bucket:selectedBucket}}>この銘柄の取引を記録</Link></div>
+    {(data.chatgptResearch?.length || data.researchRuns?.some(run=>run.record)) ? <Link className="quiet-link" to={`/stocks/${symbol}/research`} state={{from:backTo,bucket:selectedBucket}}>過去の調査履歴</Link> : null}
     {data.proposal && <Link className="quiet-link" to="/today/details">現在維持・提案全体の計算詳細 ›</Link>}
     </div></div>
     <StockMemo key={symbol} symbol={symbol} />
     {data.forecast && <section className="section"><h2>予測の条件</h2><p className="setting-footnote">入力締切 {dateTime(data.forecast.asOf,true)} JST</p><p className="setting-footnote">{data.forecast.labelDefinitionSupported ? "入力に使った株価日の翌営業日終値から、5・20営業日先までの研究予測です。実約定による損益ではありません。" : "この予測の起点は現在のモデル契約に対応していません。新しい判断には使えません。"}</p>
-      {prediction?.rank_score_5d != null && <p className="setting-footnote">5日順位スコア {prediction.rank_score_5d.toFixed(4)}</p>}
-      {prediction?.large_loss_probability === null && <p className="setting-footnote">下落確率は未提供です。リスクがないという意味ではありません。</p>}
       {data.forecast.blockingReasons.length>0 && <ul>{data.forecast.blockingReasons.map(reason=><li key={reason}>{reason}</li>)}</ul>}
     </section>}
   </div>;

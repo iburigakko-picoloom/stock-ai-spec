@@ -152,9 +152,9 @@ function RankingBody({ horizon }: { horizon: string }) {
       <button className="button button--primary" disabled={busy || loading || !privateUse || !entitled} onClick={() => void run(async () => {
         setExported(await apiPost<Exported>(`${path}/export`, { service: "manual_chatgpt", checked_at: new Date().toISOString(), personal_analysis_only: privateUse, training_disabled: privateUse, private_input: privateUse, private_output: privateUse, data_entitlement_confirmed: entitled }));
       })}>相談文を作る</button>
-      {exported && (legacy || exported.responseMode==="chatgpt-readable-report-v1") && <>
+      {exported && (legacy || exported.responseMode==="chatgpt-readable-report-v2") && <>
         <textarea className="csv-input" aria-label="ChatGPTへの相談文" readOnly value={exported.prompt} />
-        <button className="button button--secondary" disabled={busy || loading || exported.canCopy === false || exported.responseMode!=="chatgpt-readable-report-v1"} onClick={() => void run(async () => { const current = await apiGet<Ranking>(path); if (current?.id !== (exported.rankingId ?? exported.id) || current.savedInput?.prompt !== exported.prompt || current.savedInput?.canCopy === false || current.savedInput?.responseMode!=="chatgpt-readable-report-v1") throw new Error("ランキングか送信許可が更新されています。相談文を作り直してください。"); await navigator.clipboard.writeText(exported.prompt); setMessage("コピーしました。ChatGPTに貼り付けて相談してください。"); })}>相談文をコピー</button>
+        <button className="button button--secondary" disabled={busy || loading || exported.canCopy === false || exported.responseMode!=="chatgpt-readable-report-v2"} onClick={() => void run(async () => { const current = await apiGet<Ranking>(path); if (current?.id !== (exported.rankingId ?? exported.id) || current.savedInput?.prompt !== exported.prompt || current.savedInput?.canCopy === false || current.savedInput?.responseMode!=="chatgpt-readable-report-v2") throw new Error("ランキングか送信許可が更新されています。相談文を作り直してください。"); await navigator.clipboard.writeText(exported.prompt); setMessage("コピーしました。ChatGPTに貼り付けて相談してください。"); })}>相談文をコピー</button>
         <a className="button button--secondary" href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPTを開く</a>
       </>}
     </section>}

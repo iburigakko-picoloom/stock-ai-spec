@@ -44,7 +44,7 @@ export function ManualChatGPTPage(): ReactNode {
       .then(value => {
         if (!active) return;
         setStatus(value);
-        if (value.saved_input && value.saved_input.response_mode==="chatgpt-readable-report-v1") {
+        if (value.saved_input && value.saved_input.response_mode==="chatgpt-readable-report-v2") {
           setExported(value.saved_input);
           setShowPrompt(true);
           setMessage("保存済みの入力を再表示しました。有効期限と内容を確認して相談を続けられます。");
@@ -64,7 +64,7 @@ export function ManualChatGPTPage(): ReactNode {
         personal_analysis_only: privateUse, training_disabled: privateUse,
         private_input: privateUse, private_output: privateUse, data_entitlement_confirmed: entitled,
       });
-      if (prepared.response_mode!=="chatgpt-readable-report-v1") throw new Error("相談文を新しい形式で作り直してください。");
+      if (prepared.response_mode!=="chatgpt-readable-report-v2") throw new Error("相談文を新しい形式で作り直してください。");
       setExported(prepared);
       setShowPrompt(true);
       setStatus(previous => previous && { ...previous, selected_input: prepared.input_record_id, saved_input: prepared, saved_input_reason: null });
@@ -78,7 +78,7 @@ export function ManualChatGPTPage(): ReactNode {
     setBusy(true); setError(""); setMessage("");
     try {
       const latest = await apiGet<ManualStatus>("/api/v1/mobile/chatgpt-manual/status");
-      if (!latest.ready || !latest.saved_input || latest.saved_input.response_mode!=="chatgpt-readable-report-v1"
+      if (!latest.ready || !latest.saved_input || latest.saved_input.response_mode!=="chatgpt-readable-report-v2"
         || latest.saved_input.input_record_id !== exported.input_record_id
         || latest.saved_input.input_snapshot_id !== exported.input_snapshot_id
         || latest.saved_input.prompt !== exported.prompt) {
@@ -110,7 +110,7 @@ export function ManualChatGPTPage(): ReactNode {
           <div className="button-stack"><button className="button button--primary" disabled={busy || !status.ready || !privateUse || !entitled}
             onClick={() => void prepare()}>作成・コピー</button><button className="button secondary" disabled={!exported} onClick={()=>setShowPrompt(true)}>内容を表示</button></div>
           {status.saved_input_reason && <p className="setting-footnote">{status.saved_input_reason}</p>}
-          {exported && showPrompt && exported.response_mode==="chatgpt-readable-report-v1" && <>
+          {exported && showPrompt && exported.response_mode==="chatgpt-readable-report-v2" && <>
             <p>入力の有効期限：{dateTime(exported.expires_at)}</p>
             <textarea className="csv-input" aria-label="ChatGPTへ渡す入力" readOnly value={exported.prompt} />
             <div className="button-stack"><button className="button button--secondary" disabled={busy} onClick={() => void copy()}>プロンプトをコピー</button></div>

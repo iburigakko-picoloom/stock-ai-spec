@@ -316,7 +316,7 @@ test("unregistered home keeps the adopted layout and real registration route",as
 });
 
 test("new ChatGPT consultation copies and opens a report without answer import",async({page},info)=>{
-  const exported={input_record_id:"synthetic-report",input_snapshot_id:"synthetic-report-input",expires_at:"2026-10-26T18:00:00+09:00",prompt:"SYNTHETIC_UI_TEST: 日本語の本文・表・出典で分析を読みます。",response_mode:"chatgpt-readable-report-v1"};
+  const exported={input_record_id:"synthetic-report",input_snapshot_id:"synthetic-report-input",expires_at:"2026-10-26T18:00:00+09:00",prompt:"SYNTHETIC_UI_TEST: 日本語の本文・表・出典で分析を読みます。",response_mode:"chatgpt-readable-report-v2"};
   let saved:typeof exported|null=null;
   let writes=0;
   const clipboardMock=()=>Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async(value:string)=>{Object.assign(window,{__reportCopied:value});}}});

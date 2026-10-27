@@ -52,9 +52,11 @@ def test_new_prompt_is_for_reading_in_chatgpt_and_preserves_source_inputs(ready)
     _, _, store, _, _ = ready
     before = store.latest_portfolio().model_dump_json()
     exported = export(ready)
-    assert exported["response_mode"] == "chatgpt-readable-report-v1"
+    assert exported["response_mode"] == "chatgpt-readable-report-v2"
     prompt = exported["prompt"]
     assert "日本語のMarkdown本文・表・出典リンク" in prompt
+    assert "5日・20日それぞれの下落シナリオ" in prompt
+    assert "根拠が足りなければ確率は不明" in prompt
     assert "アプリへの回答の貼り戻しは行いません" in prompt
     assert "回答JSON・機械取込用schema" in prompt
     assert "出力しないでください" in prompt

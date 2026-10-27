@@ -94,9 +94,11 @@ def test_new_ranking_prompt_requests_readable_analysis_without_json_response(rea
     _, store, *_ = ready
     before = store.latest_portfolio().model_dump_json()
     _, _, _, _, _, exported, _ = prepare(ready)
-    assert exported["responseMode"] == "chatgpt-readable-report-v1"
+    assert exported["responseMode"] == "chatgpt-readable-report-v2"
     prompt = exported["prompt"]
     assert "日本語のMarkdown本文・表・出典リンク" in prompt
+    assert "5日・20日それぞれの下落シナリオ" in prompt
+    assert "根拠が足りなければ確率は不明" in prompt
     assert "次のJSON形式だけを返してください" not in prompt
     assert '"properties"' not in prompt
     package = json.loads(prompt.split("\n入力:\n")[1])

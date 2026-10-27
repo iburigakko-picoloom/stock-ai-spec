@@ -11,7 +11,7 @@ vi.mock("../api",()=>({apiGet:vi.fn(),apiPost:vi.fn()}));
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllGlobals();});
 beforeEach(()=>vi.mocked(useApiData).mockReturnValue({data:null,loading:false,error:null,savedAt:null,reload:vi.fn()}));
 function show(path="/today/chatgpt"){render(<MemoryRouter initialEntries={[path]}><ManualChatGPTPage /></MemoryRouter>);}
-const savedInput={input_record_id:"saved-input",input_snapshot_id:"snapshot",expires_at:"2026-10-26T12:00:00+09:00",prompt:"保存済みの合成プロンプト",response_mode:"chatgpt-readable-report-v1"};
+const savedInput={input_record_id:"saved-input",input_snapshot_id:"snapshot",expires_at:"2026-10-26T12:00:00+09:00",prompt:"保存済みの合成プロンプト",response_mode:"chatgpt-readable-report-v2"};
 function resumedStatus(){return {ready:true,reason:null,selected_input:savedInput.input_record_id,saved_input:savedInput,answers:[]};}
 
 test("saved records remain readable without an import or review action",async()=>{
@@ -65,6 +65,13 @@ test("a cached legacy JSON-only prompt is not resumed for new consultation",asyn
   await screen.findByRole("button",{name:"作成・コピー"});
   expect(screen.queryByRole("textbox",{name:"ChatGPTへ渡す入力"})).not.toBeInTheDocument();
   expect(apiPost).not.toHaveBeenCalled();
+});
+
+test("a saved v1 prompt is not reused after the risk research instructions change",async()=>{
+  vi.mocked(apiGet).mockResolvedValue({...resumedStatus(),saved_input:{...savedInput,response_mode:"chatgpt-readable-report-v1",prompt:"以前の相談文"}});
+  show();
+  await screen.findByRole("button",{name:"作成・コピー"});
+  expect(screen.queryByRole("textbox",{name:"ChatGPTへ渡す入力"})).not.toBeInTheDocument();
 });
 
 test("reopening restores the exact readable input without another export or permission",async()=>{
