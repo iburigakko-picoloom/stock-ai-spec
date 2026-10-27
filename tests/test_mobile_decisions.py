@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import sqlite3
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock
@@ -242,9 +243,15 @@ def test_startup_reconciliation_reuses_checked_executions(ready, monkeypatch):
     assert first["phase"] == "published"
     second = _add_second_computed_receipt(path, first)
     reads = Mock(wraps=store.executions)
+    ledger_reads = Mock(wraps=store.portfolio)
+    forecast_reads = Mock(wraps=store.prediction_snapshot)
     monkeypatch.setattr(store, "executions", reads)
+    monkeypatch.setattr(store, "portfolio", ledger_reads)
+    monkeypatch.setattr(store, "prediction_snapshot", forecast_reads)
     decisions.reconcile(path, store, integrity_guard=device._app.state.integrity_guard)
     assert reads.call_count == 1
+    assert ledger_reads.call_count == 1
+    assert forecast_reads.call_count == 1
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT phase FROM mobile_decision_runs WHERE run_id=?",
                           (second,)).fetchone()[0] == "published"
@@ -303,6 +310,34 @@ def test_reused_execution_lookup_rejects_missing_and_changed_fills(ready):
     changed = record.model_copy(update={"average_fill_price": Decimal("1001")})
     with pytest.raises(ValueError, match="Frozen execution differs"):
         decisions._linked_inputs(store, value, actual={record.execution_id: changed})
+
+
+def test_reused_linked_records_still_reject_different_frozen_values(ready):
+    _, path, store, _, _ = ready
+    value = copy.deepcopy(decisions.generate(path, store, NOW))
+    cache = {key: OrderedDict() for key in ("ledger", "manual", "forecast")}
+    decisions._linked_inputs(store, value, actual={}, cache=cache)
+    altered = copy.deepcopy(value)
+    altered["frozen_inputs"]["ledger"]["positions"][0]["shares"] += 1
+    with pytest.raises(ValueError, match="Frozen ledger differs"):
+        decisions._linked_inputs(store, altered, actual={}, cache=cache)
+    altered = copy.deepcopy(value)
+    altered["frozen_inputs"]["manual"]["received_at"] = "2020-01-01T00:00:00Z"
+    with pytest.raises(ValueError, match="Frozen manual input differs"):
+        decisions._linked_inputs(store, altered, actual={}, cache=cache)
+
+
+def test_linked_record_cache_is_bounded_and_evicted_values_are_read_again():
+    cache = {"ledger": OrderedDict()}
+    reads = []
+    for index in range(9):
+        result = decisions._cached_linked(
+            cache, "ledger", index, lambda number=index: reads.append(number) or number,
+        )
+        assert result == index
+    assert len(cache["ledger"]) == 8
+    assert decisions._cached_linked(cache, "ledger", 0, lambda: reads.append(0) or 0) == 0
+    assert reads.count(0) == 2
 
 
 def test_block_then_reselect_cached_result_preserves_saved_user_progress(ready, monkeypatch):

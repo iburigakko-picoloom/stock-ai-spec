@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -207,6 +208,8 @@ def reconcile(path: Path, store, *, integrity_guard=None) -> None:
         if not integrity_guard.proof_is_current():
             raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
     actual = None
+    linked_cache = ({key: OrderedDict() for key in ("ledger", "manual", "forecast")}
+                    if integrity_guard is not None else None)
     with connect(path) as db:
         rows = db.execute("SELECT run_id,scope_hash,payload,content_hash,phase "
                           "FROM mobile_decision_runs ORDER BY sequence").fetchall()
@@ -219,7 +222,7 @@ def reconcile(path: Path, store, *, integrity_guard=None) -> None:
                     actual = {x.execution_id: x for x in store.executions()}
                 if not integrity_guard.proof_is_current():
                     raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
-            _linked_inputs(store, value, actual=actual)
+            _linked_inputs(store, value, actual=actual, cache=linked_cache)
             if value["phase"] == "published" and not _published_in_store(store, value):
                 raise ValueError("Published decision archive missing")
             if value["phase"] == "computed" and _published_in_store(store, value):
@@ -229,22 +232,44 @@ def reconcile(path: Path, store, *, integrity_guard=None) -> None:
             raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
 
 
-def _linked_inputs(store, value, *, actual=None):
+def _cached_linked(cache, kind, identity, read):
+    if cache is None:
+        return read()
+    values = cache[kind]
+    if identity in values:
+        values.move_to_end(identity)
+        return values[identity]
+    result = read()
+    values[identity] = result
+    if len(values) > 8:
+        values.popitem(last=False)
+    return result
+
+
+def _linked_inputs(store, value, *, actual=None, cache=None):
     frozen = value["frozen_inputs"]
     if frozen is None:
         return
     refs = value["scope"]["personal_refs"]
-    if (store.portfolio(refs["ledger_portfolio_id"])
+    ledger_id = refs["ledger_portfolio_id"]
+    if (_cached_linked(cache, "ledger", ledger_id, lambda: store.portfolio(ledger_id))
             != PortfolioState.model_validate(frozen["ledger"])):
         raise ValueError("Frozen ledger differs from original")
-    with connect(store.path) as db:
-        row = db.execute("SELECT content_hash FROM manual_portfolio_imports WHERE revision_id=?",
-                         (refs["manual_revision_id"],)).fetchone()
-    if row is None or row[0] != content_id(frozen["manual"]):
+    def manual_hash():
+        with connect(store.path) as db:
+            row = db.execute(
+                "SELECT content_hash FROM manual_portfolio_imports WHERE revision_id=?",
+                (refs["manual_revision_id"],),
+            ).fetchone()
+        return None if row is None else row[0]
+    original_hash = _cached_linked(cache, "manual", refs["manual_revision_id"], manual_hash)
+    if original_hash is None or original_hash != content_id(frozen["manual"]):
         raise ValueError("Frozen manual input differs from original")
     if frozen["forecast"] is not None:
         snapshot = PredictionSnapshot.model_validate(frozen["forecast"])
-        if store.prediction_snapshot(snapshot.snapshot_id) != snapshot:
+        original = _cached_linked(cache, "forecast", snapshot.snapshot_id,
+                                  lambda: store.prediction_snapshot(snapshot.snapshot_id))
+        if original != snapshot:
             raise ValueError("Frozen forecast differs from original")
     if actual is None:
         actual = {x.execution_id: x for x in store.executions()}
