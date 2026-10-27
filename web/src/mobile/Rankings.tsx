@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, TabBar, dateTime } from "../components";
@@ -10,6 +10,33 @@ interface Ranked { symbol: string; companyName?: string; modelRank: number; scor
 interface Answer { order: { symbol: string; reason: string }[]; savedAt: string; researchId?: string; research?: ConsultationFindings }
 interface Ranking { id: string; generatedAt: string; asOf: string; priceDate: string | null; rows: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null; holdingSymbols?: string[]; metrics?: Record<string, { return5d: number | null; return20d: number | null; rank20d: number | null }> }
 interface Exported { id: string; rankingId?: string; prompt: string; expiresAt: string; canCopy?: boolean; responseMode?: string }
+type DisplayRow = Ranked & { reason: string; rank: string };
+const percent = (value: number | null | undefined) => value == null ? "未算出" : `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
+
+const RankingRow = memo(function RankingRow({ row, horizon, metrics, held, adjusted }: { row: DisplayRow; horizon: string; metrics: Ranking["metrics"]; held: boolean; adjusted: boolean }) {
+  const valueOnly = horizon !== "20d";
+  return <Link to={`/stocks/${row.symbol}`} state={{ from: "/ranking" }} className="ranking-table-row">
+    <span className="ranking-company"><span className="ranking-position" aria-label={row.rank}>{row.rank.replace("位","")}</span><span><strong>{row.companyName || row.symbol}</strong>{row.companyName && <small>{row.symbol} {held && <span className="ranking-held">保有</span>}</small>}{!row.companyName && held && <small className="ranking-held">保有</small>}
+      {adjusted && <small>モデル {row.modelRank}位</small>}{row.reason && <small>{row.reason}</small>}</span></span>
+    <span className={`ranking-return ${horizon==="5d" || !valueOnly ? "is-period" : ""}`}>{valueOnly ? percent(metrics?.[row.symbol]?.return5d ?? (horizon === "5d" ? row.expectedReturn : null)) : metrics?.[row.symbol]?.rank20d?.toFixed(2) ?? "未算出"}</span>
+    <span className={`ranking-return ${horizon==="20d-value" ? "is-period" : ""}`}>{percent(metrics?.[row.symbol]?.return20d ?? (horizon !== "5d" ? row.expectedReturn : null))}</span>
+  </Link>;
+});
+
+function RankingRows({ rows, data, horizon, held, adjusted }: { rows: DisplayRow[]; data: Ranking; horizon: string; held: Set<string>; adjusted: boolean }) {
+  const [visibleCount, setVisibleCount] = useState(40);
+  useEffect(() => {
+    if (visibleCount >= rows.length) return;
+    let nextFrame = 0;
+    const frame = requestAnimationFrame(() => {
+      nextFrame = requestAnimationFrame(() => setVisibleCount(count => Math.min(rows.length, count + 128)));
+    });
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(nextFrame); };
+  }, [rows.length, visibleCount]);
+  const valueOnly = horizon !== "20d";
+  return <><div className="card ranking-table"><div className="ranking-table-head"><span>順位・銘柄</span><span className={horizon==="5d" || !valueOnly ? "is-period" : ""}>{valueOnly ? "5日値予測" : "順位スコア"}</span><span className={horizon==="20d-value" ? "is-period" : ""}>20日値予測</span></div>
+    {rows.slice(0, visibleCount).map(row => <RankingRow key={row.symbol} row={row} horizon={horizon} metrics={data.metrics} held={held.has(row.symbol)} adjusted={adjusted} />)}</div>{visibleCount < rows.length && <p role="status" className="setting-footnote">残りの銘柄を表示しています…</p>}</>;
+}
 
 export function Rankings() {
   const [horizon, setHorizon] = useState("5d");
@@ -50,7 +77,6 @@ function RankingBody({ horizon }: { horizon: string }) {
   const held = useMemo(() => new Set(data?.holdingSymbols ?? []), [data?.holdingSymbols]);
   const query = search.trim().toLowerCase();
   const visible = rows.filter(row => (!heldOnly || held.has(row.symbol)) && `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(query));
-  const percent = (value: number | null | undefined) => value == null ? "未算出" : `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
   return <>
     {loading && <p role="status">{data ? "保存済みの順位を表示中・更新を確認しています…" : "ランキングを読み込んでいます…"}</p>}
     {error && <StatePanel tone="error" title="ランキングを読み込めません" detail={error} />}
@@ -61,13 +87,7 @@ function RankingBody({ horizon }: { horizon: string }) {
         <form className="ranking-search-row" onSubmit={e=>{e.preventDefault();(e.currentTarget.querySelector("input") as HTMLInputElement)?.blur();}}><input className="ranking-search" aria-label="銘柄名・コードで検索" type="search" placeholder="銘柄名・コードで検索" value={search} onChange={e => setSearch(e.target.value)} /><button className="button secondary" type="submit">検索</button></form>
         <div className="ranking-filter"><label><input type="checkbox" checked={heldOnly} onChange={e => setHeldOnly(e.target.checked)} />保有銘柄のみ</label><span className="ranking-results-count">{visible.length} / {rows.length}銘柄</span></div>
         {!visible.length && <p>条件に一致する銘柄がありません。</p>}
-        <div className="card ranking-table"><div className="ranking-table-head"><span>順位・銘柄</span><span className={horizon==="5d" || !valueOnly ? "is-period" : ""}>{valueOnly ? "5日値予測" : "順位スコア"}</span><span className={horizon==="20d-value" ? "is-period" : ""}>20日値予測</span></div>
-        {visible.map(row => <Link to={`/stocks/${row.symbol}`} state={{ from: "/ranking" }} className="ranking-table-row" key={row.symbol}>
-          <span className="ranking-company"><span className="ranking-position" aria-label={row.rank}>{row.rank.replace("位","")}</span><span><strong>{row.companyName || row.symbol}</strong>{row.companyName && <small>{row.symbol} {held.has(row.symbol) && <span className="ranking-held">保有</span>}</small>}{!row.companyName && held.has(row.symbol) && <small className="ranking-held">保有</small>}
-            {adjusted && <small>モデル {row.modelRank}位</small>}{row.reason && <small>{row.reason}</small>}</span></span>
-          <span className={`ranking-return ${horizon==="5d" || !valueOnly ? "is-period" : ""}`}>{valueOnly ? percent(data.metrics?.[row.symbol]?.return5d ?? (horizon === "5d" ? row.expectedReturn : null)) : data.metrics?.[row.symbol]?.rank20d?.toFixed(2) ?? "未算出"}</span>
-          <span className={`ranking-return ${horizon==="20d-value" ? "is-period" : ""}`}>{percent(data.metrics?.[row.symbol]?.return20d ?? (horizon !== "5d" ? row.expectedReturn : null))}</span>
-        </Link>)}</div><p className="small muted">{data.priceDate ? `${data.priceDate} 終値 · ` : ""}{dateTime(data.generatedAt, true)} 作成</p>
+        <RankingRows key={JSON.stringify([horizon,source,legacy,heldOnly,query])} rows={visible} data={data} horizon={horizon} held={held} adjusted={!!adjusted} /><p className="small muted">{data.priceDate ? `${data.priceDate} 終値 · ` : ""}{dateTime(data.generatedAt, true)} 作成</p>
       </div>
       {horizon === "20d" && <><button className="button button--secondary" disabled={loading || busy || !rows.length} onClick={() => setConsulting(!consulting)}>ChatGPTと相談</button>{(data.savedInput || research || data.answer) && <button className="quiet-link" onClick={()=>{setLegacy(!legacy);setConsulting(true);}}>過去の相談記録</button>}</>}
     </>}
