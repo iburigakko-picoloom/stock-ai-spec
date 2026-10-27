@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import { AllocationReadout } from "./PolicySummary";
+import { AllocationReadout, MinimumCashField, PolicyDataProvider, PolicySummary, RiskPolicyFields } from "./PolicySummary";
 import { useApiData } from "../hooks";
 import { isAndroid } from "./native";
 vi.mock("../hooks", () => ({useApiData:vi.fn()}));
@@ -13,4 +13,25 @@ test.each([true,false])("allocation uses the correct ledger source on Android=%s
   expect(useApiData).toHaveBeenCalledWith(android ? "/api/v1/home/ledger" : "/api/v1/home");
   expect(screen.getByText("¥1,234")).toBeVisible();
   expect(screen.getByText("¥5,678")).toBeVisible();
+});
+
+
+test("conditions share one settings read across all three policy sections", () => {
+  vi.mocked(useApiData).mockReturnValue({ data: {
+    capital: { minimumCashRatio: "0.2" },
+    decisionPolicies: { maximumPositions: 8, maximumSymbolWeight: "0.15", roundLotShares: 100, minimumImprovementYen: "300" },
+  }, error: null, loading: false, savedAt: null, reload: vi.fn() });
+  render(<PolicyDataProvider><MinimumCashField /><RiskPolicyFields /><PolicySummary /></PolicyDataProvider>);
+  expect(useApiData).toHaveBeenCalledTimes(1);
+  expect(useApiData).toHaveBeenCalledWith("/api/v1/settings");
+  expect(screen.getByLabelText("最低現金（総資産比・%）")).toHaveValue("20");
+  expect(screen.getByLabelText("最大保有銘柄数")).toHaveValue("8");
+  expect(screen.getByLabelText("売買単位")).toHaveValue("100株");
+});
+
+test("shared policy errors remain visible without inventing settings", () => {
+  vi.mocked(useApiData).mockReturnValue({ data: null, error: "failed", loading: false, savedAt: null, reload: vi.fn() });
+  render(<PolicyDataProvider><MinimumCashField /><RiskPolicyFields /><PolicySummary /></PolicyDataProvider>);
+  expect(screen.getByRole("alert")).toHaveTextContent("計算条件を取得できません");
+  expect(screen.getByLabelText("最低現金（総資産比・%）")).toHaveValue("未設定");
 });

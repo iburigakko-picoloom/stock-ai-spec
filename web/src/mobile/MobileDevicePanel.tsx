@@ -4,7 +4,7 @@ import { apiGet, apiPost } from "../api";
 import { isAndroid, StockAI, type ReleaseInfo } from "./native";
 import { MobileBackupPanel } from "./MobileBackupPanel";
 import { MobilePersonalPanel, accountStepTitles, type AccountStep } from "./MobilePersonalPanel";
-import { AllocationReadout, MinimumCashField, PolicySummary, RiskPolicyFields } from "./PolicySummary";
+import { AllocationReadout, MinimumCashField, PolicyDataProvider, PolicySummary, RiskPolicyFields } from "./PolicySummary";
 import { AppInfoPanel } from "./AppInfoPanel";
 import { CurrentAccountPanel } from "./CurrentAccountPanel";
 import { SaveProgress } from "./SaveProgress";
@@ -329,13 +329,13 @@ export function MobileDevicePanel(): ReactNode {
       </nav>
     </SettingsPanel>
     <SettingsPanel visible={selected === "conditions"}>
-      <div className="subscreen sub-settings"><fieldset className="account-form" disabled={busy || !portfolioLoaded}><div className="ss-compact">
+      <PolicyDataProvider><div className="subscreen sub-settings"><fieldset className="account-form" disabled={busy || !portfolioLoaded}><div className="ss-compact">
         <SettingGroup number="01" title="資金配分"><AllocationReadout /><Field label="投資上限（株式時価・円）"><input className="input" inputMode="decimal" value={portfolio.investment_budget_yen ?? ""} onChange={e=>setPortfolio({...portfolio,investment_budget_yen:e.target.value || null})} /></Field><MinimumCashField /></SettingGroup>
         <SettingGroup number="02" title="リスク"><Field label="最大許容下落率（%）"><input className="input" type="number" min="0.01" max="100" step="any" value={portfolio.maximum_drawdown_percent ?? ""} onChange={e=>setPortfolio({...portfolio,maximum_drawdown_percent:e.target.value ? Number(e.target.value) : null})} /></Field><RiskPolicyFields /></SettingGroup>
         {selected === "conditions" && <PolicySummary />}</div>
         <div className="subactions"><button className="button" onClick={()=>void action(savePortfolio,"運用条件を保存しました。")}>設定を保存</button></div>
       </fieldset>{messageGroup === "account" && message && <p className="ss-status" role="status">{message}</p>}</div>
-      <button className="text-link" onClick={()=>open("method")}>計算方式</button>
+      <button className="text-link" onClick={()=>open("method")}>計算方式</button></PolicyDataProvider>
     </SettingsPanel>
     <SettingsPanel visible={selected === "method" || selected === "taxes"}>
       <MobilePersonalPanel profile={savedPortfolio} disabled={busy || !portfolioLoaded || accountDirty} step={selected === "method" ? "method" : "taxes"} />
