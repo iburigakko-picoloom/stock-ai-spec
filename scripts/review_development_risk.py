@@ -62,6 +62,11 @@ def main() -> None:
                 if original["calibration"] != "RAW_NO_REFIT":
                     raise ValueError("Unexpected calibration")
                 scores = original["scores"]
+                folds = original["fold_metrics"]
+                if [part["fold"] for part in folds] != [3, 4, 5]:
+                    raise ValueError("Risk fold coverage differs")
+                if sum(part["metrics"]["scores"]["rows"] for part in folds) != scores["rows"]:
+                    raise ValueError("Risk fold row count differs")
                 if task == "large_loss":
                     if original["event_definition"] != {"operator": "<=", "threshold": -0.08}:
                         raise ValueError("Risk event differs")
@@ -72,13 +77,33 @@ def main() -> None:
                         "base_rate", "mean_probability", "brier_score", "log_loss"
                     )}
                     pair[task]["hindsight_constant_brier"] = rate * (1 - rate)
+                    pair[task]["folds"] = [
+                        {"fold": part["fold"], **{name: part["metrics"]["scores"][name]
+                         for name in ("rows", "base_rate", "mean_probability", "brier_score")}}
+                        for part in folds
+                    ]
+                    for name in ("base_rate", "mean_probability", "brier_score"):
+                        weighted = sum(part[name] * part["rows"] for part in pair[task]["folds"])
+                        if not math.isclose(weighted / scores["rows"], scores[name], abs_tol=1e-12):
+                            raise ValueError("Risk fold weighted score differs")
                 else:
                     if original["quantile_alpha"] != 0.1 or len(scores["scores"]) != 1:
                         raise ValueError("Risk quantile differs")
                     quantile = scores["scores"][0]
                     for name in ("alpha", "pinball_loss", "strictly_below_rate"):
                         same(exported, name, quantile[name])
-                    pair[task] = quantile
+                    pair[task] = {**quantile, "folds": [
+                        {"fold": part["fold"], "rows": part["metrics"]["scores"]["rows"],
+                         **part["metrics"]["scores"]["scores"][0]} for part in folds
+                    ]}
+                    if any(part["alpha"] != quantile["alpha"] for part in pair[task]["folds"]):
+                        raise ValueError("Risk fold quantile definition differs")
+                    for name in ("pinball_loss", "strictly_below_rate"):
+                        weighted = sum(part[name] * part["rows"] for part in pair[task]["folds"])
+                        if not math.isclose(
+                            weighted / scores["rows"], quantile[name], abs_tol=1e-12
+                        ):
+                            raise ValueError("Risk fold weighted quantile differs")
                 pair[task]["missing_predictions_on_P"] = original["missing_predictions_on_P"]
             evidence.append({"family": family, "seed": seed, **pair})
     print(json.dumps({
