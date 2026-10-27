@@ -127,7 +127,8 @@ function RankingBody({ horizon }: { horizon: string }) {
   }, [adjusted, data, valueOnly, displayNames]);
   const held = useMemo(() => new Set(data?.holdingSymbols ?? []), [data?.holdingSymbols]);
   const query = search.trim().toLowerCase();
-  const visible = rows.filter(row => (!heldOnly || held.has(row.symbol)) && `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(query));
+  const matching = rows.filter(row => (!heldOnly || held.has(row.symbol)) && `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(query));
+  const visible = query ? matching : matching.slice(0, 20);
   return <>
     {loading && <p role="status">{data ? "保存済みの順位を表示中・更新を確認しています…" : "ランキングを読み込んでいます…"}</p>}
     {error && <StatePanel tone="error" title="ランキングを読み込めません" detail={error} />}
@@ -136,7 +137,7 @@ function RankingBody({ horizon }: { horizon: string }) {
       <div id="ranking-source" role={legacy && !valueOnly && data.answer ? "tabpanel" : undefined} aria-labelledby={legacy && !valueOnly && data.answer ? `ranking-source-${source}` : undefined}>
         <p className="sr-only">{valueOnly ? `${horizon==="5d" ? "5" : "20"}日の予測リターンが高い順` : adjusted ? "ChatGPTの回答を反映した順位" : "モデルの予測順位"}</p>
         <form className="ranking-search-row" onSubmit={e=>{e.preventDefault();(e.currentTarget.querySelector("input") as HTMLInputElement)?.blur();}}><input className="ranking-search" aria-label="銘柄名・コードで検索" type="search" placeholder="銘柄名・コードで検索" value={search} onChange={e => setSearch(e.target.value)} /><button className="button secondary" type="submit">検索</button></form>
-        <div className="ranking-filter"><label><input type="checkbox" checked={heldOnly} onChange={e => setHeldOnly(e.target.checked)} />保有銘柄のみ</label><span className="ranking-results-count">{visible.length} / {rows.length}銘柄</span></div>
+        <div className="ranking-filter"><label><input type="checkbox" checked={heldOnly} onChange={e => setHeldOnly(e.target.checked)} />保有銘柄のみ</label><span className="ranking-results-count">{!query && matching.length > 20 ? "上位20件 · " : ""}{visible.length} / {rows.length}銘柄</span></div>
         {unavailableNames && <p className="setting-footnote">一部の銘柄名を確認できませんでした。銘柄コードを表示しています。</p>}
         {!visible.length && <p>条件に一致する銘柄がありません。</p>}
         <RankingRows key={JSON.stringify([horizon,source,legacy,heldOnly,query])} rows={visible} data={data} horizon={horizon} held={held} adjusted={!!adjusted} /><p className="small muted">{data.priceDate ? `${data.priceDate} 終値 · ` : ""}{dateTime(data.generatedAt, true)} 作成</p>

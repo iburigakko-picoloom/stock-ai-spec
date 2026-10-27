@@ -122,35 +122,42 @@ test("stock details fit narrow screens with large position values", async ({page
   expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`stock chart fits ${width}px and displays saved forecast and outcome`, async ({page},info) => {
+for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`forecast bars fit ${width}px and show both horizons`, async ({page},info) => {
   if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width,height:800});
   let calls=0;
-  await page.route("**/api/v1/mobile/stocks/1234/chart?*", route=>{
+  await page.route("**/api/v1/mobile/stocks/1234/forecast-history?*", route=>{
     calls++;
-    return route.fulfill({json:{symbol:"1234",firstDate:"2026-02-01",lastDate:"2026-03-01",observedAt:"2026-03-02T00:00:00Z",
-      calendar:{"2026-02-02":true,"2026-02-03":true},prices:[{date:"2026-02-02",close:100,volume:1000},{date:"2026-02-03",close:110,volume:500}],
-      forecasts:[{runId:"a",kind:"daily",priceDate:"2026-02-02",generatedAt:"2026-02-03T02:30:00Z",horizons:[
-        {horizon:5,expectedReturn:.02,return:.03,status:"available",entryDate:"2026-02-03",exitDate:"2026-02-10"},
-        {horizon:20,expectedReturn:.05,return:null,status:"pending",entryDate:null,exitDate:null}]}]}});
+    return route.fulfill({json:{symbol:"1234",firstDate:"2026-02-01",lastDate:"2026-03-01",
+      forecasts:Array.from({length:12},(_,i)=>({runId:`run-${i}`,kind:"daily",date:`2026-02-${String(i+1).padStart(2,"0")}`,generatedAt:`2026-02-${String(i+1).padStart(2,"0")}T02:30:00Z`,return5d:.02,return20d:-.05}))}});
   });
   await page.goto("http://127.0.0.1:5196/#/stocks/1234");
-  const chart=page.getByRole("region",{name:"株価と予測のグラフ"});
-  await expect(chart.getByRole("button",{name:"グラフを表示"})).toBeVisible();
-  expect(calls).toBe(0);
-  await chart.getByRole("button",{name:"グラフを表示"}).click();
-  await expect(chart.getByRole("img",{name:"保存済み終値と出来高の推移"})).toBeVisible();
-  await expect(chart.getByText(/予測 2.00% \/ 実績 3.00%/)).toBeVisible();
-  await chart.getByRole("button",{name:"20日"}).click();
-  await expect(chart.getByText(/予測 5.00% \/ 実績 —（結果待ち）/)).toBeVisible();
+  const chart=page.getByRole("region",{name:"モデル予測の推移"});
+  await expect(chart.getByRole("img",{name:"5日と20日の保存予測の推移"})).toBeVisible();
+  expect(calls).toBe(1);
+  await expect(chart.getByText("5日 +2.00% / 20日 -5.00%").first()).toBeVisible();
+  expect(await chart.locator("svg rect").count()).toBe(24);
+  expect(await chart.locator(".forecast-bars-scroll").evaluate(node=>node.scrollWidth>node.clientWidth)).toBe(true);
   for (const font of [100,150]) {
     await page.addStyleTag({content:`html{font-size:${font}%}`});
     expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
-    const overflow=await chart.locator("button,svg").evaluateAll(nodes=>nodes.filter(node=>{
+    const overflow=await chart.locator("button,.forecast-bars-scroll").evaluateAll(nodes=>nodes.filter(node=>{
       const r=node.getBoundingClientRect();return r.left < -1 || r.right > window.innerWidth+1;
     }).map(node=>node.outerHTML.slice(0,100)));
     expect(overflow).toEqual([]);
-    if (!process.env.STOCKAI_ANDROID_UI && font===150) await chart.screenshot({path:info.outputPath(`stock-chart-${width}.png`)});
+    if (!process.env.STOCKAI_ANDROID_UI && font===150) await chart.locator(".forecast-bars-frame").screenshot({path:info.outputPath(`forecast-bars-${width}.png`)});
   }
+});
+
+test("ranking initially shows 20 and finds analyzed stocks beyond the top 20",async({page})=>{
+  await page.goto("http://127.0.0.1:5196/#/ranking");
+  await expect(page.locator(".ranking-table-row")).toHaveCount(20);
+  await expect(page.getByText("上位20件 · 20 / 24銘柄")).toBeVisible();
+  await page.getByRole("searchbox").fill("画面試験24株式会社");
+  const row=page.locator('.ranking-table-row[href="#/stocks/1257"]');
+  await expect(row).toBeVisible();
+  await expect(row.getByLabel("24位")).toBeVisible();
+  await page.getByRole("searchbox").fill("");
+  await expect(page.locator(".ranking-table-row")).toHaveCount(20);
 });
 
 test("ranking detail explains the selected snapshot even when another forecast is active",async({page})=>{

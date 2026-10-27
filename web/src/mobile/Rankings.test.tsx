@@ -219,28 +219,21 @@ test("defers a pending name lookup while the app is hidden", async () => {
   } finally { visibility.mockRestore();request.mockRestore();cancel.mockRestore();vi.useRealTimers(); }
 });
 
-test("large ranking draws automatically while filters use every result and preserve its rank", () => {
+test("shows only top 20 but searches all analyzed stocks and preserves their rank", () => {
   const rows=Array.from({length:150},(_,index)=>({symbol:String(1000+index),modelRank:index+1,score:150-index,expectedReturn:(150-index)/10000}));
   vi.mocked(useApiData).mockReturnValue({data:{...base,rows,total:rows.length,holdingSymbols:["1149"]},loading:false,error:null,savedAt:null,reload});
-  let next=0;const frames=new Map<number,FrameRequestCallback>();
-  const request=vi.spyOn(window,"requestAnimationFrame").mockImplementation(callback=>{frames.set(++next,callback);return next;});
-  const cancel=vi.spyOn(window,"cancelAnimationFrame").mockImplementation(id=>{frames.delete(id);});
-  const tick=()=>act(()=>{const [id,callback]=frames.entries().next().value!;frames.delete(id);callback(0);});
   const view=render(<MemoryRouter><Rankings /></MemoryRouter>);
-  expect(view.container.querySelectorAll(".ranking-table-row")).toHaveLength(40);
-  expect(screen.getByText("150 / 150銘柄")).toBeVisible();
-  expect(screen.getByText("残りの銘柄を表示しています…")).toBeVisible();
+  expect(view.container.querySelectorAll(".ranking-table-row")).toHaveLength(20);
+  expect(screen.getByText("上位20件 · 20 / 150銘柄")).toBeVisible();
+  expect(screen.queryByText("1149")).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole("searchbox"),{target:{value:"1149"}});
   expect(screen.getByText("1 / 150銘柄")).toBeVisible();
   expect(screen.getByLabelText("150位")).toBeVisible();
   fireEvent.change(screen.getByRole("searchbox"),{target:{value:""}});
-  expect(view.container.querySelectorAll(".ranking-table-row")).toHaveLength(40);
-  tick();tick();
-  expect(view.container.querySelectorAll(".ranking-table-row")).toHaveLength(150);
-  expect(screen.getByLabelText("150位")).toBeVisible();
-  expect(screen.queryByText("残りの銘柄を表示しています…")).not.toBeInTheDocument();
+  expect(view.container.querySelectorAll(".ranking-table-row")).toHaveLength(20);
+  expect(screen.queryByLabelText("150位")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("checkbox",{name:"保有銘柄のみ"}));
   expect(screen.getByText("1 / 150銘柄")).toBeVisible();
   expect(screen.getByLabelText("150位")).toBeVisible();
-  view.unmount();request.mockRestore();cancel.mockRestore();
+  view.unmount();
 });

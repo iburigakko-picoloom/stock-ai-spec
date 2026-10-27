@@ -17,6 +17,8 @@ export function adoptedPayloads(profile: unknown): Record<string, unknown> {
     "/api/v1/mobile/ranking/5d":ranking,
     "/api/v1/mobile/ranking/20d":ranking,
     "/api/v1/stocks/1234":{symbol:"1234",positions:ledger.positions,proposalLines:[line],proposal,forecast:{snapshotId:"synthetic",asOf:proposal.asOf,generatedAt:proposal.generatedAt,isStale:false,mode:"research",blockingReasons:[],labelDefinitionSupported:true,researchEligible:false,prediction:{expected_return_5d:.024,expected_return_20d:.048,rank_score_20d:1,large_loss_probability:null},ranks:{return5d:1,return20d:1,rank20d:1,total:24}},researchRuns:[{run:{run_id:"synthetic-run",context},passes:[independent,comparison],attempts:[],record:research}],chatgptResearch:[research]},
+    "/api/v1/mobile/stocks/1234/forecast-history":{symbol:"1234",firstDate:"2026-08-01",lastDate:"2026-10-26",forecasts:[]},
+    "/api/v1/mobile/stocks/1246/forecast-history":{symbol:"1246",firstDate:"2026-08-01",lastDate:"2026-10-26",forecasts:[]},
     "/api/v1/validation":{observations:0,weekly_readouts:[],monthly_readouts:[],series:[],is_decision_ready:false,model_monitoring_ready:false,updated_at:proposal.asOf},
     "/api/v1/mobile/personal/current":{ledger,profile,settings:{revision_id:"b".repeat(64),settings:{cash_basis:"total_including_reserved"}}},
     "/api/v1/portfolio/history":[ledger],

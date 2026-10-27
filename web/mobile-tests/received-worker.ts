@@ -46,6 +46,12 @@ assert chart['forecasts'][0]['snapshotId'] == snapshot.snapshot_id
 assert chart['forecasts'][0]['horizons'][0]['expectedReturn'] == .01
 assert chart['forecasts'][0]['horizons'][0]['status'] == 'pending'
 assert chart['forecasts'][0]['horizons'][0]['return'] is None
+history = await runtime.request('GET', '/api/v1/mobile/stocks/1023/forecast-history?days=90')
+assert history['status'] == 200, history
+assert len(history['body']['forecasts']) == 1
+assert history['body']['forecasts'][0]['snapshotId'] == snapshot.snapshot_id
+assert history['body']['forecasts'][0]['return5d'] == .01
+assert history['body']['forecasts'][0]['return20d'] == .04
 explanation = explanations.read(path, store, '1023', snapshot.snapshot_id, now)
 assert explanation['snapshotId'] == snapshot.snapshot_id
 assert [m['available'] for m in explanation['models']] == [True, True, False]

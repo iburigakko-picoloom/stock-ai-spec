@@ -29,6 +29,7 @@ from . import (
     account_editor,
     decisions,
     explanations,
+    forecast_history,
     forecasts,
     manual_chatgpt,
     market,
@@ -321,6 +322,19 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         raise RuntimeError("Runtime not initialized")
     if method not in {"GET", "POST"} or not path.startswith("/api/v1/") or "://" in path:
         return {"status": 400, "body": {"detail": "Unsupported local operation"}}
+    history = re.fullmatch(
+        r"/api/v1/mobile/stocks/([A-Z0-9]{4})/forecast-history(?:\?days=(30|90|180|366))?",
+        path,
+    )
+    if history and method == "GET":
+        try:
+            return {"status": 200, "body": forecast_history.read(
+                STATE / "mobile.sqlite3", _app.state.store, history[1], datetime.now(UTC),
+                days=int(history[2] or 90),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "保存した予測を確認できません。"}}
     chart = re.fullmatch(
         r"/api/v1/mobile/stocks/([A-Z0-9]{4})/chart(?:\?days=(30|90|180|366))?", path
     )

@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, currency as yen } from "../components";
 import { useApiData } from "../hooks";
 import { StockMemo } from "../StockMemo";
-import { StockChart } from "../StockChart";
+import { ForecastHistory } from "../ForecastHistory";
 import { StockExplanation } from "../StockExplanation";
 import type { StockDetail } from "../types";
 
@@ -37,7 +37,7 @@ export function StockDetailPage(): ReactNode {
   const rankingSnapshotId = from === "/ranking" && typeof location.state?.rankingSnapshotId === "string" && /^[0-9a-f]{64}$/.test(location.state.rankingSnapshotId) ? location.state.rankingSnapshotId : null;
   const rankingPreview = rankingSnapshotId ? checkedRankingPreview(location.state?.rankingPreview, symbol) : null;
   const explanationSnapshotId = rankingSnapshotId ?? data?.forecast?.snapshotId;
-  if ((loading && !data) || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} />{rankingPreview && <RankingSnapshotPreview preview={rankingPreview} />}{!loading && rankingSnapshotId && <><StockChart key={symbol} symbol={symbol} /><StockExplanation key={`${symbol}:${rankingSnapshotId}`} symbol={symbol} snapshotId={rankingSnapshotId} fromRanking /></>}<div className="subscreen detail-foot"><Link className="button" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{from:backTo,bucket:selectedBucket}}>この銘柄の取引を記録</Link></div><StockMemo key={symbol} symbol={symbol} /></div>;
+  if ((loading && !data) || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} />{rankingPreview && <RankingSnapshotPreview preview={rankingPreview} />}{!loading && <ForecastHistory key={symbol} symbol={symbol} />}{!loading && rankingSnapshotId && <StockExplanation key={`${symbol}:${rankingSnapshotId}`} symbol={symbol} snapshotId={rankingSnapshotId} fromRanking />}<div className="subscreen detail-foot"><Link className="button" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{from:backTo,bucket:selectedBucket}}>この銘柄の取引を記録</Link></div><StockMemo key={symbol} symbol={symbol} /></div>;
 
   const bucketIds = Array.from(new Set([
     ...data.positions.map((item) => item.account_bucket_id),
@@ -77,7 +77,7 @@ export function StockDetailPage(): ReactNode {
       </div><p className="small muted">{data.forecast ? `${dateTime(data.forecast.generatedAt,true)} 作成${data.forecast.isStale ? " · 過去の予測" : ""}` : "予測はまだ保存されていません"}</p>
       <div className="link-row"><Link className="quiet-link" to="/ranking">予測ランキング</Link>{data.forecast?.mode !== "owner_approved" && <small>研究用・正式採用前</small>}</div>
     </section>
-    <StockChart key={symbol} symbol={symbol} />
+    <ForecastHistory key={symbol} symbol={symbol} />
     {explanationSnapshotId && <StockExplanation key={`${symbol}:${explanationSnapshotId}`} symbol={symbol} snapshotId={explanationSnapshotId} fromRanking={!!rankingSnapshotId} />}
     <section className="card"><h3 className="section-title">提案と理由</h3>
       {selectedLines.length===0 ? <p className="setting-footnote">当日の提案はありません。</p> : selectedLines.map(line=><div className="detail-view" key={line.lineId}><div className="link-row"><strong>数値モデル</strong><ActionBadge action={line.action} /></div><small>{line.accountBucketId}</small><p className="detail-qty">{line.currentShares}株 → {line.recommendedShares}株</p>
