@@ -171,24 +171,27 @@ def initialize(encoded: str = "") -> dict:
         if isinstance(route, APIRoute):
             adapt(route.dependant)
             route.app = request_response(route.get_route_handler())
-    # Seed the same file/version-aware proof used by API reads. Startup
-    # reconciliation can write to the store, so check it again afterward.
-    _app.state.integrity_guard.verify()
-    with mobile_db() as db:
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS manual_inputs ("
-            "id INTEGER PRIMARY KEY, saved_at TEXT NOT NULL, payload TEXT NOT NULL)"
-        )
-    market.initialize(STATE / "mobile.sqlite3")
-    membership.initialize(STATE / "mobile.sqlite3")
-    models.initialize(STATE / "mobile.sqlite3")
-    forecasts.initialize(STATE / "mobile.sqlite3")
-    forecasts.reconcile_publications(STATE / "mobile.sqlite3", _app.state.store)
-    personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
-    decisions.initialize(STATE / "mobile.sqlite3")
-    decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store,
-                        integrity_guard=_app.state.integrity_guard)
-    _app.state.integrity_guard.verify()
+    # The proof may be reused inside startup, but the observer must release
+    # its SQLite handles even on failure so backup/restore can replace files.
+    try:
+        _app.state.integrity_guard.verify()
+        with mobile_db() as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS manual_inputs ("
+                "id INTEGER PRIMARY KEY, saved_at TEXT NOT NULL, payload TEXT NOT NULL)"
+            )
+        market.initialize(STATE / "mobile.sqlite3")
+        membership.initialize(STATE / "mobile.sqlite3")
+        models.initialize(STATE / "mobile.sqlite3")
+        forecasts.initialize(STATE / "mobile.sqlite3")
+        forecasts.reconcile_publications(STATE / "mobile.sqlite3", _app.state.store)
+        personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
+        decisions.initialize(STATE / "mobile.sqlite3")
+        decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store,
+                            integrity_guard=_app.state.integrity_guard)
+        _app.state.integrity_guard.verify()
+    finally:
+        _app.state.integrity_guard.close()
     return {"research_only": True, "order_submission": False}
 
 

@@ -72,7 +72,7 @@ def test_checked_startup_skips_unchanged_and_saves_only_changed_database(device,
     assert device.initialize_checked() == {"persistence": "full"}
 
 
-def test_unchanged_startup_reuses_integrity_proof_for_first_read(device, monkeypatch):
+def test_unchanged_startup_reuses_proof_and_releases_observer(device, monkeypatch):
     original_create = device.create_app
     verifiers = []
     def traced_create(*args, **kwargs):
@@ -84,8 +84,9 @@ def test_unchanged_startup_reuses_integrity_proof_for_first_read(device, monkeyp
     monkeypatch.setattr(device, "create_app", traced_create)
     device.initialize()
     assert verifiers[-1].call_count == 1
+    assert device._app.state.integrity_guard._observer is None
     assert run(device, "GET", "/api/v1/today?includeSavedAnalysis=false")["status"] == 200
-    assert verifiers[-1].call_count == 1
+    assert verifiers[-1].call_count == 2
 
 
 def test_startup_rechecks_and_rejects_corruption_during_reconciliation(device, monkeypatch):
@@ -102,6 +103,7 @@ def test_startup_rechecks_and_rejects_corruption_during_reconciliation(device, m
     monkeypatch.setattr(device.personal, "initialize", corrupt_after_initial_check)
     with pytest.raises(OperationalIntegrityError):
         device.initialize()
+    assert device._app.state.integrity_guard._observer is None
 
 
 def test_startup_rechecks_after_legitimate_store_change(device, monkeypatch):
@@ -123,8 +125,9 @@ def test_startup_rechecks_after_legitimate_store_change(device, monkeypatch):
     monkeypatch.setattr(device.personal, "initialize", change_after_initial_check)
     device.initialize()
     assert verifiers[-1].call_count == 2
+    assert device._app.state.integrity_guard._observer is None
     assert run(device, "GET", "/api/v1/today?includeSavedAnalysis=false")["status"] == 200
-    assert verifiers[-1].call_count == 2
+    assert verifiers[-1].call_count == 3
 
 
 def test_split_startup_overlay_preserves_market_and_rejects_market_in_overlay(device):
