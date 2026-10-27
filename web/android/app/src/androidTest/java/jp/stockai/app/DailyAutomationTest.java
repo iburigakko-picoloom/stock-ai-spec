@@ -121,9 +121,14 @@ public class DailyAutomationTest {
         assertEquals(android.app.Notification.VISIBILITY_PRIVATE, notice.visibility);
         assertTrue((notice.flags & android.app.Notification.FLAG_ONGOING_EVENT) != 0);
         assertEquals("StockAI", notice.extras.getString(android.app.Notification.EXTRA_TITLE));
-        assertEquals("予測を計算・保存中",
+        assertEquals("予測のデータを準備中",
             notice.extras.getString(android.app.Notification.EXTRA_TEXT));
         assertTrue(notice.extras.getBoolean(android.app.Notification.EXTRA_PROGRESS_INDETERMINATE));
+        android.app.Notification progress = DailyWorker.foregroundInfo(context, "calculating", 42).getNotification();
+        assertEquals("予測 42%・途中保存済み", progress.extras.getString(android.app.Notification.EXTRA_TEXT));
+        assertFalse(progress.extras.getBoolean(android.app.Notification.EXTRA_PROGRESS_INDETERMINATE));
+        assertEquals(42, progress.extras.getInt(android.app.Notification.EXTRA_PROGRESS));
+        assertEquals(android.app.Notification.VISIBILITY_PRIVATE, progress.visibility);
         android.app.Notification deciding = DailyWorker.foregroundInfo(context, "deciding").getNotification();
         assertEquals("株数を判定・保存中", deciding.extras.getString(android.app.Notification.EXTRA_TEXT));
         assertTrue(deciding.extras.getBoolean(android.app.Notification.EXTRA_PROGRESS_INDETERMINATE));
