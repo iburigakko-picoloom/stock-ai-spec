@@ -68,12 +68,40 @@ function RankingBody({ horizon }: { horizon: string }) {
   useEffect(() => {
     if (!snapshotId || !needsNames || loading || error) return;
     let active = true;
-    void apiGet<{snapshotId:string;names:Record<string,string>} | null>(`${path}/names`).then(result => {
-      if (!active) return;
-      if (result?.snapshotId === snapshotId) { setNameResult(result); setNameError(null); }
-      else setNameError(snapshotId);
-    }).catch(() => { if (active) setNameError(snapshotId); });
-    return () => { active = false; };
+    let dispatched = false;
+    let frame = 0;
+    let timer = 0;
+    let scheduled = false;
+    let revision = 0;
+    const clear = () => {
+      scheduled = false;
+      revision++;
+      window.clearTimeout(timer); window.cancelAnimationFrame(frame);
+    };
+    const dispatch = (ticket: number) => {
+      if (!scheduled || ticket !== revision) return;
+      clear();
+      if (!active || dispatched || document.visibilityState !== "visible") return;
+      dispatched = true;
+      void apiGet<{snapshotId:string;names:Record<string,string>} | null>(`${path}/names`).then(result => {
+        if (!active) return;
+        if (result?.snapshotId === snapshotId) { setNameResult(result); setNameError(null); }
+        else setNameError(snapshotId);
+      }).catch(() => { if (active) setNameError(snapshotId); });
+    };
+    const schedule = () => {
+      if (!active || dispatched || scheduled || document.visibilityState !== "visible") return;
+      scheduled = true;
+      const ticket = ++revision;
+      timer = window.setTimeout(() => dispatch(ticket), 120);
+      frame = window.requestAnimationFrame(() => {
+        if (scheduled && ticket === revision) frame = window.requestAnimationFrame(() => dispatch(ticket));
+      });
+    };
+    const visibility = () => { if (document.visibilityState === "visible") schedule(); else clear(); };
+    document.addEventListener("visibilitychange", visibility);
+    schedule();
+    return () => { active = false; clear(); document.removeEventListener("visibilitychange", visibility); };
   }, [path, snapshotId, needsNames, loading, error]);
   const displayNames = nameResult && nameResult.snapshotId === snapshotId ? nameResult.names : null;
   const unavailableNames = needsNames && (nameError === snapshotId || (!!displayNames && !!data?.rows.some(row =>

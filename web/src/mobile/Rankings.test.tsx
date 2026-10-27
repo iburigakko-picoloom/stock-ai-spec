@@ -150,6 +150,64 @@ test("ignores names from a different forecast snapshot", async () => {
   expect(await screen.findByText("一部の銘柄名を確認できませんでした。銘柄コードを表示しています。")).toBeVisible();
 });
 
+test("does not start a name lookup after leaving before the first paint", async () => {
+  vi.useFakeTimers();
+  let next=0;const frames=new Map<number,FrameRequestCallback>();
+  const request=vi.spyOn(window,"requestAnimationFrame").mockImplementation(callback=>{frames.set(++next,callback);return next;});
+  const cancel=vi.spyOn(window,"cancelAnimationFrame").mockImplementation(id=>{frames.delete(id);});
+  try {
+    vi.mocked(useApiData).mockReturnValue({data:{...base,snapshotId:"snapshot-a"},loading:false,error:null,savedAt:null,reload});
+    vi.mocked(apiGet).mockResolvedValue({snapshotId:"snapshot-a",names:{}});
+    const view=render(<MemoryRouter><Rankings /></MemoryRouter>);
+    expect(screen.getByText("1000")).toBeVisible();
+    expect(apiGet).not.toHaveBeenCalled();
+    view.unmount();
+    await act(async()=>{await vi.advanceTimersByTimeAsync(200);});
+    expect(frames.size).toBe(0);
+    expect(apiGet).not.toHaveBeenCalled();
+  } finally { request.mockRestore();cancel.mockRestore();vi.useRealTimers(); }
+});
+
+test.each(["frames", "timer"])("starts one name lookup after %s and never duplicates it", async trigger => {
+  vi.useFakeTimers();
+  let next=0;const frames=new Map<number,FrameRequestCallback>();
+  const request=vi.spyOn(window,"requestAnimationFrame").mockImplementation(callback=>{frames.set(++next,callback);return next;});
+  const cancel=vi.spyOn(window,"cancelAnimationFrame").mockImplementation(id=>{frames.delete(id);});
+  const tick=()=>act(()=>{const [id,callback]=frames.entries().next().value!;frames.delete(id);callback(0);});
+  try {
+    vi.mocked(useApiData).mockReturnValue({data:{...base,snapshotId:"snapshot-a"},loading:false,error:null,savedAt:null,reload});
+    vi.mocked(apiGet).mockResolvedValue({snapshotId:"snapshot-a",names:{"1000":"合成企業甲"}});
+    const view=render(<MemoryRouter><Rankings /></MemoryRouter>);
+    expect(apiGet).not.toHaveBeenCalled();
+    if(trigger==="frames") { tick();tick(); } else await act(async()=>{await vi.advanceTimersByTimeAsync(120);});
+    await act(async()=>{await Promise.resolve();await vi.advanceTimersByTimeAsync(200);});
+    expect(apiGet).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("合成企業甲")).toBeVisible();
+    view.unmount();
+  } finally { request.mockRestore();cancel.mockRestore();vi.useRealTimers(); }
+});
+
+test("defers a pending name lookup while the app is hidden", async () => {
+  vi.useFakeTimers();
+  let state:DocumentVisibilityState="visible";
+  const visibility=vi.spyOn(document,"visibilityState","get").mockImplementation(()=>state);
+  const request=vi.spyOn(window,"requestAnimationFrame").mockImplementation(()=>1);
+  const cancel=vi.spyOn(window,"cancelAnimationFrame").mockImplementation(()=>{});
+  try {
+    vi.mocked(useApiData).mockReturnValue({data:{...base,snapshotId:"snapshot-a"},loading:false,error:null,savedAt:null,reload});
+    vi.mocked(apiGet).mockResolvedValue({snapshotId:"snapshot-a",names:{"1000":"合成企業甲"}});
+    const view=render(<MemoryRouter><Rankings /></MemoryRouter>);
+    state="hidden";act(()=>document.dispatchEvent(new Event("visibilitychange")));
+    await act(async()=>{await vi.advanceTimersByTimeAsync(500);});
+    expect(apiGet).not.toHaveBeenCalled();
+    state="visible";act(()=>document.dispatchEvent(new Event("visibilitychange")));
+    await act(async()=>{await vi.advanceTimersByTimeAsync(120);});
+    expect(apiGet).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("合成企業甲")).toBeVisible();
+    view.unmount();
+  } finally { visibility.mockRestore();request.mockRestore();cancel.mockRestore();vi.useRealTimers(); }
+});
+
 test("large ranking draws automatically while filters use every result and preserve its rank", () => {
   const rows=Array.from({length:150},(_,index)=>({symbol:String(1000+index),modelRank:index+1,score:150-index,expectedReturn:(150-index)/10000}));
   vi.mocked(useApiData).mockReturnValue({data:{...base,rows,total:rows.length,holdingSymbols:["1149"]},loading:false,error:null,savedAt:null,reload});
