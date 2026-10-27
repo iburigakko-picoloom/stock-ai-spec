@@ -199,7 +199,11 @@ describe("Goal 5 PWA", () => {
 
   it("formats times in Japan rather than the browser time zone", () => {
     expect(dateTime("2026-08-24T02:30:00Z")).toBe("8/24 11:30");
+    expect(dateTime("2026-12-31T15:30:00Z", true)).toBe("2027/1/1 00:30");
+    expect(dateTime("2026-01-01T00:30:00+09:00", true)).toBe("2026/1/1 00:30");
+    expect(dateTime("2026-12-31T15:30:00Z")).toBe("1/1 00:30");
     expect(dateTime("not-a-date")).toBe("—");
+    expect(dateTime(null, true)).toBe("—");
   });
 
   it("hides a stale proposal and does not offer review", async () => {

@@ -22,18 +22,22 @@ export function pct(value: number | null | undefined): string {
   return `${sign}${(value * 100).toFixed(2)}%`;
 }
 
+const dateTimeFormatters: Partial<Record<"short" | "year", Intl.DateTimeFormat>> = {};
+
 export function dateTime(value: string | null | undefined, showYear = false): string {
   if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) return "—";
-  return new Intl.DateTimeFormat("ja-JP", {
+  const key = showYear ? "year" : "short";
+  const formatter = dateTimeFormatters[key] ??= new Intl.DateTimeFormat("ja-JP", {
     timeZone: "Asia/Tokyo",
     year: showYear ? "numeric" : undefined,
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(parsed);
+  });
+  return formatter.format(parsed);
 }
 
 export function ActionBadge({ action }: { action: Action }): ReactNode {

@@ -21,3 +21,24 @@ test("trade history distinguishes applied, unapplied and unfilled records in bot
   fireEvent.click(within(rows[2]).getByRole("button",{name:"記録を確認"}));
   expect(screen.getByText("未反映",{selector:"dd"})).toBeVisible();
 });
+
+test("balance history compares each symbol and account with the previous snapshot",()=>{
+  const position=(symbol:string, account_bucket_id:string, shares:number)=>({symbol,account_bucket_id,shares,average_acquisition_price:"1000"});
+  const base={as_of:"2026-10-26T09:00:00Z",cash:[],applied_execution_ids:[]};
+  const data=[
+    {...base,portfolio_id:"new",positions:[position("7203","A",200),position("7203","B",100),position("9984","A",50)]},
+    {...base,portfolio_id:"old",positions:[position("7203","A",100),position("7203","B",0)]},
+  ];
+  vi.mocked(useApiData).mockReturnValue({data,loading:false,error:null,savedAt:null,reload:vi.fn()});
+  const view=render(<MemoryRouter initialEntries={["/assets/history"]}><HistoryPage /></MemoryRouter>);
+  expect(screen.getByText(/7203 \/ A 100 → 200株/)).toBeVisible();
+  expect(screen.getByText(/7203 \/ B 0 → 100株/)).toBeVisible();
+  expect(screen.getByText(/9984 \/ A — → 50株/)).toBeVisible();
+  expect(screen.getByText("初回残高")).toBeVisible();
+  const updated=[data[0],{...data[1],positions:[position("7203","A",150)]}];
+  vi.mocked(useApiData).mockReturnValue({data:updated,loading:true,error:null,savedAt:null,reload:vi.fn()});
+  view.rerender(<MemoryRouter initialEntries={["/assets/history"]}><HistoryPage /></MemoryRouter>);
+  expect(screen.getByText(/7203 \/ A 150 → 200株/)).toBeVisible();
+  expect(screen.getByText(/7203 \/ B — → 100株/)).toBeVisible();
+  expect(screen.getByRole("status")).toHaveTextContent("前回の履歴を表示中");
+});
