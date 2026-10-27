@@ -52,6 +52,65 @@ public class SavedReadViewsTest {
             assertFalse(views.read("/api/v1/home/ledger").getBoolean("available"));
         } finally { views.clear(); dir.delete(); }
     }
+    @Test public void historyCopiesCannotSurviveOrBeQueuedAcrossRestoreInvalidation() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "history-epoch-" + System.nanoTime());
+        List<Runnable> jobs = new ArrayList<>();
+        SavedReadViews views = new SavedReadViews(dir, jobs::add);
+        try {
+            String result = new JSONObject().put("status",200).put("body",new JSONObject().put("synthetic",true)).toString();
+            for(String path:new String[]{"/api/v1/executions","/api/v1/portfolio/history"}) {
+                long before=views.epoch();views.clear();
+                views.saveAsyncIfUnchanged(path,result,1,before);
+                assertTrue("Pre-restore results cannot be queued",jobs.isEmpty());
+                long during=views.epoch();views.saveAsyncIfUnchanged(path,result,1,during);
+                assertEquals(1,jobs.size());views.clear();jobs.remove(0).run();
+                views.saveAsyncIfUnchanged(path,result,1,during);
+                assertTrue("Results from the restore interval cannot be queued",jobs.isEmpty());
+                assertFalse(views.read(path).getBoolean("available"));
+            }
+        } finally { views.clear(); dir.delete(); }
+    }
+    @Test public void objectCopyTraversesAndEncryptsOnlyOnBackgroundWriter() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "object-view-" + System.nanoTime());
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1), release = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService writer = java.util.concurrent.Executors.newSingleThreadExecutor();
+        SavedReadViews views = new SavedReadViews(dir, writer);
+        JSONObject slowBody = new JSONObject() {
+            @Override public java.util.Iterator<String> keys() {
+                entered.countDown();
+                try { if(!release.await(10,java.util.concurrent.TimeUnit.SECONDS))throw new IllegalStateException("TEST_TIMEOUT"); }
+                catch(InterruptedException error) {Thread.currentThread().interrupt();throw new IllegalStateException(error);}
+                return super.keys();
+            }
+        };
+        slowBody.put("record", "synthetic");
+        JSONObject response = new JSONObject().put("status",200).put("body",slowBody);
+        try {
+            views.saveObjectAsyncIfUnchanged("/api/v1/executions",response,1,views.epoch());
+            assertTrue("Background traversal did not start",entered.await(10,java.util.concurrent.TimeUnit.SECONDS));
+            assertFalse("The authoritative caller must not wait for its copy",views.read("/api/v1/executions").getBoolean("available"));
+            release.countDown();writer.submit(()->{}).get(10,java.util.concurrent.TimeUnit.SECONDS);
+            JSONObject saved=views.read("/api/v1/executions");
+            assertTrue(saved.getBoolean("readOnly"));assertEquals("synthetic",saved.getJSONObject("body").getString("record"));
+        } finally {release.countDown();writer.shutdownNow();views.clear();dir.delete();}
+    }
+    @Test public void objectCopiesRejectOversizedBodiesAndObeyRestoreEpoch() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "object-bounds-" + System.nanoTime());
+        List<Runnable> jobs = new ArrayList<>(); SavedReadViews views = new SavedReadViews(dir,jobs::add);
+        String path="/api/v1/portfolio/history";
+        try {
+            views.save(path,new JSONObject().put("status",200).put("body",new JSONObject().put("old",true)),1);
+            char[] chars=new char[2*1024*1024];java.util.Arrays.fill(chars,'x');
+            JSONObject huge=new JSONObject().put("status",200).put("body",new JSONObject().put("synthetic",new String(chars)));
+            views.saveObjectAsyncIfUnchanged(path,huge,2,views.epoch());jobs.remove(0).run();
+            assertFalse("Oversized output cannot retain an obsolete preview",views.read(path).getBoolean("available"));
+            JSONObject response=new JSONObject().put("status",200).put("body",new JSONObject().put("new",true));
+            long before=views.epoch();views.saveObjectAsyncIfUnchanged(path,response,3,before);
+            views.clear();jobs.remove(0).run();
+            views.saveObjectAsyncIfUnchanged(path,response,3,before);
+            assertTrue(jobs.isEmpty());assertFalse(views.read(path).getBoolean("available"));
+        } finally {views.clear();dir.delete();}
+    }
     @Test public void deferredCopiesRespectClearsAndLatestResponseOrdering() throws Exception {
         File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "deferred-views-" + System.nanoTime());
         List<Runnable> jobs = new ArrayList<>();

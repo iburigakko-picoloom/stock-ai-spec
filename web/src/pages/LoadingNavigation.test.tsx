@@ -65,6 +65,31 @@ test("balance history stays visible while a fresh read is pending",()=>{
   expect(screen.getByRole("status")).toHaveTextContent("前回の履歴を表示中");
 });
 
+test.each([
+  ["/transactions", {records:[],appliedIds:[]}],
+  ["/assets/history", [{portfolio_id:"old",as_of:"2026-10-26T09:00:00Z",positions:[],cash:[],applied_execution_ids:[]}]],
+])("%s marks saved history as read-only until the current state is verified",(path,data)=>{
+  vi.mocked(useApiData).mockReturnValue({...result(data,true),savedAt:"2026-01-01T00:00:00Z"});
+  const view=render(<MemoryRouter initialEntries={[path]}><HistoryPage /></MemoryRouter>);
+  expect(screen.getByText(/保存済み履歴・閲覧用/)).toHaveTextContent("更新を確認しています");
+  vi.mocked(useApiData).mockReturnValue(result(data,false));
+  view.rerender(<MemoryRouter initialEntries={[path]}><HistoryPage /></MemoryRouter>);
+  expect(screen.queryByText(/保存済み履歴・閲覧用/)).not.toBeInTheDocument();
+});
+
+test.each([
+  ["/transactions", {records:[],appliedIds:[]}, "前回の表示では取引記録はありません", "取引記録はまだありません"],
+  ["/assets/history", [], "前回の表示では残高履歴はありません", "残高履歴はまだありません"],
+])("%s does not claim a saved empty history is the current state",(path,data,previous,current)=>{
+  vi.mocked(useApiData).mockReturnValue({...result(data,true),savedAt:"2026-01-01T00:00:00Z"});
+  const view=render(<MemoryRouter initialEntries={[path]}><HistoryPage /></MemoryRouter>);
+  expect(screen.getByText(previous)).toBeVisible();
+  expect(screen.queryByText(current)).not.toBeInTheDocument();
+  vi.mocked(useApiData).mockReturnValue(result(data,false));
+  view.rerender(<MemoryRouter initialEntries={[path]}><HistoryPage /></MemoryRouter>);
+  expect(screen.getByText(current)).toBeVisible();
+});
+
 test("stock detail keeps its trade entry and memo available while the forecast is loading",()=>{
   vi.mocked(useApiData).mockReturnValue(result(null,true));
   render(<MemoryRouter initialEntries={["/stocks/7203"]}><Routes><Route path="/stocks/:symbol" element={<StockDetailPage />} /></Routes></MemoryRouter>);

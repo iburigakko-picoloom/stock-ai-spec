@@ -80,6 +80,38 @@ public class NativeRecordReaderTest {
             assertFalse(views.read("/api/v1/home/ledger").getBoolean("available"));
         } finally {views.clear();directory.delete();}
     }
+    @Test public void historyDisplayCopiesMatchVerifiedRecordsAndNeverBlockTheirReads() throws Exception {
+        JSONObject fixture=fixture();owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
+        java.util.List<Runnable> jobs=new java.util.ArrayList<>();
+        File directory=new File(context.getCacheDir(),"history-view-"+System.nanoTime());
+        SavedReadViews views=new SavedReadViews(directory,jobs::add);
+        try {
+            for(String path:new String[]{"/api/v1/executions","/api/v1/portfolio/history"}) {
+                JSONObject reply=NativePortfolioReader.readRecordWithDisplayCopy(context,owner.state,views,path);
+                equalJson(fixture.getJSONObject("expected_views").get(path),reply.get("body"));
+                assertFalse(views.read(path).getBoolean("available"));
+                assertEquals(1,jobs.size());jobs.remove(0).run();
+                JSONObject saved=views.read(path);
+                assertTrue(saved.getBoolean("readOnly"));equalJson(reply.get("body"),saved.get("body"));
+            }
+            try {NativePortfolioReader.readRecordWithDisplayCopy(context,owner.state,views,"/api/v1/execution-entry-context");fail("transaction input must not use a display copy");}
+            catch(IllegalArgumentException expected) {assertTrue(jobs.isEmpty());}
+        } finally {views.clear();directory.delete();}
+    }
+    @Test public void corruptHistoryNeverRetainsOrSchedulesDisplayCopies() throws Exception {
+        owner.state.write(owner.state.currentGeneration(),"invalid-synthetic-archive");
+        java.util.List<Runnable> jobs=new java.util.ArrayList<>();
+        File directory=new File(context.getCacheDir(),"invalid-history-view-"+System.nanoTime());
+        SavedReadViews views=new SavedReadViews(directory,jobs::add);
+        try {
+            for(String path:new String[]{"/api/v1/executions","/api/v1/portfolio/history"}) {
+                views.save(path,new JSONObject().put("status",200).put("body",new JSONObject().put("previous",true)),1);
+                try {NativePortfolioReader.readRecordWithDisplayCopy(context,owner.state,views,path);fail("invalid archive accepted");}
+                catch(Exception expected) {assertTrue(jobs.isEmpty());}
+                assertFalse(views.read(path).getBoolean("available"));
+            }
+        } finally {views.clear();directory.delete();}
+    }
     @Test public void executionAndMemoMatchPythonAndBypassColdAndBusyInterpreter() throws Exception {
         JSONObject fixture=fixture();owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
         java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);

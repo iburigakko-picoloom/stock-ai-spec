@@ -52,19 +52,27 @@ final class NativePortfolioReader {
         return read(context, state, false, path);
     }
     static JSObject readHomeWithDisplayCopy(Context context, LocalStateStore state, SavedReadViews views) throws Exception {
+        return readRecordWithDisplayCopy(context, state, views, "/api/v1/home/ledger");
+    }
+    static boolean hasRecordDisplayCopy(String path) {
+        return "/api/v1/home/ledger".equals(path) || "/api/v1/executions".equals(path)
+            || "/api/v1/portfolio/history".equals(path);
+    }
+    static JSObject readRecordWithDisplayCopy(Context context, LocalStateStore state, SavedReadViews views, String path) throws Exception {
+        if (!hasRecordDisplayCopy(path)) throw new IllegalArgumentException("INVALID_DISPLAY_RECORD");
         long epoch = views.epoch();
         long generation;
         JSObject result;
         try {
             generation = state.currentGeneration();
-            result = readRecords(context, state, "/api/v1/home/ledger");
+            result = readRecords(context, state, path);
         } catch (Exception error) {
             views.clear();
             throw error;
         }
         try {
             if (result != null && result.getInt("status") == 200 && state.currentGeneration() == generation)
-                views.saveAsyncIfUnchanged("/api/v1/home/ledger", result.toString(), generation, epoch);
+                views.saveObjectAsyncIfUnchanged(path, result, generation, epoch);
         } catch (Exception ignored) { /* An optional display copy must not fail the authoritative read. */ }
         return result;
     }

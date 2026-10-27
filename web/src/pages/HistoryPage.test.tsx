@@ -22,6 +22,19 @@ test("trade history distinguishes applied, unapplied and unfilled records in bot
   expect(screen.getByText("未反映",{selector:"dd"})).toBeVisible();
 });
 
+test("a missing selected trade never substitutes a different record after refreshing",()=>{
+  const row={executed_at:"2026-10-26T09:00:00Z",account_bucket_id:"bucket",side:"BUY",status:"filled",ordered_shares:100,filled_shares:100,average_fill_price:"1000",actual_commission:"0",actual_other_cost:"0",tax_withheld:"0"};
+  vi.mocked(useApiData).mockReturnValue({data:{records:[{...row,execution_id:"old",symbol:"7203"}],appliedIds:["old"]},loading:true,error:null,savedAt:"2026-01-01T00:00:00Z",reload:vi.fn()});
+  const view=render(<MemoryRouter initialEntries={["/transactions?record=old"]}><HistoryPage /></MemoryRouter>);
+  expect(screen.getByRole("heading",{name:"7203 · 購入"})).toBeVisible();
+  vi.mocked(useApiData).mockReturnValue({data:{records:[{...row,execution_id:"new",symbol:"9984"}],appliedIds:["new"]},loading:false,error:null,savedAt:null,reload:vi.fn()});
+  view.rerender(<MemoryRouter initialEntries={["/transactions?record=old"]}><HistoryPage /></MemoryRouter>);
+  expect(screen.getByText("選択した取引記録は見つかりません")).toBeVisible();
+  expect(screen.queryByRole("heading",{name:"9984 · 購入"})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"記録を確認"}));
+  expect(screen.getByRole("heading",{name:"9984 · 購入"})).toBeVisible();
+});
+
 test("balance history compares each symbol and account with the previous snapshot",async()=>{
   const position=(symbol:string, account_bucket_id:string, shares:number)=>({symbol,account_bucket_id,shares,average_acquisition_price:"1000"});
   const base={as_of:"2026-10-26T09:00:00Z",cash:[],applied_execution_ids:[]};

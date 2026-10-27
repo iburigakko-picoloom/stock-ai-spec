@@ -4,6 +4,7 @@ import android.util.AtomicFile;
 import com.getcapacitor.JSObject;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -15,6 +16,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 /** Encrypted historical display only. Never an input to a decision or a ledger write. */
 final class SavedReadViews {
@@ -52,6 +54,7 @@ final class SavedReadViews {
     static boolean allowed(String path) {
         return path != null && (path.equals("/api/v1/home") || path.equals("/api/v1/home/ledger") || path.equals("/api/v1/today")
             || path.equals("/api/v1/mobile/portfolio")
+            || path.equals("/api/v1/executions") || path.equals("/api/v1/portfolio/history")
             || path.matches("/api/v1/mobile/ranking/(5d|20d)")
             || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}")
             || path.matches("/api/v1/validation\\?mode=(paper|live|historical)")
@@ -80,12 +83,17 @@ final class SavedReadViews {
         if (epoch == observedEpoch) saveAsync(path, result, generation);
     }
     synchronized void saveAsync(String path, String result, long generation) {
+        // An oversized string must not be retained in the bounded writer queue.
+        enqueue(path, result.length() > MAX_BYTES ? null : result, null, generation);
+    }
+    synchronized void saveObjectAsyncIfUnchanged(String path, JSONObject result, long generation, long observedEpoch) {
+        if (epoch == observedEpoch) enqueue(path, null, new WeakReference<>(result), generation);
+    }
+    private void enqueue(String path, String bounded, WeakReference<JSONObject> object, long generation) {
         if (!allowed(path)) return;
         long capturedEpoch = epoch, ticket = ++nextTicket;
         latest.put(path, ticket);
         String savedAt = Instant.now().toString();
-        // An oversized response cannot become a display copy. Do not retain it in the queue.
-        String bounded = result.length() > MAX_BYTES ? null : result;
         try {
             writer.execute(() -> {
                 try {
@@ -93,12 +101,16 @@ final class SavedReadViews {
                         if (epoch != capturedEpoch || !Long.valueOf(ticket).equals(latest.get(path))) return;
                     }
                     byte[] cipher = null;
-                    if (bounded != null) {
-                        JSONObject response = new JSONObject(bounded);
+                    // Direct-record replies are immutable after publication. A weak
+                    // reference keeps the optional queue from retaining a large reply.
+                    JSONObject response = object != null ? object.get() : bounded == null ? null : new JSONObject(bounded);
+                    if (object != null && response == null) return; // Collected before the optional copy ran.
+                    if (response != null) {
                         if (response.getInt("status") != 200) throw new SecurityException("DISPLAY_STATUS_INVALID");
                         JSONObject envelope = new JSONObject().put("schema", 1).put("path", path)
                             .put("savedAt", savedAt).put("generation", generation).put("body", response.get("body"));
-                        cipher = LocalStateStore.encrypt(envelope.toString());
+                        if (object == null || fitsDisplayBudget(envelope, new long[]{MAX_BYTES - 64}, 0))
+                            cipher = LocalStateStore.encrypt(envelope.toString());
                     }
                     synchronized (this) {
                         if (epoch != capturedEpoch || !Long.valueOf(ticket).equals(latest.get(path))) return;
@@ -122,6 +134,47 @@ final class SavedReadViews {
             // The copy is optional. Keep the previous read-only copy if the bounded queue is busy.
             if (Long.valueOf(ticket).equals(latest.get(path))) latest.remove(path);
         }
+    }
+    // Bound the optional object before serializing it on the background writer.
+    // Non-ASCII characters are conservatively counted as six bytes each.
+    private static boolean fitsDisplayBudget(Object value, long[] remaining, int depth) throws Exception {
+        if (depth > 48 || --remaining[0] < 0) return false;
+        if (value == null || value == JSONObject.NULL) return consume(remaining, 4);
+        if (value instanceof String) {
+            String text = (String) value;
+            if (!consume(remaining, 2)) return false;
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (!consume(remaining, c < 32 || c >= 127 ? 6 : c == '"' || c == '\\' || c == '/' ? 2 : 1)) return false;
+            }
+            return true;
+        }
+        if (value instanceof JSONObject) {
+            if (!consume(remaining, 2)) return false;
+            JSONObject object = (JSONObject) value;
+            java.util.Iterator<String> keys = object.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (!consume(remaining, 2) || !fitsDisplayBudget(key, remaining, depth + 1)
+                        || !fitsDisplayBudget(object.get(key), remaining, depth + 1)) return false;
+            }
+            return true;
+        }
+        if (value instanceof JSONArray) {
+            if (!consume(remaining, 2)) return false;
+            JSONArray array = (JSONArray) value;
+            for (int i = 0; i < array.length(); i++)
+                if (!consume(remaining, 1) || !fitsDisplayBudget(array.get(i), remaining, depth + 1)) return false;
+            return true;
+        }
+        if (value instanceof Boolean || value instanceof Integer || value instanceof Long
+                || value instanceof Double || value instanceof Float || value instanceof Short || value instanceof Byte)
+            return consume(remaining, value.toString().length());
+        return false;
+    }
+    private static boolean consume(long[] remaining, long amount) {
+        remaining[0] -= amount;
+        return remaining[0] >= 0;
     }
     interface Delivery { void accept(JSObject result); }
     void readAndDeliver(String path, Delivery delivery) throws Exception {

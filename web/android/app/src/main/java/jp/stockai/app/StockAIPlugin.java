@@ -104,8 +104,8 @@ public class StockAIPlugin extends Plugin {
                 || "/api/v1/mobile/personal/current".equals(personalPath) || NativeRecordViews.handles(personalPath))) {
             displayExecutor.execute(() -> {
                 try {
-                    JSObject result = "/api/v1/home/ledger".equals(personalPath)
-                        ? NativePortfolioReader.readHomeWithDisplayCopy(getContext(), owner().state, owner().readViews)
+                    JSObject result = NativePortfolioReader.hasRecordDisplayCopy(personalPath)
+                        ? NativePortfolioReader.readRecordWithDisplayCopy(getContext(), owner().state, owner().readViews, personalPath)
                         : NativeRecordViews.handles(personalPath)
                         ? NativePortfolioReader.readRecords(getContext(), owner().state, personalPath)
                         : NativePortfolioReader.read(getContext(), owner().state, personalPath.endsWith("/current"));

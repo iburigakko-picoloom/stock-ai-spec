@@ -444,6 +444,42 @@ test("home and assets label a saved balance until the current ledger is verified
   await expect(page.getByText(/保存済み表示・閲覧用/)).toHaveCount(0);
 });
 
+test("saved trade and balance histories display read-only while current records are verified",async({page})=>{
+  await page.setViewportSize({width:320,height:800});
+  const data=adoptedPayloads(null);
+  const trade=data["/api/v1/executions"] as {records:{symbol:string}[];appliedIds:string[]};
+  const ledger=data["/api/v1/portfolio/history"] as {positions:{shares:number}[]}[];
+  const savedTrade={...trade,records:trade.records.map(row=>({...row,symbol:"1111"}))};
+  const savedLedger=ledger.map(row=>({...row,positions:row.positions.map(position=>({...position,shares:300}))}));
+  await page.evaluate(({savedTrade,savedLedger})=>{
+    const surface=window as unknown as {Capacitor:{nativePromise:(plugin:string,method:string,options?:{path?:string})=>Promise<unknown>}};
+    const original=surface.Capacitor.nativePromise;
+    surface.Capacitor.nativePromise=async(plugin,method,options)=>{
+      if(method==="readSavedView" && options?.path==="/api/v1/executions")return {available:true,readOnly:true,savedAt:"2026-10-26T10:00:00Z",body:savedTrade};
+      if(method==="readSavedView" && options?.path==="/api/v1/portfolio/history")return {available:true,readOnly:true,savedAt:"2026-10-26T10:00:00Z",body:savedLedger};
+      return original(plugin,method,options);
+    };
+  },{savedTrade,savedLedger});
+  let finishTrade!:()=>Promise<void>,finishLedger!:()=>Promise<void>;
+  await page.route("**/api/v1/executions",route=>{finishTrade=()=>route.fulfill({json:trade});});
+  await page.route("**/api/v1/portfolio/history",route=>{finishLedger=()=>route.fulfill({json:ledger});});
+  await page.goto("http://127.0.0.1:5196/#/transactions");
+  await expect(page.getByText("1111 / synthetic-account")).toBeVisible();
+  await expect(page.getByText(/保存済み履歴・閲覧用/)).toBeVisible();
+  await expect.poll(()=>typeof finishTrade).toBe("function");
+  await finishTrade();
+  await expect(page.getByText("1234 / synthetic-account")).toBeVisible();
+  await expect(page.getByText(/保存済み履歴・閲覧用/)).toHaveCount(0);
+  await page.goto("http://127.0.0.1:5196/#/assets/history");
+  await expect(page.getByText(/→ 300株/)).toBeVisible();
+  await expect(page.getByText(/保存済み履歴・閲覧用/)).toBeVisible();
+  await expect.poll(()=>typeof finishLedger).toBe("function");
+  await finishLedger();
+  await expect(page.getByText(/→ 100株/)).toBeVisible();
+  await expect(page.getByText(/保存済み履歴・閲覧用/)).toHaveCount(0);
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+});
+
 test("saved ranking is visible while the expensive current read is still pending",async({page},info)=>{
   const ranking=adoptedPayloads(null)["/api/v1/mobile/ranking/5d"];
   await page.evaluate(({ranking})=>{

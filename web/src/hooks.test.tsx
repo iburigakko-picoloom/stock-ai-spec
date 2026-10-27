@@ -57,6 +57,35 @@ test("failed home ledger verification removes its historical display", async () 
   expect(result.current.error).toBe("検証失敗");
 });
 
+test.each(["/api/v1/executions", "/api/v1/portfolio/history"])("%s shows a read-only history before current verification", async path => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({available:true,readOnly:true,savedAt:"2026-01-01T00:00:00Z",body:{history:"previous"}});
+  const {result}=renderHook(()=>useApiData(path));
+  await waitFor(()=>expect(result.current.data).toEqual({history:"previous"}));
+  expect(result.current.savedAt).toBe("2026-01-01T00:00:00Z");
+  expect(result.current.loading).toBe(true);
+  await waitFor(()=>expect(apiGet).toHaveBeenCalledWith(path));
+  await act(async()=>finish({history:"current"}));
+  expect(result.current.data).toEqual({history:"current"});
+  expect(result.current.savedAt).toBeNull();
+});
+
+test.each(["/api/v1/executions", "/api/v1/portfolio/history"])("%s discards its historical view when current verification fails", async path => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let fail!: (reason: Error) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise((_resolve,reject) => { fail=reject; }));
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({available:true,readOnly:true,savedAt:"2026-01-01T00:00:00Z",body:{history:"previous"}});
+  const {result}=renderHook(()=>useApiData(path));
+  await waitFor(()=>expect(result.current.data).toEqual({history:"previous"}));
+  await waitFor(()=>expect(apiGet).toHaveBeenCalledWith(path));
+  await act(async()=>fail(new Error("検証失敗")));
+  expect(result.current.data).toBeNull();
+  expect(result.current.savedAt).toBeNull();
+  expect(result.current.error).toBe("検証失敗");
+});
+
 test("late saved display cannot overwrite fresh data and is never read for decision routes", async () => {
   vi.mocked(isAndroid).mockReturnValue(true);
   let resolve!: (value: { available: boolean; readOnly: boolean; savedAt: string; body: unknown }) => void;
