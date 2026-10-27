@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { AnalysisProgress } from "./AnalysisProgress";
 import { StockAI } from "./native";
@@ -46,4 +46,20 @@ test("keeps failure reason visible after reopening and identifies saving", async
   vi.mocked(StockAI.analysisStatus).mockResolvedValue({ state: "running", phase: "saving", percent: 99 });
   render(<AnalysisProgress />);
   expect(await screen.findByText("予測結果を保存中 99%")).toBeVisible();
+});
+
+
+test("a slow progress read does not enqueue polls and focus requests one follow-up", async () => {
+  vi.useFakeTimers();
+  vi.mocked(StockAI.analysisStatus).mockReset();
+  let finish!: (value: { state: "idle" }) => void;
+  vi.mocked(StockAI.analysisStatus).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+    .mockResolvedValue({ state: "running", percent: 32 });
+  const view = render(<AnalysisProgress />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000); window.dispatchEvent(new Event("focus")); window.dispatchEvent(new Event("focus")); });
+  expect(StockAI.analysisStatus).toHaveBeenCalledTimes(1);
+  await act(async () => { finish({ state: "idle" }); });
+  expect(StockAI.analysisStatus).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(/32%/)).toBeVisible();
+  view.unmount(); vi.useRealTimers();
 });

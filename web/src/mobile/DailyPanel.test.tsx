@@ -93,3 +93,18 @@ test("an older status read cannot overwrite an acknowledged stop", async () => {
   expect(screen.getByRole("progressbar")).toHaveAttribute("max", "100");
   expect(screen.getByRole("progressbar")).toHaveAttribute("value", "43");
 });
+
+
+test("slow daily status reads do not queue repeated polling and focus coalesces", async () => {
+  vi.useFakeTimers();
+  let finish!: (value: typeof idle) => void;
+  vi.mocked(StockAI.dailyStatus).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+    .mockResolvedValue({ ...idle, enabled: true, state: "history" });
+  const view = render(<DailyPanel />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); window.dispatchEvent(new Event("focus")); window.dispatchEvent(new Event("focus")); });
+  expect(StockAI.dailyStatus).toHaveBeenCalledTimes(1);
+  await act(async () => { finish(idle); });
+  expect(StockAI.dailyStatus).toHaveBeenCalledTimes(2);
+  expect(screen.getByText("履歴を取得しています")).toBeVisible();
+  view.unmount(); vi.useRealTimers();
+});

@@ -40,16 +40,25 @@ export function useDailyAutomation() {
   useEffect(() => {
     if (!isAndroid()) return;
     let active = true;
-    const refresh = (): void => {
-      if (changing.current) return;
+    let occupied = false;
+    let pendingFocus = false;
+    const refresh = (focus = false): void => {
+      if (!active || changing.current) return;
+      if (occupied) { if (focus) pendingFocus = true; return; }
+      occupied = true;
       const observed = revision.current;
       void StockAI.dailyStatus().then(value => { if (active && !changing.current && observed === revision.current) setStatus(value); })
-        .catch(() => { if (active && !changing.current && observed === revision.current) setMessage("自動処理の状態を確認できません。アプリを再起動してください。"); });
+        .catch(() => { if (active && !changing.current && observed === revision.current) setMessage("自動処理の状態を確認できません。アプリを再起動してください。"); })
+        .finally(() => {
+          occupied = false;
+          if (active && pendingFocus) { pendingFocus = false; refresh(); }
+        });
     };
+    const onFocus = (): void => refresh(true);
     refresh();
-    const timer = window.setInterval(refresh, 15000);
-    window.addEventListener("focus", refresh);
-    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+    const timer = window.setInterval(() => refresh(), 15000);
+    window.addEventListener("focus", onFocus);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
   }, []);
   async function change(start: boolean): Promise<void> {
     if (changing.current) return;

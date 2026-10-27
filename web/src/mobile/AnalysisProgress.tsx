@@ -16,11 +16,22 @@ export function AnalysisProgress({ busy = false }: { busy?: boolean }) {
   useEffect(() => {
     if (!isAndroid()) return;
     let alive = true;
-    const refresh = () => { void StockAI.analysisStatus().then(value => { if (alive) setStatus(value); }).catch(() => {}); };
+    let occupied = false;
+    let pendingFocus = false;
+    const refresh = (focus = false): void => {
+      if (!alive) return;
+      if (occupied) { if (focus) pendingFocus = true; return; }
+      occupied = true;
+      void StockAI.analysisStatus().then(value => { if (alive) setStatus(value); }).catch(() => {}).finally(() => {
+        occupied = false;
+        if (alive && pendingFocus) { pendingFocus = false; refresh(); }
+      });
+    };
+    const onFocus = (): void => refresh(true);
     refresh();
-    const timer = window.setInterval(refresh, 1000);
-    window.addEventListener("focus", refresh);
-    return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+    const timer = window.setInterval(() => refresh(), 1000);
+    window.addEventListener("focus", onFocus);
+    return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
   }, []);
   if (!busy && !["running", "interrupted", "blocked"].includes(status?.state ?? "")) return null;
   const percent = status?.percent;
