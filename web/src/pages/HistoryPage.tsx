@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { PageHeader, StatePanel, dateTime, currency as yen } from "../components";
 import { KV } from "../Adopted";
@@ -29,6 +29,7 @@ function ExecutionHistory() {
 }
 function LedgerHistory() {
   const { data, error, loading } = useApiData<Ledger[]>("/api/v1/portfolio/history");
+  const [visibleCount, setVisibleCount] = useState(1);
   const previousShares = useMemo(() => (data ?? []).map((_, index) => {
     const symbols = new Map<string, Map<string, number>>();
     for (const position of data?.[index + 1]?.positions ?? []) {
@@ -38,7 +39,21 @@ function LedgerHistory() {
     }
     return symbols;
   }), [data]);
+  useEffect(() => {
+    if (error || !data || visibleCount >= data.length) return;
+    let nextFrame = 0;
+    const frame = window.requestAnimationFrame(() => {
+      nextFrame = window.requestAnimationFrame(() => {
+        setVisibleCount(count => Math.min(data.length, count + Math.min(count, 8)));
+      });
+    });
+    return () => { window.cancelAnimationFrame(frame); window.cancelAnimationFrame(nextFrame); };
+  }, [data, error, visibleCount]);
   return <div className="page"><PageHeader title="残高・修正履歴" backTo="/assets" />
-    <div className="subscreen stack">{loading && data && !error && <p role="status" className="setting-footnote">前回の履歴を表示中・更新を確認しています。</p>}{error ? <StatePanel tone="error" title="残高履歴を取得できません" detail={error} /> : loading && !data ? <StatePanel title="残高履歴を読み込んでいます" /> : !data?.length ? <StatePanel title="残高履歴はまだありません" /> : data.map((item,index)=><article className="card" key={item.portfolio_id}><KV label={item.correctionRecord?.date || dateTime(item.as_of,true)} value={item.correctionRecord ? ({deposit:"入金",withdrawal:"出金",correction:"残高訂正"}[item.correctionRecord.kind] || "残高訂正") : index===data.length-1 ? "初回残高" : "残高の保存"} />{item.positions.map(row=><p className="small" key={`${row.symbol}:${row.account_bucket_id}`}>{row.symbol} / {row.account_bucket_id} {previousShares[index].get(row.symbol)?.get(row.account_bucket_id) ?? "—"} → {row.shares}株 · 取得単価 {yen(row.average_acquisition_price)}</p>)}{item.cash.map(row=><KV key={row.account_bucket_id} label={`${row.account_bucket_id} 現金`} value={yen(row.available_cash)} />)}{item.correctionRecord?.reason && <p className="small">理由：{item.correctionRecord.reason}</p>}</article>)}<Link className="button secondary" to="/assets">資産管理</Link></div>
+    <div className="subscreen stack">{loading && data && !error && <p role="status" className="setting-footnote">前回の履歴を表示中・更新を確認しています。</p>}{error ? <StatePanel tone="error" title="残高履歴を取得できません" detail={error} /> : loading && !data ? <StatePanel title="残高履歴を読み込んでいます" /> : !data?.length ? <StatePanel title="残高履歴はまだありません" /> : <>{data.slice(0, visibleCount).map((item,index)=><LedgerCard key={item.portfolio_id} item={item} previous={previousShares[index]} initial={index===data.length-1} />)}{visibleCount < data.length && <p role="status" className="setting-footnote">残りの履歴を表示しています…</p>}</>}<Link className="button secondary" to="/assets">資産管理</Link></div>
   </div>;
 }
+
+const LedgerCard = memo(function LedgerCard({ item, previous, initial }: { item: Ledger; previous: Map<string, Map<string, number>>; initial: boolean }) {
+  return <article className="card"><KV label={item.correctionRecord?.date || dateTime(item.as_of,true)} value={item.correctionRecord ? ({deposit:"入金",withdrawal:"出金",correction:"残高訂正"}[item.correctionRecord.kind] || "残高訂正") : initial ? "初回残高" : "残高の保存"} />{item.positions.map(row=><p className="small" key={`${row.symbol}:${row.account_bucket_id}`}>{row.symbol} / {row.account_bucket_id} {previous.get(row.symbol)?.get(row.account_bucket_id) ?? "—"} → {row.shares}株 · 取得単価 {yen(row.average_acquisition_price)}</p>)}{item.cash.map(row=><KV key={row.account_bucket_id} label={`${row.account_bucket_id} 現金`} value={yen(row.available_cash)} />)}{item.correctionRecord?.reason && <p className="small">理由：{item.correctionRecord.reason}</p>}</article>;
+});
