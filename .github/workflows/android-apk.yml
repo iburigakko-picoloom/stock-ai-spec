@@ -109,6 +109,10 @@ on:
         description: 'Run only the synthetic Android upgrade investigation; never release'
         type: boolean
         default: false
+      record_diagnostics_only:
+        description: 'Run only synthetic Android record and saved-view checks; never release'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -119,7 +123,7 @@ concurrency:
 
 jobs:
   verify:
-    if: ${{ !inputs.upgrade_diagnostics_only }}
+    if: ${{ !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only }}
     runs-on: ubuntu-24.04
     # Budget the complete serial sequence: observed pre-feature work is ~39m.
     # Keep the independent 15m capacity/12m feature and app 600s/RAM guards.
@@ -236,6 +240,9 @@ jobs:
     outputs:
       native_apks_ready: ${{ steps.native_apks.outcome }}
     steps:
+      - name: Reject conflicting diagnostic modes
+        if: ${{ inputs.upgrade_diagnostics_only && inputs.record_diagnostics_only }}
+        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -311,10 +318,14 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - name: Android persistence tests
-        if: ${{ !inputs.upgrade_diagnostics_only }}
+        if: ${{ !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only }}
         id: native_tests
         working-directory: web/android
         run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest,jp.stockai.app.LegacyUpgradeSeedTest,jp.stockai.app.UpgradeCompatibilityTest,jp.stockai.app.ResearchEnsembleComputeTest
+      - name: Synthetic record and saved-view diagnostics
+        if: ${{ inputs.record_diagnostics_only && !inputs.upgrade_diagnostics_only }}
+        working-directory: web/android
+        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=jp.stockai.app.NativeRecordReaderTest,jp.stockai.app.SavedReadViewsTest,jp.stockai.app.LocalComputeOwnerTest,jp.stockai.app.SavedViewSchedulingTest
       - name: Native encrypted store capacity evidence
         if: always() && (steps.native_tests.outcome == 'success' || steps.native_tests.outcome == 'failure')
         run: |
@@ -332,7 +343,7 @@ jobs:
           (folder / 'report.json').write_text(json.dumps({'events': rows, 'latest': rows[-1]}, indent=2))
           PY
       - name: Real worker recovery and OS dispatch evidence
-        if: ${{ !inputs.upgrade_diagnostics_only }}
+        if: ${{ !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only }}
         timeout-minutes: 20
         env:
           LIFECYCLE_DELIVERY: ${{ inputs.lifecycle_delivery || 'screen-wake-and-scheduler' }}
@@ -343,6 +354,7 @@ jobs:
             *) exit 2 ;;
           esac
       - name: Build last published source for upgrade acceptance
+        if: ${{ !inputs.record_diagnostics_only }}
         timeout-minutes: 10
         run: |
           set -euo pipefail
@@ -359,6 +371,7 @@ jobs:
           chmod +x gradlew
           STOCKAI_VERSION_CODE=10012 ./gradlew --no-daemon :app:assembleDebug
       - name: Preserve data and keystore across actual same-signature APK upgrade
+        if: ${{ !inputs.record_diagnostics_only }}
         timeout-minutes: 10
         run: python -m scripts.android_upgrade_check --base-apk .demo-artifacts/android-upgrade-base/web/android/app/build/outputs/apk/debug/app-debug.apk
       - name: Android diagnostics
@@ -390,7 +403,7 @@ jobs:
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
   android-history:
-    if: ${{ always() && !cancelled() && !inputs.upgrade_diagnostics_only && needs.android.outputs.native_apks_ready == 'success' }}
+    if: ${{ always() && !cancelled() && !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only && needs.android.outputs.native_apks_ready == 'success' }}
     needs: [verify, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -481,7 +494,7 @@ jobs:
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
   release:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !inputs.upgrade_diagnostics_only
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only
     needs: [verify, android, android-history]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
