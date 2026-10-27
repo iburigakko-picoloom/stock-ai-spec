@@ -44,7 +44,7 @@ def test_final_predictions_keep_delisted_exits_and_report_unavailable_labels(
         assert coverage.evaluated_rows == 30 - missing
         assert coverage.unavailable_rows == missing
     ledger_path = tmp_path / "holdout" / selection.selection_id / "ledger.json"
-    ledger = json.loads(ledger_path.read_text())["ledger"]
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))["ledger"]
     for state in ledger["components"]:
         frame = pd.read_parquet(state["prediction_path"])
         assert len(frame) == 30
