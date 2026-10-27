@@ -10,7 +10,7 @@ import struct
 from datetime import timedelta
 
 import pytest
-from mobile.python import forecasts, market, models, personal
+from mobile.python import forecasts, market, models, personal, rankings
 
 from stock_ai.operations.daily import PredictionSnapshot, canonical_json, content_id
 from stock_ai.operations.store import OperationalConflictError
@@ -540,7 +540,33 @@ def test_reference_after_registration_uses_actual_time_and_never_selects_daily(r
     assert store.prediction_snapshot(active.snapshot_id) == active
     with pytest.raises(ValueError, match="cannot become an active"):
         forecasts._publish(path, store, value)
-    assert forecasts.reference_view(path, reference_time)["readOnly"] is True
+    expected_snapshot = forecasts.PredictionSnapshot.model_validate(value["snapshot"])
+    validate = forecasts.PredictionSnapshot.model_validate
+    validations = []
+    def counted_validate(*args, **kwargs):
+        validations.append(1)
+        return validate(*args, **kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(forecasts.PredictionSnapshot, "model_validate", counted_validate)
+        view = forecasts.reference_view(path, reference_time)
+    assert len(validations) == 1
+    assert view["readOnly"] is True
+    assert view["snapshotId"] == expected_snapshot.snapshot_id
+    assert view["predictions"] == [
+        next(item for item in expected_snapshot.predictions if item.symbol == symbol)
+        .model_dump(mode="json")
+        for symbol in expected_snapshot.research_symbols()
+    ]
+    checked_ids = []
+    def count_snapshots(*args, **kwargs):
+        checked_ids.append(args[0].get("snapshot_id"))
+        return validate(*args, **kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(forecasts.PredictionSnapshot, "model_validate", count_snapshots)
+        ranked_snapshot, _, price_date = rankings._latest(path, store, reference_time)
+    assert ranked_snapshot == expected_snapshot
+    assert price_date == selected["latest_source_date"]
+    assert checked_ids.count(expected_snapshot.snapshot_id) == 1
     assert forecasts.reference_view(path, NOW) is None
     archive = device.export_state()
     device.initialize(archive)
@@ -555,6 +581,11 @@ def test_reference_after_registration_uses_actual_time_and_never_selects_daily(r
     blocked = forecasts.generate(path, device._app.state.store, later, reference_only=True)
     assert blocked["snapshot"] is None
     assert forecasts.reference_view(path, later)["snapshotId"] == value["snapshot"]["snapshot_id"]
+    with forecasts.connect(path) as db:
+        db.execute("UPDATE mobile_reference_runs SET content_hash=? WHERE run_id=?",
+                   ("0" * 64, value["run_id"]))
+    with pytest.raises(ValueError, match="Forecast run receipt changed"):
+        forecasts.reference_view(path, later)
 
 
 @pytest.mark.parametrize("microsecond", [0, 123000, 123456])

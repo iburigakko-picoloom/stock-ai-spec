@@ -10,7 +10,7 @@ from stock_ai.operations.consultation import (
     consultation_context,
     readable_consultation_prompt,
 )
-from stock_ai.operations.daily import PredictionSnapshot, content_id
+from stock_ai.operations.daily import content_id
 from stock_ai.operations.manual_portfolio import strict_json
 
 from . import forecasts, market
@@ -39,10 +39,12 @@ def _write(store, key, payload):
 def _latest(path, store, now):
     snapshot = store.latest_archived_prediction(now)
     receipt = forecasts.latest(path)
-    reference = forecasts.latest_reference(path, now, saved_only=True)
+    reference_result = forecasts.latest_reference_with_snapshot(path, now, saved_only=True)
     price_date = None
-    if reference is not None:
-        candidate = PredictionSnapshot.model_validate(reference["snapshot"])
+    if reference_result is not None:
+        reference, candidate = reference_result
+        if candidate is None:
+            raise ValueError("Saved reference has no snapshot")
         if snapshot is None or candidate.generated_at > snapshot.generated_at:
             snapshot = candidate
             receipt = reference

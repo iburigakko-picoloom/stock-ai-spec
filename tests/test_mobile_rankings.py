@@ -4,7 +4,7 @@ from datetime import timedelta
 import pytest
 from mobile.python import forecasts, rankings
 
-from stock_ai.operations.daily import content_id
+from stock_ai.operations.daily import PredictionSnapshot, content_id
 from tests.test_consultation_context import findings
 from tests.test_mobile_forecasts import NOW
 from tests.test_mobile_forecasts import ready as forecast_ready
@@ -123,11 +123,11 @@ def test_newer_reference_used_and_old_answer_not_applied(ready, monkeypatch):
     snapshot["snapshot_id"] = content_id({k: v for k, v in snapshot.items() if k != "snapshot_id"})
     monkeypatch.setattr(
         forecasts,
-        "latest_reference",
-        lambda *a, **k: {
+        "latest_reference_with_snapshot",
+        lambda *a, **k: ({
             "snapshot": snapshot,
             "scope": {"universe": {"latest_source_date": "2026-10-23"}},
-        },
+        }, PredictionSnapshot.model_validate(snapshot)),
     )
     current = rankings.view(path, store, now, "20d")
     assert current["id"] != old["id"] and current["priceDate"] == "2026-10-23"

@@ -53,13 +53,14 @@ def _select(path, run_id, now):
                        (run_id, now.isoformat()))
 
 
-def _checked(row) -> dict:
+def _checked_with_snapshot(row) -> tuple[dict, PredictionSnapshot | None]:
     identity, scope_hash, payload, digest, phase = row
     value = json.loads(payload)
     if (content_id(value) != digest or value["run_id"] != identity
             or content_id({k: v for k, v in value.items() if k != "run_id"}) != identity
             or value["scope_hash"] != scope_hash or content_id(value["scope"]) != scope_hash):
         raise ValueError("Forecast run receipt changed")
+    snapshot = None
     if value["snapshot"] is not None:
         snapshot = PredictionSnapshot.model_validate(value["snapshot"])
         scope, proof = value["scope"], value["data_proof"]
@@ -120,7 +121,11 @@ def _checked(row) -> dict:
                 raise ValueError("Return-only forecast cannot invent calibration")
             if set(outputs) != required or [outputs[k][prediction.symbol] for k in keys] != values:
                 raise ValueError("Forecast differs from the preserved numerical output")
-    return {**value, "phase": phase}
+    return {**value, "phase": phase}, snapshot
+
+
+def _checked(row) -> dict:
+    return _checked_with_snapshot(row)[0]
 
 
 def _predictability_contract(population, evidence):
@@ -271,7 +276,9 @@ def latest(path: Path) -> dict | None:
     return None if row is None else _checked(row)
 
 
-def latest_reference(path: Path, now: datetime, *, saved_only=False) -> dict | None:
+def latest_reference_with_snapshot(
+    path: Path, now: datetime, *, saved_only=False
+) -> tuple[dict, PredictionSnapshot | None] | None:
     with connect(path) as db:
         rows = db.execute(
             "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_reference_runs "
@@ -279,19 +286,26 @@ def latest_reference(path: Path, now: datetime, *, saved_only=False) -> dict | N
             + "ORDER BY sequence DESC"
         )
         for row in rows:
-            value = _checked(row)
+            value, snapshot = _checked_with_snapshot(row)
             if value["scope"].get("analysis_mode") != "latest_available_reference":
                 raise ValueError("Reference run mode changed")
             if datetime.fromisoformat(value["checked_at"]) <= now:
-                return value
+                return value, snapshot
     return None
 
 
+def latest_reference(path: Path, now: datetime, *, saved_only=False) -> dict | None:
+    result = latest_reference_with_snapshot(path, now, saved_only=saved_only)
+    return None if result is None else result[0]
+
+
 def reference_view(path: Path, now: datetime) -> dict | None:
-    value = latest_reference(path, now, saved_only=True)
-    if value is None:
+    result = latest_reference_with_snapshot(path, now, saved_only=True)
+    if result is None:
         return None
-    snapshot = PredictionSnapshot.model_validate(value["snapshot"])
+    value, snapshot = result
+    if snapshot is None:
+        raise ValueError("Saved reference has no snapshot")
     predictions = {item.symbol: item for item in snapshot.predictions}
     return {"snapshotId": snapshot.snapshot_id, "asOf": snapshot.as_of.isoformat(),
             "generatedAt": snapshot.generated_at.isoformat(),
