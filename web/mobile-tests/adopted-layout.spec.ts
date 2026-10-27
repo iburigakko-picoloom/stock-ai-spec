@@ -153,6 +153,56 @@ for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`
   }
 });
 
+test("ranking detail explains the selected snapshot even when another forecast is active",async({page})=>{
+  if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width:320,height:800});
+  const snapshot="a".repeat(64);
+  const ranking=adoptedPayloads({})["/api/v1/mobile/ranking/5d"] as Record<string,unknown>;
+  await page.route("**/api/v1/mobile/ranking/5d",route=>route.fulfill({json:{...ranking,snapshotId:snapshot,metrics:{"1234":{return5d:.12,return20d:.15,rank20d:2.5}}}}));
+  let explained="";
+  await page.route("**/api/v1/mobile/stocks/1234/explanation?*",route=>{
+    explained=new URL(route.request().url()).searchParams.get("snapshot") ?? "";
+    return route.fulfill({json:{symbol:"1234",snapshotId:snapshot,asOf:"2026-10-26T11:30:00+09:00",method:"one_feature_training_median_replacement_v1",models:[
+      {horizon:5,role:"return",available:true,prediction:.02,positive:[{feature:"price.return_5d",difference:.003,rankChange:null}],negative:[]},
+      {horizon:20,role:"return",available:false},{horizon:20,role:"ranking",available:false}]}});
+  });
+  await page.goto("http://127.0.0.1:5196/#/ranking");
+  await page.getByRole("searchbox").fill("画面試験1株式会社");
+  await page.locator('.ranking-table-row[href="#/stocks/1234"]').click();
+  const preview=page.locator("section").filter({has:page.getByRole("heading",{name:"ランキングで選んだ保存予測"})});
+  await expect(preview.getByText("+12.00%")).toBeVisible();
+  await expect(preview.getByText("+15.00%")).toBeVisible();
+  await expect(preview.getByText("2.50")).toBeVisible();
+  await expect(page.getByText("この欄はランキングで選択したものとは別の保存予測です。")).toBeVisible();
+  const section=page.getByRole("region",{name:"予測に影響した特徴量"});
+  await expect(section.getByText("ランキングで選択した保存予測の要因です。")).toBeVisible();
+  await section.getByRole("button",{name:"予測の要因を見る"}).click();
+  await expect(section.getByText("5日の騰落率")).toBeVisible();
+  expect(explained).toBe(snapshot);
+  await page.addStyleTag({content:"html{font-size:150%}"});
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  await page.getByRole("link",{name:"← 戻る",exact:true}).click();
+  await expect(page.getByRole("searchbox")).toHaveValue("画面試験1株式会社");
+});
+
+test("a ranking-only stock keeps the exact reference and explanation even without an active detail",async({page})=>{
+  const snapshot="b".repeat(64);
+  const ranking=adoptedPayloads({})["/api/v1/mobile/ranking/5d"] as Record<string,unknown>;
+  await page.route("**/api/v1/mobile/ranking/5d",route=>route.fulfill({json:{...ranking,snapshotId:snapshot}}));
+  await page.route("**/api/v1/stocks/1234",route=>route.fulfill({json:null}));
+  await page.route("**/api/v1/mobile/stocks/1234/explanation?*",route=>route.fulfill({json:{
+    symbol:"1234",snapshotId:snapshot,asOf:"2026-10-26T11:30:00+09:00",method:"one_feature_training_median_replacement_v1",
+    models:[{horizon:5,role:"return",available:true,prediction:.02,positive:[{feature:"price.return_5d",difference:.003,rankChange:null}],negative:[]},
+      {horizon:20,role:"return",available:false},{horizon:20,role:"ranking",available:false}],
+  }}));
+  await page.goto("http://127.0.0.1:5196/#/ranking");
+  await page.locator('.ranking-table-row[href="#/stocks/1234"]').click();
+  await expect(page.getByText("銘柄情報を取得できません")).toBeVisible();
+  await expect(page.getByRole("heading",{name:"ランキングで選んだ保存予測"})).toBeVisible();
+  const section=page.getByRole("region",{name:"予測に影響した特徴量"});
+  await section.getByRole("button",{name:"予測の要因を見る"}).click();
+  await expect(section.getByText("5日の騰落率")).toBeVisible();
+});
+
 test("returning to home requests daily status once for one foreground event burst", async ({page}) => {
   await page.goto("/");
   await expect(page.locator(".header-status")).toBeVisible();

@@ -76,6 +76,9 @@
 .app-shell--adopted .stock-chart-options button[aria-pressed="true"] { color:#2859a6; border-color:#2859a6; font-weight:700; }
 .app-shell--adopted .stock-chart-plot { display:block; width:100%; height:auto; }
 .app-shell--adopted .stock-chart-results>div { display:grid; gap:3px; padding:10px 0; border-top:1px solid #e4e8ef; overflow-wrap:anywhere; font-size:.75rem; }
+.app-shell--adopted .stock-explanation { min-width:0; }
+.app-shell--adopted .stock-effect-list { list-style:none; padding:0; margin:0; }
+.app-shell--adopted .stock-effect-list li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:3px 12px; padding:8px 0; border-bottom:1px solid #e4e8ef; overflow-wrap:anywhere; font-size:.75rem; }
 .app-shell--adopted .ss-group .daily-panel>h2 { display:none; }
 .app-shell--adopted .ss-group .daily-panel { margin:0; }
 .app-shell--adopted .ss-group .research-disclosure,.app-shell--adopted .ss-group .settings-disclosure { border:0; margin:0; padding:0; }

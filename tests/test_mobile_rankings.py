@@ -45,6 +45,32 @@ def prepare(ready):
     return device, store, path, now, current, exported, answer
 
 
+def test_display_all_predictions_preserves_consultation_identity(ready, monkeypatch):
+    _, store, path, *_ = ready
+    forecasts.generate(path, store, NOW)
+    original = store.latest_prediction_snapshot()
+    template = original.predictions[0]
+    codes = [str(1000 + i) for i in range(25)]
+    predictions = tuple(template.model_copy(update={
+        "symbol": symbol, "expected_return_5d": (25 - index) / 1000,
+        "expected_return_20d": (25 - index) / 500,
+    }) for index, symbol in enumerate([*codes, "7203"]))
+    snapshot = PredictionSnapshot.create(**{
+        **{name: getattr(original, name) for name in type(original).model_fields
+           if name != "snapshot_id"},
+        "candidate_symbols": tuple(codes), "holding_symbols": ("7203",), "predictions": predictions,
+    })
+    monkeypatch.setattr(rankings, "_latest", lambda *_: (snapshot, None, None))
+    result = rankings.view(path, store, NOW + timedelta(days=1), "5d")
+    assert len(result["rows"]) == 21
+    assert len(result["displayRows"]) == result["total"] == 26
+    assert result["id"] == content_id({
+        "snapshot": snapshot.snapshot_id, "horizon": "5d", "rows": result["rows"]
+    })
+    assert [row["symbol"] for row in result["displayRows"]] == [*codes, "7203"]
+    assert result["metrics"]["1024"]["return5d"] == pytest.approx(.001)
+
+
 def test_saved_ranking_any_time_consultation_restore_without_ledger_changes(ready):
     device, store, path, now, current, exported, answer = prepare(ready)
     ledger = store.latest_portfolio()

@@ -28,6 +28,7 @@ from stock_ai.operations.store import OperationalConflictError, OperationalInteg
 from . import (
     account_editor,
     decisions,
+    explanations,
     forecasts,
     manual_chatgpt,
     market,
@@ -332,6 +333,20 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
                 OperationalIntegrityError):
             return {"status": 422, "body": {"detail": "株価または予測の保存内容を確認できません。"}}
+    explanation = re.fullmatch(
+        r"/api/v1/mobile/stocks/([A-Z0-9]{4})/explanation\?snapshot=([0-9a-f]{64})", path
+    )
+    if explanation and method == "GET":
+        try:
+            return {"status": 200, "body": explanations.read(
+                STATE / "mobile.sqlite3", _app.state.store, explanation[1], explanation[2],
+                datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {
+                "detail": "保存時の入力とモデルを再現できず、予測要因を表示できません。"
+            }}
     if path == "/api/v1/mobile/portfolio":
         if method == "POST":
             try:

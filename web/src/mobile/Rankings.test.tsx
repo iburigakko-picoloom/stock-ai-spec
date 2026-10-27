@@ -19,6 +19,17 @@ beforeEach(() => {
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
+test("shows and searches the full prediction population while retaining the consultation subset",()=>{
+  const full=[...base.rows.map(row=>({...row,companyName:`企業${row.symbol}`})),
+    {symbol:"3000",companyName:"対象外ではない企業",modelRank:3,score:-1,expectedReturn:-.01}];
+  vi.mocked(useApiData).mockReturnValue({data:{...base,displayRows:full,total:3},loading:false,error:null,savedAt:null,reload});
+  render(<MemoryRouter><Rankings /></MemoryRouter>);
+  expect(screen.getByText("3 / 3銘柄")).toBeVisible();
+  fireEvent.change(screen.getByRole("searchbox"),{target:{value:"対象外ではない企業"}});
+  expect(screen.getByText("対象外ではない企業")).toBeVisible();
+  expect(screen.getByText("1 / 3銘柄")).toBeVisible();
+});
+
 test("saved ranking archive remains readable without import or adoption actions", () => {
   vi.mocked(useApiData).mockReturnValue({ data: { ...base, answer: { order: [
     { symbol: "2000", reason: "相談で優先" }, { symbol: "1000", reason: "比較後の順位" },

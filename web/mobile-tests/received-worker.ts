@@ -12,7 +12,7 @@ self.onmessage = async (event: MessageEvent<Record<string, unknown>>) => {
 import sys, json, types, math
 from datetime import datetime, timedelta
 sys.path.insert(0, '/stockai-code')
-from stock_ai.mobile import runtime, models, forecasts, decisions, market, stock_chart
+from stock_ai.mobile import runtime, models, forecasts, decisions, market, stock_chart, explanations
 fixture = json.loads(fixture_json)
 assert fixture['synthetic_only'] is True
 return_only = fixture.get('return_only_research', False)
@@ -46,6 +46,10 @@ assert chart['forecasts'][0]['snapshotId'] == snapshot.snapshot_id
 assert chart['forecasts'][0]['horizons'][0]['expectedReturn'] == .01
 assert chart['forecasts'][0]['horizons'][0]['status'] == 'pending'
 assert chart['forecasts'][0]['horizons'][0]['return'] is None
+explanation = explanations.read(path, store, '1023', snapshot.snapshot_id, now)
+assert explanation['snapshotId'] == snapshot.snapshot_id
+assert [m['available'] for m in explanation['models']] == [True, True, False]
+assert [m['prediction'] for m in explanation['models'][:2]] == [.01, .04]
 assert not models.status(path, store)['model_adopted']
 assert len(numerical['data_proof']['source_snapshot_ids']) == 5
 assert numerical['data_proof'] == fixture['wasm_data_proof'], [

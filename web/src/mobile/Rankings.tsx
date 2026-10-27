@@ -8,15 +8,19 @@ import { ReferenceAnalysis } from "./ReferenceAnalysis";
 
 interface Ranked { symbol: string; companyName?: string; modelRank: number; score: number | null; expectedReturn: number | null }
 interface Answer { order: { symbol: string; reason: string }[]; savedAt: string; researchId?: string; research?: ConsultationFindings }
-interface Ranking { id: string; snapshotId: string; generatedAt: string; asOf: string; priceDate: string | null; rows: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null; holdingSymbols?: string[]; metrics?: Record<string, { return5d: number | null; return20d: number | null; rank20d: number | null }> }
+interface Ranking { id: string; snapshotId: string; generatedAt: string; asOf: string; priceDate: string | null; rows: Ranked[]; displayRows?: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null; holdingSymbols?: string[]; metrics?: Record<string, { return5d: number | null; return20d: number | null; rank20d: number | null }> }
 interface Exported { id: string; rankingId?: string; prompt: string; expiresAt: string; canCopy?: boolean; responseMode?: string }
 type DisplayRow = Ranked & { reason: string; rank: string };
 const percent = (value: number | null | undefined) => value == null ? "未算出" : `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
 
-const RankingRow = memo(function RankingRow({ row, horizon, metrics, held, adjusted }: { row: DisplayRow; horizon: string; metrics: Ranking["metrics"]; held: boolean; adjusted: boolean }) {
+const RankingRow = memo(function RankingRow({ row, horizon, metrics, held, adjusted, snapshotId, generatedAt }: { row: DisplayRow; horizon: string; metrics: Ranking["metrics"]; held: boolean; adjusted: boolean; snapshotId:string; generatedAt:string }) {
   const valueOnly = horizon !== "20d";
   const hasName = !!row.companyName && row.companyName !== row.symbol;
-  return <Link to={`/stocks/${row.symbol}`} state={{ from: "/ranking" }} className="ranking-table-row">
+  const values=metrics?.[row.symbol];
+  const rankingPreview={symbol:row.symbol,companyName:row.companyName,generatedAt,
+    return5d:values?.return5d ?? (horizon==="5d" ? row.expectedReturn : null),
+    return20d:values?.return20d ?? (horizon!=="5d" ? row.expectedReturn : null),rank20d:values?.rank20d ?? null};
+  return <Link to={`/stocks/${row.symbol}`} state={{ from: "/ranking", rankingSnapshotId:snapshotId, rankingPreview }} className="ranking-table-row">
     <span className="ranking-company"><span className="ranking-position" aria-label={row.rank}>{row.rank.replace("位","")}</span><span><strong>{hasName ? row.companyName : row.symbol}</strong>{hasName && <small>{row.symbol} {held && <span className="ranking-held">保有</span>}</small>}{!hasName && held && <small className="ranking-held">保有</small>}
       {adjusted && <small>モデル {row.modelRank}位</small>}{row.reason && <small>{row.reason}</small>}</span></span>
     <span className={`ranking-return ${horizon==="5d" || !valueOnly ? "is-period" : ""}`}>{valueOnly ? percent(metrics?.[row.symbol]?.return5d ?? (horizon === "5d" ? row.expectedReturn : null)) : metrics?.[row.symbol]?.rank20d?.toFixed(2) ?? "未算出"}</span>
@@ -36,7 +40,7 @@ function RankingRows({ rows, data, horizon, held, adjusted }: { rows: DisplayRow
   }, [rows.length, visibleCount]);
   const valueOnly = horizon !== "20d";
   return <><div className="card ranking-table"><div className="ranking-table-head"><span>順位・銘柄</span><span className={horizon==="5d" || !valueOnly ? "is-period" : ""}>{valueOnly ? "5日値予測" : "順位スコア"}</span><span className={horizon==="20d-value" ? "is-period" : ""}>20日値予測</span></div>
-    {rows.slice(0, visibleCount).map(row => <RankingRow key={row.symbol} row={row} horizon={horizon} metrics={data.metrics} held={held.has(row.symbol)} adjusted={adjusted} />)}</div>{visibleCount < rows.length && <p role="status" className="setting-footnote">残りの銘柄を表示しています…</p>}</>;
+    {rows.slice(0, visibleCount).map(row => <RankingRow key={row.symbol} row={row} horizon={horizon} metrics={data.metrics} held={held.has(row.symbol)} adjusted={adjusted} snapshotId={data.snapshotId} generatedAt={data.generatedAt} />)}</div>{visibleCount < rows.length && <p role="status" className="setting-footnote">残りの銘柄を表示しています…</p>}</>;
 }
 
 export function Rankings() {
@@ -64,7 +68,7 @@ function RankingBody({ horizon }: { horizon: string }) {
   const [nameResult, setNameResult] = useState<{snapshotId:string;names:Record<string,string>} | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const snapshotId = data?.snapshotId;
-  const needsNames = !!data?.rows.some(row => !row.companyName || row.companyName === row.symbol);
+  const needsNames = !!(data?.displayRows ?? data?.rows)?.some(row => !row.companyName || row.companyName === row.symbol);
   useEffect(() => {
     if (!snapshotId || !needsNames || loading || error) return;
     let active = true;
@@ -104,7 +108,7 @@ function RankingBody({ horizon }: { horizon: string }) {
     return () => { active = false; clear(); document.removeEventListener("visibilitychange", visibility); };
   }, [path, snapshotId, needsNames, loading, error]);
   const displayNames = nameResult && nameResult.snapshotId === snapshotId ? nameResult.names : null;
-  const unavailableNames = needsNames && (nameError === snapshotId || (!!displayNames && !!data?.rows.some(row =>
+  const unavailableNames = needsNames && (nameError === snapshotId || (!!displayNames && !!(data?.displayRows ?? data?.rows)?.some(row =>
     (!row.companyName || row.companyName === row.symbol) && !displayNames[row.symbol])));
   async function run(action: () => Promise<void>) {
     setBusy(true); setMessage("");
@@ -115,7 +119,7 @@ function RankingBody({ horizon }: { horizon: string }) {
   const research = data?.research;
   const adjusted = legacy && horizon === "20d" && source === "chatgpt" && data?.answer;
   const rows = useMemo(() => {
-    const result = (adjusted ? data!.answer!.order.map(item => ({ ...data!.rows.find(row => row.symbol === item.symbol)!, reason: item.reason })) : (data?.rows ?? []).map(row => ({ ...row, reason: "" })))
+    const result = (adjusted ? data!.answer!.order.map(item => ({ ...data!.rows.find(row => row.symbol === item.symbol)!, reason: item.reason })) : (data?.displayRows ?? data?.rows ?? []).map(row => ({ ...row, reason: "" })))
       .map(row => ({...row, companyName: displayNames?.[row.symbol] || row.companyName}));
     const metric = (row: Ranked): number | null => valueOnly ? row.expectedReturn : data?.metrics?.[row.symbol]?.rank20d ?? null;
     if (!adjusted) result.sort((a, b) => (metric(a) === null ? 1 : 0) - (metric(b) === null ? 1 : 0) || (metric(b) ?? 0) - (metric(a) ?? 0) || a.symbol.localeCompare(b.symbol));

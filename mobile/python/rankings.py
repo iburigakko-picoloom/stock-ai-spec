@@ -61,7 +61,7 @@ def display_names(path, store, now, horizon):
     snapshot, receipt, _ = _latest(path, store, now)
     if snapshot is None:
         return None
-    wanted = set(snapshot.research_symbols())
+    wanted = {item.symbol for item in snapshot.predictions}
     names = {}
     receipt_snapshot = receipt.get("snapshot") if receipt else None
     scope = (receipt.get("scope", {}) if receipt_snapshot
@@ -137,6 +137,18 @@ def view(path, store, now, horizon):
         for i, p in enumerate(predictions)
     ]
     identity = content_id({"snapshot": snapshot.snapshot_id, "horizon": horizon, "rows": rows})
+    # The saved consultation identity remains bound to its original top-20 and
+    # holdings. The separate display projection covers the complete snapshot.
+    all_predictions = sorted(
+        snapshot.predictions,
+        key=lambda p: (getattr(p, field, None) is None, -(getattr(p, field, None) or 0), p.symbol),
+    )
+    display_rows = [
+        {"symbol": p.symbol, "companyName": names.get(p.symbol, p.symbol), "modelRank": i + 1,
+         "score": getattr(p, field, None),
+         "expectedReturn": getattr(p, "expected_return_" + horizon)}
+        for i, p in enumerate(all_predictions)
+    ]
     answer = _read(store, "ranking:answer:" + identity)
     portfolio = store.latest_portfolio()
     portfolio_id = None if portfolio is None else content_id(portfolio.model_dump(mode="json"))
@@ -171,6 +183,7 @@ def view(path, store, now, horizon):
         "asOf": snapshot.as_of.isoformat(),
         "priceDate": price_date,
         "rows": rows,
+        "displayRows": display_rows,
         # Display metadata is outside the persisted consultation identity. Never
         # label the legacy return fallback in rows.score as a ranking score.
         "metrics": {
@@ -179,12 +192,12 @@ def view(path, store, now, horizon):
                 "return20d": p.expected_return_20d,
                 "rank20d": getattr(p, "rank_score_20d", None),
             }
-            for p in predictions
+            for p in all_predictions
         },
         "holdingSymbols": [] if portfolio is None else sorted({
             p.symbol for p in portfolio.positions if p.shares > 0
         }),
-        "total": len(predictions),
+        "total": len(all_predictions),
         "answer": answer,
         "research": history,
         "savedInput": None
