@@ -157,6 +157,16 @@ test("offline Python preserves input and matches PC features, nine model vectors
   });
   const computed = result.values.result as { status: number; body: { features: Record<string, Record<string, unknown>[]> } };
   expect(computed.status).toBe(200);
+  // Pandas can emit the same UTC instant with millisecond or nanosecond zeros.
+  // Normalize precision without losing any nonzero subsecond digits.
+  function utcNanoseconds(value: unknown): string {
+    expect(typeof value).toBe("string");
+    const match = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z$/.exec(value as string);
+    expect(match).not.toBeNull();
+    return `${match![1]}.${(match![2] ?? "").padEnd(9, "0")}Z`;
+  }
+  expect(utcNanoseconds("2025-01-15T23:00:00.001Z")).toBe(utcNanoseconds("2025-01-15T23:00:00.001000000Z"));
+  expect(utcNanoseconds("2025-01-15T23:00:00.001000001Z")).not.toBe(utcNanoseconds("2025-01-15T23:00:00.001Z"));
   for (const horizon of ["5", "20"]) {
     const rows = computed.body.features[horizon];
     expect(rows).toHaveLength(golden.expected[horizon].length);
@@ -165,6 +175,7 @@ test("offline Python preserves input and matches PC features, nine model vectors
       expect(Object.keys(row)).toEqual(Object.keys(expected));
       for (const [key, value] of Object.entries(expected)) {
         if (typeof value === "number") expect(Number(row[key])).toBeCloseTo(value, 7);
+        else if (key === "available_at" && value !== null) expect(utcNanoseconds(row[key])).toBe(utcNanoseconds(value));
         else expect(row[key]).toBe(value);
       }
     });
