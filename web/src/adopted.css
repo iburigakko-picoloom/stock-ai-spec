@@ -69,7 +69,7 @@
 .app-shell--adopted .screen-review .paper-chart figcaption { font-size:.625rem; }
 .app-shell--adopted .screen-review .rev-link { width:100%; display:flex; align-items:center; justify-content:space-between; }
 .app-shell--adopted .screen-detail .metric>span { display:block; font-size:.6875rem; color:#636d73; }
-.app-shell--adopted .screen-detail .metric>strong { font-size:1.25rem; }
+.app-shell--adopted .screen-detail .metric>strong { font-size:1.25rem; white-space:normal; overflow-wrap:anywhere; }
 .app-shell--adopted .ss-group .daily-panel>h2 { display:none; }
 .app-shell--adopted .ss-group .daily-panel { margin:0; }
 .app-shell--adopted .ss-group .research-disclosure,.app-shell--adopted .ss-group .settings-disclosure { border:0; margin:0; padding:0; }

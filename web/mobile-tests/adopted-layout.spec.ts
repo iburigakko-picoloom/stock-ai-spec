@@ -109,6 +109,19 @@ const screens = [
   ["performance-analysis", "/validation/details", "詳細分析"], ["research-history", "/stocks/1234/research", "調査履歴"],
 ];
 
+test("stock details fit narrow screens with large position values", async ({page}) => {
+  if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width:320,height:800});
+  const payload = adoptedPayloads({})["/api/v1/stocks/1234"] as {positions: {shares:number; market_price:string}[]};
+  payload.positions[0].shares = 10000;
+  payload.positions[0].market_price = "12345";
+  await page.route("**/api/v1/stocks/1234", route => route.fulfill({json:payload}));
+  await page.goto("http://127.0.0.1:5196/#/stocks/1234");
+  await expect(page.getByRole("heading", {name:"銘柄詳細",exact:true})).toBeVisible();
+  await expect(page.getByText("¥123,450,000", {exact:true})).toBeVisible();
+  await page.addStyleTag({content:"html{font-size:150%}"});
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+});
+
 test("returning to home requests daily status once for one foreground event burst", async ({page}) => {
   await page.goto("/");
   await expect(page.locator(".header-status")).toBeVisible();
