@@ -813,13 +813,13 @@ def create_app(
         }
 
     @app.get("/api/v1/execution-context")
-    def execution_context() -> dict[str, object]:
+    def execution_context(includeManual: bool = False) -> dict[str, object]:
         # Actual fills refer to the saved judgment, even after an earlier fill
         # changed holdings. Do not recalculate predictions or proposal eligibility.
         day = current_time().date()
         proposal = store.latest_proposal(day)
         decision = None if proposal is None else store.latest_decision(proposal.proposal_id)
-        return {
+        result: dict[str, object] = {
             "businessDate": day.isoformat(),
             "proposal": None
             if proposal is None
@@ -848,6 +848,9 @@ def create_app(
                 None if proposal is None else store.portfolio(proposal.current_portfolio_id)
             ),
         }
+        if includeManual and decision is None:
+            result["manualContext"] = manual_execution_context()
+        return result
 
     @app.get("/api/v1/stocks/{symbol}/note")
     def stock_note(symbol: str) -> dict[str, Any]:

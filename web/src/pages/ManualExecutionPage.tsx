@@ -5,11 +5,16 @@ import { useApiData } from "../hooks";
 import { PageHeader, StatePanel, dateTime } from "../components";
 import { Field, FormGroup } from "../Adopted";
 
-interface Context { portfolioId: string | null; asOf: string | null; accountLabels: Record<string,string>; holdings: {symbol:string;accountBucketId:string;shares:number}[] }
+export interface ManualEntryContext { portfolioId: string | null; asOf: string | null; accountLabels: Record<string,string>; holdings: {symbol:string;accountBucketId:string;shares:number}[] }
 function localNow() { const date=new Date(); return new Date(date.getTime()-date.getTimezoneOffset()*60_000).toISOString().slice(0,23); }
-export function ManualExecutionPage() {
+export function ManualExecutionPage({ initialContext = null }: { initialContext?: ManualEntryContext | null }) {
   const [params]=useSearchParams();
-  const {data,error:loadError,loading,reload}=useApiData<Context>("/api/v1/execution-entry-context",{pollMs:0,refreshOnFocus:false});
+  const [readFresh, setReadFresh] = useState(!initialContext);
+  const fresh = useApiData<ManualEntryContext>("/api/v1/execution-entry-context",{pollMs:0,refreshOnFocus:false,enabled:readFresh});
+  const data = readFresh ? fresh.data : initialContext;
+  const loadError = readFresh ? fresh.error : null;
+  const loading = readFresh && fresh.loading;
+  const reload = () => { if (readFresh) fresh.reload(); else setReadFresh(true); };
   const [symbol,setSymbol]=useState(params.get("symbol") ?? "");
   const [account,setAccount]=useState(""); const [side,setSide]=useState("BUY");
   const [shares,setShares]=useState(""); const [price,setPrice]=useState("");

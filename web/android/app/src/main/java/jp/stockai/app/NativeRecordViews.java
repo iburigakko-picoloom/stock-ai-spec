@@ -14,6 +14,7 @@ import org.json.JSONObject;
 final class NativeRecordViews {
     static boolean handles(String path) {
         return "/api/v1/execution-entry-context".equals(path) || "/api/v1/execution-context".equals(path)
+            || "/api/v1/execution-context?includeManual=1".equals(path)
             || "/api/v1/home/ledger".equals(path) || "/api/v1/executions".equals(path)
             || "/api/v1/portfolio/history".equals(path) || "/api/v1/jobs".equals(path)
             || (path != null && path.matches("/api/v1/stocks/[A-Z0-9]{1,10}/note"));
@@ -26,8 +27,11 @@ final class NativeRecordViews {
         if (path.equals("/api/v1/home/ledger")) return new JSONObject().put("portfolio", JSONObject.NULL).put("holdings", new JSONArray()).put("blockingReason", "保有未登録").put("initialLedger", JSONObject.NULL);
         if (path.endsWith("/note")) return new JSONObject().put("symbol", path.split("/")[4])
             .put("text", "").put("revision", JSONObject.NULL).put("updatedAt", JSONObject.NULL);
-        return new JSONObject().put("businessDate", day()).put("proposal", JSONObject.NULL)
+        JSONObject context = new JSONObject().put("businessDate", day()).put("proposal", JSONObject.NULL)
             .put("decision", JSONObject.NULL).put("accountLabels", new JSONObject());
+        if (path.equals("/api/v1/execution-context?includeManual=1"))
+            context.put("manualContext", empty("/api/v1/execution-entry-context"));
+        return context;
     }
     private static String hash(String value) throws Exception {
         return StockAIPlugin.hex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
@@ -176,14 +180,18 @@ final class NativeRecordViews {
                     .put("updatedAt", note.getString("updated_at"));
             }
         }
-        JSONObject result = (JSONObject) empty(path);
+        JSONObject result = (JSONObject) empty("/api/v1/execution-context");
+        boolean includeManual = path.equals("/api/v1/execution-context?includeManual=1");
         try (Cursor tables = db.rawQuery("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('proposals','user_decisions','portfolio_states')", null)) {
             if (!tables.moveToFirst() || tables.getInt(0) != 3) return null;
         }
         JSONObject proposal;
         String businessDate = day();
         try (Cursor row = db.rawQuery("SELECT payload,content_hash,proposal_id FROM proposals WHERE business_date=? ORDER BY generated_at DESC,proposal_id DESC LIMIT 1", new String[]{businessDate})) {
-            if (!row.moveToFirst()) return result;
+            if (!row.moveToFirst()) {
+                if (includeManual) result.put("manualContext", read(db, "/api/v1/execution-entry-context"));
+                return result;
+            }
             proposal = checked(row);
             if (!proposal.getString("proposal_id").equals(row.getString(2))
                     || !OffsetDateTime.parse(proposal.getString("as_of")).atZoneSameInstant(ZoneId.of("Asia/Tokyo")).toLocalDate().toString().equals(businessDate))
@@ -209,6 +217,7 @@ final class NativeRecordViews {
                 result.put("decision", decision);
             }
         }
+        if (includeManual && result.isNull("decision")) result.put("manualContext", read(db, "/api/v1/execution-entry-context"));
         try (Cursor row = db.rawQuery("SELECT payload,content_hash,portfolio_id FROM portfolio_states WHERE portfolio_id=?", new String[]{proposal.getString("current_portfolio_id")})) {
             if (!row.moveToFirst()) throw new SecurityException("EXECUTION_PORTFOLIO_MISSING");
             JSONObject portfolio = checked(row), labels = new JSONObject();

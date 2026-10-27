@@ -58,6 +58,9 @@ public class NativeRecordReaderTest {
         assertNull(host.get(owner));
         long started=android.os.SystemClock.elapsedRealtime();
         equalJson(fixture.getJSONObject("expected_execution"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-context").getJSONObject("body"));
+        JSONObject combined = NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-context?includeManual=1").getJSONObject("body");
+        assertFalse("Saved judgment must not be replaced by a manual context", combined.has("manualContext"));
+        equalJson(fixture.getJSONObject("expected_execution"), combined);
         long direct=android.os.SystemClock.elapsedRealtime()-started;
         equalJson(fixture.getJSONObject("expected_note"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/stocks/7203/note").getJSONObject("body"));
         assertNull("Reads must not start Python",host.get(owner));
@@ -91,6 +94,9 @@ public class NativeRecordReaderTest {
         JSONObject fixture=fixture("manual-trade-fixture.json");
         owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
         equalJson(fixture.get("context"),NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-entry-context").get("body"));
+        JSONObject combined = NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-context?includeManual=1").getJSONObject("body");
+        assertTrue(combined.isNull("decision"));
+        equalJson(fixture.get("context"), combined.get("manualContext"));
         java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);
         assertNull(host.get(owner));
         String path="/api/v1/executions/manual";
@@ -116,6 +122,9 @@ public class NativeRecordReaderTest {
     @Test public void emptyStateDoesNotStartPython() throws Exception {
         JSONObject result=NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-context").getJSONObject("body");
         assertTrue(result.isNull("proposal"));assertTrue(result.isNull("decision"));
+        JSONObject combined=NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-context?includeManual=1").getJSONObject("body");
+        assertTrue(combined.isNull("decision"));
+        equalJson(NativePortfolioReader.readRecords(context,owner.state,"/api/v1/execution-entry-context").get("body"), combined.get("manualContext"));
         JSONObject note=NativePortfolioReader.readRecords(context,owner.state,"/api/v1/stocks/7203/note").getJSONObject("body");
         assertEquals("",note.getString("text"));assertTrue(note.isNull("revision"));
         java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);assertNull(host.get(owner));

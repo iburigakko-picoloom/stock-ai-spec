@@ -8,7 +8,7 @@ vi.mock("../mobile/native",()=>({isAndroid:()=>false,StockAI:{}}));
 afterEach(cleanup);
 beforeEach(()=>{
   vi.resetAllMocks();
-  vi.mocked(apiGet).mockImplementation(async path=>path==="/api/v1/execution-context" ? {proposal:null,decision:null} : {
+  vi.mocked(apiGet).mockImplementation(async path=>path==="/api/v1/execution-context?includeManual=1" ? {proposal:null,decision:null} : {
     portfolioId:"real-ledger",asOf:"2026-10-01T12:00:00+09:00",accountLabels:{bucket:"特定口座"},holdings:[]});
 });
 test("missing judgment opens actual trade input and preserves ID and fields across a failed save",async()=>{
@@ -75,7 +75,7 @@ test("failed account verification retains typed fields and cannot save", async (
 
 
 test("a pending judgment read offers direct manual trade entry for the same stock", async () => {
-  vi.mocked(apiGet).mockImplementation(path => path === "/api/v1/execution-context" ? new Promise(() => {}) : Promise.resolve({
+  vi.mocked(apiGet).mockImplementation(path => path === "/api/v1/execution-context?includeManual=1" ? new Promise(() => {}) : Promise.resolve({
     portfolioId:"ledger", asOf:null, accountLabels:{ bucket:"特定口座" }, holdings:[],
   }));
   render(<MemoryRouter initialEntries={["/today/executions?symbol=7203"]}><ExecutionPage /></MemoryRouter>);
@@ -93,4 +93,33 @@ test("failed judgment read still offers manual entry", async () => {
   render(<MemoryRouter initialEntries={["/today/executions?symbol=7203"]}><ExecutionPage /></MemoryRouter>);
   expect(await screen.findByText("入力を準備できません")).toBeVisible();
   expect(screen.getByRole("link", { name:"判断を使わず取引を入力" })).toHaveAttribute("href", "/today/executions?manual=1&symbol=7203");
+});
+
+
+test("missing judgment reuses the verified manual context without a second read", async () => {
+  const manualContext={portfolioId:"ledger",asOf:"2026-10-01T12:00:00+09:00",accountLabels:{bucket:"特定口座"},holdings:[]};
+  vi.mocked(apiGet).mockResolvedValue({proposal:null,decision:null,accountLabels:{},manualContext});
+  render(<MemoryRouter initialEntries={["/today/executions"]}><ExecutionPage /></MemoryRouter>);
+  expect(await screen.findByLabelText("口座")).toHaveValue("bucket");
+  expect(screen.getByRole("button",{name:"取引を記録"})).toBeEnabled();
+  expect(apiGet).toHaveBeenCalledExactlyOnceWith("/api/v1/execution-context?includeManual=1");
+  expect(apiPost).not.toHaveBeenCalled();
+});
+
+
+test("a second trade refreshes the ledger after reusing the first context", async () => {
+  const first={portfolioId:"ledger-1",asOf:null,accountLabels:{bucket:"特定口座"},holdings:[]};
+  const next={...first,portfolioId:"ledger-2",holdings:[{symbol:"7203",accountBucketId:"bucket",shares:100}]};
+  vi.mocked(apiGet).mockResolvedValueOnce({proposal:null,decision:null,accountLabels:{},manualContext:first}).mockResolvedValueOnce(next);
+  vi.mocked(apiPost).mockResolvedValue({applied:true});
+  render(<MemoryRouter initialEntries={["/today/executions"]}><ExecutionPage /></MemoryRouter>);
+  fireEvent.change(await screen.findByLabelText("銘柄コード"),{target:{value:"7203"}});
+  fireEvent.change(screen.getByLabelText("約定株数"),{target:{value:"100"}});
+  fireEvent.change(screen.getByLabelText("平均約定単価"),{target:{value:"1000"}});
+  fireEvent.click(screen.getByRole("button",{name:"取引を記録"}));
+  fireEvent.click(await screen.findByRole("button",{name:"別の取引を入力"}));
+  await waitFor(()=>expect(apiGet).toHaveBeenCalledWith("/api/v1/execution-entry-context"));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"取引を記録"})).toBeEnabled());
+  expect(apiGet).toHaveBeenCalledTimes(2);
+  expect(apiPost).toHaveBeenCalledTimes(1);
 });

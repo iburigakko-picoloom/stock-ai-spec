@@ -419,7 +419,7 @@ test("saved ranking is visible while the expensive current read is still pending
 
 test("manual trade is available without a saved judgment and fits narrow Android", async ({page},info)=>{
   if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
-  await page.route("**/api/v1/execution-context",route=>route.fulfill({json:{proposal:null,decision:null,accountLabels:{}}}));
+  await page.route("**/api/v1/execution-context?*",route=>route.fulfill({json:{proposal:null,decision:null,accountLabels:{}}}));
   await page.route("**/api/v1/execution-entry-context",route=>route.fulfill({json:{portfolioId:"synthetic",asOf:"2026-10-01T09:00:00+09:00",accountLabels:{bucket:"試験口座"},holdings:[]}}));
   await page.route("**/api/v1/executions/manual",route=>route.fulfill({json:{applied:true}}));
   await page.goto("http://127.0.0.1:5196/#/today/executions");

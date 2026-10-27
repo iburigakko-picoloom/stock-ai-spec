@@ -48,6 +48,9 @@ def test_execution_context_reads_saved_judgment_without_forecasts_or_recalculati
     ]:
         monkeypatch.setattr(current, method, forbidden)
     payload = client.get("/api/v1/execution-context").json()
+    combined = client.get("/api/v1/execution-context?includeManual=1").json()
+    assert combined == payload
+    assert "manualContext" not in combined
     assert payload["decision"]["decision_id"] == decision.decision_id
     assert payload["proposal"]["proposalId"] == proposal.proposal_id
     assert {line["lineId"] for line in payload["proposal"]["lines"]} == {

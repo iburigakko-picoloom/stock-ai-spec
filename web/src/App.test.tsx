@@ -313,7 +313,7 @@ describe("Goal 5 PWA", () => {
 
   it("opens execution input with one compact read and keeps typed fills on focus",async()=>{
     const fetchMock=vi.fn(async(input:RequestInfo|URL)=>{
-      if(String(input)==="/api/v1/execution-context")return jsonResponse(executionContext);
+      if(String(input)==="/api/v1/execution-context?includeManual=1")return jsonResponse(executionContext);
       throw new Error("Execution input must not load Today or prediction data");
     });
     vi.stubGlobal("fetch",fetchMock);
@@ -321,7 +321,7 @@ describe("Goal 5 PWA", () => {
     const entry=await buyEntry();
     window.dispatchEvent(new Event("focus"));
     expect(entry.getByLabelText("約定株数")).toHaveValue(100);
-    expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/v1/execution-context",expect.objectContaining({cache:"no-store"}));
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/v1/execution-context?includeManual=1",expect.objectContaining({cache:"no-store"}));
   });
 
   it("opens unapplied fill reflection without waiting for a proposal or decision",async()=>{
@@ -382,7 +382,7 @@ describe("Goal 5 PWA", () => {
   it("records editable actual fill fields and can apply them to the next portfolio", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url === "/api/v1/execution-context") return jsonResponse(executionContext);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
       if (url === "/api/v1/today") return jsonResponse(today);
       if (url.endsWith("/decision")) return jsonResponse({
         decision_id: "decision-1",
@@ -441,7 +441,7 @@ describe("Goal 5 PWA", () => {
     let attempts = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === "/api/v1/execution-context") return jsonResponse(executionContext);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
       if (url === "/api/v1/today") return jsonResponse(today);
       if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
         lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
@@ -473,7 +473,7 @@ describe("Goal 5 PWA", () => {
     const bodies: Record<string, unknown>[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url === "/api/v1/execution-context") return jsonResponse(executionContext);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
       if (url === "/api/v1/today") return jsonResponse(today);
       if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
         lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
@@ -513,7 +513,7 @@ describe("Goal 5 PWA", () => {
     let applies = 0;
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === "/api/v1/execution-context") return jsonResponse(executionContext);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
       if (url === "/api/v1/today") return jsonResponse(today);
       if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
         lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });

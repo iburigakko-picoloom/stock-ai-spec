@@ -130,3 +130,17 @@ def test_multiple_past_trades_can_be_entered_in_execution_order(app):
         assert current.positions[0].shares == 200
         assert current.cash[0].available_cash == Decimal("49926.50")
         assert current.applied_execution_ids == ("manual-test", "second")
+
+
+def test_combined_context_reuses_current_manual_entry_and_keeps_legacy_response(app):
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        legacy = client.get("/api/v1/execution-context").json()
+        combined = client.get("/api/v1/execution-context?includeManual=1").json()
+        assert "manualContext" not in legacy
+        assert combined["decision"] is None
+        assert combined["manualContext"] == client.get("/api/v1/execution-entry-context").json()
+        assert {key: value for key, value in combined.items() if key != "manualContext"} == legacy
+        assert post(client, body()).status_code == 201
+        after = client.get("/api/v1/execution-context?includeManual=1").json()
+        assert after["manualContext"] == client.get("/api/v1/execution-entry-context").json()
+        assert after["manualContext"]["portfolioId"] != combined["manualContext"]["portfolioId"]

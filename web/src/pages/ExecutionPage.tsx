@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, dateTime, currency as yen } from "../components";
 import { Field, FormGroup, KV } from "../Adopted";
-import { ManualExecutionPage } from "./ManualExecutionPage";
+import { ManualExecutionPage, type ManualEntryContext } from "./ManualExecutionPage";
 import type { ProposalLine } from "../types";
 
 interface DecisionLine {
@@ -23,6 +23,7 @@ interface ExecutionContext {
   proposal:{proposalId:string;asOf:string;lines:ExecutionLine[]}|null;
   decision:SavedDecision|null;
   accountLabels:Record<string,string>;
+  manualContext?: ManualEntryContext;
 }
 
 interface EntryState {
@@ -80,14 +81,14 @@ export function ExecutionPage(): ReactNode {
   useEffect(() => {
     if(applyOnly || params.has("manual")){setLoadingDecision(false);return;}
     let active=true;
-    apiGet<ExecutionContext>("/api/v1/execution-context")
+    apiGet<ExecutionContext>("/api/v1/execution-context?includeManual=1")
       .then(value=>{if(active)setContext(value);})
       .catch((reason: unknown) => {if(active)setLoadError(reason instanceof Error ? reason.message : "判断を取得できません");})
       .finally(() => {if(active)setLoadingDecision(false);});
     return ()=>{active=false;};
   }, [applyOnly, params]);
 
-  if (!applyOnly && (params.has("manual") || (!loadingDecision && !loadError && (!proposal || !decision)))) return <ManualExecutionPage />;
+  if (!applyOnly && (params.has("manual") || (!loadingDecision && !loadError && (!proposal || !decision)))) return <ManualExecutionPage initialContext={params.has("manual") ? null : context?.manualContext} />;
 
   if (!applyOnly && (loadingDecision || loadError || !proposal || !decision)) {
     const manualParams = new URLSearchParams({ manual: "1" });
