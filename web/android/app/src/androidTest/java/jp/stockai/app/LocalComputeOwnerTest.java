@@ -44,6 +44,31 @@ public class LocalComputeOwnerTest {
         viewWriter(views).submit(() -> {}).get(60, TimeUnit.SECONDS);
     }
 
+    @Test public void restoreInvalidatesHomeCopyQueuedDuringTheRestoreInterval() throws Exception {
+        JSObject original=result(owner.request("POST","/api/v1/mobile/portfolio",emptyProfile()));
+        String payload=result(owner.readState()).getString("payload");
+        long generation=owner.state.currentGeneration();
+        owner.readViews.clear();
+        long before=owner.readViews.epoch();
+        java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1),release=new java.util.concurrent.CountDownLatch(1);
+        viewWriter(owner.readViews).execute(()->{entered.countDown();try{release.await();}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        assertTrue(entered.await(10,TimeUnit.SECONDS));
+        try {
+            CompletableFuture<JSObject> restoring=owner.restore(payload,generation);
+            long deadline=android.os.SystemClock.elapsedRealtime()+60_000;
+            while(owner.readViews.epoch()==before && !restoring.isDone() && android.os.SystemClock.elapsedRealtime()<deadline) Thread.sleep(10);
+            assertNotEquals("Restore must begin by clearing historical displays",before,owner.readViews.epoch());
+            assertFalse("Restore finished before the race could be exercised",restoring.isDone());
+            long during=owner.readViews.epoch();
+            String old=new JSONObject().put("status",200).put("body",new JSONObject().put("synthetic_old",true)).toString();
+            owner.readViews.saveAsyncIfUnchanged("/api/v1/home/ledger",old,generation,during);
+            assertTrue("Restore must publish a new state generation",result(restoring).getLong("generation")>generation);
+        } finally {release.countDown();}
+        drainViews(owner.readViews);
+        assertFalse("Old display saved during restore must not survive",owner.readViews.read("/api/v1/home/ledger").getBoolean("available"));
+        assertJsonEqual(original.getJSONObject("body"),result(owner.request("GET","/api/v1/mobile/portfolio","null")).getJSONObject("body"));
+    }
+
     @Test public void authoritativeReadDoesNotWaitForDisplayCopyAndClearRejectsQueuedCopy() throws Exception {
         result(owner.request("GET", "/api/v1/health", "null"));
         java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1), release=new java.util.concurrent.CountDownLatch(1);
