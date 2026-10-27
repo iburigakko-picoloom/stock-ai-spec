@@ -36,6 +36,32 @@ public class LocalComputeOwnerTest {
 
     static <T> T result(CompletableFuture<T> value) throws Exception { return value.get(300, TimeUnit.SECONDS); }
 
+    private static java.util.concurrent.ExecutorService viewWriter(SavedReadViews views) throws Exception {
+        java.lang.reflect.Field field=SavedReadViews.class.getDeclaredField("writer"); field.setAccessible(true);
+        return (java.util.concurrent.ExecutorService)field.get(views);
+    }
+    private static void drainViews(SavedReadViews views) throws Exception {
+        viewWriter(views).submit(() -> {}).get(60, TimeUnit.SECONDS);
+    }
+
+    @Test public void authoritativeReadDoesNotWaitForDisplayCopyAndClearRejectsQueuedCopy() throws Exception {
+        result(owner.request("GET", "/api/v1/health", "null"));
+        java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1), release=new java.util.concurrent.CountDownLatch(1);
+        viewWriter(owner.readViews).execute(() -> {entered.countDown();try{release.await();}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        assertTrue(entered.await(10,TimeUnit.SECONDS));
+        try {
+            JSObject home=owner.request("GET", "/api/v1/home", "null").get(60,TimeUnit.SECONDS);
+            assertEquals(200,home.getInt("status"));
+            assertFalse(owner.readViews.read("/api/v1/home").getBoolean("available"));
+            owner.readViews.clear();
+        } finally { release.countDown(); }
+        drainViews(owner.readViews);
+        assertFalse(owner.readViews.read("/api/v1/home").getBoolean("available"));
+        JSObject fresh=result(owner.request("GET", "/api/v1/home", "null"));
+        drainViews(owner.readViews);
+        assertJsonEqual(fresh.getJSONObject("body"),owner.readViews.read("/api/v1/home").getJSONObject("body"));
+    }
+
     @Test public void realPythonForecastFailureIsVisibleAfterOwnerReopen() throws Exception {
         JSObject response = result(owner.request("POST", "/api/v1/mobile/daily/generate", "{\"reference_only\":\"invalid\"}"));
         assertEquals(422, response.getInt("status"));
@@ -136,6 +162,7 @@ public class LocalComputeOwnerTest {
     @Test public void splitStartupSkipsCommitAndSavedDisplayBypassesBusyOwner() throws Exception {
         JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
         JSObject home = result(owner.request("GET", "/api/v1/home", "null"));
+        drainViews(owner.readViews);
         long generation = owner.state.currentGeneration();
         assertTrue(owner.readViews.read("/api/v1/home").getBoolean("readOnly"));
         assertTrue(owner.readViews.read("/api/v1/mobile/portfolio").getBoolean("readOnly"));

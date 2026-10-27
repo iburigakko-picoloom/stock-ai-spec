@@ -16,7 +16,7 @@ export function HomePage(): ReactNode {
     return [...result.entries()];
   }, [data]);
 
-  if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="実際の状態" title="ホーム" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "実資産を読み込んでいます" : "資産データを取得できません"} detail={error} /></div>;
+  if ((loading && !data) || error || !data) return <div className="page home-page"><PageHeader title="ホーム" /><div className="screen-home"><div className="stack"><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "実資産を読み込んでいます" : "資産データを取得できません"} detail={error} /><div className="home-heading"><h3>保有株</h3><Link className="home-link" to="/assets">資産を管理 ›</Link></div><Link className="button" to="/today/executions">＋ 取引を記録</Link><div className="row spread"><Link className="home-link" to="/transactions">取引履歴 ›</Link><Link className="home-link" to="/today">今日の提案を見る →</Link></div></div></div></div>;
   const portfolio = data.portfolio;
 
   return <div className="page home-page">

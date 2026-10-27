@@ -7,6 +7,13 @@ import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 
 /** Encrypted historical display only. Never an input to a decision or a ledger write. */
@@ -23,7 +30,18 @@ final class SavedReadViews {
     }
     private final File directory;
     private static final int MAX_BYTES = 2 * 1024 * 1024;
-    SavedReadViews(File directory) { this.directory = directory; }
+    private final Executor writer;
+    private long epoch;
+    private long nextTicket;
+    private final Map<String, Long> latest = new HashMap<>();
+    SavedReadViews(File directory) {
+        this(directory, new ThreadPoolExecutor(0, 1, 30, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(4), task -> {
+                Thread thread = new Thread(task, "stockai-view-copy"); thread.setDaemon(true); return thread;
+            }));
+    }
+    // Injectable executor keeps ordering and invalidation races deterministic in tests.
+    SavedReadViews(File directory, Executor writer) { this.directory = directory; this.writer = writer; }
     static boolean allowed(String path) {
         return path != null && (path.equals("/api/v1/home") || path.equals("/api/v1/today")
             || path.equals("/api/v1/mobile/portfolio")
@@ -49,6 +67,51 @@ final class SavedReadViews {
         try { stream = target.startWrite(); stream.write(cipher); target.finishWrite(stream); }
         catch (Exception error) { if (stream != null) target.failWrite(stream); throw error; }
     }
+    /** Queue only an optional encrypted display copy; the authoritative response never waits for it. */
+    synchronized void saveAsync(String path, String result, long generation) {
+        if (!allowed(path)) return;
+        long capturedEpoch = epoch, ticket = ++nextTicket;
+        latest.put(path, ticket);
+        String savedAt = Instant.now().toString();
+        // An oversized response cannot become a display copy. Do not retain it in the queue.
+        String bounded = result.length() > MAX_BYTES ? null : result;
+        try {
+            writer.execute(() -> {
+                try {
+                    synchronized (this) {
+                        if (epoch != capturedEpoch || !Long.valueOf(ticket).equals(latest.get(path))) return;
+                    }
+                    byte[] cipher = null;
+                    if (bounded != null) {
+                        JSONObject response = new JSONObject(bounded);
+                        if (response.getInt("status") != 200) throw new SecurityException("DISPLAY_STATUS_INVALID");
+                        JSONObject envelope = new JSONObject().put("schema", 1).put("path", path)
+                            .put("savedAt", savedAt).put("generation", generation).put("body", response.get("body"));
+                        cipher = LocalStateStore.encrypt(envelope.toString());
+                    }
+                    synchronized (this) {
+                        if (epoch != capturedEpoch || !Long.valueOf(ticket).equals(latest.get(path))) return;
+                        AtomicFile target = file(path);
+                        if (cipher == null || cipher.length > MAX_BYTES) { target.delete(); return; }
+                        FileOutputStream stream = null;
+                        try { stream = target.startWrite(); stream.write(cipher); target.finishWrite(stream); }
+                        catch (Exception error) { if (stream != null) target.failWrite(stream); throw error; }
+                    }
+                } catch (Exception error) {
+                    synchronized (this) {
+                        if (epoch == capturedEpoch && Long.valueOf(ticket).equals(latest.get(path))) clear();
+                    }
+                } finally {
+                    synchronized (this) {
+                        if (epoch == capturedEpoch && Long.valueOf(ticket).equals(latest.get(path))) latest.remove(path);
+                    }
+                }
+            });
+        } catch (RejectedExecutionException ignored) {
+            // The copy is optional. Keep the previous read-only copy if the bounded queue is busy.
+            if (Long.valueOf(ticket).equals(latest.get(path))) latest.remove(path);
+        }
+    }
     synchronized JSObject read(String path) throws Exception {
         AtomicFile target = file(path);
         if (!target.getBaseFile().exists()) return new JSObject().put("available", false);
@@ -61,6 +124,7 @@ final class SavedReadViews {
             .put("readOnly", true).put("body", value.get("body"));
     }
     synchronized void clear() {
+        epoch++; latest.clear();
         File[] files = directory.listFiles();
         if (files != null) for (File file : files) new AtomicFile(file).delete();
     }

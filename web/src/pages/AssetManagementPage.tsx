@@ -22,7 +22,7 @@ function AssetBody() {
       <Link className="button button--secondary" to="/assets/history">残高・修正履歴</Link>
       <Link className="button button--secondary" to="/today/executions">取引を記録</Link>
       <Link className="button button--secondary" to="/transactions">取引履歴</Link>
-    </nav><AssetPositions data={data} /></div>;
+    </nav><AssetPositions data={data} error={error} loading={loading} /></div>;
 }
 
 function AssetOverview({data,error,loading}:{data:HomeResponse|null;error:string|null;loading:boolean}) {
@@ -30,6 +30,6 @@ function AssetOverview({data,error,loading}:{data:HomeResponse|null;error:string
   const balance=data?.portfolio;
   return <section className="card"><KV label="実資産" value={loading && !data ? "確認中…" : yen(balance?.totalAssets)} /><KV label="株式 / 現金" value={`${yen(balance?.equityValue)} / ${yen(balance?.cashValue)}`} /><KV label="確保中" value={yen(balance?.reservedCash)} /><KV label="運用可能現金" value={yen(balance?.buyingPower)} /></section>;
 }
-function AssetPositions({data}:{data:HomeResponse|null}) {
-  return <section className="card" aria-label="保有一覧">{data?.holdings.length ? data.holdings.map(row=><Link className="subrow" to={`/stocks/${row.symbol}`} state={{from:"/"}} key={`${row.symbol}:${row.accountBucketId}`}><span>{row.symbol} {row.companyName} / {row.accountBucketId}</span><strong>{row.shares}株 / {yen(row.averageAcquisitionPrice)}</strong></Link>) : <p className="setting-footnote">保存済みの保有株はありません。</p>}</section>;
+function AssetPositions({data,error,loading}:{data:HomeResponse|null;error:string|null;loading:boolean}) {
+  return <section className="card" aria-label="保有一覧">{error ? <p className="setting-footnote">保有情報を確認できません。</p> : loading && !data ? <p className="setting-footnote">保有情報を確認しています。</p> : data?.holdings.length ? data.holdings.map(row=><Link className="subrow" to={`/stocks/${row.symbol}`} state={{from:"/"}} key={`${row.symbol}:${row.accountBucketId}`}><span>{row.symbol} {row.companyName} / {row.accountBucketId}</span><strong>{row.shares}株 / {yen(row.averageAcquisitionPrice)}</strong></Link>) : <p className="setting-footnote">保存済みの保有株はありません。</p>}</section>;
 }

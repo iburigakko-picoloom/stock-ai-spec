@@ -12,7 +12,7 @@ export function StockDetailPage(): ReactNode {
   const backTo = from === "/" || from === "/ranking" || from === "/assets" || (typeof from==="string" && /^\/today\/review(?:\?source=(?:model|chatgpt))?$/.test(from)) || from === "/today/chatgpt" || (typeof from === "string" && /^\/transactions(?:\?[^#]*)?$/.test(from)) ? from : "/today";
   const { data, error, loading, savedAt } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
   const [selectedBucket, setSelectedBucket] = useState<string>(location.state?.bucket ?? "ALL");
-  if ((loading && !data) || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /><StockMemo key={symbol} symbol={symbol} /></div>;
+  if ((loading && !data) || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} /><div className="subscreen detail-foot"><Link className="button" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{from:backTo,bucket:selectedBucket}}>この銘柄の取引を記録</Link></div><StockMemo key={symbol} symbol={symbol} /></div>;
 
   const bucketIds = Array.from(new Set([
     ...data.positions.map((item) => item.account_bucket_id),

@@ -222,13 +222,14 @@ final class LocalComputeOwner {
                         if (status == 200 && path.equals("/api/v1/mobile/personal/current/confirm")) readViews.clear();
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
                         throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
+                    String response = result.toString();
                     if (("GET".equals(method) || ("POST".equals(method) && path.equals("/api/v1/mobile/portfolio"))) && SavedReadViews.allowed(path)) {
                         if (status == 200) {
-                            try { readViews.save(path, result, generation); }
+                            try { readViews.saveAsync(path, response, generation); }
                             catch (Exception ignored) { readViews.clear(); } // Optional display copy never fails a valid read.
                         } else readViews.clear();
                     }
-                    return new JSObject(result.toString());
+                    return new JSObject(response);
                 }
             } catch (Exception error) {
                 if (analyzing) { try { checkpoints.failed(error); } catch (Exception ignored) { } }

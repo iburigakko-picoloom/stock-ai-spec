@@ -5,12 +5,51 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.File;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class SavedReadViewsTest {
+    @Test public void deferredCopiesRespectClearsAndLatestResponseOrdering() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "deferred-views-" + System.nanoTime());
+        List<Runnable> jobs = new ArrayList<>();
+        SavedReadViews views = new SavedReadViews(dir, jobs::add);
+        try {
+            String old = new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "old")).toString();
+            String latest = new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "latest")).toString();
+            views.saveAsync("/api/v1/home", old, 1);
+            assertFalse(views.read("/api/v1/home").getBoolean("available"));
+            views.clear(); jobs.remove(0).run();
+            assertFalse("A copy queued before a clear must never return", views.read("/api/v1/home").getBoolean("available"));
+            views.saveAsync("/api/v1/home", old, 2);
+            views.saveAsync("/api/v1/home", latest, 2);
+            jobs.remove(0).run();
+            assertFalse("Superseded results must not be published", views.read("/api/v1/home").getBoolean("available"));
+            jobs.remove(0).run();
+            assertEquals("latest", views.read("/api/v1/home").getJSONObject("body").getString("id"));
+            views.saveAsync("/api/v1/home", "invalid", 3); jobs.remove(0).run();
+            assertFalse("Copy failure invalidates the saved display", views.read("/api/v1/home").getBoolean("available"));
+        } finally { views.clear(); dir.delete(); }
+    }
+
+    @Test public void fullQueueKeepsExistingHistoricalCopyAndCannotPublishOlderPendingCopy() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "rejected-views-" + System.nanoTime());
+        List<Runnable> jobs = new ArrayList<>();
+        Executor writer = command -> { if (!jobs.isEmpty()) throw new RejectedExecutionException(); jobs.add(command); };
+        SavedReadViews views = new SavedReadViews(dir, writer);
+        try {
+            views.save("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "previous")), 1);
+            views.saveAsync("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "pending")).toString(), 2);
+            views.saveAsync("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "rejected")).toString(), 3);
+            jobs.remove(0).run();
+            assertEquals("previous", views.read("/api/v1/home").getJSONObject("body").getString("id"));
+        } finally { views.clear(); dir.delete(); }
+    }
     @Test public void displayReadDoesNotOpenDatabaseAndSharesInvalidation() throws Exception {
         File database = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "display-only-" + System.nanoTime());
         SavedReadViews views = SavedReadViews.forDatabase(database);
