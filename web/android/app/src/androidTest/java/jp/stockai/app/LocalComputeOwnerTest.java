@@ -208,6 +208,9 @@ public class LocalComputeOwnerTest {
         result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
         assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
         assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        // Wait for the optional copy from that GET before testing an idle saved view.
+        // A read concurrent with replacement may correctly return unavailable.
+        drainViews(owner.readViews);
         assertEquals("Unchanged startup does not republish state", generation, owner.state.currentGeneration());
         java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
