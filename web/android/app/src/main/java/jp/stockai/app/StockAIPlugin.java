@@ -34,6 +34,11 @@ public class StockAIPlugin extends Plugin {
     final ExecutorService executor = Executors.newSingleThreadExecutor();
     final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     final ExecutorService displayExecutor = Executors.newSingleThreadExecutor();
+    // Saved views are optional historical displays; they must not delay durable work.
+    final java.util.concurrent.ThreadPoolExecutor savedViewExecutor = new java.util.concurrent.ThreadPoolExecutor(
+        0, 1, 30, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(4), task -> {
+            Thread thread = new Thread(task, "stockai-view-read"); thread.setDaemon(true); return thread;
+        });
     SQLiteDatabase db;
     volatile JSONObject pendingUpdate;
     static String hex(byte[] bytes) {
@@ -106,11 +111,20 @@ public class StockAIPlugin extends Plugin {
         background(call, () -> {
         completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
-    @PluginMethod public void readSavedView(PluginCall call) { executor.execute(() -> {
-        try { call.resolve(SavedReadViews.forDatabase(
-            getContext().getDatabasePath(LocalStateStore.DATABASE)).read(call.getString("path"))); }
-        catch (Exception ignored) { call.reject("保存済み表示を確認できません。", "SAVED_VIEW_INVALID"); }
-    }); }
+    @PluginMethod public void readSavedView(PluginCall call) {
+        try {
+            savedViewExecutor.execute(() -> {
+                try {
+                    SavedReadViews views = SavedReadViews.forDatabase(getContext().getDatabasePath(LocalStateStore.DATABASE));
+                    // Keep invalidation and delivery ordered with the same monitor as read/clear.
+                    synchronized (views) { call.resolve(views.read(call.getString("path"))); }
+                } catch (Exception ignored) { call.reject("保存済み表示を確認できません。", "SAVED_VIEW_INVALID"); }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // A busy optional preview must not prevent the authoritative request.
+            call.resolve(new JSObject().put("available", false));
+        }
+    }
     @PluginMethod public void readState(PluginCall call) { background(call, () -> {
         completeLocal(call, owner().readState());
     }); }
