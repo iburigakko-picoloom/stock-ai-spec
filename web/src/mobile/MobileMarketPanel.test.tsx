@@ -3,15 +3,18 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { apiGet, apiPost } from "../api";
 import { acquireRange } from "./market";
 import { MobileMarketPanel } from "./MobileMarketPanel";
+import { isAndroid } from "./native";
 import { Activity } from "react";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
+vi.mock("./native", () => ({isAndroid:vi.fn(),StockAI:{}}));
 vi.mock("./market", async importOriginal => ({ ...await importOriginal<typeof import("./market")>(), acquireRange: vi.fn() }));
 afterEach(cleanup);
 const plan = { first_day: "2026-01-05", last_day: "2026-01-06" };
 const status = { latest_data_date: null, completed_dates: [] };
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(isAndroid).mockReturnValue(false);
   vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/plan") ? plan : path.endsWith("/universe-policy") ? { mode: "legacy300", experimental: false } : status);
 });
 test("saved range is restored and stopping remains reachable while other settings are busy", async () => {
@@ -119,4 +122,17 @@ test("reopening verifies data again without overwriting the unsaved date range",
   });
   await waitFor(()=>expect(screen.getByRole("button",{name:"履歴を取得"})).toBeEnabled());
   expect(screen.getByLabelText("取得開始日")).toHaveValue("2025-12-01");
+});
+
+test("leaving an Android market panel stops three unnecessary queued reads", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let finish!: (value:unknown)=>void;
+  vi.mocked(apiGet).mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+  const content=(visible:boolean)=><Activity mode={visible ? "visible" : "hidden"}><MobileMarketPanel configured disabled={false} onBusy={vi.fn()} /></Activity>;
+  const view=render(content(true));
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/market");
+  view.rerender(content(false));
+  await act(async()=>finish(status));
+  expect(apiGet).toHaveBeenCalledTimes(1);
 });

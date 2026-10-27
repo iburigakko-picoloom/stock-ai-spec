@@ -3,6 +3,8 @@ import { apiGet, apiPost } from "../api";
 import { acquireMembership, acquireRange, defaultPlan, type AcquisitionMode, type MarketPlan, type MarketStatus, type MembershipStatus, type UniversePolicy, type UniversePreview } from "./market";
 import { KV } from "../Adopted";
 import { dateTime } from "../components";
+import { isAndroid } from "./native";
+import { visibleReads } from "./visibleReads";
 
 export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }: {
   configured: boolean; disabled: boolean; onBusy: (value: boolean) => void; onBackground?: () => void;
@@ -28,15 +30,15 @@ export function MobileMarketPanel({ configured, disabled, onBusy, onBackground }
   useEffect(() => {
     let active = true;
     setLoaded(false); setPlanReady(false); setStatusReady(false); setMembershipReady(false); setPolicyReady(false); setLoadFailed(false);
-    const saved = apiGet<MarketStatus>("/api/v1/mobile/market").then(value => { if (active) { setStatus(value); setStatusReady(true); } });
-    const range = apiGet<MarketPlan | null>("/api/v1/mobile/market/plan").then(value => {
+    const saved = () => apiGet<MarketStatus>("/api/v1/mobile/market").then(value => { if (active) { setStatus(value); setStatusReady(true); } });
+    const range = () => apiGet<MarketPlan | null>("/api/v1/mobile/market/plan").then(value => {
       if (active) { if (value && !planEdited.current) setPlan(value); setPlanReady(true); }
     });
-    const member = apiGet<MembershipStatus>("/api/v1/mobile/market/membership").then(value => { if (active) { setMembership(value); setMembershipReady(true); } });
-    const mode = apiGet<UniversePolicy>("/api/v1/mobile/market/universe-policy").then(value => { if (active) { setPolicy(value); setPolicyReady(true); } });
-    void Promise.all([saved, range, member, mode])
-      .then(() => { if (active) setLoaded(true); })
-      .catch(() => { if (active) { setLoadFailed(true); setMessage("取得範囲と保存データを確認できません。アプリを再起動してください。"); } });
+    const member = () => apiGet<MembershipStatus>("/api/v1/mobile/market/membership").then(value => { if (active) { setMembership(value); setMembershipReady(true); } });
+    const mode = () => apiGet<UniversePolicy>("/api/v1/mobile/market/universe-policy").then(value => { if (active) { setPolicy(value); setPolicyReady(true); } });
+    void visibleReads([saved, range, member, mode], () => active, isAndroid(), () => {
+      setLoadFailed(true); setMessage("取得範囲と保存データを確認できません。アプリを再起動してください。");
+    }).then(success => { if (active && success) setLoaded(true); });
     return () => { active = false; stop.current = true; };
   }, []);
   async function run(range: MarketPlan, mode: AcquisitionMode = "pending"): Promise<void> {

@@ -95,17 +95,29 @@ test("reopening keeps prior output read-only until current model and judgment ar
   const pending: Record<string,(value:unknown)=>void> = {};
   vi.mocked(apiGet).mockImplementation(path=>new Promise(resolve=>{pending[path]=resolve;}));
   view.rerender(content(true));
-  await waitFor(()=>expect(Object.keys(pending)).toHaveLength(3));
+  await waitFor(()=>expect(Object.keys(pending)).toHaveLength(1));
   expect(screen.getByText(/前回の表示・閲覧用/)).toBeVisible();
   expect(screen.queryByText("保存済みの一式を利用できません。確認済みのファイルを取り込んでください。")).not.toBeInTheDocument();
   expect(screen.queryByRole("link",{name:"今日の判定を見る"})).not.toBeInTheDocument();
   expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
-  await act(async()=>{
-    pending["/api/v1/mobile/models"](model);
-    pending["/api/v1/mobile/daily"](run);
-    pending["/api/v1/mobile/decision"](decision);
-  });
+  await act(async()=>pending["/api/v1/mobile/models"](model));
+  await waitFor(()=>expect(pending["/api/v1/mobile/daily"]).toBeDefined());
+  await act(async()=>pending["/api/v1/mobile/daily"](run));
+  await waitFor(()=>expect(pending["/api/v1/mobile/decision"]).toBeDefined());
+  await act(async()=>pending["/api/v1/mobile/decision"](decision));
   expect(await screen.findByRole("link",{name:"今日の判定を見る"})).toBeVisible();
+});
+
+test("leaving a model panel stops the two remaining interpreter reads", async () => {
+  let finish!: (value:unknown)=>void;
+  vi.mocked(apiGet).mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+  const content=(visible:boolean)=><MemoryRouter><Activity mode={visible ? "visible" : "hidden"}><MobileModelPanel disabled={false} inputsSaved onBusy={vi.fn()} /></Activity></MemoryRouter>;
+  const view=render(content(true));
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/models");
+  view.rerender(content(false));
+  await act(async()=>finish(model));
+  expect(apiGet).toHaveBeenCalledTimes(1);
 });
 test("one file imports the reviewed bundle and refreshes saved status", async () => {
   vi.mocked(StockAI.importModel).mockResolvedValue({ content: "synthetic bundle file" });

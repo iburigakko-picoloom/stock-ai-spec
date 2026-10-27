@@ -21,7 +21,7 @@ const test = base.extend({
 });
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    const calls: { plugin: string; method: string; operation?: string }[] = [];
+    const calls: { plugin: string; method: string; operation?: string; path?: string }[] = [];
     let dailyStatus = { enabled: true, state: "waiting_cutoff", notificationsEnabled: true };
     Object.assign(window, {
       __settingsCalls: calls,
@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
           { name: "StockAIChatGPT", methods: [{ name: "getStatus", rtype: "promise" }] },
         ],
         nativePromise: async (plugin: string, method: string, options?: { method: string; path: string; body?: string }) => {
-          calls.push({ plugin, method, operation: options?.method });
+          calls.push({ plugin, method, operation: options?.method, path: options?.path });
           if (method === "compute") return { status: 200, body: await (await fetch(options!.path, {
             method: options!.method, headers: { "Content-Type": "application/json" }, body: options!.method === "POST" ? options!.body : undefined,
           })).json() };
@@ -467,8 +467,8 @@ test("market status appears before slow membership without permitting acquisitio
   const gate=new Promise<void>(resolve=>{release=resolve;});
   let requested=false;
   await page.route("**/api/v1/mobile/market",route=>route.fulfill({json:{latest_data_date:"2026-01-05",completed_dates:[]}}));
-  await page.route("**/api/v1/mobile/market/plan",async route=>{await gate;await route.fulfill({json:{first_day:"2024-10-20",last_day:"2026-10-19"}});});
-  await page.route("**/api/v1/mobile/market/membership",async route=>{requested=true;await gate;await route.fulfill({json:{available_at_cutoff:false}});});
+  await page.route("**/api/v1/mobile/market/plan",async route=>{requested=true;await gate;await route.fulfill({json:{first_day:"2024-10-20",last_day:"2026-10-19"}});});
+  await page.route("**/api/v1/mobile/market/membership",async route=>{await route.fulfill({json:{available_at_cutoff:false}});});
   try {
     await page.goto("http://127.0.0.1:5196/#/settings?edit=market");
     await expect.poll(()=>requested).toBe(true);
@@ -477,7 +477,11 @@ test("market status appears before slow membership without permitting acquisitio
     await expect(page.getByLabel("取得開始日")).toBeDisabled();
     await expect(page.getByRole("button",{name:"履歴を取得"})).toBeDisabled();
     await expect(page.getByRole("button",{name:"候補と全保有の対象を確認"})).toBeDisabled();
-  } finally {release();}
+  } finally {
+    await page.goto("http://127.0.0.1:5196/#/");
+    await expect(page.getByRole("heading",{name:"ホーム",exact:true})).toBeVisible();
+    release();
+  }
 });
 
 test("model information appears before a slow judgment read", async ({page})=>{
@@ -491,5 +495,32 @@ test("model information appears before a slow judgment read", async ({page})=>{
     await expect.poll(()=>requested).toBe(true);
     await expect(page.getByText("1件取込済み")).toBeVisible();
     await expect(page.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+  } finally {
+    await page.goto("http://127.0.0.1:5196/#/");
+    await expect(page.getByRole("heading",{name:"ホーム",exact:true})).toBeVisible();
+    release();
+  }
+});
+
+for (const panel of ["market", "model"]) test(`leaving ${panel} skips its not-yet-started reads`, async ({page})=>{
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  let requested=false, finished=false;
+  const first=panel === "market" ? "/api/v1/mobile/market" : "/api/v1/mobile/models";
+  const later=panel === "market" ? ["/api/v1/mobile/market/plan","/api/v1/mobile/market/membership","/api/v1/mobile/market/universe-policy"] : ["/api/v1/mobile/daily","/api/v1/mobile/decision"];
+  await page.route(`**${first}`,async route=>{
+    requested=true; await gate;
+    await route.fulfill({json:panel === "market" ? {latest_data_date:null,completed_dates:[]} : {approved_bundle_count:0,imported_bundle_count:0,bundle_ready:false,model_adopted:false}});
+    finished=true;
+  });
+  try {
+    await page.goto(`http://127.0.0.1:5196/#/settings?edit=${panel}`);
+    await expect.poll(()=>requested).toBe(true);
+    await page.getByRole("navigation",{name:"メインナビゲーション"}).getByRole("link",{name:"ホーム"}).click();
+    await expect(page.getByRole("heading",{name:"ホーム",exact:true})).toBeVisible();
+    release(); await expect.poll(()=>finished).toBe(true);
+    await page.waitForTimeout(200);
+    const calls=await page.evaluate(()=>(window as unknown as {__settingsCalls:{operation?:string;path?:string}[]}).__settingsCalls);
+    expect(calls.filter(call=>call.operation === "GET" && later.includes(call.path ?? ""))).toEqual([]);
   } finally {release();}
 });

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
-import { StockAI } from "./native";
+import { isAndroid, StockAI } from "./native";
+import { visibleReads } from "./visibleReads";
 import { AnalysisProgress } from "./AnalysisProgress";
 import { ReferenceAnalysis } from "./ReferenceAnalysis";
 import { Field, KV } from "../Adopted";
@@ -81,12 +82,12 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
     let active = true;
     setModelReady(false); setRunReady(false); setDecisionReady(false); setReadError(false);
     const revision = modelRevision.current;
-    const status = apiGet<ModelStatus>("/api/v1/mobile/models").then(value => {
+    const status = () => apiGet<ModelStatus>("/api/v1/mobile/models").then(value => {
       if (active && revision === modelRevision.current) { setModel(value); setModelReady(true); }
     });
-    const saved = apiGet<ForecastRun | null>("/api/v1/mobile/daily").then(value => { if (active) { setRun(value); setRunReady(true); } });
-    const shares = apiGet<DecisionRun | null>("/api/v1/mobile/decision").then(value => { if (active) { setDecision(value); setDecisionReady(true); } });
-    void Promise.all([status, saved, shares]).catch(() => { if (active) setReadError(true); });
+    const saved = () => apiGet<ForecastRun | null>("/api/v1/mobile/daily").then(value => { if (active) { setRun(value); setRunReady(true); } });
+    const shares = () => apiGet<DecisionRun | null>("/api/v1/mobile/decision").then(value => { if (active) { setDecision(value); setDecisionReady(true); } });
+    void visibleReads([status, saved, shares], () => active, isAndroid(), () => setReadError(true));
     return () => { active = false; };
   }, []);
   const initialReady = modelReady && runReady && decisionReady && !readError;
