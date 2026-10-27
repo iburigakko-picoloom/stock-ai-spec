@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { StockAI } from "./native";
 import { MobileModelPanel } from "./MobileModelPanel";
+import { Activity } from "react";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
 vi.mock("./native", () => ({ StockAI: { importModel: vi.fn(), analysisStatus: async () => ({ state: "idle" }) }, isAndroid: () => true }));
@@ -27,6 +28,84 @@ const run = { run_id: "fixture-run", phase: "published", outcome: "forecast",
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? model : null);
+});
+
+test("model and forecast display without waiting for the judgment, while calculation remains gated", async () => {
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiGet).mockImplementation(path => path.endsWith("/models") ? Promise.resolve(model)
+    : path.endsWith("/daily") ? Promise.resolve(run) : new Promise(resolve => {finish=resolve;}));
+  panel();
+  expect(await screen.findByText("1件取込済み")).toBeVisible();
+  expect(await screen.findByText(/推奨株数：確認中/)).toBeVisible();
+  expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+  await act(async () => finish(decision));
+  expect(screen.getByText(/推奨株数：保存済み・研究用/)).toBeVisible();
+  expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeEnabled();
+});
+
+test("a late initial model read cannot overwrite a successfully imported model", async () => {
+  let finish!: (value: unknown) => void;
+  let calls=0;
+  vi.mocked(apiGet).mockImplementation(path => path.endsWith("/models")
+    ? ++calls === 1 ? new Promise(resolve => {finish=resolve;}) : Promise.resolve({...model,imported_bundle_count:2})
+    : Promise.resolve(null));
+  vi.mocked(StockAI.importModel).mockResolvedValue({content:"synthetic bundle"});
+  vi.mocked(apiPost).mockResolvedValue({});
+  panel();
+  fireEvent.click(screen.getByRole("button",{name:"モデル一式を取り込む"}));
+  expect(await screen.findByText("2件取込済み")).toBeVisible();
+  await act(async () => finish(model));
+  expect(screen.getByText("2件取込済み")).toBeVisible();
+});
+
+test("a failed judgment read leaves the independently loaded model and forecast visible, but blocks calculation", async () => {
+  vi.mocked(apiGet).mockImplementation(async path=>{
+    if(path.endsWith("/decision"))throw new Error("failed");
+    return path.endsWith("/models") ? model : run;
+  });
+  panel();
+  expect(await screen.findByText("1件取込済み")).toBeVisible();
+  expect(await screen.findByRole("alert")).toHaveTextContent("確認できません");
+  expect(screen.getByText(/推奨株数：未確認/)).toBeVisible();
+  expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+});
+
+test("failed recheck after model import cannot enable calculation with the previous bundle", async () => {
+  let reads=0;
+  vi.mocked(apiGet).mockImplementation(async path=>{
+    if(path.endsWith("/models") && ++reads>1)throw new Error("再確認失敗");
+    return path.endsWith("/models") ? model : null;
+  });
+  vi.mocked(StockAI.importModel).mockResolvedValue({content:"synthetic bundle"});
+  vi.mocked(apiPost).mockResolvedValue({});
+  panel();
+  await waitFor(()=>expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"モデル一式を取り込む"}));
+  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("再確認失敗"));
+  expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+  expect(screen.queryByText("1件取込済み")).not.toBeInTheDocument();
+});
+
+test("reopening keeps prior output read-only until current model and judgment are verified", async () => {
+  vi.mocked(apiGet).mockImplementation(async path=>path.endsWith("/models") ? {...model,bundle_blocking_reason:"old"} : path.endsWith("/daily") ? run : decision);
+  const content=(visible:boolean)=><MemoryRouter><Activity mode={visible ? "visible" : "hidden"}><MobileModelPanel disabled={false} inputsSaved onBusy={vi.fn()} /></Activity></MemoryRouter>;
+  const view=render(content(true));
+  await screen.findByRole("link",{name:"今日の判定を見る"});
+  view.rerender(content(false));
+  const pending: Record<string,(value:unknown)=>void> = {};
+  vi.mocked(apiGet).mockImplementation(path=>new Promise(resolve=>{pending[path]=resolve;}));
+  view.rerender(content(true));
+  await waitFor(()=>expect(Object.keys(pending)).toHaveLength(3));
+  expect(screen.getByText(/前回の表示・閲覧用/)).toBeVisible();
+  expect(screen.queryByText("保存済みの一式を利用できません。確認済みのファイルを取り込んでください。")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link",{name:"今日の判定を見る"})).not.toBeInTheDocument();
+  expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+  await act(async()=>{
+    pending["/api/v1/mobile/models"](model);
+    pending["/api/v1/mobile/daily"](run);
+    pending["/api/v1/mobile/decision"](decision);
+  });
+  expect(await screen.findByRole("link",{name:"今日の判定を見る"})).toBeVisible();
 });
 test("one file imports the reviewed bundle and refreshes saved status", async () => {
   vi.mocked(StockAI.importModel).mockResolvedValue({ content: "synthetic bundle file" });

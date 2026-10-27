@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { apiGet, apiPost } from "../api";
 import { acquireRange } from "./market";
 import { MobileMarketPanel } from "./MobileMarketPanel";
+import { Activity } from "react";
 
 vi.mock("../api", () => ({ apiGet: vi.fn(), apiPost: vi.fn() }));
 vi.mock("./market", async importOriginal => ({ ...await importOriginal<typeof import("./market")>(), acquireRange: vi.fn() }));
@@ -65,4 +66,57 @@ test("background settings is explicit and does not start a page-owned download",
   expect(open).toHaveBeenCalledTimes(1);
   expect(acquireRange).not.toHaveBeenCalled();
   await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(4));
+});
+
+test("market status appears before slower plan and membership while writes remain gated", async () => {
+  let finishPlan!: (value: unknown) => void;
+  let finishMember!: (value: unknown) => void;
+  vi.mocked(apiGet).mockImplementation(path => path.endsWith("/plan") ? new Promise(resolve => {finishPlan=resolve;})
+    : path.endsWith("/membership") ? new Promise(resolve => {finishMember=resolve;})
+    : Promise.resolve(path.endsWith("/universe-policy") ? {mode:"legacy300",experimental:false} : {...status,latest_data_date:"2026-01-05"}));
+  render(<MobileMarketPanel configured disabled={false} onBusy={vi.fn()} />);
+  expect(await screen.findByText("2026-01-05")).toBeVisible();
+  expect(screen.getByLabelText("取得開始日")).toBeDisabled();
+  expect(screen.getByLabelText("取得開始日")).toHaveValue("");
+  expect(screen.getByRole("button",{name:"履歴を取得"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"候補と全保有の対象を確認"})).toBeDisabled();
+  await act(async () => finishPlan(plan));
+  expect(screen.getByLabelText("取得開始日")).toHaveValue("2026-01-05");
+  expect(screen.getByRole("button",{name:"履歴を取得"})).toBeDisabled();
+  await act(async () => finishMember({latest_received_at:null,eligible_received_at:null}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"履歴を取得"})).toBeEnabled());
+});
+
+test("a failed membership read preserves separately loaded market status but prevents acquisition", async () => {
+  vi.mocked(apiGet).mockImplementation(async path => {
+    if(path.endsWith("/membership"))throw new Error("failure");
+    return path.endsWith("/plan") ? plan : path.endsWith("/universe-policy") ? {mode:"legacy300"} : {...status,latest_data_date:"2026-01-05"};
+  });
+  render(<MobileMarketPanel configured disabled={false} onBusy={vi.fn()} />);
+  expect(await screen.findByText("2026-01-05")).toBeVisible();
+  expect(await screen.findByRole("status")).toHaveTextContent("確認できません");
+  expect(screen.getByRole("button",{name:"履歴を取得"})).toBeDisabled();
+});
+
+test("reopening verifies data again without overwriting the unsaved date range", async () => {
+  const content=(visible:boolean)=><Activity mode={visible ? "visible" : "hidden"}><MobileMarketPanel configured disabled={false} onBusy={vi.fn()} /></Activity>;
+  const view=render(content(true));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"履歴を取得"})).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("取得開始日"),{target:{value:"2025-12-01"}});
+  view.rerender(content(false));
+  const pending: Record<string,(value:unknown)=>void> = {};
+  vi.mocked(apiGet).mockImplementation(path=>new Promise(resolve=>{pending[path]=resolve;}));
+  view.rerender(content(true));
+  await waitFor(()=>expect(Object.keys(pending)).toHaveLength(4));
+  expect(screen.getByLabelText("取得開始日")).toHaveValue("2025-12-01");
+  expect(screen.getByLabelText("取得開始日")).toBeDisabled();
+  expect(screen.getByRole("button",{name:"履歴を取得"})).toBeDisabled();
+  await act(async()=>{
+    pending["/api/v1/mobile/market"](status);
+    pending["/api/v1/mobile/market/plan"](plan);
+    pending["/api/v1/mobile/market/membership"]({});
+    pending["/api/v1/mobile/market/universe-policy"]({mode:"legacy300"});
+  });
+  await waitFor(()=>expect(screen.getByRole("button",{name:"履歴を取得"})).toBeEnabled());
+  expect(screen.getByLabelText("取得開始日")).toHaveValue("2025-12-01");
 });

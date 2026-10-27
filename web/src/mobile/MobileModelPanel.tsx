@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { StockAI } from "./native";
@@ -69,14 +69,27 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
   const [model, setModel] = useState<ModelStatus | null>(null);
   const [run, setRun] = useState<ForecastRun | null>(null);
   const [decision, setDecision] = useState<DecisionRun | null>(null);
+  const [modelReady, setModelReady] = useState(false);
+  const [runReady, setRunReady] = useState(false);
+  const [decisionReady, setDecisionReady] = useState(false);
+  const [readError, setReadError] = useState(false);
+  const modelRevision = useRef(0);
   const [message, setMessage] = useState("");
   const [calculating, setCalculating] = useState(false);
   const [referenceSaved, setReferenceSaved] = useState(false);
   useEffect(() => {
-    void Promise.all([apiGet<ModelStatus>("/api/v1/mobile/models"), apiGet<ForecastRun | null>("/api/v1/mobile/daily"), apiGet<DecisionRun | null>("/api/v1/mobile/decision")])
-      .then(([status, saved, shares]) => { setModel(status); setRun(saved); setDecision(shares); })
-      .catch(() => setMessage("保存済みのモデル・予測を確認できません。アプリを再起動してください。"));
+    let active = true;
+    setModelReady(false); setRunReady(false); setDecisionReady(false); setReadError(false);
+    const revision = modelRevision.current;
+    const status = apiGet<ModelStatus>("/api/v1/mobile/models").then(value => {
+      if (active && revision === modelRevision.current) { setModel(value); setModelReady(true); }
+    });
+    const saved = apiGet<ForecastRun | null>("/api/v1/mobile/daily").then(value => { if (active) { setRun(value); setRunReady(true); } });
+    const shares = apiGet<DecisionRun | null>("/api/v1/mobile/decision").then(value => { if (active) { setDecision(value); setDecisionReady(true); } });
+    void Promise.all([status, saved, shares]).catch(() => { if (active) setReadError(true); });
+    return () => { active = false; };
   }, []);
+  const initialReady = modelReady && runReady && decisionReady && !readError;
   async function perform(task: () => Promise<void>): Promise<void> {
     onBusy(true); setMessage("");
     try { await task(); }
@@ -92,41 +105,44 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
   const top = run?.snapshot?.candidate_symbols?.filter(symbol => priority.has(symbol))
     .sort((a, b) => priority.get(b)! - priority.get(a)! || a.localeCompare(b)).slice(0, 20);
   const symbols = top ? [...new Set([...top, ...[...holdings].sort()])].filter(symbol => available.includes(symbol)) : available.sort();
-  const researchConsultation = decision?.blocking_reasons.length === 1 && decision.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE";
-  const blockingMessages = [...new Set([...(run?.blocking_reasons ?? []), ...(decision?.blocking_reasons ?? [])].map(reason))];
+  const currentDecision = runReady && decisionReady ? decision : null;
+  const researchConsultation = currentDecision?.blocking_reasons.length === 1 && currentDecision.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE";
+  const blockingMessages = [...new Set([...(runReady ? run?.blocking_reasons ?? [] : []), ...(currentDecision?.blocking_reasons ?? [])].map(reason))];
   return <div className="subscreen advanced-domain stack model-panel" aria-label="端末内のモデルと予測">
     <section className="card"><h3 className="section-title">1. 採用モデル</h3>
-    <KV label="モデルファイル" value={model ? `${model.imported_bundle_count}件取込済み` : "モデルを確認中…"} />
-    <KV label="状態" value={model?.model_adopted ? "採用確認済み" : "研究用・正式採用前"} />
+    <KV label="モデルファイル" value={modelReady && model ? `${model.imported_bundle_count}件取込済み` : readError ? "未確認" : "モデルを確認中…"} />
+    <KV label="状態" value={!modelReady || !model ? readError ? "未確認" : "確認中" : model.model_adopted ? "採用確認済み" : "研究用・正式採用前"} />
     {!inputsSaved && <p>{inputStatus ?? "口座・保有の編集を保存してから予測を計算します。"}</p>}
-    {model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
+    {modelReady && model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
     <Field label="予測期間"><input className="input" readOnly value="5日・20日" /></Field></section>
     <section className="card"><h3 className="section-title">2. モデル取り込み</h3><div className="button-stack">
       <button className="button button--secondary" disabled={disabled} onClick={() => void perform(async () => {
-        const content = await StockAI.importModel(); await apiPost("/api/v1/mobile/models/import", content);
-        setModel(await apiGet("/api/v1/mobile/models")); setMessage("確認済みのモデル一式を保存しました。");
+        const content = await StockAI.importModel(); await apiPost("/api/v1/mobile/models/import", content); modelRevision.current++; setModelReady(false);
+        setModel(await apiGet("/api/v1/mobile/models")); setModelReady(true); setMessage("確認済みのモデル一式を保存しました。");
       })}>モデル一式を取り込む</button></div></section>
     <section className="card"><h3 className="section-title">3. 予測・株数</h3><div className="button-stack">
-      <button className="button button--primary" disabled={disabled || !inputsSaved || !model?.bundle_ready} onClick={() => void perform(async () => {
+      <button className="button button--primary" disabled={disabled || !initialReady || !inputsSaved || !model?.bundle_ready} onClick={() => void perform(async () => {
         setCalculating(true);
         setDecision(null);
         const value = await apiPost<ForecastRun>("/api/v1/mobile/daily/generate", {}); setRun(value);
         const shares = value.manual_decision ?? await apiPost<DecisionRun>("/api/v1/mobile/decision/generate", {}); setDecision(shares);
         setMessage(shares.is_active ? "当日の予測と株数の判定を保存しました。" : shares.blocking_reasons.length === 1 && shares.blocking_reasons[0] === "FORECAST_RISK_UNAVAILABLE" ? "研究用の予測を保存しました。ChatGPTへの相談で株数案を検討できます。" : value.phase === "published" && value.snapshot ? "予測は保存済みです。株数の判定は未完了です。" : "予測は未完了です。下の理由を確認してください。");
-      })}>{model?.return_only_research || model?.ensemble_research ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
+      })}>{modelReady && (model?.return_only_research || model?.ensemble_research) ? "当日の予測を計算・保存" : "当日の予測・株数を計算・保存"}</button>
     </div>
     <AnalysisProgress busy={calculating} />
     <p role="status">{message}</p>
+    {readError && <p role="alert">保存済みのモデル・予測を確認できません。アプリを再起動してください。</p>}
     {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
-      <ReferenceAnalysis hasSaved={referenceSaved} disabled={disabled || calculating} onBusy={onBusy} onSaved={() => setReferenceSaved(true)} />}
+      <ReferenceAnalysis hasSaved={referenceSaved} disabled={disabled || calculating || !initialReady} onBusy={onBusy} onSaved={() => setReferenceSaved(true)} />}
     {referenceSaved && <Link className="button button--secondary" to="/ranking">保存したランキングを見る</Link>}
     {run && <section className="forecast-state"><h3 className="plain-section-title">計算結果</h3>
+      {!runReady && <p role="status">前回の表示・閲覧用。更新を確認中…</p>}
       <p>当日予測の記録：{timestamp(run.scope.as_of)}</p>
-      <p>推奨株数：{researchConsultation ? "自動判定なし・ChatGPTで案を検討" : decision?.is_active ? (decision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : decision?.phase === "computed" ? "保存の確定待ち" : decision ? "未完了・入力確認が必要" : "未作成"}</p>
-      {decision?.is_active && <Link className="button button--secondary" to="/today">今日の判定を見る</Link>}
+      <p>推奨株数：{!runReady || !decisionReady ? readError ? "未確認" : "確認中" : researchConsultation ? "自動判定なし・ChatGPTで案を検討" : currentDecision?.is_active ? (currentDecision.outcome === "cash_only" ? "全現金維持・判定完了" : "保存済み・研究用") : currentDecision?.phase === "computed" ? "保存の確定待ち" : currentDecision ? "未完了・入力確認が必要" : "未作成"}</p>
+      {currentDecision?.is_active && <Link className="button button--secondary" to="/today">今日の判定を見る</Link>}
       {researchConsultation && <Link className="button button--secondary" to="/today/chatgpt">予測を使ってChatGPTへ相談する</Link>}
-      {decision?.phase === "published" && !decision.is_active && <p>保存後に入力や計算対象が変わっています。最新の条件を確認して再実行してください。</p>}
-      {decision?.phase === "computed" && <p>株数の保存が途中です。同じ計算を実行すると保存を再開します。</p>}
+      {currentDecision?.phase === "published" && !currentDecision.is_active && <p>保存後に入力や計算対象が変わっています。最新の条件を確認して再実行してください。</p>}
+      {currentDecision?.phase === "computed" && <p>株数の保存が途中です。同じ計算を実行すると保存を再開します。</p>}
       {run.outcome === "cash_only" && <p>対象銘柄と保有がないため、銘柄の数値予測はありません。</p>}
       {run.phase === "computed" && <p>保存の確定を確認できません。同じ計算を実行すると保存を再開します。</p>}
       {blockingMessages.length > 0 && <ul>{blockingMessages.map(message => <li key={message}>{message}</li>)}</ul>}
@@ -135,7 +151,7 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
         <p>この予測の対象方式：{run.scope.universe?.policy === "jquants-scalecat-topix500-v1" ? "TOPIX500" : run.scope.universe?.policy?.startsWith("cap30bn-adv20-top300-") ? "従来300" : "記録を確認してください"}</p>
         <p>最終株価日：{run.scope.universe?.latest_source_date ?? "未確認"}</p>
         {run.snapshot && <><p>数値生成：{timestamp(run.snapshot.generated_at)}</p><p>参照情報の受領：{timestamp(run.snapshot.data_as_of)}</p></>}
-        {decision && <p>株数判定の生成：{timestamp(decision.checked_at)}</p>}
+        {currentDecision && <p>株数判定の生成：{timestamp(currentDecision.checked_at)}</p>}
       </section>
 
       {symbols.length > 0 && <section><h3 className="plain-section-title">{top ? "上位20と全保有の予測を見る" : "算出できた予測を見る"} {symbols.length}社</h3>
@@ -144,6 +160,6 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
           <td><Link to={`/stocks/${symbol}`}>{symbol}</Link>{holdings.has(symbol) && "（保有）"}</td>{ranking.size > 0 && <td>{ranking.get(symbol)?.toFixed(4) ?? "未提供"}</td>}<td>{percent(five.get(symbol))}</td><td>{percent(twenty.get(symbol))}</td></tr>)}</tbody></table>
       </section>}
     </section>}</section>
-    <section className="card"><h3 className="section-title">4. 除外銘柄</h3>{!run ? <p className="setting-footnote">計算後に表示します。</p> : run.excluded_candidates.length ? <table className="subtable"><thead><tr><th>銘柄</th><th>理由</th></tr></thead><tbody>{run.excluded_candidates.map(row=><tr key={row.symbol}><td>{row.symbol}</td><td>{reason(row.reason)}</td></tr>)}</tbody></table> : <p className="setting-footnote">保存された計算に除外銘柄はありません。</p>}<Link className="quiet-link" to="/settings?edit=repair">履歴を修復</Link></section>
+    <section className="card"><h3 className="section-title">4. 除外銘柄</h3>{!run ? <p className="setting-footnote">{runReady ? "計算後に表示します。" : readError ? "計算結果を確認できません。" : "計算結果を確認中…"}</p> : run.excluded_candidates.length ? <table className="subtable"><thead><tr><th>銘柄</th><th>理由</th></tr></thead><tbody>{run.excluded_candidates.map(row=><tr key={row.symbol}><td>{row.symbol}</td><td>{reason(row.reason)}</td></tr>)}</tbody></table> : <p className="setting-footnote">保存された計算に除外銘柄はありません。</p>}<Link className="quiet-link" to="/settings?edit=repair">履歴を修復</Link></section>
   </div>;
 }

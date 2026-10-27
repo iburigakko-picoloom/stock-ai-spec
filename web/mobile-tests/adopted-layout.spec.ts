@@ -461,3 +461,35 @@ test("trade entry is reachable while today remains blocked on its first read", a
     expect(requested).toBe(true);
   } finally {release();}
 });
+
+test("market status appears before slow membership without permitting acquisition", async ({page})=>{
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  let requested=false;
+  await page.route("**/api/v1/mobile/market",route=>route.fulfill({json:{latest_data_date:"2026-01-05",completed_dates:[]}}));
+  await page.route("**/api/v1/mobile/market/plan",async route=>{await gate;await route.fulfill({json:{first_day:"2024-10-20",last_day:"2026-10-19"}});});
+  await page.route("**/api/v1/mobile/market/membership",async route=>{requested=true;await gate;await route.fulfill({json:{available_at_cutoff:false}});});
+  try {
+    await page.goto("http://127.0.0.1:5196/#/settings?edit=market");
+    await expect.poll(()=>requested).toBe(true);
+    await expect(page.getByText("2026-01-05")).toBeVisible();
+    await expect(page.getByLabel("取得開始日")).toHaveValue("");
+    await expect(page.getByLabel("取得開始日")).toBeDisabled();
+    await expect(page.getByRole("button",{name:"履歴を取得"})).toBeDisabled();
+    await expect(page.getByRole("button",{name:"候補と全保有の対象を確認"})).toBeDisabled();
+  } finally {release();}
+});
+
+test("model information appears before a slow judgment read", async ({page})=>{
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  let requested=false;
+  await page.route("**/api/v1/mobile/models",route=>route.fulfill({json:{approved_bundle_count:1,imported_bundle_count:1,bundle_ready:true,model_adopted:false}}));
+  await page.route("**/api/v1/mobile/decision",async route=>{requested=true;await gate;await route.fulfill({json:null});});
+  try {
+    await page.goto("http://127.0.0.1:5196/#/settings?edit=model");
+    await expect.poll(()=>requested).toBe(true);
+    await expect(page.getByText("1件取込済み")).toBeVisible();
+    await expect(page.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+  } finally {release();}
+});
