@@ -1,3 +1,8 @@
+## 2026-10-27 — Android CI用の合成記録を準備（D293）
+
+- Android CIが直接読取テスト用の2つのfixtureを含まず失敗することを発見。実コードの契約を使い、隔離一時ディレクトリから当日の合成判断・約定・残高・メモを生成し、AndroidテストAPKへ含める手順を追加。既存fixtureは上書きしない。生成後の約定・現金・保有数、SQLite archive、上書き拒否のPython 1件とRuffが成功。生成した2件がローカルのAndroidテストAPKにbyte一致で含まれることも確認した。製品APKには含めない。
+- 初回ローカル生成はsandbox内のlocalhost socket待ちで停止し、原因を診断して当該試験processを終了。必要なローカル接続を許可した再実行で成功。CI自体・Android instrumentationはまだ実行していない。時刻を使うfixtureは実行中に日本の日付が変わると再生成が必要。GitHub/Driveにはまだ反映していない。
+
 ## 2026-10-27 — 同署名APK候補をローカルで準備（Android検証待ち）
 
 - source `f17af76fdc4d647bca03b5453ab2981d18be21c2` の非公開候補 `.demo-artifacts/home-preview-candidate/StockAI-0.1.72-UNVERIFIED.apk` を作成。24,117,565 bytes、SHA256 `5945cde82b7442572dbfbeb272efc679929c5f2171d03f95f37dabfddfbb0ea8`。release build成功、APK Signature Scheme v2の検証成功、前回0.1.71候補と署名証明書SHA256 `97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979` が一致。アプリID `jp.stockai.app` は同一、versionCodeは10071→10072。APK内のWeb資産56ファイルがbuild出力と一致。

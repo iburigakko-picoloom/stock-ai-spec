@@ -13,6 +13,7 @@ on:
       - 'tests/test_reconciliation_guards.py'
       - 'tests/test_android_lifecycle_controller.py'
       - 'tests/test_android_history_check.py'
+      - 'tests/test_android_record_fixtures.py'
       - 'tests/test_android_upgrade.py'
       - 'tests/test_cost_tax.py'
       - 'tests/test_tax_acquisition.py'
@@ -60,6 +61,7 @@ on:
       - 'tests/test_reconciliation_guards.py'
       - 'tests/test_android_lifecycle_controller.py'
       - 'tests/test_android_history_check.py'
+      - 'tests/test_android_record_fixtures.py'
       - 'tests/test_android_upgrade.py'
       - 'tests/test_cost_tax.py'
       - 'tests/test_tax_acquisition.py'
@@ -147,7 +149,7 @@ jobs:
           uv run python -m pytest tests/test_mobile_preselection.py tests/test_mobile_input_cache.py -q --basetemp=.demo-artifacts/pytest-preselection-ci
           uv run python -m pytest tests/test_chatgpt_manual.py tests/test_mobile_manual_chatgpt.py tests/test_mobile_research_bundle.py tests/test_candidate_registry.py tests/test_fixed_rule.py tests/test_production_research.py::test_daily_label_metadata_matches_actual_production_next_session_target -q --basetemp=.demo-artifacts/pytest-daily-integration-ci
           uv run python -m pytest tests/test_research_selection.py tests/test_seed_stable_selection.py tests/test_return_error_metrics.py -q --basetemp=.demo-artifacts/pytest-seed-selection-ci
-          uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py tests/test_android_upgrade.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
+          uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py tests/test_android_record_fixtures.py tests/test_android_upgrade.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
           uv run python -m pytest tests/test_dividends.py tests/test_market_nav.py tests/test_assumed_market.py tests/test_daily_nav.py tests/test_daily_strategy.py -q --basetemp=.demo-artifacts/pytest-market-nav-ci
           uv run python -m pytest tests/test_daily_market.py tests/test_daily_instruments.py -q --basetemp=.demo-artifacts/pytest-instrument-rules-ci
           uv run python -m pytest tests/test_research_funding.py tests/test_market_funding.py -q --basetemp=.demo-artifacts/pytest-funding-ci
@@ -282,6 +284,11 @@ jobs:
           python scripts/prepare_mobile.py --download
           npm run build --prefix web
           python scripts/android_package_audit.py web/dist
+      - name: Generate synthetic record fixtures for Android tests
+        run: |
+          python -m pip install uv==0.10.0
+          uv sync --locked --all-groups
+          uv run python -m scripts.android_record_fixtures --output web/android/app/src/androidTest/assets
       - name: Android compiler, backup crypto tests and lint
         working-directory: web
         run: |
