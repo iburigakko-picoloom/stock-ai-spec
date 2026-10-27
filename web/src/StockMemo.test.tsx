@@ -76,7 +76,21 @@ test("financial detail refresh does not unmount or overwrite a note draft",async
   await waitFor(()=>expect(field).toHaveValue(base.text));
   fireEvent.change(field,{target:{value:"編集中のメモ"}});
   vi.mocked(useApiData).mockReturnValue({data:null,error:"金融情報の読込失敗",loading:false,savedAt:null,reload:vi.fn()});
-  view.rerender(page);
+  view.rerender(<MemoryRouter initialEntries={["/stocks/7203"]}><Routes><Route path="/stocks/:symbol" element={<StockDetailPage />} /></Routes></MemoryRouter>);
   expect(screen.getByRole("textbox",{name:"メモ"})).toHaveValue("編集中のメモ");
+  expect(apiGet).toHaveBeenCalledTimes(1);
+});
+
+test("a note entered while details load survives their arrival without another read",async()=>{
+  const detail={symbol:"7203",positions:[],proposalLines:[],forecast:null,chatgptResearch:[],researchRuns:[],proposal:null};
+  vi.mocked(useApiData).mockReturnValue({data:null,error:null,loading:true,savedAt:null,reload:vi.fn()});
+  const page=()=> <MemoryRouter initialEntries={["/stocks/7203"]}><Routes><Route path="/stocks/:symbol" element={<StockDetailPage />} /></Routes></MemoryRouter>;
+  const view=render(page());
+  const field=await screen.findByRole("textbox",{name:"メモ"});
+  await waitFor(()=>expect(field).toHaveValue(base.text));
+  fireEvent.change(field,{target:{value:"詳細を待つ間の下書き"}});
+  vi.mocked(useApiData).mockReturnValue({data:detail,error:null,loading:false,savedAt:null,reload:vi.fn()});
+  view.rerender(page());
+  expect(screen.getByRole("textbox",{name:"メモ"})).toHaveValue("詳細を待つ間の下書き");
   expect(apiGet).toHaveBeenCalledTimes(1);
 });
