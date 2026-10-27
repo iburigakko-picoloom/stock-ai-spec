@@ -89,7 +89,12 @@ export function ExecutionPage(): ReactNode {
 
   if (!applyOnly && (params.has("manual") || (!loadingDecision && !loadError && (!proposal || !decision)))) return <ManualExecutionPage />;
 
-  if (!applyOnly && (loadingDecision || loadError || !proposal || !decision)) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="実行結果を記録" /><StatePanel tone={loadError ? "error" : "neutral"} title={loadingDecision ? "実行結果入力を準備しています" : loadError ? "入力を準備できません" : "実行待ちの保存済み判断がありません"} detail={loadError} /></div>;
+  if (!applyOnly && (loadingDecision || loadError || !proposal || !decision)) {
+    const manualParams = new URLSearchParams({ manual: "1" });
+    const symbol = params.get("symbol");
+    if (symbol) manualParams.set("symbol", symbol);
+    return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="実行結果を記録" /><StatePanel tone={loadError ? "error" : "neutral"} title={loadingDecision ? "実行結果入力を準備しています" : loadError ? "入力を準備できません" : "実行待ちの保存済み判断がありません"} detail={loadError} /><Link className="button button--secondary" to={`/today/executions?${manualParams}`} state={location.state}>判断を使わず取引を入力</Link></div>;
+  }
 
   const savedDecision = decision;
   const decisionTargets = new Map((savedDecision?.lines ?? []).map((line) => [line.proposal_line_id, line.selected_target_shares]));

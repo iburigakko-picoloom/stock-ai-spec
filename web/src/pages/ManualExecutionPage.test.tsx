@@ -72,3 +72,25 @@ test("failed account verification retains typed fields and cannot save", async (
   expect(screen.getByRole("button", { name: "再読み込み" })).toBeVisible();
   expect(apiPost).not.toHaveBeenCalled();
 });
+
+
+test("a pending judgment read offers direct manual trade entry for the same stock", async () => {
+  vi.mocked(apiGet).mockImplementation(path => path === "/api/v1/execution-context" ? new Promise(() => {}) : Promise.resolve({
+    portfolioId:"ledger", asOf:null, accountLabels:{ bucket:"特定口座" }, holdings:[],
+  }));
+  render(<MemoryRouter initialEntries={["/today/executions?symbol=7203"]}><ExecutionPage /></MemoryRouter>);
+  expect(screen.getByText("実行結果入力を準備しています")).toBeVisible();
+  const manual = screen.getByRole("link", { name:"判断を使わず取引を入力" });
+  expect(manual).toHaveAttribute("href", "/today/executions?manual=1&symbol=7203");
+  fireEvent.click(manual);
+  expect(await screen.findByLabelText("銘柄コード")).toHaveValue("7203");
+  await waitFor(() => expect(screen.getByRole("button", { name:"取引を記録" })).toBeEnabled());
+  expect(apiPost).not.toHaveBeenCalled();
+});
+
+test("failed judgment read still offers manual entry", async () => {
+  vi.mocked(apiGet).mockRejectedValue(new Error("判断の読取失敗"));
+  render(<MemoryRouter initialEntries={["/today/executions?symbol=7203"]}><ExecutionPage /></MemoryRouter>);
+  expect(await screen.findByText("入力を準備できません")).toBeVisible();
+  expect(screen.getByRole("link", { name:"判断を使わず取引を入力" })).toHaveAttribute("href", "/today/executions?manual=1&symbol=7203");
+});
