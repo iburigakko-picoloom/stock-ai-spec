@@ -7,9 +7,11 @@ import hashlib
 import inspect
 import io
 import json
+import re
 import sqlite3
 import tempfile
 import zipfile
+import zlib
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,7 +23,7 @@ from fastapi.routing import APIRoute, request_response
 from stock_ai.operations.api import create_app
 from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
-from stock_ai.operations.store import OperationalConflictError
+from stock_ai.operations.store import OperationalConflictError, OperationalIntegrityError
 
 from . import (
     account_editor,
@@ -34,6 +36,7 @@ from . import (
     personal,
     rankings,
     research,
+    stock_chart,
     universe,
 )
 from .features import bundled_selection, calculate
@@ -317,6 +320,18 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         raise RuntimeError("Runtime not initialized")
     if method not in {"GET", "POST"} or not path.startswith("/api/v1/") or "://" in path:
         return {"status": 400, "body": {"detail": "Unsupported local operation"}}
+    chart = re.fullmatch(
+        r"/api/v1/mobile/stocks/([A-Z0-9]{4})/chart(?:\?days=(30|90|180|366))?", path
+    )
+    if chart and method == "GET":
+        try:
+            return {"status": 200, "body": stock_chart.read(
+                STATE / "mobile.sqlite3", _app.state.store, chart[1], datetime.now(UTC),
+                days=int(chart[2] or 90),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "株価または予測の保存内容を確認できません。"}}
     if path == "/api/v1/mobile/portfolio":
         if method == "POST":
             try:

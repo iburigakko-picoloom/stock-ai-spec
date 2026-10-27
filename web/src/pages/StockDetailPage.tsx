@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, currency as yen } from "../components";
 import { useApiData } from "../hooks";
 import { StockMemo } from "../StockMemo";
+import { StockChart } from "../StockChart";
 import type { StockDetail } from "../types";
 
 export function StockDetailPage(): ReactNode {
@@ -51,6 +52,7 @@ export function StockDetailPage(): ReactNode {
       </div><p className="small muted">{data.forecast ? `${dateTime(data.forecast.generatedAt,true)} 作成${data.forecast.isStale ? " · 過去の予測" : ""}` : "予測はまだ保存されていません"}</p>
       <div className="link-row"><Link className="quiet-link" to="/ranking">予測ランキング</Link>{data.forecast?.mode !== "owner_approved" && <small>研究用・正式採用前</small>}</div>
     </section>
+    <StockChart key={symbol} symbol={symbol} />
     <section className="card"><h3 className="section-title">提案と理由</h3>
       {selectedLines.length===0 ? <p className="setting-footnote">当日の提案はありません。</p> : selectedLines.map(line=><div className="detail-view" key={line.lineId}><div className="link-row"><strong>数値モデル</strong><ActionBadge action={line.action} /></div><small>{line.accountBucketId}</small><p className="detail-qty">{line.currentShares}株 → {line.recommendedShares}株</p>
         {line.positiveReasons.length ? line.positiveReasons.map(reason=><p key={reason}>{reason}</p>) : <p className="setting-footnote">構造化された追加理由はありません。</p>}

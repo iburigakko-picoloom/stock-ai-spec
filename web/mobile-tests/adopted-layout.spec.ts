@@ -122,6 +122,37 @@ test("stock details fit narrow screens with large position values", async ({page
   expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
 });
 
+for (const width of (process.env.STOCKAI_ANDROID_UI ? [320] : [320,390])) test(`stock chart fits ${width}px and displays saved forecast and outcome`, async ({page},info) => {
+  if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width,height:800});
+  let calls=0;
+  await page.route("**/api/v1/mobile/stocks/1234/chart?*", route=>{
+    calls++;
+    return route.fulfill({json:{symbol:"1234",firstDate:"2026-02-01",lastDate:"2026-03-01",observedAt:"2026-03-02T00:00:00Z",
+      calendar:{"2026-02-02":true,"2026-02-03":true},prices:[{date:"2026-02-02",close:100,volume:1000},{date:"2026-02-03",close:110,volume:500}],
+      forecasts:[{runId:"a",kind:"daily",priceDate:"2026-02-02",generatedAt:"2026-02-03T02:30:00Z",horizons:[
+        {horizon:5,expectedReturn:.02,return:.03,status:"available",entryDate:"2026-02-03",exitDate:"2026-02-10"},
+        {horizon:20,expectedReturn:.05,return:null,status:"pending",entryDate:null,exitDate:null}]}]}});
+  });
+  await page.goto("http://127.0.0.1:5196/#/stocks/1234");
+  const chart=page.getByRole("region",{name:"株価と予測のグラフ"});
+  await expect(chart.getByRole("button",{name:"グラフを表示"})).toBeVisible();
+  expect(calls).toBe(0);
+  await chart.getByRole("button",{name:"グラフを表示"}).click();
+  await expect(chart.getByRole("img",{name:"保存済み終値と出来高の推移"})).toBeVisible();
+  await expect(chart.getByText(/予測 2.00% \/ 実績 3.00%/)).toBeVisible();
+  await chart.getByRole("button",{name:"20日"}).click();
+  await expect(chart.getByText(/予測 5.00% \/ 実績 —（結果待ち）/)).toBeVisible();
+  for (const font of [100,150]) {
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+    const overflow=await chart.locator("button,svg").evaluateAll(nodes=>nodes.filter(node=>{
+      const r=node.getBoundingClientRect();return r.left < -1 || r.right > window.innerWidth+1;
+    }).map(node=>node.outerHTML.slice(0,100)));
+    expect(overflow).toEqual([]);
+    if (!process.env.STOCKAI_ANDROID_UI && font===150) await chart.screenshot({path:info.outputPath(`stock-chart-${width}.png`)});
+  }
+});
+
 test("returning to home requests daily status once for one foreground event burst", async ({page}) => {
   await page.goto("/");
   await expect(page.locator(".header-status")).toBeVisible();

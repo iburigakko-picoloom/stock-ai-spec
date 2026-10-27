@@ -70,6 +70,12 @@
 .app-shell--adopted .screen-review .rev-link { width:100%; display:flex; align-items:center; justify-content:space-between; }
 .app-shell--adopted .screen-detail .metric>span { display:block; font-size:.6875rem; color:#636d73; }
 .app-shell--adopted .screen-detail .metric>strong { font-size:1.25rem; white-space:normal; overflow-wrap:anywhere; }
+.app-shell--adopted .stock-chart { min-width:0; }
+.app-shell--adopted .stock-chart-options { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+.app-shell--adopted .stock-chart-options button { flex:1 1 auto; min-height:40px; padding:6px; border:1px solid #dfe4e8; border-radius:6px; background:white; font-size:.75rem; }
+.app-shell--adopted .stock-chart-options button[aria-pressed="true"] { color:#2859a6; border-color:#2859a6; font-weight:700; }
+.app-shell--adopted .stock-chart-plot { display:block; width:100%; height:auto; }
+.app-shell--adopted .stock-chart-results>div { display:grid; gap:3px; padding:10px 0; border-top:1px solid #e4e8ef; overflow-wrap:anywhere; font-size:.75rem; }
 .app-shell--adopted .ss-group .daily-panel>h2 { display:none; }
 .app-shell--adopted .ss-group .daily-panel { margin:0; }
 .app-shell--adopted .ss-group .research-disclosure,.app-shell--adopted .ss-group .settings-disclosure { border:0; margin:0; padding:0; }
