@@ -42,9 +42,14 @@ public class StockAIPlugin extends Plugin {
     SQLiteDatabase db;
     volatile JSONObject pendingUpdate;
     static String hex(byte[] bytes) {
-        StringBuilder result = new StringBuilder();
-        for (byte value : bytes) result.append(String.format("%02x", value & 255));
-        return result.toString();
+        String digits = "0123456789abcdef";
+        char[] result = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 255;
+            result[i * 2] = digits.charAt(value >>> 4);
+            result[i * 2 + 1] = digits.charAt(value & 15);
+        }
+        return new String(result);
     }
 
     LocalComputeOwner owner() throws Exception { return LocalComputeOwner.get(getContext()); }
@@ -99,7 +104,9 @@ public class StockAIPlugin extends Plugin {
                 || "/api/v1/mobile/personal/current".equals(personalPath) || NativeRecordViews.handles(personalPath))) {
             displayExecutor.execute(() -> {
                 try {
-                    JSObject result = NativeRecordViews.handles(personalPath)
+                    JSObject result = "/api/v1/home/ledger".equals(personalPath)
+                        ? NativePortfolioReader.readHomeWithDisplayCopy(getContext(), owner().state, owner().readViews)
+                        : NativeRecordViews.handles(personalPath)
                         ? NativePortfolioReader.readRecords(getContext(), owner().state, personalPath)
                         : NativePortfolioReader.read(getContext(), owner().state, personalPath.endsWith("/current"));
                     if (result != null) { call.resolve(result); return; }

@@ -51,6 +51,23 @@ final class NativePortfolioReader {
         if (!NativeRecordViews.handles(path)) throw new IllegalArgumentException("INVALID_RECORD_VIEW");
         return read(context, state, false, path);
     }
+    static JSObject readHomeWithDisplayCopy(Context context, LocalStateStore state, SavedReadViews views) throws Exception {
+        long epoch = views.epoch();
+        long generation;
+        JSObject result;
+        try {
+            generation = state.currentGeneration();
+            result = readRecords(context, state, "/api/v1/home/ledger");
+        } catch (Exception error) {
+            views.clear();
+            throw error;
+        }
+        try {
+            if (result != null && result.getInt("status") == 200 && state.currentGeneration() == generation)
+                views.saveAsyncIfUnchanged("/api/v1/home/ledger", result.toString(), generation, epoch);
+        } catch (Exception ignored) { /* An optional display copy must not fail the authoritative read. */ }
+        return result;
+    }
     private static synchronized JSObject read(Context context, LocalStateStore state, boolean currentView, String recordPath) throws Exception {
         long started = android.os.SystemClock.elapsedRealtime();
         // Remove only this reader's interrupted temporary files, never a durable database.

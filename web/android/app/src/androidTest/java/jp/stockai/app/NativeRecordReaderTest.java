@@ -52,6 +52,34 @@ public class NativeRecordReaderTest {
             JSONObject value=new JSONObject(bytes.toString("UTF-8"));assertTrue(value.getBoolean("synthetic_only"));return value;
         }
     }
+    @Test public void homeDisplayCopyMatchesAuthenticatedLedgerWithoutWaitingForItsWriter() throws Exception {
+        JSONObject fixture=fixture();owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
+        java.util.List<Runnable> jobs=new java.util.ArrayList<>();
+        File directory=new File(context.getCacheDir(),"home-view-"+System.nanoTime());
+        SavedReadViews views=new SavedReadViews(directory,jobs::add);
+        try {
+            JSONObject reply=NativePortfolioReader.readHomeWithDisplayCopy(context,owner.state,views);
+            equalJson(fixture.getJSONObject("expected_views").getJSONObject("/api/v1/home/ledger").get("portfolio"),reply.getJSONObject("body").get("portfolio"));
+            equalJson(NativePortfolioReader.readRecords(context,owner.state,"/api/v1/home/ledger").get("body"),reply.get("body"));
+            assertEquals(1,jobs.size());
+            assertFalse(views.read("/api/v1/home/ledger").getBoolean("available"));
+            jobs.remove(0).run();
+            equalJson(reply.get("body"),views.read("/api/v1/home/ledger").get("body"));
+        } finally {views.clear();directory.delete();}
+    }
+    @Test public void invalidHomeLedgerNeverSchedulesADisplayCopy() throws Exception {
+        owner.state.write(owner.state.currentGeneration(),"invalid-synthetic-archive");
+        java.util.List<Runnable> jobs=new java.util.ArrayList<>();
+        File directory=new File(context.getCacheDir(),"invalid-home-view-"+System.nanoTime());
+        SavedReadViews views=new SavedReadViews(directory,jobs::add);
+        try {
+            views.save("/api/v1/home/ledger",new JSONObject().put("status",200).put("body",new JSONObject().put("previous",true)),1);
+            assertTrue(views.read("/api/v1/home/ledger").getBoolean("available"));
+            try {NativePortfolioReader.readHomeWithDisplayCopy(context,owner.state,views);fail("invalid archive accepted");}
+            catch (Exception expected) {assertTrue(jobs.isEmpty());}
+            assertFalse(views.read("/api/v1/home/ledger").getBoolean("available"));
+        } finally {views.clear();directory.delete();}
+    }
     @Test public void executionAndMemoMatchPythonAndBypassColdAndBusyInterpreter() throws Exception {
         JSONObject fixture=fixture();owner.state.write(owner.state.currentGeneration(),fixture.getString("state"));
         java.lang.reflect.Field host=LocalComputeOwner.class.getDeclaredField("host");host.setAccessible(true);

@@ -312,6 +312,10 @@ final class LocalComputeOwner {
             try { if (state.currentGeneration() != previous) dropHost(); }
             catch (Exception ignored) { dropHost(); }
             throw error;
+        } finally {
+            // A native display read can finish after the initial clear but before
+            // restoration commits. Invalidate that whole interval as well.
+            readViews.clear();
         }
     }
 

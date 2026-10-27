@@ -394,6 +394,45 @@ test("home and assets show saved balances with no forecast read and no duplicate
   expect(reads.filter(path=>path==="/api/v1/home/ledger")).toHaveLength(1);
 });
 
+test("home and assets label a saved balance until the current ledger is verified",async({page},info)=>{
+  if(!process.env.STOCKAI_ANDROID_UI)await page.setViewportSize({width:320,height:800});
+  const fresh=adoptedPayloads(null)["/api/v1/home"] as {portfolio:Record<string,unknown>};
+  const saved={...fresh,portfolio:{...fresh.portfolio,totalAssets:"610000"}};
+  await page.evaluate(({saved})=>{
+    const surface=window as unknown as {Capacitor:{nativePromise:(plugin:string,method:string,options?:{path?:string})=>Promise<unknown>}};
+    const original=surface.Capacitor.nativePromise;
+    surface.Capacitor.nativePromise=async(plugin,method,options)=>{
+      if(method==="readSavedView" && options?.path==="/api/v1/home/ledger")return {available:true,readOnly:true,savedAt:"2026-10-26T10:00:00Z",body:saved};
+      return original(plugin,method,options);
+    };
+  },{saved});
+  const finishes:(()=>Promise<void>)[]=[];
+  await page.route("**/api/v1/home/ledger",route=>{finishes.push(()=>route.fulfill({json:fresh}));});
+  await page.goto("http://127.0.0.1:5196/#/");
+  await expect(page.getByRole("region",{name:"資産残高"})).toContainText("610,000");
+  await expect(page.getByText(/保存済み表示・閲覧用/)).toBeVisible();
+  await expect.poll(()=>finishes.length).toBe(1);
+  if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath("home-saved-ledger.png"),await activeDevice!.screenshot());
+  else await page.screenshot({path:info.outputPath("home-saved-ledger.png")});
+  await finishes.shift()!();
+  await expect(page.getByRole("region",{name:"資産残高"})).toContainText("600,000");
+  await expect(page.getByText(/保存済み表示・閲覧用/)).toHaveCount(0);
+  await page.getByRole("link",{name:"資産を管理 ›",exact:true}).click();
+  await expect(page.getByText(/保存済み表示・閲覧用/)).toBeVisible();
+  await expect(page.locator(".subscreen")).toContainText("610,000");
+  await expect.poll(()=>finishes.length).toBe(1);
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  await finishes.shift()!();
+  await expect(page.locator(".subscreen")).toContainText("600,000");
+  await expect(page.getByText(/保存済み表示・閲覧用/)).toHaveCount(0);
+  await page.goto("http://127.0.0.1:5196/#/settings?edit=conditions");
+  await expect(page.getByText(/保存済み表示・閲覧用/)).toBeVisible();
+  await expect.poll(()=>finishes.length).toBe(1);
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  await finishes.shift()!();
+  await expect(page.getByText(/保存済み表示・閲覧用/)).toHaveCount(0);
+});
+
 test("saved ranking is visible while the expensive current read is still pending",async({page},info)=>{
   const ranking=adoptedPayloads(null)["/api/v1/mobile/ranking/5d"];
   await page.evaluate(({ranking})=>{

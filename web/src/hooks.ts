@@ -36,7 +36,7 @@ export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = 
       setResult(previous => previous.path === path
         ? previous : { path, activation, value: null });
       const canPreview = isAndroid() && typeof StockAI.readSavedView === "function"
-          && /^(\/api\/v1\/(home|today)|\/api\/v1\/mobile\/ranking\/(5d|20d)|\/api\/v1\/ranking\?rankType=(overall|5d|20d|morning)&limit=50|\/api\/v1\/stocks\/[A-Z0-9]{1,10}|\/api\/v1\/validation\?mode=(paper|live|historical))$/.test(path);
+          && /^(\/api\/v1\/(home(?:\/ledger)?|today)|\/api\/v1\/mobile\/ranking\/(5d|20d)|\/api\/v1\/ranking\?rankType=(overall|5d|20d|morning)&limit=50|\/api\/v1\/stocks\/[A-Z0-9]{1,10}|\/api\/v1\/validation\?mode=(paper|live|historical))$/.test(path);
       let dispatched = false;
       const fresh = (): void => {
         if (dispatched) return;

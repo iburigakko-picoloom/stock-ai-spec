@@ -15,6 +15,43 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class SavedReadViewsTest {
+    @Test public void hashHexEncodingPreservesLeadingZerosAndUnsignedBytes() {
+        assertEquals("",StockAIPlugin.hex(new byte[0]));
+        assertEquals("00010f107f80feff",StockAIPlugin.hex(new byte[]{0,1,15,16,127,(byte)128,(byte)254,(byte)255}));
+        byte[] all=new byte[256]; for(int i=0;i<all.length;i++)all[i]=(byte)i;
+        StringBuilder expected=new StringBuilder();
+        for(int i=0;i<256;i++)expected.append(String.format(java.util.Locale.ROOT,"%02x",i));
+        assertEquals(expected.toString(),StockAIPlugin.hex(all));
+    }
+    @Test public void aReadStartedBeforeClearCannotScheduleAHomeLedgerCopy() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "home-epoch-" + System.nanoTime());
+        List<Runnable> jobs = new ArrayList<>();
+        SavedReadViews views = new SavedReadViews(dir, jobs::add);
+        try {
+            String result = new JSONObject().put("status",200).put("body",new JSONObject().put("cash","synthetic")).toString();
+            long old = views.epoch();
+            views.clear();
+            views.saveAsyncIfUnchanged("/api/v1/home/ledger", result, 1, old);
+            assertTrue("A pre-clear read must not queue a copy", jobs.isEmpty());
+            long current = views.epoch();
+            views.saveAsyncIfUnchanged("/api/v1/home/ledger", result, 2, current);
+            assertEquals(1, jobs.size());
+            views.clear();
+            jobs.remove(0).run();
+            assertFalse("A pre-clear queued copy must not return", views.read("/api/v1/home/ledger").getBoolean("available"));
+            views.saveAsyncIfUnchanged("/api/v1/home/ledger", result, 3, views.epoch());
+            jobs.remove(0).run();
+            assertTrue(views.read("/api/v1/home/ledger").getBoolean("readOnly"));
+            views.clear(); // Restore starts and concurrent native reads may still see the old state.
+            long duringRestore = views.epoch();
+            views.saveAsyncIfUnchanged("/api/v1/home/ledger", result, 3, duringRestore);
+            views.clear(); // Restore finishes and invalidates the entire interval.
+            jobs.remove(0).run();
+            views.saveAsyncIfUnchanged("/api/v1/home/ledger", result, 3, duringRestore);
+            assertTrue("A read completing after restore must not schedule an old copy", jobs.isEmpty());
+            assertFalse(views.read("/api/v1/home/ledger").getBoolean("available"));
+        } finally { views.clear(); dir.delete(); }
+    }
     @Test public void deferredCopiesRespectClearsAndLatestResponseOrdering() throws Exception {
         File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "deferred-views-" + System.nanoTime());
         List<Runnable> jobs = new ArrayList<>();

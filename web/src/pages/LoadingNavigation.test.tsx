@@ -38,6 +38,13 @@ test("assets never claims empty holdings while the ledger is unconfirmed",()=>{
   expect(screen.queryByText("保存済みの保有株はありません。")).not.toBeInTheDocument();
 });
 
+test("asset management labels a saved ledger while checking the current state",()=>{
+  vi.mocked(useApiData).mockReturnValue({...result({portfolio:null,holdings:[]},true),savedAt:"2026-01-01T00:00:00Z"});
+  render(<MemoryRouter><AssetManagementPage /></MemoryRouter>);
+  expect(screen.getByRole("status")).toHaveTextContent("保存済み表示・閲覧用");
+  expect(screen.getByRole("status")).toHaveTextContent("更新を確認中");
+});
+
 test("trade history remains visible while refreshing and disappears on verification failure",()=>{
   const records=[{execution_id:"saved",executed_at:"2026-10-26T09:00:00Z",symbol:"7203",account_bucket_id:"bucket",side:"BUY",status:"filled",ordered_shares:100,filled_shares:100,average_fill_price:"1000",actual_commission:"0",actual_other_cost:"0",tax_withheld:"0"}];
   vi.mocked(useApiData).mockReturnValue(result({records,appliedIds:["saved"]},true));

@@ -50,7 +50,7 @@ final class SavedReadViews {
     SavedReadViews(File directory, Executor writer) { this(directory, writer, LocalStateStore::decrypt); }
     SavedReadViews(File directory, Executor writer, Decoder decoder) { this.directory = directory; this.writer = writer; this.decoder = decoder; }
     static boolean allowed(String path) {
-        return path != null && (path.equals("/api/v1/home") || path.equals("/api/v1/today")
+        return path != null && (path.equals("/api/v1/home") || path.equals("/api/v1/home/ledger") || path.equals("/api/v1/today")
             || path.equals("/api/v1/mobile/portfolio")
             || path.matches("/api/v1/mobile/ranking/(5d|20d)")
             || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}")
@@ -75,6 +75,10 @@ final class SavedReadViews {
         catch (Exception error) { if (stream != null) target.failWrite(stream); throw error; }
     }
     /** Queue only an optional encrypted display copy; the authoritative response never waits for it. */
+    synchronized long epoch() { return epoch; }
+    synchronized void saveAsyncIfUnchanged(String path, String result, long generation, long observedEpoch) {
+        if (epoch == observedEpoch) saveAsync(path, result, generation);
+    }
     synchronized void saveAsync(String path, String result, long generation) {
         if (!allowed(path)) return;
         long capturedEpoch = epoch, ticket = ++nextTicket;

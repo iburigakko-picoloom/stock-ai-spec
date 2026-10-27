@@ -28,6 +28,35 @@ test("saved display arrives while authoritative computation is pending, then is 
   expect(result.current.savedAt).toBeNull();
 });
 
+test("Android home ledger shows a labeled historical copy only until fresh verification", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({available:true,readOnly:true,savedAt:"2026-01-01T00:00:00Z",body:{balance:"old"}});
+  const {result}=renderHook(()=>useApiData("/api/v1/home/ledger"));
+  await waitFor(()=>expect(result.current.data).toEqual({balance:"old"}));
+  expect(result.current.savedAt).toBe("2026-01-01T00:00:00Z");
+  expect(result.current.loading).toBe(true);
+  await waitFor(()=>expect(apiGet).toHaveBeenCalledWith("/api/v1/home/ledger"));
+  await act(async()=>finish({balance:"current"}));
+  expect(result.current.data).toEqual({balance:"current"});
+  expect(result.current.savedAt).toBeNull();
+});
+
+test("failed home ledger verification removes its historical display", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let fail!: (reason: Error) => void;
+  vi.mocked(apiGet).mockReturnValue(new Promise((_resolve,reject) => {fail=reject;}));
+  vi.mocked(StockAI.readSavedView).mockResolvedValue({available:true,readOnly:true,savedAt:"2026-01-01T00:00:00Z",body:{balance:"old"}});
+  const {result}=renderHook(()=>useApiData("/api/v1/home/ledger"));
+  await waitFor(()=>expect(result.current.data).toEqual({balance:"old"}));
+  await waitFor(()=>expect(apiGet).toHaveBeenCalledWith("/api/v1/home/ledger"));
+  await act(async()=>fail(new Error("検証失敗")));
+  expect(result.current.data).toBeNull();
+  expect(result.current.savedAt).toBeNull();
+  expect(result.current.error).toBe("検証失敗");
+});
+
 test("late saved display cannot overwrite fresh data and is never read for decision routes", async () => {
   vi.mocked(isAndroid).mockReturnValue(true);
   let resolve!: (value: { available: boolean; readOnly: boolean; savedAt: string; body: unknown }) => void;

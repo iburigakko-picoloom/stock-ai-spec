@@ -1,13 +1,13 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useApiData } from "../hooks";
-import { currency as yen } from "../components";
+import { currency as yen, dateTime } from "../components";
 import { Field, KV, SettingGroup } from "../Adopted";
 import type { HomeResponse } from "../types";
 import { isAndroid } from "./native";
 
 export function AllocationReadout() {
-  const {data}=useApiData<HomeResponse>(isAndroid() ? "/api/v1/home/ledger" : "/api/v1/home");
-  return <><KV label="株式時価" value={yen(data?.portfolio?.equityValue)} /><KV label="現金（投資上限の対象外）" value={yen(data?.portfolio?.cashValue)} /></>;
+  const {data,loading,savedAt,error}=useApiData<HomeResponse>(isAndroid() ? "/api/v1/home/ledger" : "/api/v1/home");
+  return <>{error ? <p role="alert" className="setting-footnote">資産残高を確認できません。</p> : loading && <p role="status" className="setting-footnote">{data ? savedAt ? `${dateTime(savedAt,true)} JSTの保存済み表示・閲覧用。更新を確認中…` : "前回の表示です・更新を確認中…" : "資産残高を確認中…"}</p>}<KV label="株式時価" value={yen(data?.portfolio?.equityValue)} /><KV label="現金（投資上限の対象外）" value={yen(data?.portfolio?.cashValue)} /></>;
 }
 interface PolicyData {
   capital?: { minimumCashRatio: string | null };

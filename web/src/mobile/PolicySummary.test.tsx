@@ -15,6 +15,18 @@ test.each([true,false])("allocation uses the correct ledger source on Android=%s
   expect(screen.getByText("¥5,678")).toBeVisible();
 });
 
+test("allocation labels historical balances and reports failed verification",()=>{
+  vi.mocked(isAndroid).mockReturnValue(true);
+  vi.mocked(useApiData).mockReturnValue({data:{portfolio:{equityValue:"1234",cashValue:"5678"}},error:null,loading:true,savedAt:"2026-01-01T00:00:00Z",reload:vi.fn()});
+  const view=render(<AllocationReadout />);
+  expect(screen.getByRole("status")).toHaveTextContent("保存済み表示・閲覧用");
+  expect(screen.getByText("¥1,234")).toBeVisible();
+  vi.mocked(useApiData).mockReturnValue({data:null,error:"整合性エラー",loading:false,savedAt:null,reload:vi.fn()});
+  view.rerender(<AllocationReadout />);
+  expect(screen.getByRole("alert")).toHaveTextContent("資産残高を確認できません。");
+  expect(screen.queryByText("¥1,234")).not.toBeInTheDocument();
+});
+
 
 test("conditions share one settings read across all three policy sections", () => {
   vi.mocked(useApiData).mockReturnValue({ data: {

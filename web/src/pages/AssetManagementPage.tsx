@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { PageHeader, StatePanel, currency as yen } from "../components";
+import { PageHeader, StatePanel, dateTime, currency as yen } from "../components";
 import { KV } from "../Adopted";
 import { useApiData } from "../hooks";
 import type { HomeResponse } from "../types";
@@ -14,8 +14,8 @@ export function AssetManagementPage() {
 }
 
 function AssetBody() {
-  const {data,error,loading}=useApiData<HomeResponse>(isAndroid() ? "/api/v1/home/ledger" : "/api/v1/home");
-  return <div className="subscreen stack"><AssetOverview data={data} error={error} loading={loading} /><nav className="subgrid" aria-label="資産の管理">
+  const {data,error,loading,savedAt}=useApiData<HomeResponse>(isAndroid() ? "/api/v1/home/ledger" : "/api/v1/home");
+  return <div className="subscreen stack">{loading && data && <p role="status" className="setting-footnote">{savedAt ? `${dateTime(savedAt, true)} JSTの保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}<AssetOverview data={data} error={error} loading={loading} /><nav className="subgrid" aria-label="資産の管理">
       <Link className="button button--secondary" to="/assets/cash">現金残高の変更</Link>
       <Link className="button button--secondary" to="/holdings">保有の訂正</Link>
       <Link className="button button--secondary" to="/holdings?initial=1">初回資産登録</Link>
