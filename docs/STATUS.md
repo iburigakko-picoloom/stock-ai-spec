@@ -11,7 +11,7 @@
 ## 2026-10-27 — 台帳検証時のハッシュ表記を改善・検証中
 
 - 保有・約定等の整合性確認で繰り返すSHA-256の16進変換について、1バイトごとの書式処理を固定の文字表への参照に変更。SHA-256自体や検証・データ形式は変更しない。元の実装を比較に使い、全256バイト・既知のSHA-256・乱数2,000件の一致をJVMで確認。PC上の合成32バイト×2,000件・3回では旧68.78〜103.98ms、新0.89〜1.04ms。実端末、SQLite、画面描画は含まない。試験コードは `.demo-artifacts/hex-bench`、Androidでの全バイト回帰試験を追加したが実行は未了。
-- 前回のAVDとは別に新しい試験専用AVDを作成したが、こちらもエミュレーターprocessが停止状態のままADB接続前。製品変更は未コミット、署名更新・Drive/GitHub反映なし。
+- 前回のAVDとは別に新しい試験専用AVDを作成したが、こちらもエミュレーターprocessが停止状態のままADB接続前。変更はAndroid検証待ちとしてローカルにcheckpoint保存。署名更新・Drive/GitHub反映なし。
 
 ## 2026-10-27 — ホームの閲覧copyを試作・検証中
 
@@ -19,7 +19,7 @@
 - 画面側20件、型・ESLint成功。復元完了時の無効化を含むAndroid debug APK/test APKのビルド成功。別途、製品 `SavedReadViews` と試験用AES-GCM・試験用ファイル/bridgeを使ったJVM合成試験で、消去前読取・消去前書込・同一pathの後勝ち・閲覧用・改ざん・復号中の消去と復元区間のcopy無効化を確認。製品 `NativePortfolioReader` についても合成archiveと試験用SQLite/Android部品で、正本応答を待たずcopyを非同期保存、読取中/直後の世代変更、消去中の読取、破損元の拒否とcopy消去を確認。初回コンパイルは試験用bridgeのboolean overload不足で失敗し、stub修正後に成功。試験コードは `.demo-artifacts/home-preview-jvm` に保持。Android固有Keystore/AtomicFile・実SQLiteと実台帳の競合試験は含まない。
 - ブラウザー幅320pxでAndroid bridgeを模した合成応答を使い、ホーム・資産管理の両方で閲覧copyを先に表示し、正本応答後に残高と注意書きが切り替わることを確認。配布用Web build成功、配布用ビルドのホーム/資産管理・取引入力・保存済みランキングのブラウザー4件成功。ブラウザーと合成データであり、実機速度・Android固有の保存方式の確認ではない。
 - 同じ台帳を使う設定の資金配分でも、保存済み表示・再確認中・失敗を明示するよう追加。設定/処理状況のUI6件、型・ESLint成功。320pxブラウザーでホーム→資産管理→設定の注意表示と更新後の切替を確認（1件成功、開発用ビルド・合成bridge）。前記の配布用ビルドはこの追加前の結果。
-- 専用エミュレーターは起動処理が生存しているがADBがoffline、QEMU threadsがsuspendedのためAndroid instrumentation未実行。実装は検証途中で未コミット。本人端末の実速度・署名更新APK・Drive/GitHub反映は未実施。
+- 専用エミュレーターは起動処理が生存しているがADBがoffline、QEMU threadsがsuspendedのためAndroid instrumentation未実行。実装は検証待ちとしてローカルにcheckpoint保存。本人端末の実速度・署名更新APK・Drive/GitHub反映は未実施。
 
 ## 2026-10-27 — 取引履歴の反映状態照合を削減（D289）
 
