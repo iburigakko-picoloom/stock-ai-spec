@@ -2,6 +2,7 @@
 
 - Androidの取引・残高履歴に、確認済みの暗号化された閲覧copyを先に出し、保存時刻と閲覧用を明示する。正本確認後に切り替え、失敗・復元競合時は古いcopyを拒否。保存時点で空だった場合は現在も空と断定しない。以前選んだ取引が最新結果から消えた場合、別の取引を選択したように見せず、一覧から再選択できる。
 - 直接読取のcopyでは以前、正本を返す前にJSON全体を文字列化していた。copy元の弱参照を容量制限付きwriterへ渡し、サイズの保守的見積り・JSON化・暗号化を背景で行う。2MiB超・複雑すぎるcopyは省略し古い対象copyを削除、回収済み・混雑時はcopyを省略できる。正本への書込や金融計算には使わない。
+- PC JVMの合成取引5,000件（約664K文字）の6回では、正本側のcopy受付/JSON化は変更前5.77〜16.66ms、変更後0.012〜0.122msで、背景copy内容も一致。これは呼出し側の処理のみで、暗号化・通信・描画・Android実機は含まない。合成fixtureと再現コードは `.demo-artifacts/history-preview-jvm` と `.demo-artifacts/history-preview-fixtures-20261027`。
 - 関連UI37件、型チェック・ESLint、Android `lintDebug`・本体/試験APK compile成功。Android bridgeを模した320pxブラウザーで両履歴の保存済み表示→正本切替1件成功。製品Javaを使うPC上の合成JVM検証では、両pathの背景copy・世代/復元の柵・破損拒否・取引入力の除外・背景処理の停滞とサイズ超過の扱い、実契約の合成3応答の往復を確認。AES・Android SQLite等はstubであり、Android Keystoreや端末上の競合を証明しない。Android専用の追加試験はcompile済みだが、ローカル端末はofflineで実行未了。本人端末・実データの速度、更新APK・Drive反映も未確認。実注文なし。
 
 ## 2026-10-27 — 進捗と自動更新の復帰時読取を集約（D299）
