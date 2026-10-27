@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { isAndroid, StockAI, type AnalysisStatus } from "./native";
+import { listenForForegroundRefresh } from "./foregroundRefresh";
 
 function blockedReason(codes: string[]) {
   const code = codes[0] ?? "";
@@ -27,12 +28,10 @@ export function AnalysisProgress({ busy = false }: { busy?: boolean }) {
         if (alive && pendingFocus) { pendingFocus = false; refresh(); }
       });
     };
-    const onFocus = (): void => refresh(true);
     refresh();
     const timer = window.setInterval(() => refresh(), 1000);
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-    return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus); };
+    const stopForeground = listenForForegroundRefresh(() => refresh(true));
+    return () => { alive = false; window.clearInterval(timer); stopForeground(); };
   }, []);
   if (!busy && !["running", "interrupted", "blocked"].includes(status?.state ?? "")) return null;
   const percent = status?.percent;

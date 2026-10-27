@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAndroid, StockAI, type DailyStatus } from "./native";
 import { AnalysisProgress } from "./AnalysisProgress";
 import { Link } from "react-router-dom";
+import { listenForForegroundRefresh } from "./foregroundRefresh";
 
 export function DailyStatusLink() {
   const { status, message } = useDailyAutomation();
@@ -54,12 +55,10 @@ export function useDailyAutomation() {
           if (active && pendingFocus) { pendingFocus = false; refresh(); }
         });
     };
-    const onFocus = (): void => refresh(true);
     refresh();
     const timer = window.setInterval(() => refresh(), 15000);
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus); };
+    const stopForeground = listenForForegroundRefresh(() => refresh(true));
+    return () => { active = false; window.clearInterval(timer); stopForeground(); };
   }, []);
   async function change(start: boolean): Promise<void> {
     if (changing.current) return;

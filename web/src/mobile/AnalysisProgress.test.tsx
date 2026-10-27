@@ -1,9 +1,23 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { AnalysisProgress } from "./AnalysisProgress";
-import { StockAI } from "./native";
+import { StockAI, type AnalysisStatus } from "./native";
 vi.mock("./native", () => ({ isAndroid: () => true, StockAI: { analysisStatus: vi.fn() } }));
 afterEach(cleanup);
+test("one foreground return causes one progress read", async () => {
+  let finish!: (value: AnalysisStatus) => void;
+  vi.mocked(StockAI.analysisStatus).mockReset().mockResolvedValueOnce({ state: "idle" })
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+    .mockResolvedValue({ state: "idle" });
+  render(<AnalysisProgress />);
+  await waitFor(() => expect(StockAI.analysisStatus).toHaveBeenCalledTimes(1));
+  await act(async () => { await Promise.resolve(); });
+  act(() => { document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); });
+  await waitFor(() => expect(StockAI.analysisStatus).toHaveBeenCalledTimes(2));
+  await act(async () => finish({ state: "running", percent: 32 }));
+  expect(StockAI.analysisStatus).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(/32%/)).toBeVisible();
+});
 test("missing old reasons do not send the user to another copy of this screen", async () => {
   vi.mocked(StockAI.analysisStatus).mockResolvedValue({ state: "blocked" });
   render(<AnalysisProgress />);
@@ -57,6 +71,7 @@ test("a slow progress read does not enqueue polls and focus requests one follow-
     .mockResolvedValue({ state: "running", percent: 32 });
   const view = render(<AnalysisProgress />);
   await act(async () => { await vi.advanceTimersByTimeAsync(10_000); window.dispatchEvent(new Event("focus")); window.dispatchEvent(new Event("focus")); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(16); });
   expect(StockAI.analysisStatus).toHaveBeenCalledTimes(1);
   await act(async () => { finish({ state: "idle" }); });
   expect(StockAI.analysisStatus).toHaveBeenCalledTimes(2);
@@ -77,7 +92,7 @@ test("backgrounding pauses progress polling and foregrounding refreshes it", asy
   await act(async () => { document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(10_000); });
   expect(StockAI.analysisStatus).toHaveBeenCalledTimes(1);
   visibility = "visible";
-  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(16); });
   expect(StockAI.analysisStatus).toHaveBeenCalledTimes(2);
   view.unmount(); visible.mockRestore(); vi.useRealTimers();
 });

@@ -17,6 +17,19 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+test("one foreground return causes one daily status read", async () => {
+  let finish!: (value: typeof idle) => void;
+  vi.mocked(StockAI.dailyStatus).mockResolvedValueOnce(idle)
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<DailyPanel />);
+  await screen.findByText("未開始");
+  act(() => { document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); });
+  await waitFor(() => expect(StockAI.dailyStatus).toHaveBeenCalledTimes(2));
+  await act(async () => finish({ ...idle, enabled: true, state: "history" }));
+  expect(StockAI.dailyStatus).toHaveBeenCalledTimes(2);
+  expect(screen.getByText("履歴を取得しています")).toBeVisible();
+});
+
 test.each([["history", 0], ["forecast_saved", 2], ["deciding", 2], ["numerical_saved", 3], ["research_running", 3]] as const)("%s reports completed stages rather than elapsed-time percent", (state, done) => {
   render(<DailyControls status={{ ...idle, enabled: true, state }} busy={false} message="" onChange={vi.fn()} />);
   expect(screen.getByRole("progressbar")).toHaveAttribute("value", String(done));
@@ -79,6 +92,7 @@ test("an older status read cannot overwrite an acknowledged stop", async () => {
   const stop = await screen.findByRole("button", { name: "自動処理を停止" });
   await waitFor(() => expect(stop).toBeEnabled());
   await act(async () => { window.dispatchEvent(new Event("focus")); });
+  await waitFor(() => expect(StockAI.dailyStatus).toHaveBeenCalledTimes(2));
   fireEvent.click(stop);
   await screen.findByRole("button", { name: "続きから再開" });
   await act(async () => { finishOldRead(running); });
@@ -102,6 +116,7 @@ test("slow daily status reads do not queue repeated polling and focus coalesces"
     .mockResolvedValue({ ...idle, enabled: true, state: "history" });
   const view = render(<DailyPanel />);
   await act(async () => { await vi.advanceTimersByTimeAsync(60_000); window.dispatchEvent(new Event("focus")); window.dispatchEvent(new Event("focus")); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(16); });
   expect(StockAI.dailyStatus).toHaveBeenCalledTimes(1);
   await act(async () => { finish(idle); });
   expect(StockAI.dailyStatus).toHaveBeenCalledTimes(2);
@@ -121,7 +136,7 @@ test("backgrounding pauses daily status polling until the app is visible", async
   await act(async () => { document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(60_000); });
   expect(StockAI.dailyStatus).toHaveBeenCalledTimes(1);
   visibility = "visible";
-  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(16); });
   expect(StockAI.dailyStatus).toHaveBeenCalledTimes(2);
   view.unmount(); visible.mockRestore(); vi.useRealTimers();
 });

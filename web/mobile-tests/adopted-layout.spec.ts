@@ -109,6 +109,17 @@ const screens = [
   ["performance-analysis", "/validation/details", "詳細分析"], ["research-history", "/stocks/1234/research", "調査履歴"],
 ];
 
+test("returning to home requests daily status once for one foreground event burst", async ({page}) => {
+  await page.goto("/");
+  await expect(page.locator(".header-status")).toBeVisible();
+  const count = () => page.evaluate(() => (window as unknown as {__settingsCalls:{method:string}[]}).__settingsCalls.filter(call => call.method === "dailyStatus").length);
+  const before = await count();
+  await page.evaluate(() => { document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); });
+  await expect.poll(count).toBe(before + 1);
+  await page.waitForTimeout(200);
+  expect(await count()).toBe(before + 1);
+});
+
 test("settings keeps its content while all five tabs share adopted navigation",async({page},info)=>{
   test.setTimeout(90_000);
   const properties=["fontFamily","fontSize","lineHeight","paddingTop","paddingRight","paddingBottom","paddingLeft","borderRadius","backgroundColor"];
