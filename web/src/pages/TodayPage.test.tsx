@@ -21,6 +21,17 @@ const data: TodayResponse = {
 function response(value: TodayResponse, loading = false) {
   vi.mocked(useApiData).mockReturnValue({ data: value, loading, savedAt: null, error: null, reload: vi.fn() });
 }
+test("today exposes trade entry while its first read is stalled or has failed", () => {
+  vi.mocked(useApiData).mockReturnValue({data:null,loading:true,error:null,savedAt:null,reload:vi.fn()});
+  const view=render(<MemoryRouter><TodayPage /></MemoryRouter>);
+  expect(screen.getByText("今日の状態を確認しています")).toBeVisible();
+  expect(screen.getByRole("link",{name:/取引を記録/})).toHaveAttribute("href","/today/executions?manual=1");
+  expect(screen.queryByRole("link",{name:/判断を確認/})).not.toBeInTheDocument();
+  vi.mocked(useApiData).mockReturnValue({data:null,loading:false,error:"取得失敗",savedAt:null,reload:vi.fn()});
+  view.rerender(<MemoryRouter><TodayPage /></MemoryRouter>);
+  expect(screen.getByText("取得失敗")).toBeVisible();
+  expect(screen.getByRole("link",{name:/取引を記録/})).toBeVisible();
+});
 test("previous saved analysis stays read-only through refresh and switches with new archive", () => {
   response(data);
   const view = render(<MemoryRouter><TodayPage /></MemoryRouter>);

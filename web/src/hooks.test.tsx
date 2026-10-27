@@ -176,3 +176,22 @@ test("input pages disable periodic and focus refresh while explicit reload still
     expect(apiGet).toHaveBeenCalledTimes(2);
   } finally { vi.useRealTimers(); }
 });
+
+test("disabled reads never start, and re-enabling discards an obsolete result", async () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiGet).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  const view = renderHook(({ enabled }) => useApiData("/hidden", { enabled }), { initialProps: { enabled: false } });
+  expect(apiGet).not.toHaveBeenCalled();
+  expect(view.result.current.loading).toBe(false);
+  view.rerender({ enabled: true });
+  expect(apiGet).toHaveBeenCalledTimes(1);
+  view.rerender({ enabled: false });
+  await act(async () => finish({ obsolete: true }));
+  expect(view.result.current.data).toBeNull();
+  vi.mocked(apiGet).mockResolvedValueOnce({ current: true });
+  view.rerender({ enabled: true });
+  expect(view.result.current.data).toBeNull();
+  await waitFor(() => expect(view.result.current.data).toEqual({ current: true }));
+  expect(apiGet).toHaveBeenCalledTimes(2);
+});

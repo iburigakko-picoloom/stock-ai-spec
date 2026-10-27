@@ -441,3 +441,23 @@ test("manual trade is available without a saved judgment and fits narrow Android
   await expect(page.getByRole("status")).toContainText("約定した株数と金額だけ");
   await expect(page.getByRole("button",{name:"記録済み"})).toBeDisabled();
 });
+
+test("trade entry is reachable while today remains blocked on its first read", async ({page})=>{
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  let requested=false;
+  await page.route("**/api/v1/today",async route=>{
+    requested=true;
+    await gate;
+    await route.fulfill({json:adoptedPayloads({})["/api/v1/today"]});
+  });
+  await page.route("**/api/v1/execution-entry-context",route=>route.fulfill({json:{portfolioId:"synthetic",asOf:"2026-10-01T09:00:00+09:00",accountLabels:{bucket:"試験口座"},holdings:[]}}));
+  try {
+    await page.goto("http://127.0.0.1:5196/#/today");
+    await expect.poll(()=>requested).toBe(true);
+    await expect(page.getByText("今日の状態を確認しています")).toBeVisible();
+    await page.getByRole("link",{name:/取引を記録/}).click();
+    await expect(page.getByLabel("銘柄コード")).toBeVisible();
+    expect(requested).toBe(true);
+  } finally {release();}
+});

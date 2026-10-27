@@ -4,9 +4,11 @@ import { afterEach, expect, test, vi } from "vitest";
 import { CompanyResearchPanel } from "./CompanyResearchPanel";
 import type { ResearchRecord, ResearchRunView } from "./chatgpt";
 import type { StockDetail } from "../types";
+import { isAndroid } from "./native";
 
-vi.mock("./native", () => ({ isAndroid: () => false, StockAI: {} }));
-afterEach(cleanup);
+vi.mock("./native", () => ({ isAndroid: vi.fn(() => false), StockAI: {} }));
+vi.mock("./chatgpt", async (original) => ({...await original<typeof import("./chatgpt")>(), ChatGPT: {getStatus: vi.fn().mockResolvedValue({planEnabled:true,selection:{model:"synthetic-model",effort:"high"}})}}));
+afterEach(() => {cleanup();vi.mocked(isAndroid).mockReturnValue(false);});
 const context = { prediction_snapshot_id: "snapshot", symbol: "A", company_name: "試験会社", numerical_as_of: "2026-10-16T11:30:00+09:00",
   research_as_of: "2026-10-16T11:35:00+09:00", configuration: { model: "synthetic-model", effort: "high" as const, prompt_version: "v1" }, revision: 1 };
 const first = { pass_id: "first", context, phase: "independent" as const, served_model: "synthetic-model", started_at: context.research_as_of,
@@ -44,4 +46,12 @@ test("earlier judgments remain accessible in history after a new revision", () =
   const history = screen.getByText("調査履歴・再調査").closest("section")!;
   expect(within(history).getByText(first.text)).toBeVisible();
   expect(within(history).getByText(second.text)).toBeVisible();
+});
+
+test("an in-progress research job cannot be acted on while its saved view is unverified", () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  const view: ResearchRunView = { run: { run_id: "run", context }, passes: [], attempts: [{status:"running"} as ResearchRunView["attempts"][number]], record: null };
+  render(<MemoryRouter><CompanyResearchPanel symbol="A" forecast={forecast} runs={[view]} records={[]} onChanged={vi.fn()} readOnly /></MemoryRouter>);
+  expect(screen.getByRole("button",{name:"実行状況を確認"})).toBeDisabled();
+  expect(screen.queryByRole("button",{name:"この連携先の条件確認を保存"})).not.toBeInTheDocument();
 });

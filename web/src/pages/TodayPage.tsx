@@ -59,7 +59,7 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
 export function TodayPage(): ReactNode {
   const detailed = useLocation().pathname === "/today/details";
   const { data, error, loading, savedAt, reload } = useApiData<TodayResponse>("/api/v1/today");
-  if ((loading && !data) || error || !data) return <div className="page"><PageHeader eyebrow="毎日の投資判断" title="今日" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} /></div>;
+  if ((loading && !data) || error || !data) return <div className="page today-page"><PageHeader title={detailed ? "提案の計算詳細" : "今日"} backTo={detailed ? "/today" : undefined} /><div className="screen-today"><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} />{!detailed && <div className="today-actions"><div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions?manual=1">取引を記録 ＋</Link></div><Link className="quiet-link" to="/today/details">詳細・更新状況</Link></div>}</div></div>;
   const previous = isAndroid() && (loading || !!savedAt);
   const proposal = (!previous && (loading || data.isStale)) ? null : data.proposal;
   const visible = proposal?.lines

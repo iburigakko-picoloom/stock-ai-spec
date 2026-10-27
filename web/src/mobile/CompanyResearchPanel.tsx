@@ -22,11 +22,11 @@ function Findings({ value }: { value: ResearchPass }) {
 }
 
 export function CompanyResearchPanel({
-  symbol, forecast, runs = [], records = [], onChanged,
+  symbol, forecast, runs = [], records = [], onChanged, readOnly = false,
 }: {
   symbol: string; forecast: StockDetail["forecast"];
   runs: StockDetail["researchRuns"]; records: StockDetail["chatgptResearch"];
-  onChanged: () => void;
+  onChanged: () => void; readOnly?: boolean;
 }) {
   const [status, setStatus] = useState<ChatGPTStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,11 +52,11 @@ export function CompanyResearchPanel({
   const savedRecords = [...records, ...allRuns.flatMap(item => item.record ? [item.record] : [])];
   const latestRecord = historyId ? savedRecords.find(record=>record.research_id === historyId) ?? allRuns.find(item=>item.run.run_id === historyId)?.record : matching?.record ?? savedRecords.sort((a, b) => Date.parse(a.comparison.completed_at) - Date.parse(b.comparison.completed_at)).at(-1);
   const partial = current?.record ? null : current?.passes.find(item => item.phase === "independent");
-  const enabled = android && !!status?.planEnabled && !!selection?.model && !!forecast?.researchEligible
+  const enabled = !readOnly && android && !!status?.planEnabled && !!selection?.model && !!forecast?.researchEligible
     && !forecast.isStale;
 
   async function perform(rerun = false) {
-    if (!forecast) return;
+    if (!forecast || readOnly) return;
     setBusy(true); setMessage("");
     try {
       let view = running;
@@ -107,7 +107,7 @@ export function CompanyResearchPanel({
       {current && <small className="research-meta">調査設定 {current.run.context.configuration.model} · {current.run.context.configuration.effort}
         <br />調査対象時点 {researchTime(current.run.context.research_as_of)} JST</small>}
       {android && (!matching?.record || !!running) && <div className="research-actions">
-        <button className="button button--primary" disabled={busy || (!running && !enabled)} onClick={() => void perform()}>
+        <button className="button button--primary" disabled={readOnly || busy || (!running && !enabled)} onClick={() => void perform()}>
           {busy ? "調査を処理しています…" : running ? "実行状況を確認" : lastAttempt?.status === "failed" || lastAttempt?.status === "interrupted" ? "中断した段階を再試行" : partial ? "照合の続きを実行" : "ChatGPTで調査"}
         </button>
         {!status?.planEnabled || !selection?.model ? <Link className="button button--secondary" to="/settings">ChatGPTの連携設定</Link> : null}
@@ -115,6 +115,6 @@ export function CompanyResearchPanel({
 
       {android && <p className="setting-footnote">調査はChatGPTの利用枠を使います。同じ条件の保存済み結果は再利用します。</p>}
     </>}</section>
-    {android && forecast && <section className="card ad-entry"><ExternalPermissionPanel compact /></section>}
+    {android && forecast && !readOnly && <section className="card ad-entry"><ExternalPermissionPanel compact /></section>}
   </div>;
 }

@@ -1,13 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { ManualChatGPTPage } from "./ManualChatGPTPage";
 import { apiGet, apiPost } from "../api";
+import { useApiData } from "../hooks";
 
 vi.mock("../mobile/native",()=>({isAndroid:()=>true,StockAI:{}}));
-vi.mock("../hooks",()=>({useApiData:()=>({data:null,loading:false,error:null})}));
+vi.mock("../hooks",()=>({useApiData:vi.fn(()=>({data:null,loading:false,error:null}))}));
 vi.mock("../api",()=>({apiGet:vi.fn(),apiPost:vi.fn()}));
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllGlobals();});
+beforeEach(()=>vi.mocked(useApiData).mockReturnValue({data:null,loading:false,error:null,savedAt:null,reload:vi.fn()}));
 function show(path="/today/chatgpt"){render(<MemoryRouter initialEntries={[path]}><ManualChatGPTPage /></MemoryRouter>);}
 const savedInput={input_record_id:"saved-input",input_snapshot_id:"snapshot",expires_at:"2026-10-26T12:00:00+09:00",prompt:"保存済みの合成プロンプト",response_mode:"chatgpt-readable-report-v1"};
 function resumedStatus(){return {ready:true,reason:null,selected_input:savedInput.input_record_id,saved_input:savedInput,answers:[]};}
@@ -16,6 +18,7 @@ test("saved records remain readable without an import or review action",async()=
   vi.mocked(apiGet).mockResolvedValue({ready:false,reason:"期限切れ",selected_input:null,answers:[],research:[{record_id:"saved",saved_at:"2026-10-26T09:00:00Z",original_json:"保存した回答原本"}]});
   show("/today/chatgpt/history");
   expect(await screen.findByText("保存した回答原本")).toBeVisible();
+  expect(useApiData).toHaveBeenCalledWith("/api/v1/mobile/ranking/20d", { enabled: false });
   expect(screen.queryByRole("button",{name:"検証・保存"})).not.toBeInTheDocument();
   expect(screen.queryByRole("link",{name:"以前の回答を保存・検算"})).not.toBeInTheDocument();
   expect(apiPost).not.toHaveBeenCalled();
@@ -25,6 +28,7 @@ test("missing model or inputs stays blocked without an export",async()=>{
   vi.mocked(apiGet).mockResolvedValue({ready:false,reason:"原予測が未採用です",selected_input:null,answers:[]});
   show();
   expect(await screen.findByText("原予測が未採用です")).toBeVisible();
+  expect(useApiData).toHaveBeenCalledWith("/api/v1/mobile/ranking/20d", { enabled: true });
   expect(screen.getByRole("button",{name:"作成・コピー"})).toBeDisabled();
   expect(apiPost).not.toHaveBeenCalled();
 });

@@ -2,9 +2,10 @@ import { useApiData } from "../hooks";
 import { currency as yen } from "../components";
 import { Field, KV, SettingGroup } from "../Adopted";
 import type { HomeResponse } from "../types";
+import { isAndroid } from "./native";
 
 export function AllocationReadout() {
-  const {data}=useApiData<HomeResponse>("/api/v1/home");
+  const {data}=useApiData<HomeResponse>(isAndroid() ? "/api/v1/home/ledger" : "/api/v1/home");
   return <><KV label="株式時価" value={yen(data?.portfolio?.equityValue)} /><KV label="現金（投資上限の対象外）" value={yen(data?.portfolio?.cashValue)} /></>;
 }
 export function MinimumCashField() {

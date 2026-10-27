@@ -3,7 +3,7 @@ import { apiGet } from "./api";
 import { isAndroid, StockAI } from "./mobile/native";
 import { ReadViewActivation } from "./readViewActivation";
 
-export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = true }: { pollMs?: number; refreshOnFocus?: boolean } = {}): {
+export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = true, enabled = true }: { pollMs?: number; refreshOnFocus?: boolean; enabled?: boolean } = {}): {
   data: T | null; error: string | null; loading: boolean; savedAt: string | null; reload: () => void;
 } {
   const activation = useContext(ReadViewActivation);
@@ -14,6 +14,11 @@ export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = 
   const trigger = useRef<() => void>(() => undefined);
   const reload = useCallback(() => trigger.current(), []);
   useEffect(() => {
+    if (!enabled) {
+      setResult({ path, activation, value: null });
+      setError(null); setSavedAt(null); setLoading(true);
+      return;
+    }
     let active = true;
     let epoch = 0;
     let occupied = false;
@@ -105,7 +110,7 @@ export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = 
       window.removeEventListener("offline", offline);
       if (timer !== null) window.clearInterval(timer);
     };
-  }, [path, activation, pollMs, refreshOnFocus]);
-  return { data: result.path === path ? result.value : null, error, savedAt: result.path === path ? savedAt : null,
-    loading: loading || result.path !== path || result.activation !== activation, reload };
+  }, [path, activation, pollMs, refreshOnFocus, enabled]);
+  return { data: enabled && result.path === path ? result.value : null, error: enabled ? error : null, savedAt: enabled && result.path === path ? savedAt : null,
+    loading: enabled && (loading || result.path !== path || result.activation !== activation), reload };
 }

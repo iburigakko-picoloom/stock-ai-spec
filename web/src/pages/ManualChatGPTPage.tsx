@@ -32,7 +32,7 @@ export function ManualChatGPTPage(): ReactNode {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const android = isAndroid();
-  const ranking=useApiData<{asOf:string;rows:{symbol:string;companyName?:string;modelRank:number;expectedReturn:number|null}[];holdingSymbols?:string[];metrics?:Record<string,{return5d:number|null;return20d:number|null;rank20d:number|null}>}>("/api/v1/mobile/ranking/20d");
+  const ranking=useApiData<{asOf:string;rows:{symbol:string;companyName?:string;modelRank:number;expectedReturn:number|null}[];holdingSymbols?:string[];metrics?:Record<string,{return5d:number|null;return20d:number|null;rank20d:number|null}>}>("/api/v1/mobile/ranking/20d", { enabled: android && !historyOnly });
   const percentage=(value:number|null|undefined)=>value==null ? "未算出" : `${value>0 ? "+" : ""}${(value*100).toFixed(1)}%`;
   const targets=status?.current_context?.securities ?? ranking.data?.rows?.map(row=>({symbol:row.symbol,shares:status?.current_shares?.[row.symbol] ?? null,"5d":{rank:null,expected_return:ranking.data?.metrics?.[row.symbol]?.return5d ?? null},"20d":{rank:null,expected_return:ranking.data?.metrics?.[row.symbol]?.return20d ?? row.expectedReturn}})) ?? [];
   const researchHistory=status?.research ?? [];
