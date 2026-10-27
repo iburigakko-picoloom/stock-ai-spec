@@ -376,6 +376,7 @@ jobs:
             .demo-artifacts/android-upgrade/*.txt
           if-no-files-found: ignore
           retention-days: 3
+          include-hidden-files: true
       - name: Stop emulator
         if: always()
         run: |

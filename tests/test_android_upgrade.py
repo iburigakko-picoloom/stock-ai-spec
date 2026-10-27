@@ -28,6 +28,20 @@ def legacy():
     return fixture_bytes(FIXTURE.read_bytes())
 
 
+def test_failed_upgrade_instrumentation_keeps_diagnostics_and_fails(tmp_path, monkeypatch, capsys):
+    controller = UpgradeController(tmp_path / "evidence")
+    controller.guarded = True
+    monkeypatch.setattr(
+        controller, "shell", lambda *args, **kwargs: "FAILURES!!!\nsynthetic failure"
+    )
+    with pytest.raises(RuntimeError, match="instrumentation did not pass"):
+        controller.instrument_upgrade("SyntheticTest", "verify", "verify")
+    assert (controller.output / "verify.txt").read_text(
+        encoding="utf-8"
+    ) == "FAILURES!!!\nsynthetic failure"
+    assert "Upgrade phase verify instrumentation output" in capsys.readouterr().out
+
+
 @pytest.fixture
 def migrated(legacy, tmp_path, monkeypatch):
     monkeypatch.setattr(runtime, "STATE", tmp_path / "state")

@@ -252,6 +252,9 @@ class UpgradeController(Controller):
             or "FAILURES!!!" in result
             or "INSTRUMENTATION_FAILED" in result
         ):
+            # The guarded emulator contains synthetic data only. Surface the
+            # failing instrumentation output even if artifact upload fails.
+            print(f"Upgrade phase {phase} instrumentation output:\n{result}")
             raise RuntimeError("Upgrade instrumentation did not pass")
         marker = self.adb("exec-out", "run-as", PACKAGE, "cat", "files/upgrade-proof.json")
         return json.loads(marker)
