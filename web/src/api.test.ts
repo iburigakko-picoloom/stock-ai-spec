@@ -28,3 +28,11 @@ test("a native save fences reads both before and during the write",async()=>{
   finish[0]({value:0});finish[2]({value:1});finish[3]({value:2});
   expect(await before).toEqual({value:0});expect(await during).toEqual({value:1});expect(await after).toEqual({value:2});
 });
+
+
+test("a read with one caller does not deep-copy its response", async () => {
+  const clone = vi.spyOn(globalThis, "structuredClone");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ rows: [1, 2, 3] })));
+  expect(await apiGet("/single")).toEqual({ rows: [1, 2, 3] });
+  expect(clone).not.toHaveBeenCalled();
+});

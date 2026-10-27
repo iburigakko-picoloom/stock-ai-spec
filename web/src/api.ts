@@ -31,14 +31,17 @@ async function performRead<T>(path: string): Promise<T> {
 // Share concurrent reads only. A write is a barrier on both start and finish:
 // no caller after a save may reuse an earlier in-flight read.
 let writeEpoch = 0;
-const reads = new Map<string, { epoch: number; promise: Promise<unknown> }>();
+const reads = new Map<string, { epoch: number; promise: Promise<unknown>; callers: number }>();
 export function apiGet<T>(path: string): Promise<T> {
   const current = reads.get(path);
-  if (current?.epoch === writeEpoch) return current.promise.then(value => structuredClone(value) as T);
-  const entry = { epoch: writeEpoch, promise: Promise.resolve() as Promise<unknown> };
+  if (current?.epoch === writeEpoch) {
+    current.callers++;
+    return current.promise.then(value => structuredClone(value) as T);
+  }
+  const entry = { epoch: writeEpoch, promise: Promise.resolve() as Promise<unknown>, callers: 1 };
   entry.promise = performRead<T>(path).finally(() => { if (reads.get(path) === entry) reads.delete(path); });
   reads.set(path, entry);
-  return entry.promise.then(value => structuredClone(value) as T);
+  return entry.promise.then(value => entry.callers === 1 ? value as T : structuredClone(value) as T);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
