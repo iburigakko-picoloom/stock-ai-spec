@@ -186,7 +186,8 @@ def initialize(encoded: str = "") -> dict:
     forecasts.reconcile_publications(STATE / "mobile.sqlite3", _app.state.store)
     personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
     decisions.initialize(STATE / "mobile.sqlite3")
-    decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store)
+    decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store,
+                        integrity_guard=_app.state.integrity_guard)
     _app.state.integrity_guard.verify()
     return {"research_only": True, "order_submission": False}
 

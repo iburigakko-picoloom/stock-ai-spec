@@ -199,21 +199,37 @@ def _publish(path, store, value, now=None):
     return {**value, "phase": "published"}
 
 
-def reconcile(path: Path, store) -> None:
+def reconcile(path: Path, store, *, integrity_guard=None) -> None:
+    if integrity_guard is not None:
+        # A preexisting proof covers every execution. Refresh it only before
+        # taking the reusable snapshot, never during reconciliation.
+        integrity_guard.verify()
+        if not integrity_guard.proof_is_current():
+            raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
+    actual = None
     with connect(path) as db:
         rows = db.execute("SELECT run_id,scope_hash,payload,content_hash,phase "
                           "FROM mobile_decision_runs ORDER BY sequence").fetchall()
         for row in rows:
             value = _checked(row)
-            _linked_inputs(store, value)
+            if integrity_guard is not None and value["frozen_inputs"] is not None:
+                if not integrity_guard.proof_is_current():
+                    raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
+                if actual is None:
+                    actual = {x.execution_id: x for x in store.executions()}
+                if not integrity_guard.proof_is_current():
+                    raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
+            _linked_inputs(store, value, actual=actual)
             if value["phase"] == "published" and not _published_in_store(store, value):
                 raise ValueError("Published decision archive missing")
             if value["phase"] == "computed" and _published_in_store(store, value):
                 db.execute("UPDATE mobile_decision_runs SET phase='published' WHERE run_id=?",
                            (value["run_id"],))
+        if integrity_guard is not None and not integrity_guard.proof_is_current():
+            raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
 
 
-def _linked_inputs(store, value):
+def _linked_inputs(store, value, *, actual=None):
     frozen = value["frozen_inputs"]
     if frozen is None:
         return
@@ -230,7 +246,8 @@ def _linked_inputs(store, value):
         snapshot = PredictionSnapshot.model_validate(frozen["forecast"])
         if store.prediction_snapshot(snapshot.snapshot_id) != snapshot:
             raise ValueError("Frozen forecast differs from original")
-    actual = {x.execution_id: x for x in store.executions()}
+    if actual is None:
+        actual = {x.execution_id: x for x in store.executions()}
     if any(actual.get(x["execution_id"]) != ExecutionRecord.model_validate(x)
            for x in frozen["executions"]):
         raise ValueError("Frozen execution differs from original")

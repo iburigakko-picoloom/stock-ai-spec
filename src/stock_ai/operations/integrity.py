@@ -55,6 +55,12 @@ class IntegrityGuard:
             self._proof = None
             self._counts = {}
 
+    def proof_is_current(self) -> bool:
+        """Check an existing proof without verifying or accepting a newer state."""
+        with self._lock:
+            return (self._observer is not None and self._proof is not None
+                    and self._proof == self._token())
+
     def verify(self) -> dict[str, int]:
         with self._lock:
             try:

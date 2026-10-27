@@ -6,6 +6,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 from decimal import Decimal
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,7 +23,7 @@ from mobile.python.model_bundle import ModelBundle, encoded
 
 from stock_ai.data.contracts import DatasetName
 from stock_ai.data.production import _source_frame_id
-from stock_ai.domain import UserDecision, UserDecisionLine
+from stock_ai.domain import ExecutionRecord, UserDecision, UserDecisionLine
 from stock_ai.operations.api import create_app
 from stock_ai.operations.daily import canonical_json, content_id
 from stock_ai.operations.manual_portfolio import ManualPortfolio
@@ -220,6 +221,88 @@ def test_interrupted_publication_restores_original_receipt_without_recomputing(
     result = decisions.generate(path, store, NOW + timedelta(minutes=1))
     assert result == {**first, "phase": "published"}
     assert store.daily_status(CUTOFF.date()).updated_at == NOW
+
+
+def _add_second_computed_receipt(path, first):
+    value = copy.deepcopy({key: item for key, item in first.items() if key != "phase"})
+    value["scope"]["synthetic_test_run"] = "second"
+    value["scope_hash"] = content_id(value["scope"])
+    value.pop("run_id")
+    value["run_id"] = content_id(value)
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO mobile_decision_runs(run_id,scope_hash,payload,content_hash,phase) "
+                   "VALUES(?,?,?,?,?)", (value["run_id"], value["scope_hash"],
+                                         canonical_json(value), content_id(value), "computed"))
+    return value["run_id"]
+
+
+def test_startup_reconciliation_reuses_checked_executions(ready, monkeypatch):
+    device, path, store, _, _ = ready
+    first = decisions.generate(path, store, NOW)
+    assert first["phase"] == "published"
+    second = _add_second_computed_receipt(path, first)
+    reads = Mock(wraps=store.executions)
+    monkeypatch.setattr(store, "executions", reads)
+    decisions.reconcile(path, store, integrity_guard=device._app.state.integrity_guard)
+    assert reads.call_count == 1
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT phase FROM mobile_decision_runs WHERE run_id=?",
+                          (second,)).fetchone()[0] == "published"
+
+
+def test_startup_reconciliation_rolls_back_if_store_changes(ready, monkeypatch):
+    device, path, store, _, _ = ready
+    first = decisions.generate(path, store, NOW)
+    second = _add_second_computed_receipt(path, first)
+    published = decisions._published_in_store
+    def publish_while_changing_store(current_store, value):
+        result = published(current_store, value)
+        if value["run_id"] == second:
+            with sqlite3.connect(store.path) as writer:
+                writer.execute("INSERT INTO operational_metadata VALUES('race_probe','v1')")
+        return result
+    monkeypatch.setattr(decisions, "_published_in_store", publish_while_changing_store)
+    with pytest.raises(OperationalConflictError, match="データが更新"):
+        decisions.reconcile(path, store, integrity_guard=device._app.state.integrity_guard)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT phase FROM mobile_decision_runs WHERE run_id=?",
+                          (second,)).fetchone()[0] == "computed"
+
+
+def test_startup_reconciliation_rejects_changes_during_execution_read(ready, monkeypatch):
+    device, path, store, _, _ = ready
+    first = decisions.generate(path, store, NOW)
+    second = _add_second_computed_receipt(path, first)
+    executions = store.executions
+    def read_and_change():
+        result = executions()
+        with sqlite3.connect(store.path) as writer:
+            writer.execute("INSERT INTO operational_metadata VALUES('read_race','v1')")
+        return result
+    monkeypatch.setattr(store, "executions", read_and_change)
+    with pytest.raises(OperationalConflictError, match="データが更新"):
+        decisions.reconcile(path, store, integrity_guard=device._app.state.integrity_guard)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT phase FROM mobile_decision_runs WHERE run_id=?",
+                          (second,)).fetchone()[0] == "computed"
+
+
+def test_reused_execution_lookup_rejects_missing_and_changed_fills(ready):
+    _, path, store, _, _ = ready
+    value = copy.deepcopy(decisions.generate(path, store, NOW))
+    record = ExecutionRecord(
+        execution_id="synthetic-fill", executed_at=NOW, symbol="7203",
+        account_bucket_id=store.latest_portfolio().positions[0].account_bucket_id,
+        status="filled", side="BUY", ordered_shares=100, filled_shares=100,
+        average_fill_price=Decimal("1000"), source="manual",
+    )
+    value["frozen_inputs"]["executions"] = [record.model_dump(mode="json")]
+    decisions._linked_inputs(store, value, actual={record.execution_id: record})
+    with pytest.raises(ValueError, match="Frozen execution differs"):
+        decisions._linked_inputs(store, value, actual={})
+    changed = record.model_copy(update={"average_fill_price": Decimal("1001")})
+    with pytest.raises(ValueError, match="Frozen execution differs"):
+        decisions._linked_inputs(store, value, actual={record.execution_id: changed})
 
 
 def test_block_then_reselect_cached_result_preserves_saved_user_progress(ready, monkeypatch):

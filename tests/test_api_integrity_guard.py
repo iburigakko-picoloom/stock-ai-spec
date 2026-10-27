@@ -22,6 +22,7 @@ def test_unchanged_proof_reused_and_external_wal_commit_invalidates(tmp_path, mo
     guard = IntegrityGuard(store)
     try:
         assert guard.verify()["portfolio_states"] == 1
+        assert guard.proof_is_current()
         for _ in range(5):
             assert guard.verify()["portfolio_states"] == 1
         assert verify.call_count == 1
@@ -29,6 +30,7 @@ def test_unchanged_proof_reused_and_external_wal_commit_invalidates(tmp_path, mo
         with sqlite3.connect(store.path) as writer:
             writer.execute("UPDATE portfolio_states SET content_hash='corrupt'")
             writer.commit()
+            assert not guard.proof_is_current()
             with pytest.raises(OperationalIntegrityError):
                 guard.verify()
         with pytest.raises(OperationalIntegrityError):
