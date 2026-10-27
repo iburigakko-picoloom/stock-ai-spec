@@ -1,6 +1,7 @@
 ## 2026-10-27 — 同署名APK候補をローカルで準備（Android検証待ち）
 
 - source `f17af76fdc4d647bca03b5453ab2981d18be21c2` の非公開候補 `.demo-artifacts/home-preview-candidate/StockAI-0.1.72-UNVERIFIED.apk` を作成。24,117,565 bytes、SHA256 `5945cde82b7442572dbfbeb272efc679929c5f2171d03f95f37dabfddfbb0ea8`。release build成功、APK Signature Scheme v2の検証成功、前回0.1.71候補と署名証明書SHA256 `97a93cd4b2237cd21f99af4a2ee7caf104a9460cafabc3b20abad8b424c84979` が一致。アプリID `jp.stockai.app` は同一、versionCodeは10071→10072。APK内のWeb資産56ファイルがbuild出力と一致。
+- 同APK内のPythonソースmanifest 32件はAPK内のsource archiveおよび現在のsourceと一致。うち予測・意思決定・特徴量・データ・domainの20件は前回APKと同一hash。manifestのpackage・allowBackup・usesCleartextTrafficなど対象属性も前回と一致した。ただし、APK中の一致はAndroidの既存データ保持を証明しない。
 - 署名・バージョン・資産一致は既存データの保持や上書き起動の成功を証明しない。Android instrumentationと同署名上書き検証は未実施のため、候補は未検証としてローカル保持し、Drive/GitHubへの反映は行っていない。
 
 ## 2026-10-27 — 現在の画面変更をWeb回帰確認
