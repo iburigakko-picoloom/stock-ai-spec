@@ -2,21 +2,8 @@ import { type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components";
 import { RetainedReadViews } from "./RetainedReadViews";
-import { DataOperationsPage } from "./pages/DataOperationsPage";
-import { DecisionReviewPage } from "./pages/DecisionReviewPage";
-import { DecisionSavedPage } from "./pages/DecisionSavedPage";
-import { ExecutionPage } from "./pages/ExecutionPage";
-import { HoldingsPage } from "./pages/HoldingsPage";
+import { DataOperationsPage, DecisionReviewPage, DecisionSavedPage, ExecutionPage, HoldingsPage, ManualChatGPTPage, RankingPage, SettingsPage, StockDetailPage, TodayPage, ValidationPage, AssetManagementPage, HistoryPage, ResearchHistoryPage } from "./lazyPages";
 import { HomePage } from "./pages/HomePage";
-import { ManualChatGPTPage } from "./pages/ManualChatGPTPage";
-import { RankingPage } from "./pages/RankingPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { StockDetailPage } from "./pages/StockDetailPage";
-import { TodayPage } from "./pages/TodayPage";
-import { ValidationPage } from "./pages/ValidationPage";
-import { AssetManagementPage } from "./pages/AssetManagementPage";
-import { HistoryPage } from "./pages/HistoryPage";
-import { ResearchHistoryPage } from "./pages/ResearchHistoryPage";
 
 export function App(): ReactNode {
   return (

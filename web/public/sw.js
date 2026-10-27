@@ -1,5 +1,5 @@
 const CACHE_NAME = "stock-ai-shell-v1";
-const SHELL = ["/", "/today", "/manifest.webmanifest", "/stock-ai-mark.svg"];
+const SHELL = ["/", "/today", "/manifest.webmanifest", "/stock-ai-mark.svg", .../* BUILD_ASSETS */ []];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)));
@@ -28,6 +28,6 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match("/"))),
+      .catch(() => caches.match(request, { ignoreVary: url.pathname.startsWith("/assets/") }).then((cached) => cached || caches.match("/"))),
   );
 });
