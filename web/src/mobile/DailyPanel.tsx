@@ -43,7 +43,7 @@ export function useDailyAutomation() {
     let occupied = false;
     let pendingFocus = false;
     const refresh = (focus = false): void => {
-      if (!active || changing.current) return;
+      if (!active || changing.current || document.visibilityState !== "visible") return;
       if (occupied) { if (focus) pendingFocus = true; return; }
       occupied = true;
       const observed = revision.current;
@@ -58,7 +58,8 @@ export function useDailyAutomation() {
     refresh();
     const timer = window.setInterval(() => refresh(), 15000);
     window.addEventListener("focus", onFocus);
-    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
+    document.addEventListener("visibilitychange", onFocus);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus); };
   }, []);
   async function change(start: boolean): Promise<void> {
     if (changing.current) return;

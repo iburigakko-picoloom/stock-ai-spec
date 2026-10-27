@@ -63,3 +63,21 @@ test("a slow progress read does not enqueue polls and focus requests one follow-
   expect(screen.getByText(/32%/)).toBeVisible();
   view.unmount(); vi.useRealTimers();
 });
+
+
+test("backgrounding pauses progress polling and foregrounding refreshes it", async () => {
+  vi.useFakeTimers();
+  let visibility: DocumentVisibilityState = "visible";
+  const visible = vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+  vi.mocked(StockAI.analysisStatus).mockReset().mockResolvedValue({ state: "running", percent: 10 });
+  const view = render(<AnalysisProgress />);
+  await act(async () => {});
+  expect(StockAI.analysisStatus).toHaveBeenCalledTimes(1);
+  visibility = "hidden";
+  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(10_000); });
+  expect(StockAI.analysisStatus).toHaveBeenCalledTimes(1);
+  visibility = "visible";
+  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+  expect(StockAI.analysisStatus).toHaveBeenCalledTimes(2);
+  view.unmount(); visible.mockRestore(); vi.useRealTimers();
+});

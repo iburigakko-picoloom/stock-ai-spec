@@ -19,7 +19,7 @@ export function AnalysisProgress({ busy = false }: { busy?: boolean }) {
     let occupied = false;
     let pendingFocus = false;
     const refresh = (focus = false): void => {
-      if (!alive) return;
+      if (!alive || document.visibilityState !== "visible") return;
       if (occupied) { if (focus) pendingFocus = true; return; }
       occupied = true;
       void StockAI.analysisStatus().then(value => { if (alive) setStatus(value); }).catch(() => {}).finally(() => {
@@ -31,7 +31,8 @@ export function AnalysisProgress({ busy = false }: { busy?: boolean }) {
     refresh();
     const timer = window.setInterval(() => refresh(), 1000);
     window.addEventListener("focus", onFocus);
-    return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
+    document.addEventListener("visibilitychange", onFocus);
+    return () => { alive = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus); };
   }, []);
   if (!busy && !["running", "interrupted", "blocked"].includes(status?.state ?? "")) return null;
   const percent = status?.percent;

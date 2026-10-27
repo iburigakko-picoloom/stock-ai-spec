@@ -108,3 +108,20 @@ test("slow daily status reads do not queue repeated polling and focus coalesces"
   expect(screen.getByText("履歴を取得しています")).toBeVisible();
   view.unmount(); vi.useRealTimers();
 });
+
+
+test("backgrounding pauses daily status polling until the app is visible", async () => {
+  vi.useFakeTimers();
+  let visibility: DocumentVisibilityState = "visible";
+  const visible = vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+  const view = render(<DailyPanel />);
+  await act(async () => {});
+  expect(StockAI.dailyStatus).toHaveBeenCalledTimes(1);
+  visibility = "hidden";
+  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); await vi.advanceTimersByTimeAsync(60_000); });
+  expect(StockAI.dailyStatus).toHaveBeenCalledTimes(1);
+  visibility = "visible";
+  await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+  expect(StockAI.dailyStatus).toHaveBeenCalledTimes(2);
+  view.unmount(); visible.mockRestore(); vi.useRealTimers();
+});
