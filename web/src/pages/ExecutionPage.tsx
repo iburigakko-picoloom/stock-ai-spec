@@ -62,13 +62,15 @@ export function ExecutionPage(): ReactNode {
   const [params] = useSearchParams();
   const applyOnly=params.has("apply");
   const location = useLocation();
-  const [context,setContext]=useState<ExecutionContext|null>(null);
-  const [loadingDecision, setLoadingDecision] = useState(true);
+  const [decisionRead, setDecisionRead] = useState<{ key: string; context: ExecutionContext | null; error: string | null; done: boolean } | null>(null);
+  const currentRead = decisionRead?.key === location.key ? decisionRead : null;
+  const context = currentRead?.context ?? null;
+  const loadingDecision = !currentRead || !currentRead.done;
   const [selectedLine,setSelectedLine]=useState("");
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadError = currentRead?.error ?? null;
   const [busy, setBusy] = useState(false);
   const [recorded, setRecorded] = useState<Record<string, boolean>>({});
   const [applied, setApplied] = useState(false);
@@ -79,14 +81,18 @@ export function ExecutionPage(): ReactNode {
   const decision=context?.decision;
 
   useEffect(() => {
-    if(applyOnly || params.has("manual")){setLoadingDecision(false);return;}
-    let active=true;
+    if (applyOnly || params.has("manual")) return;
+    let active = true;
+    const key = location.key;
+    setDecisionRead({ key, context: null, error: null, done: false });
     apiGet<ExecutionContext>("/api/v1/execution-context?includeManual=1")
-      .then(value=>{if(active)setContext(value);})
-      .catch((reason: unknown) => {if(active)setLoadError(reason instanceof Error ? reason.message : "判断を取得できません");})
-      .finally(() => {if(active)setLoadingDecision(false);});
-    return ()=>{active=false;};
-  }, [applyOnly, params]);
+      .then(value => { if (active) setDecisionRead({ key, context: value, error: null, done: true }); })
+      .catch((reason: unknown) => { if (active) setDecisionRead({ key, context: null, error: reason instanceof Error ? reason.message : "判断を取得できません", done: true }); });
+    return () => {
+      active = false;
+      setDecisionRead(previous => previous?.key === key ? null : previous);
+    };
+  }, [applyOnly, params, location.key]);
 
   if (!applyOnly && (params.has("manual") || (!loadingDecision && !loadError && (!proposal || !decision)))) return <ManualExecutionPage initialContext={params.has("manual") ? null : context?.manualContext} />;
 

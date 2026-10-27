@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { Link, MemoryRouter, useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { ExecutionPage } from "./ExecutionPage";
 vi.mock("../api",()=>({apiGet:vi.fn(),apiPost:vi.fn()}));
@@ -122,4 +122,37 @@ test("a second trade refreshes the ledger after reusing the first context", asyn
   await waitFor(()=>expect(screen.getByRole("button",{name:"取引を記録"})).toBeEnabled());
   expect(apiGet).toHaveBeenCalledTimes(2);
   expect(apiPost).toHaveBeenCalledTimes(1);
+});
+
+
+test("returning from manual entry waits for a fresh judgment rather than showing a stale route", async () => {
+  vi.mocked(apiGet).mockImplementation(path => path.startsWith("/api/v1/execution-context") ? new Promise(() => {}) : Promise.resolve({
+    portfolioId:"ledger", asOf:null, accountLabels:{ bucket:"特定口座" }, holdings:[],
+  }));
+  render(<MemoryRouter initialEntries={["/today/executions?symbol=7203"]}><Link to="/today/executions?symbol=7203">判断に戻る</Link><ExecutionPage /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("link", { name:"判断を使わず取引を入力" }));
+  expect(await screen.findByLabelText("銘柄コード")).toHaveValue("7203");
+  fireEvent.click(screen.getByRole("link", { name:"判断に戻る" }));
+  expect(screen.getByText("実行結果入力を準備しています")).toBeVisible();
+  expect(screen.queryByLabelText("銘柄コード")).not.toBeInTheDocument();
+  expect(apiPost).not.toHaveBeenCalled();
+});
+
+
+test("browser back to an earlier judgment entry requires a new confirmation", async () => {
+  const saved={businessDate:"2026-10-26",proposal:{proposalId:"proposal",asOf:"2026-10-26T12:00:00Z",lines:[]},decision:{decision_id:"decision",version:1,lines:[]},accountLabels:{}};
+  let judgmentReads=0;
+  vi.mocked(apiGet).mockImplementation(path => {
+    if (path.startsWith("/api/v1/execution-context")) return ++judgmentReads === 1 ? Promise.resolve(saved) : new Promise(() => {});
+    return Promise.resolve({portfolioId:"ledger",asOf:null,accountLabels:{bucket:"特定口座"},holdings:[]});
+  });
+  function GoBack() { const navigate=useNavigate(); return <button onClick={()=>void navigate(-1)}>ブラウザーで戻る</button>; }
+  render(<MemoryRouter initialEntries={["/today/executions"]}><GoBack /><ExecutionPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("link",{name:"提案以外の取引を記録"}));
+  expect(await screen.findByLabelText("銘柄コード")).toBeVisible();
+  fireEvent.click(screen.getByRole("button",{name:"ブラウザーで戻る"}));
+  expect(screen.getByText("実行結果入力を準備しています")).toBeVisible();
+  expect(screen.queryByRole("link",{name:"提案以外の取引を記録"})).not.toBeInTheDocument();
+  expect(judgmentReads).toBe(2);
+  expect(apiPost).not.toHaveBeenCalled();
 });
