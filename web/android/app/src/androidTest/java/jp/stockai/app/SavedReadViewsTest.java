@@ -90,4 +90,33 @@ public class SavedReadViewsTest {
             views.clear(); assertFalse(views.read("/api/v1/home").getBoolean("available"));
         } finally { views.clear(); dir.delete(); }
     }
+
+    @Test public void slowDecryptionDoesNotHoldLockAndClearInvalidatesItsResult() throws Exception {
+        File dir = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getCacheDir(), "slow-read-" + System.nanoTime());
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1), release = new java.util.concurrent.CountDownLatch(1);
+        List<Runnable> jobs = new ArrayList<>();
+        SavedReadViews views = new SavedReadViews(dir, jobs::add, bytes -> {
+            entered.countDown();
+            if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("TEST_TIMEOUT");
+            return LocalStateStore.decrypt(bytes);
+        });
+        java.util.concurrent.ExecutorService reader = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.ExecutorService control = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            views.save("/api/v1/home", new JSONObject().put("status", 200).put("body", new JSONObject().put("id", "before")), 1);
+            java.util.concurrent.Future<com.getcapacitor.JSObject> pending = reader.submit(() -> views.read("/api/v1/home"));
+            assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            java.util.concurrent.Future<?> clear = control.submit(() -> {
+                views.saveAsync("/api/v1/today", "{}", 1);
+                views.clear();
+            });
+            clear.get(2, java.util.concurrent.TimeUnit.SECONDS);
+            release.countDown();
+            assertFalse("Decrypted copy from before clear must not be returned", pending.get(10, java.util.concurrent.TimeUnit.SECONDS).getBoolean("available"));
+            jobs.remove(0).run();
+            assertFalse(views.read("/api/v1/today").getBoolean("available"));
+        } finally {
+            release.countDown(); reader.shutdownNow(); control.shutdownNow(); views.clear(); dir.delete();
+        }
+    }
 }

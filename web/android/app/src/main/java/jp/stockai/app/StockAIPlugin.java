@@ -116,8 +116,7 @@ public class StockAIPlugin extends Plugin {
             savedViewExecutor.execute(() -> {
                 try {
                     SavedReadViews views = SavedReadViews.forDatabase(getContext().getDatabasePath(LocalStateStore.DATABASE));
-                    // Keep invalidation and delivery ordered with the same monitor as read/clear.
-                    synchronized (views) { call.resolve(views.read(call.getString("path"))); }
+                    views.readAndDeliver(call.getString("path"), call::resolve);
                 } catch (Exception ignored) { call.reject("保存済み表示を確認できません。", "SAVED_VIEW_INVALID"); }
             });
         } catch (java.util.concurrent.RejectedExecutionException ignored) {
