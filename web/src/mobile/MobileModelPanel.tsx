@@ -43,7 +43,7 @@ function reason(code: string): string {
     ENSEMBLE_REQUIRES_ALL_MARKET_FEATURES: "この合成モデルは全市場の順位を必要とします。現在の対象限定入力では計算できません。",
     ENSEMBLE_UNIVERSE_RULE_MISMATCH: "合成モデルと銘柄の対象方式が異なります。対応する研究用モデルを確認してください。",
     ENSEMBLE_UNSUPPORTED_RISK_HORIZON: "この研究用モデルのリスク対象期間には対応していません。",
-    FORECAST_RISK_UNAVAILABLE: "株数の自動判定に必要なリスク情報・検証がそろっていません。ChatGPTへの相談と回答の検算を利用できます。",
+    FORECAST_RISK_UNAVAILABLE: "株数の自動判定に必要なリスク情報・検証がそろっていません。ChatGPTへの相談文を作り、分析はChatGPTで確認できます。",
     NO_USABLE_FORECAST: "候補銘柄の予測に必要な履歴が不足しています。",
     NUMERICAL_FORECAST_INCOMPLETE: "数値予測の保存を完了してから株数を計算します。",
     NUMERICAL_FORECAST_NOT_CURRENT_DAY: "当日の数値予測が必要です。",

@@ -222,6 +222,8 @@ test("return-only research imports without adoption and opens manual consultatio
   expect(screen.getByRole("link", { name: "予測を使ってChatGPTへ相談する" })).toHaveAttribute("href", "/today/chatgpt");
   expect(screen.queryByRole("link", { name: "今日の判定を見る" })).not.toBeInTheDocument();
   expect(screen.getByText(/自動判定に必要なリスク情報・検証がそろっていません/)).toBeVisible();
+  expect(screen.getByText(/分析はChatGPTで確認できます/)).toBeVisible();
+  expect(screen.queryByText(/回答の検算/)).not.toBeInTheDocument();
   expect(screen.getByText("上位20と全保有の予測を見る 1社")).toBeVisible();
   expect(screen.getByText("研究用・正式採用前")).toBeVisible();
 });
