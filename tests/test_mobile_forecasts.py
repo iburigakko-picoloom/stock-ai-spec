@@ -235,6 +235,49 @@ def test_publication_marker_is_reconciled_after_restart(ready, monkeypatch):
     assert device._app.state.store.latest_prediction_snapshot() == snapshot
 
 
+def test_startup_publication_reuses_each_checked_snapshot(ready, monkeypatch):
+    _, store, path, *_ = ready
+    saved = forecasts.generate(path, store, NOW)
+    snapshot = PredictionSnapshot.model_validate(saved["snapshot"])
+    class Archive:
+        def __init__(self):
+            self.selected = []
+        def prediction_snapshot(self, identity):
+            assert identity == snapshot.snapshot_id
+            return snapshot
+        def append_prediction_snapshot(self, value, **kwargs):
+            self.selected.append((value, kwargs))
+    archive = Archive()
+    validate = PredictionSnapshot.model_validate
+    digest = forecasts.content_id
+    calls = []
+    proof_hashes = []
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return validate(*args, **kwargs)
+    def counted_digest(value):
+        if value == saved["data_proof"]:
+            proof_hashes.append(1)
+        return digest(value)
+    with monkeypatch.context() as patch:
+        patch.setattr(PredictionSnapshot, "model_validate", counted)
+        patch.setattr(forecasts, "content_id", counted_digest)
+        forecasts.reconcile_publications(path, archive)
+    assert len(calls) == 1
+    assert len(proof_hashes) == 1
+    assert archive.selected[-1][0] == snapshot
+    with forecasts.connect(path) as db:
+        db.execute("UPDATE mobile_forecast_runs SET phase='computed' WHERE run_id=?",
+                   (saved["run_id"],))
+    calls.clear()
+    with monkeypatch.context() as patch:
+        patch.setattr(PredictionSnapshot, "model_validate", counted)
+        forecasts.reconcile_publications(path, archive)
+    assert len(calls) == 2
+    assert forecasts.latest(path)["phase"] == "published"
+    assert archive.selected[-1][0] == snapshot
+
+
 def test_uncommitted_selection_never_uses_old_snapshot_after_restart(ready, monkeypatch):
     device, store, path, _, features, _ = ready
     first = forecasts.generate(path, store, NOW)

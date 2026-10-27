@@ -64,8 +64,9 @@ def _checked_with_snapshot(row) -> tuple[dict, PredictionSnapshot | None]:
     if value["snapshot"] is not None:
         snapshot = PredictionSnapshot.model_validate(value["snapshot"])
         scope, proof = value["scope"], value["data_proof"]
-        if (snapshot.data_snapshot_id != content_id(proof) or proof["membership_and_universe"]
-                != scope["universe"] or content_id(proof) != scope["data_proof_hash"]
+        proof_hash = content_id(proof)
+        if (snapshot.data_snapshot_id != proof_hash or proof["membership_and_universe"]
+                != scope["universe"] or proof_hash != scope["data_proof_hash"]
                 or snapshot.as_of.isoformat() != scope["as_of"]
                 or snapshot.model_version != "mobile-bundle:" + scope["bundle_id"]
                 or snapshot.feature_version != scope["feature_manifest_hash"]
@@ -262,7 +263,7 @@ def _save(path: Path, store, scope: dict, now: datetime, *, snapshot=None,
     return _publish(path, store, value)
 
 
-def latest(path: Path) -> dict | None:
+def latest_with_snapshot(path: Path) -> tuple[dict, PredictionSnapshot | None] | None:
     with connect(path) as db:
         selected = db.execute("SELECT run_id FROM mobile_forecast_selections "
                               "ORDER BY sequence DESC LIMIT 1").fetchone()
@@ -273,7 +274,12 @@ def latest(path: Path) -> dict | None:
         ).fetchone()
         if selected is not None and row is None:
             raise ValueError("Selected numerical receipt missing")
-    return None if row is None else _checked(row)
+    return None if row is None else _checked_with_snapshot(row)
+
+
+def latest(path: Path) -> dict | None:
+    result = latest_with_snapshot(path)
+    return None if result is None else result[0]
 
 
 def latest_reference_with_snapshot(
@@ -325,8 +331,9 @@ def reconcile_publications(path: Path, store) -> None:
             "WHERE phase='computed' ORDER BY sequence"
         ).fetchall()
         for row in rows:
-            value = _checked(row)
-            snapshot = PredictionSnapshot.model_validate(value["snapshot"])
+            value, snapshot = _checked_with_snapshot(row)
+            if snapshot is None:
+                raise ValueError("Computed forecast has no snapshot")
             try:
                 saved = store.prediction_snapshot(snapshot.snapshot_id)
             except KeyError:
@@ -337,14 +344,16 @@ def reconcile_publications(path: Path, store) -> None:
                        (value["run_id"],))
 
 
-    selected = latest(path)
-    if selected is None:
+    result = latest_with_snapshot(path)
+    if result is None:
         return
+    selected, snapshot = result
     try:
         if selected["phase"] == "published":
             # Recover selection only from an identical existing archive. Never
             # turn an uncommitted computation into a new snapshot on startup.
-            snapshot = PredictionSnapshot.model_validate(selected["snapshot"])
+            if snapshot is None:
+                raise ValueError("Published forecast has no snapshot")
             if store.prediction_snapshot(snapshot.snapshot_id) != snapshot:
                 raise ValueError("Selected forecast archive differs from receipt")
             store.append_prediction_snapshot(
