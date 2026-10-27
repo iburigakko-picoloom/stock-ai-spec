@@ -111,3 +111,19 @@ test("three model tabs separate rank scores from returns and preserve search ran
   expect(screen.getByText("1000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "1位");
   expect(screen.getByRole("button", { name: "ChatGPTと相談" })).toBeEnabled();
 });
+
+
+test("holding and search filters keep model ranks and a refreshed result changes their order", () => {
+  const view = render(<MemoryRouter><Rankings /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("checkbox", { name:"保有銘柄のみ" }));
+  expect(screen.getByText("1000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "1位");
+  expect(screen.queryByText("2000")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox", { name:"保有銘柄のみ" }));
+  fireEvent.change(screen.getByRole("searchbox"), { target:{ value:"2000" } });
+  expect(screen.getByText("2000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "2位");
+  vi.mocked(useApiData).mockReturnValue({data:{...base,rows:[
+    {...base.rows[0],expectedReturn:.01}, {...base.rows[1],expectedReturn:.05},
+  ]},loading:false,error:null,savedAt:null,reload});
+  view.rerender(<MemoryRouter><Rankings /></MemoryRouter>);
+  expect(screen.getByText("2000").closest(".ranking-table-row")?.querySelector(".ranking-position")).toHaveAttribute("aria-label", "1位");
+});

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
 import { PageHeader, StatePanel, TabBar, dateTime } from "../components";
@@ -41,10 +41,15 @@ function RankingBody({ horizon }: { horizon: string }) {
   const exported = prepared ?? data?.savedInput;
   const research = data?.research;
   const adjusted = legacy && horizon === "20d" && source === "chatgpt" && data?.answer;
-  const rows = adjusted ? data.answer!.order.map(item => ({ ...data.rows.find(row => row.symbol === item.symbol)!, reason: item.reason })) : (data?.rows ?? []).map(row => ({ ...row, reason: "" }));
-  const metric = (row: Ranked): number | null => valueOnly ? row.expectedReturn : data?.metrics?.[row.symbol]?.rank20d ?? null;
-  if (!adjusted) rows.sort((a, b) => (metric(a) === null ? 1 : 0) - (metric(b) === null ? 1 : 0) || (metric(b) ?? 0) - (metric(a) ?? 0) || a.symbol.localeCompare(b.symbol));
-  const visible = rows.map((row, index) => ({ ...row, rank: adjusted || metric(row) !== null ? `${index + 1}位` : "—" })).filter(row => (!heldOnly || data?.holdingSymbols?.includes(row.symbol)) && `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const rows = useMemo(() => {
+    const result = adjusted ? data!.answer!.order.map(item => ({ ...data!.rows.find(row => row.symbol === item.symbol)!, reason: item.reason })) : (data?.rows ?? []).map(row => ({ ...row, reason: "" }));
+    const metric = (row: Ranked): number | null => valueOnly ? row.expectedReturn : data?.metrics?.[row.symbol]?.rank20d ?? null;
+    if (!adjusted) result.sort((a, b) => (metric(a) === null ? 1 : 0) - (metric(b) === null ? 1 : 0) || (metric(b) ?? 0) - (metric(a) ?? 0) || a.symbol.localeCompare(b.symbol));
+    return result.map((row, index) => ({ ...row, rank: adjusted || metric(row) !== null ? `${index + 1}位` : "—" }));
+  }, [adjusted, data, valueOnly]);
+  const held = useMemo(() => new Set(data?.holdingSymbols ?? []), [data?.holdingSymbols]);
+  const query = search.trim().toLowerCase();
+  const visible = rows.filter(row => (!heldOnly || held.has(row.symbol)) && `${row.symbol}${row.companyName ?? ""}`.toLowerCase().includes(query));
   const percent = (value: number | null | undefined) => value == null ? "未算出" : `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
   return <>
     {loading && <p role="status">{data ? "保存済みの順位を表示中・更新を確認しています…" : "ランキングを読み込んでいます…"}</p>}
@@ -58,7 +63,7 @@ function RankingBody({ horizon }: { horizon: string }) {
         {!visible.length && <p>条件に一致する銘柄がありません。</p>}
         <div className="card ranking-table"><div className="ranking-table-head"><span>順位・銘柄</span><span className={horizon==="5d" || !valueOnly ? "is-period" : ""}>{valueOnly ? "5日値予測" : "順位スコア"}</span><span className={horizon==="20d-value" ? "is-period" : ""}>20日値予測</span></div>
         {visible.map(row => <Link to={`/stocks/${row.symbol}`} state={{ from: "/ranking" }} className="ranking-table-row" key={row.symbol}>
-          <span className="ranking-company"><span className="ranking-position" aria-label={row.rank}>{row.rank.replace("位","")}</span><span><strong>{row.companyName || row.symbol}</strong>{row.companyName && <small>{row.symbol} {data.holdingSymbols?.includes(row.symbol) && <span className="ranking-held">保有</span>}</small>}{!row.companyName && data.holdingSymbols?.includes(row.symbol) && <small className="ranking-held">保有</small>}
+          <span className="ranking-company"><span className="ranking-position" aria-label={row.rank}>{row.rank.replace("位","")}</span><span><strong>{row.companyName || row.symbol}</strong>{row.companyName && <small>{row.symbol} {held.has(row.symbol) && <span className="ranking-held">保有</span>}</small>}{!row.companyName && held.has(row.symbol) && <small className="ranking-held">保有</small>}
             {adjusted && <small>モデル {row.modelRank}位</small>}{row.reason && <small>{row.reason}</small>}</span></span>
           <span className={`ranking-return ${horizon==="5d" || !valueOnly ? "is-period" : ""}`}>{valueOnly ? percent(data.metrics?.[row.symbol]?.return5d ?? (horizon === "5d" ? row.expectedReturn : null)) : data.metrics?.[row.symbol]?.rank20d?.toFixed(2) ?? "未算出"}</span>
           <span className={`ranking-return ${horizon==="20d-value" ? "is-period" : ""}`}>{percent(data.metrics?.[row.symbol]?.return20d ?? (horizon !== "5d" ? row.expectedReturn : null))}</span>
