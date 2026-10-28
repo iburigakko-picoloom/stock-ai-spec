@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 // Explicit browser-only fixtures: this file is not shipped in the application.
 for (const width of [320, 390]) {
-  test(`company research remains readable with enlarged text at ${width}px`, async ({ page }, info) => {
+  test(`stock forecast and historical research link remain readable at ${width}px`, async ({ page }, info) => {
     const context = { prediction_snapshot_id: "fixture-snapshot", symbol: "1234", company_name: "画面確認用会社",
       numerical_as_of: "2026-01-08T11:30:00+09:00", research_as_of: "2026-01-08T11:40:00+09:00",
       configuration: { model: "synthetic-model-for-layout-verification", effort: "high", prompt_version: "v1" }, revision: 1 };
@@ -22,17 +22,20 @@ for (const width of [320, 390]) {
     } }));
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/stocks/1234");
-    await expect(page.getByRole("heading", { name: "ChatGPTの見解" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "数値モデルの予測" })).toBeVisible();
     await page.addStyleTag({ content: "html { font-size: 150%; }" });
-    await page.getByText("照合結果と出典を見る", { exact: true }).click();
-    await page.getByText("数値予測を見る前の独立調査", { exact: true }).click();
-    await expect(page.getByText(independent.text, { exact: true }).first()).toBeVisible();
+    await expect(page.locator(".detail-model-row").filter({hasText:"5日・値予測"})).toContainText("2.00%");
+    await expect(page.locator(".detail-model-row").filter({hasText:"20日・値予測"})).toContainText("5.00%");
+    await expect(page.getByRole("link", { name: "過去の調査履歴" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "ChatGPTの見解" })).toHaveCount(0);
+    await expect(page.getByText(independent.text, { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "この銘柄の取引を記録" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    const controls = await page.locator(".company-research > details > summary").evaluateAll(nodes => nodes.map(node => {
-      const box = node.getBoundingClientRect(); return { height: box.height, top: box.top, bottom: box.bottom };
+    const controls = await page.locator(".detail-model-row").evaluateAll(nodes => nodes.map(node => {
+      const box = node.getBoundingClientRect(); return { top: box.top, bottom: box.bottom };
     }));
-    for (const control of controls) expect(control.height).toBeGreaterThanOrEqual(48);
-    for (let i = 1; i < controls.length; i++) expect(controls[i].top - controls[i - 1].bottom).toBeGreaterThanOrEqual(12);
+    expect(controls).toHaveLength(3);
+    for (let i = 1; i < controls.length; i++) expect(controls[i].top).toBeGreaterThanOrEqual(controls[i - 1].bottom);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: info.outputPath(`company-research-${width}.png`), fullPage: true });
   });

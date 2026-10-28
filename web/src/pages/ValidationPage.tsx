@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PageHeader, StatePanel, dateTime, pct, currency as yen } from "../components";
 import { useApiData } from "../hooks";
@@ -31,6 +31,9 @@ export function ValidationPage(): ReactNode {
   const detailed=useLocation().pathname === "/validation/details";
   const analysis=new URLSearchParams(useLocation().search).get("analysis");
   const [mode,setMode]=useState(detailed && ["models","historical"].includes(analysis ?? "") ? analysis! : "paper");
+  useEffect(()=>{
+    setMode(detailed && ["models","historical"].includes(analysis ?? "") ? analysis! : "paper");
+  },[detailed,analysis]);
   const {data,error,loading,savedAt}=useApiData<PaperSummary & {blockingReason?:string}>(`/api/v1/validation?mode=${mode === "models" ? "paper" : mode}`);
   const observed=(data?.observations ?? 0)>0;
   const weekly=data?.weekly_readouts ?? [], monthly=data?.monthly_readouts ?? [];

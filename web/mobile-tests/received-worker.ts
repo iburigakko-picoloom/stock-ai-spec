@@ -143,9 +143,25 @@ status = await runtime.request('GET', '/api/v1/mobile/chatgpt-manual/status', 'n
 assert status['status'] == 200 and status['body']['answers'] == [accepted['body']['review']]
 assert reference == {name:evidence.table_snapshot(runtime.STATE/name) for name in reference}
 store.verify_integrity()
+registration = await runtime.request('POST', '/api/v1/mobile/forward-evidence/register', '{}')
+assert registration['status'] == 200, registration
+registration = registration['body']
+assert not registration['formal_evaluation'] and not registration['external_time_authenticated']
+old = await runtime.request('POST', '/api/v1/mobile/forward-evidence/observe', json.dumps({
+    'registration_id':registration['registration_id'], 'run_id':numerical['run_id'], 'horizon':5,
+}))
+assert old['status'] == 422, old  # The already-produced forecast cannot be backdated.
+forward_capsule = runtime.export_state()
+runtime.initialize(forward_capsule)
+forward = await runtime.request('GET', '/api/v1/mobile/forward-evidence')
+assert forward['status'] == 200 and forward['body']['registrations'] == [registration]
+assert not forward['body']['observations'] and not forward['body']['formal_evaluation']
+store = runtime._app.state.store
+assert ledger == store.latest_portfolio() and snapshot == store.latest_prediction_snapshot()
 json.dumps({'predictions':numerical['snapshot']['predictions'], 'proposal':proposal,
             'daily_rows':len(daily), 'target_pairs':len(targets), 'risk_groups':len(set(expected_loss.values())),
-            'restored_exact':True, 'ledger_unchanged':True, 'executions':0,
+            'restored_exact':True, 'forward_registration_restored':True,
+            'ledger_unchanged':True, 'executions':0,
             'rejected_status':rejected['status'], 'answer_count':len(status['body']['answers']),
             'table_counts':{name:len(value['tables']) for name,value in reference.items()},
             'manual_review':{key:accepted['body']['review'][key] for key in

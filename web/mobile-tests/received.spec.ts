@@ -21,7 +21,7 @@ for (const returnOnly of [false, true]) test(`received history ${returnOnly ? "r
   await testInfo.attach("received-wasm-result", { body: JSON.stringify(output, null, 2), contentType: "application/json" });
   expect(output.error).toBeUndefined();
   expect(output).toMatchObject({ daily_rows: 6480, target_pairs: 21, risk_groups: 2,
-    restored_exact: true, ledger_unchanged: true, executions: 0, rejected_status: 422,
+    restored_exact: true, forward_registration_restored: true, ledger_unchanged: true, executions: 0, rejected_status: 422,
     answer_count: 1, adopted: false });
   expect(output.model_risk_available).toBe(!returnOnly);
   expect(output.table_counts["operations.sqlite3"]).toBeGreaterThan(0);

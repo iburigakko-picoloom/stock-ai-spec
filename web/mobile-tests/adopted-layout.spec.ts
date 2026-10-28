@@ -774,3 +774,13 @@ test("older forecasts can be reached after twenty sessions",async({page})=>{
   await panel.getByRole("button",{name:"過去の記録をさらに表示"}).click();
   await expect(panel.locator("li")).toHaveCount(25);
 });
+
+for(const width of [320,390])test(`model comparison opens from validation at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:800});
+  await page.goto("http://127.0.0.1:5196/#/validation");
+  await page.getByRole("link",{name:"モデル比較"}).click();
+  await expect(page.getByRole("heading",{name:"Champion / Challenger"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"モデル比較"})).toHaveAttribute("aria-pressed","true");
+  await page.addStyleTag({content:"html{font-size:150%}"});
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+});
