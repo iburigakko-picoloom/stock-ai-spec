@@ -23,6 +23,7 @@ test("saved display arrives while authoritative computation is pending, then is 
   await waitFor(() => expect(result.current.data).toEqual({ saved: 7 }));
   expect(result.current.loading).toBe(true);
   expect(result.current.savedAt).toBe(savedAt);
+  await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/api/v1/today"));
   await act(async () => resolve({ saved: 8 }));
   expect(result.current.data).toEqual({ saved: 8 });
   expect(result.current.savedAt).toBeNull();
