@@ -19,6 +19,20 @@ beforeEach(() => {
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
+test("ranking update stays available while the first ranking read is stalled", () => {
+  vi.mocked(useApiData).mockReturnValue({data:null,loading:true,error:null,savedAt:null,reload});
+  render(<MemoryRouter><Rankings /></MemoryRouter>);
+  expect(screen.getByText("ランキングを読み込んでいます…")).toBeVisible();
+  expect(screen.getByRole("button",{name:"ランキングを更新"})).toBeEnabled();
+});
+
+test("unconfirmed holdings are disclosed without claiming an empty portfolio", () => {
+  vi.mocked(useApiData).mockReturnValue({data:{...base,referenceHoldings:"unconfirmed"},loading:false,error:null,savedAt:null,reload});
+  render(<MemoryRouter><Rankings /></MemoryRouter>);
+  expect(screen.getByText(/保有台帳を確認できなかったため/)).toBeVisible();
+  expect(screen.getByText(/対象外の保有株は追加していません/)).toBeVisible();
+});
+
 test("shows and searches the full prediction population while retaining the consultation subset",()=>{
   const full=[...base.rows.map(row=>({...row,companyName:`企業${row.symbol}`})),
     {symbol:"3000",companyName:"対象外ではない企業",modelRank:3,score:-1,expectedReturn:-.01}];

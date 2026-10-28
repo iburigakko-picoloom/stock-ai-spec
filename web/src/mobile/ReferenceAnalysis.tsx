@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { apiPost } from "../api";
 import { isAndroid } from "./native";
+import { AnalysisProgress } from "./AnalysisProgress";
 
-export function ReferenceAnalysis({ onSaved, hasSaved, disabled = false, onBusy }: { onSaved: () => void; hasSaved: boolean; disabled?: boolean; onBusy?: (value: boolean) => void }) {
+export function ReferenceAnalysis({ onSaved, hasSaved, disabled = false, onBusy, showProgress = true, checking = false }: { onSaved: () => void; hasSaved: boolean; disabled?: boolean; onBusy?: (value: boolean) => void; showProgress?: boolean; checking?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [target, setTarget] = useState("market");
@@ -22,6 +23,8 @@ export function ReferenceAnalysis({ onSaved, hasSaved, disabled = false, onBusy 
           setMessage("実保有の登録内容を確認してください。"); setTarget("holdings");
         } else if (codes.some(x => x.includes("PERSONAL") || x.includes("LEDGER") || x.includes("RECONCILIATION"))) {
           setMessage("口座・保有と残高の確定を確認してください。"); setTarget("accounts");
+        } else if (codes.includes("ENSEMBLE_RANK_POPULATION_INCOMPLETE")) {
+          setMessage("順位モデルに必要な対象銘柄の株価履歴が不足しています。市場データを確認してください。"); setTarget("market");
         } else if (codes.some(x => x.includes("MODEL_BUNDLE") || x.startsWith("ENSEMBLE_"))) {
           setMessage("取り込んだモデルの利用条件を確認してください。"); setTarget("model");
         } else if (codes.some(x => x.startsWith("UNIVERSE_") || x === "NO_USABLE_FORECAST" || x.startsWith("HELD_FORECAST_MISSING") || x === "REFERENCE_MARKET_DATE_MISMATCH")) {
@@ -35,8 +38,9 @@ export function ReferenceAnalysis({ onSaved, hasSaved, disabled = false, onBusy 
     } finally { acting.current = false; setBusy(false); onBusy?.(false); }
   }
   return <section className="section" aria-label="最新データのランキング">
-    {!hasSaved && <><h2>表示できる分析がまだありません</h2><p>休場日でも、直近の確定株価でランキングを作れます。</p></>}
+    {!hasSaved && !checking && <><h2>表示できる分析がまだありません</h2><p>休場日でも、直近の確定株価でランキングを作れます。</p></>}
     <button className="button button--primary" disabled={busy || disabled} onClick={() => void generate()}>{busy ? "ランキングを計算・保存中…" : "ランキングを更新"}</button>
+    {showProgress && <AnalysisProgress busy={busy} />}
     {busy && <p>画面を閉じても処理を続けます。途中結果は自動保存します。</p>}
     {!hasSaved && <p className="setting-footnote">保存した結果は、時間帯を問わずランキングで確認できます。</p>}
     {message && <p role="status">{message}</p>}

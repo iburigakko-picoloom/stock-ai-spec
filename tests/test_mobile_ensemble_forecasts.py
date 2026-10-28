@@ -6,7 +6,7 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 from mobile.pc.package_bundle import package
-from mobile.python import decisions, forecasts, manual_chatgpt, models
+from mobile.python import decisions, forecasts, manual_chatgpt, market, models, rankings
 from mobile.python.model_bundle import encoded
 from mobile.python.research_ensemble import ResearchEnsembleBundle
 
@@ -113,6 +113,48 @@ def test_all_market_rank_is_not_silently_changed_to_topix(ready):
     result = forecasts.generate(path, store, NOW)
     assert result["outcome"] == "blocked"
     assert result["blocking_reasons"] == ["ENSEMBLE_REQUIRES_ALL_MARKET_FEATURES"]
+
+
+def test_reference_ranking_saves_three_outputs_without_personal_inputs(ready, monkeypatch):
+    device, store, path, _bundle, features = install(ready)
+    selection = ready[3]
+    reference_time = NOW + timedelta(minutes=1)
+    old_portfolio, old_snapshot = store.latest_portfolio(), store.latest_prediction_snapshot()
+    old_forecast = forecasts.latest(path)
+    selection["as_of"] = reference_time.isoformat()
+    selection["decision_symbols"] = ["1000", "1001"]
+    selection["held_only"] = []
+    features["as_of"] = reference_time.isoformat()
+    for horizon in ("5", "20"):
+        features["features"][horizon] = [row for row in features["features"][horizon]
+                                         if row["symbol"] in selection["decision_symbols"]]
+        for row in features["features"][horizon]:
+            row["available_at"] = reference_time.isoformat()
+    def inputs(*args, **kwargs):
+        assert kwargs["reference_only"] is True
+        assert kwargs["decision_symbols"] == selection["decision_symbols"]
+        return {"as_of": reference_time.isoformat(),
+                "reference_price_date": selection["latest_source_date"],
+                "latest_source_received_at": "2026-02-02T09:00:00Z",
+                "source_snapshot_ids": [(name.value, "4" * 64) for name in market.DatasetName],
+                "revision_policy": "synthetic-fixture-conservative"}
+    monkeypatch.setattr(forecasts.market, "feature_inputs", inputs)
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "latest_manual_portfolio", lambda: None)
+        patch.setattr(store, "latest_portfolio", lambda: None)
+        result = forecasts.generate(path, store, reference_time, reference_only=True)
+        assert result["phase"] == "reference_saved"
+        assert {(output["horizon"], output["role"]) for output in result["outputs"]} >= {
+            (5, "return"), (20, "return"), (20, "ranking")}
+        view = rankings.view(path, store, reference_time, "20d")
+        assert view["referenceHoldings"] == "unconfirmed"
+        assert all(row["return5d"] is not None and row["return20d"] is not None
+                   and row["rank20d"] is not None for row in view["metrics"].values())
+        assert forecasts.latest(path) == old_forecast
+        assert store.latest_prediction_snapshot() == old_snapshot
+    assert store.latest_portfolio() == old_portfolio
+    device.initialize(device.export_state())
+    assert forecasts.latest_reference(path, reference_time)["run_id"] == result["run_id"]
 
 
 def test_absent_features_are_saved_as_abstentions_instead_of_empty_ranking(ready):

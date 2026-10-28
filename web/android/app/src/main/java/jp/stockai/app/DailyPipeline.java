@@ -62,6 +62,39 @@ final class DailyPipeline {
             && ("published".equals(value.optString("phase")) || "cash_only".equals(value.optString("phase")));
     }
 
+    // Reference results are separate from the 11:30 forecast and can never
+    // activate a share decision. At most one automatic attempt per day.
+    boolean referenceFallback(String today) throws Exception {
+        check();
+        JSONObject response = core.request("GET", "/api/v1/mobile/daily/reference", "null");
+        check();
+        if (response.getInt("status") != 200 || !response.has("body")
+                || (!response.isNull("body") && !(response.get("body") instanceof JSONObject))) throw new CoreFailure();
+        JSONObject previous = response.optJSONObject("body");
+        if (previous != null) {
+            try {
+                if (java.time.OffsetDateTime.parse(previous.getString("checked_at")).atZoneSameInstant(JST)
+                        .toLocalDate().equals(LocalDate.parse(today))) {
+                    progress.state("reference_saved".equals(previous.optString("phase"))
+                        && previous.optJSONObject("snapshot") != null ? "reference_saved" : "inputs", today);
+                    return false;
+                }
+            } catch (org.json.JSONException | java.time.DateTimeException error) { throw new CoreFailure(); }
+        }
+        progress.state("calculating", today);
+        JSONObject reference = api("POST", "daily/generate", new JSONObject().put("reference_only", true));
+        if (!today.equals(clock.get().atZone(JST).toLocalDate().toString())) return true;
+        if ("reference_saved".equals(reference.optString("phase")) && reference.optJSONObject("snapshot") != null
+                && "latest_available_reference".equals(reference.getJSONObject("scope").optString("analysis_mode"))) {
+            progress.state("reference_saved", today);
+            progress.notice(today + ":reference", "参考ランキングを保存しました。株数提案とは別の予測です。");
+        } else {
+            progress.state("inputs", today);
+            progress.notice(today + ":inputs", "ランキングの計算を完了できません。市場データとモデルを確認してください。");
+        }
+        return false;
+    }
+
     boolean acquire(boolean membership, String day) throws Exception {
         check(); progress.state(membership ? "membership" : "history", day);
         JSONObject receipt = market.fetch(membership, day, stopped);
@@ -119,9 +152,7 @@ final class DailyPipeline {
         if (Boolean.FALSE.equals(membership.opt("is_business_day"))) { progress.state("closed", today); return false; }
         if (now.toLocalTime().isBefore(LocalTime.of(11, 30))) { progress.state("waiting_cutoff", today); return false; }
         if (!membership.optBoolean("available_at_cutoff")) {
-            progress.state("late", today);
-            progress.notice(today + ":late", "11:30までの当日情報が不足しています。保存状態を確認してください。");
-            return false;
+            return referenceFallback(today);
         }
         check();
         JSONObject existing = core.request("GET", "/api/v1/mobile/research/plan", "null");
@@ -138,6 +169,11 @@ final class DailyPipeline {
             progress.state("calculating", today);
             numerical = api("POST", "daily/generate", new JSONObject());
             if (!currentForecast(numerical, today)) {
+                JSONArray reasons = numerical.optJSONArray("blocking_reasons");
+                String reason = reasons == null || reasons.length() != 1 ? "" : reasons.optString(0);
+                if (reason.equals("PERSONAL_HOLDINGS_UNCONFIRMED") || reason.equals("PERSONAL_INPUT_AFTER_ALPHA_CUTOFF")
+                        || reason.equals("LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF") || reason.equals("HOLDINGS_NEED_RECONCILIATION"))
+                    return referenceFallback(today);
                 progress.state("inputs", today);
                 progress.notice(today + ":inputs", "計算に必要な情報が不足しています。モデル・本人設定を確認してください。");
                 return false;

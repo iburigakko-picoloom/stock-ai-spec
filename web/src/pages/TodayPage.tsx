@@ -84,7 +84,7 @@ export function TodayPage(): ReactNode {
     {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" /> : !proposal ? <>
       {((loading && !data.savedAnalysis) || (!isAndroid() && !detailed)) && <StatePanel tone={data.isStale ? "warning" : "neutral"} title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"} detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)} />}
       {data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}
-      {!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} />}
+      {!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} showProgress={!detailed} />}
       {detailed && !loading && <section className="card" aria-label="提案の状況"><h2>提案の状況</h2><p>{proposalBlockLabel(data.blockingReason)}</p>
         {isAndroid() && !showReadiness && <button className="button button--secondary" onClick={() => setShowReadiness(true)}>登録状況を詳しく確認</button>}
         <Link className="quiet-link" to="/settings?edit=daily">更新状況を確認 ›</Link></section>}

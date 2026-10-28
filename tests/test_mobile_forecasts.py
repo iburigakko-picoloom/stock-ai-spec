@@ -631,6 +631,64 @@ def test_reference_after_registration_uses_actual_time_and_never_selects_daily(r
         forecasts.reference_view(path, later)
 
 
+@pytest.mark.parametrize("ledger_available", [False, True])
+def test_reference_ranking_does_not_require_manual_portfolio_or_change_the_ledger(
+    ready, monkeypatch, ledger_available,
+):
+    device, store, path, selected, features, _ = ready
+    before = store.latest_portfolio()
+    reference_time = NOW + timedelta(minutes=1)
+    selected["as_of"] = reference_time.isoformat()
+    features["as_of"] = reference_time.isoformat()
+    if not ledger_available:
+        selected["decision_symbols"] = ["1000"]
+        selected["held_only"] = []
+    for horizon in ("5", "20"):
+        features["features"][horizon] = [row for row in features["features"][horizon]
+                                         if ledger_available or row["symbol"] == "1000"]
+        for row in features["features"][horizon]:
+            row["available_at"] = reference_time.isoformat()
+    def reference_inputs(*args, **kwargs):
+        assert kwargs["reference_only"] is True
+        assert sorted(kwargs["decision_symbols"]) == selected["decision_symbols"]
+        return {"as_of": reference_time.isoformat(), "latest_source_received_at": NOW.isoformat(),
+                "reference_price_date": selected["latest_source_date"],
+                "source_snapshot_ids": [(name.value, "4" * 64) for name in market.DatasetName],
+                "revision_policy": "synthetic-fixture-conservative"}
+    monkeypatch.setattr(forecasts.market, "feature_inputs", reference_inputs)
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "latest_manual_portfolio", lambda: None)
+        if not ledger_available:
+            patch.setattr(store, "latest_portfolio", lambda: None)
+        result = forecasts.generate(path, store, reference_time, reference_only=True)
+        assert result["phase"] == "reference_saved"
+        assert result["scope"]["reference_holdings"] == (
+            "ledger" if ledger_available else "unconfirmed")
+        assert result["snapshot"]["holding_symbols"] == (["7203"] if ledger_available else [])
+        assert forecasts.latest(path) is None
+        assert store.latest_prediction_snapshot() is None
+        view = rankings.view(path, store, reference_time, "20d")
+        assert view["referenceHoldings"] == result["scope"]["reference_holdings"]
+        assert view["rows"]
+    assert store.latest_portfolio() == before
+    archive = device.export_state()
+    device.initialize(archive)
+    assert forecasts.latest_reference(path, reference_time)["run_id"] == result["run_id"]
+    assert device._app.state.store.latest_portfolio() == before
+    assert device._app.state.store.latest_prediction_snapshot() is None
+
+
+def test_empty_reference_universe_is_not_misreported_as_an_all_cash_decision(ready):
+    _, store, path, selected, _, _ = ready
+    selected["decision_symbols"] = []
+    selected["new_candidates"] = []
+    result = forecasts.generate(path, store, NOW, reference_only=True)
+    assert result["blocking_reasons"] == ["NO_USABLE_FORECAST"]
+    assert result["snapshot"] is None
+    assert forecasts.latest(path) is None
+    assert store.latest_prediction_snapshot() is None
+
+
 @pytest.mark.parametrize("microsecond", [0, 123000, 123456])
 def test_reference_received_history_without_feature_doubles(tmp_path, monkeypatch, microsecond):
     _device, path, store, _cutoff, now, _, _ = received_history_ready(tmp_path, monkeypatch)

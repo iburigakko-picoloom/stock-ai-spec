@@ -36,7 +36,7 @@ test.each([["history", 0], ["forecast_saved", 2], ["deciding", 2], ["numerical_s
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", `${done}/3工程完了。残り時間の割合ではありません。`);
 });
 
-test.each(["retry", "compute_wait", "paused", "inputs", "consultation_ready", "closed", "waiting_cutoff"])("%s never implies active computation or completed numerical results", state => {
+test.each(["retry", "compute_wait", "paused", "inputs", "consultation_ready", "reference_saved", "closed", "waiting_cutoff"])("%s never implies active computation or completed numerical results", state => {
   render(<DailyControls status={{ ...idle, enabled: true, state }} busy={false} message="" onChange={vi.fn()} />);
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(screen.queryByText(/画面を閉じても続けます/)).not.toBeInTheDocument();
@@ -51,6 +51,7 @@ test("retry state displays the recorded retry time without inventing a failure c
 
 test.each([
   ["forecast_saved", "原予測を保存済み・株数判定待ち"],
+  ["reference_saved", "参考ランキングを保存済み・株数提案はありません"],
   ["consultation_ready", "研究用の原予測を保存済み・ChatGPTへの相談準備完了"],
   ["deciding", "株数を計算しています"],
   ["history_wait", "Androidの取得待ち・アプリで保存状態を確認してください"],

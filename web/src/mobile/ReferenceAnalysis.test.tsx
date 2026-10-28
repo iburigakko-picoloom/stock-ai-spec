@@ -6,6 +6,7 @@ import { ReferenceAnalysis } from "./ReferenceAnalysis";
 
 vi.mock("../api", () => ({ apiPost: vi.fn() }));
 vi.mock("./native", () => ({ isAndroid: () => true }));
+vi.mock("./AnalysisProgress", () => ({ AnalysisProgress: () => null }));
 afterEach(cleanup);
 beforeEach(() => vi.resetAllMocks());
 test("unknown blocking codes do not falsely route to market data", async () => {
@@ -35,6 +36,7 @@ test("first analysis uses reference mode, prevents duplicate work and reloads th
 
 test.each([
   ["UNIVERSE_PRICE_SESSION_MISSING", "market"],
+  ["ENSEMBLE_RANK_POPULATION_INCOMPLETE", "market"],
   ["PERSONAL_HOLDINGS_UNCONFIRMED", "holdings"],
   ["CALIBRATED_MODEL_BUNDLE_UNAVAILABLE", "model"],
 ])("%s directs to the actual prerequisite without generating a decision", async (code, target) => {

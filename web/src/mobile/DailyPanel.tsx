@@ -8,13 +8,14 @@ export function DailyStatusLink() {
   const { status, message } = useDailyAutomation();
   if (!isAndroid()) return null;
   const complete = status && ["numerical_saved", "research_complete", "consultation_ready"].includes(status.state);
-  return <Link className="header-status" to="/settings?edit=daily">{message ? "更新を確認" : complete ? "更新済み" : status ? labels[status.state]?.split("・")[0] ?? "更新を確認" : "更新を確認"} ›</Link>;
+  return <Link className="header-status" to="/settings?edit=daily">{message ? "更新を確認" : status?.state === "reference_saved" ? "ランキング更新済み" : complete ? "更新済み" : status ? labels[status.state]?.split("・")[0] ?? "更新を確認" : "更新を確認"} ›</Link>;
 }
 
 const labels: Record<string, string> = {
   idle: "未開始", queued: "開始待ち", history: "履歴を取得しています", membership: "当日の銘柄一覧を取得しています",
   waiting_cutoff: "11:30の締切待ち", calculating: "予測を計算しています", closed: "今日は休場日です",
   forecast_saved: "原予測を保存済み・株数判定待ち", deciding: "株数を計算しています",
+  reference_saved: "参考ランキングを保存済み・株数提案はありません",
   consultation_ready: "研究用の原予測を保存済み・ChatGPTへの相談準備完了",
   history_wait: "Androidの取得待ち・アプリで保存状態を確認してください",
   compute_wait: "Androidの計算待ち・アプリで保存状態を確認してください",

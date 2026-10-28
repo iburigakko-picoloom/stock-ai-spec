@@ -387,18 +387,32 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
         return _save(path, store, {**scope, "blocked": code}, now, blocks=(code,))
     if now < cutoff:
         return blocked("ALPHA_CUTOFF_OPEN")
-    if manual is None or ledger is None or manual.portfolio.holdings_status == "unrecorded":
-        return blocked("PERSONAL_HOLDINGS_UNCONFIRMED")
-    if max(manual.received_at, manual.export.saved_at, ledger.as_of) > cutoff:
-        return blocked("PERSONAL_INPUT_AFTER_ALPHA_CUTOFF")
-    with connect(store.path) as db:
-        receipt = db.execute("SELECT created_at FROM portfolio_states WHERE portfolio_id=?",
-                             (ledger.portfolio_id,)).fetchone()
-    if receipt is None or datetime.fromisoformat(receipt[0]) > cutoff:
-        return blocked("LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF")
-    held = sorted({p.symbol for p in ledger.positions if p.shares > 0})
-    if set(held) != set(manual.portfolio.holding_symbols):
-        return blocked("HOLDINGS_NEED_RECONCILIATION")
+    if reference_only:
+        # A read-only market ranking does not need account settings or a share
+        # decision. Include actual holdings only when their ledger existed by
+        # the reference cutoff; never infer an empty portfolio from missing data.
+        held = []
+        if ledger is not None and ledger.as_of <= cutoff:
+            with connect(store.path) as db:
+                receipt = db.execute("SELECT created_at FROM portfolio_states WHERE portfolio_id=?",
+                                     (ledger.portfolio_id,)).fetchone()
+            if receipt is not None and datetime.fromisoformat(receipt[0]) <= cutoff:
+                held = sorted({p.symbol for p in ledger.positions if p.shares > 0})
+                scope["reference_holdings"] = "ledger"
+        scope.setdefault("reference_holdings", "unconfirmed")
+    else:
+        if manual is None or ledger is None or manual.portfolio.holdings_status == "unrecorded":
+            return blocked("PERSONAL_HOLDINGS_UNCONFIRMED")
+        if max(manual.received_at, manual.export.saved_at, ledger.as_of) > cutoff:
+            return blocked("PERSONAL_INPUT_AFTER_ALPHA_CUTOFF")
+        with connect(store.path) as db:
+            receipt = db.execute("SELECT created_at FROM portfolio_states WHERE portfolio_id=?",
+                                 (ledger.portfolio_id,)).fetchone()
+        if receipt is None or datetime.fromisoformat(receipt[0]) > cutoff:
+            return blocked("LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF")
+        held = sorted({p.symbol for p in ledger.positions if p.shares > 0})
+        if set(held) != set(manual.portfolio.holding_symbols):
+            return blocked("HOLDINGS_NEED_RECONCILIATION")
     scope["holding_symbols"] = held
     selection = universe.select(path, cutoff, held, **(
         {"reference_only": True} if reference_only else {"current_membership": True}))
@@ -433,7 +447,8 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
             for component in bundle.components
         }
     if not selection["decision_symbols"]:
-        return _save(path, store, scope, now, outcome="cash_only")
+        return blocked("NO_USABLE_FORECAST") if reference_only else _save(
+            path, store, scope, now, outcome="cash_only")
     options = ({"preselected": True}
                if selection.get("policy") == "jquants-scalecat-topix500-v1" else {})
     if reference_only:
@@ -662,7 +677,8 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
     )
     # The shared store rechecks immutability; concurrent input changes must not
     # publish a snapshot with a different set of holdings than the frozen scope.
-    if store.latest_manual_portfolio() != manual or store.latest_portfolio() != ledger:
+    if ((not reference_only and store.latest_manual_portfolio() != manual)
+            or store.latest_portfolio() != ledger):
         raise ValueError("Forecast personal inputs changed during calculation")
     return _save(path, store, scope, now, snapshot=snapshot, outputs=outputs,
                  excluded=excluded, proof=proof, outcome="forecast",

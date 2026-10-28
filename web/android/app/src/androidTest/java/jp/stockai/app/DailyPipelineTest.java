@@ -20,8 +20,10 @@ public class DailyPipelineTest {
     boolean complete, partial, late, closed, failCommit, badDecision, forbid, failAck, stopAfterCommit;
     boolean planSaved, stopAfterForecast, rolloverAfterForecast, rolloverAfterDecision, rejectForeground;
     boolean returnOnly, extraBlock, missingContext, foregroundGranted;
+    boolean personalBlocked, referenceBlocked;
     String decisionTime = "2026-01-06T11:30:00+09:00";
     JSONObject forecast;
+    JSONObject reference;
     Instant now = Instant.parse("2026-01-06T02:31:00Z");
 
     JSONObject membership() throws Exception {
@@ -40,9 +42,19 @@ public class DailyPipelineTest {
         else if (path.endsWith("/ingest")) {
             if (failCommit) throw new IllegalStateException("synthetic disk failure");
             complete = true; result = new JSONObject(); if (stopAfterCommit) stopped.set(true);
-        } else if (path.endsWith("/daily")) return new JSONObject().put("status", 200).put("body", forecast == null ? JSONObject.NULL : forecast);
+        } else if (path.endsWith("/daily/reference")) return new JSONObject().put("status", 200).put("body", reference == null ? JSONObject.NULL : reference);
+        else if (path.endsWith("/daily")) return new JSONObject().put("status", 200).put("body", forecast == null ? JSONObject.NULL : forecast);
         else if (path.endsWith("/daily/generate")) {
-            forecast = forecast("published", today + "T11:30:00+09:00"); result = forecast;
+            if (new JSONObject(body).optBoolean("reference_only")) {
+                events.add("mode:reference");
+                reference = new JSONObject().put("phase", referenceBlocked ? "blocked" : "reference_saved")
+                    .put("checked_at", now.toString()).put("scope", new JSONObject().put("analysis_mode", "latest_available_reference"))
+                    .put("snapshot", referenceBlocked ? JSONObject.NULL : new JSONObject().put("snapshot_id", "synthetic"));
+                return new JSONObject().put("status", 200).put("body", reference);
+            }
+            forecast = forecast(personalBlocked ? "blocked" : "published", today + "T11:30:00+09:00");
+            if (personalBlocked) forecast.put("blocking_reasons", new JSONArray().put("PERSONAL_HOLDINGS_UNCONFIRMED"));
+            result = forecast;
             if (stopAfterForecast) stopped.set(true);
             if (rolloverAfterForecast) now = now.plusSeconds(86400);
         } else if (path.endsWith("/decision/generate")) {
@@ -146,8 +158,37 @@ public class DailyPipelineTest {
     @Test public void lateStartCannotAcquireOrBackdateCurrentMembership() throws Exception {
         complete = true; late = true;
         assertFalse(pipeline().tick(prior));
-        assertTrue(events.contains("state:late"));
-        assertFalse(events.stream().anyMatch(e -> e.startsWith("fetch:") || e.contains("generate")));
+        assertTrue(events.contains("mode:reference"));
+        assertTrue(events.contains("state:reference_saved"));
+        assertFalse(events.stream().anyMatch(e -> e.startsWith("fetch:") || e.contains("decision/generate")));
+        events.clear();
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:reference_saved"));
+        assertFalse(events.contains("mode:reference"));
+    }
+
+    @Test public void unconfirmedAccountCanProduceOneReferenceWithoutAQuantityDecision() throws Exception {
+        complete = true; personalBlocked = true;
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("mode:reference"));
+        assertTrue(events.contains("state:reference_saved"));
+        assertFalse(events.contains("state:numerical_saved"));
+        assertFalse(events.contains("POST /api/v1/mobile/decision/generate"));
+        events.clear();
+        assertFalse(pipeline().tick(prior));
+        assertFalse(events.contains("mode:reference"));
+    }
+
+    @Test public void blockedReferenceNeverClaimsSuccessOrRepeatsAutomaticallyThatDay() throws Exception {
+        complete = true; late = true; referenceBlocked = true;
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("mode:reference"));
+        assertTrue(events.contains("state:inputs"));
+        assertFalse(events.contains("state:reference_saved"));
+        events.clear();
+        assertFalse(pipeline().tick(prior));
+        assertTrue(events.contains("state:inputs"));
+        assertFalse(events.contains("mode:reference"));
     }
     @Test public void holidayAndInactiveDecisionNeverClaimCompletion() throws Exception {
         complete = true; closed = true;

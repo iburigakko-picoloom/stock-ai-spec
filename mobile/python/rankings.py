@@ -182,6 +182,11 @@ def view(path, store, now, horizon):
         "generatedAt": snapshot.generated_at.isoformat(),
         "asOf": snapshot.as_of.isoformat(),
         "priceDate": price_date,
+        "referenceHoldings": (receipt["scope"].get("reference_holdings")
+                              if receipt and receipt.get("snapshot")
+                              and receipt["snapshot"]["snapshot_id"] == snapshot.snapshot_id
+                              and receipt["scope"].get("analysis_mode")
+                              == "latest_available_reference" else None),
         "rows": rows,
         "displayRows": display_rows,
         # Display metadata is outside the persisted consultation identity. Never

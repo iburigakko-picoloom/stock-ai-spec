@@ -8,7 +8,7 @@ import { ReferenceAnalysis } from "./ReferenceAnalysis";
 
 interface Ranked { symbol: string; companyName?: string; modelRank: number; score: number | null; expectedReturn: number | null }
 interface Answer { order: { symbol: string; reason: string }[]; savedAt: string; researchId?: string; research?: ConsultationFindings }
-interface Ranking { id: string; snapshotId: string; generatedAt: string; asOf: string; priceDate: string | null; rows: Ranked[]; displayRows?: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null; holdingSymbols?: string[]; metrics?: Record<string, { return5d: number | null; return20d: number | null; rank20d: number | null }> }
+interface Ranking { id: string; snapshotId: string; generatedAt: string; asOf: string; priceDate: string | null; referenceHoldings?: "ledger" | "unconfirmed" | null; rows: Ranked[]; displayRows?: Ranked[]; total: number; answer: Answer | null; savedInput?: Exported | null; research?: Answer | null; holdingSymbols?: string[]; metrics?: Record<string, { return5d: number | null; return20d: number | null; rank20d: number | null }> }
 interface Exported { id: string; rankingId?: string; prompt: string; expiresAt: string; canCopy?: boolean; responseMode?: string }
 type DisplayRow = Ranked & { reason: string; rank: string };
 const percent = (value: number | null | undefined) => value == null ? "未算出" : `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
@@ -139,12 +139,13 @@ function RankingBody({ horizon }: { horizon: string }) {
         <form className="ranking-search-row" onSubmit={e=>{e.preventDefault();(e.currentTarget.querySelector("input") as HTMLInputElement)?.blur();}}><input className="ranking-search" aria-label="銘柄名・コードで検索" type="search" placeholder="銘柄名・コードで検索" value={search} onChange={e => setSearch(e.target.value)} /><button className="button secondary" type="submit">検索</button></form>
         <div className="ranking-filter"><label><input type="checkbox" checked={heldOnly} onChange={e => setHeldOnly(e.target.checked)} />保有銘柄のみ</label><span className="ranking-results-count">{!query && matching.length > 20 ? "上位20件 · " : ""}{visible.length} / {rows.length}銘柄</span></div>
         {unavailableNames && <p className="setting-footnote">一部の銘柄名を確認できませんでした。銘柄コードを表示しています。</p>}
+        {data.referenceHoldings === "unconfirmed" && <p className="setting-footnote">保有台帳を確認できなかったため、市場銘柄の参考予測です。対象外の保有株は追加していません。</p>}
         {!visible.length && <p>条件に一致する銘柄がありません。</p>}
         <RankingRows key={JSON.stringify([horizon,source,legacy,heldOnly,query])} rows={visible} data={data} horizon={horizon} held={held} adjusted={!!adjusted} /><p className="small muted">{data.priceDate ? `${data.priceDate} 終値 · ` : ""}{dateTime(data.generatedAt, true)} 作成</p>
       </div>
       {horizon === "20d" && <><button className="button button--secondary" disabled={loading || busy || !rows.length} onClick={() => setConsulting(!consulting)}>ChatGPTと相談</button>{(data.savedInput || research || data.answer) && <button className="quiet-link" onClick={()=>{setLegacy(!legacy);setConsulting(true);}}>過去の相談記録</button>}</>}
     </>}
-    {!loading && <ReferenceAnalysis hasSaved={!!data?.rows.length} disabled={busy} onSaved={() => { setExported(null); reload(); }} />}
+    <ReferenceAnalysis hasSaved={!!data?.rows.length} checking={loading || !!error} disabled={busy} onSaved={() => { setExported(null); reload(); }} />
     {horizon === "20d" && consulting && data && !error && <section className="section">
       <h2>ランキングを相談する</h2><p>上位20銘柄＋全保有を、市場の5日・20日見通しと一緒に相談します。相談文をコピーしてChatGPTへ貼り付け、分析はChatGPTの会話で読みます。アプリへの貼り戻しは不要です。</p>
       <label className="checkbox"><input type="checkbox" checked={privateUse} onChange={e => setPrivateUse(e.target.checked)} />本人用・非公開で使い、ChatGPTの学習利用をオフにしています</label>

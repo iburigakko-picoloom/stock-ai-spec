@@ -735,6 +735,24 @@ test("private update picker fits narrow settings and cancellation is clear", asy
   expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
 });
 
+test("ranking can be updated even while the previous result is still loading", async ({page})=>{
+  if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width:320,height:800});
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  let requested=false;
+  await page.route("**/api/v1/mobile/ranking/5d",async route=>{requested=true;await gate;await route.fulfill({json:null});});
+  await page.route("**/api/v1/mobile/daily/generate",route=>route.fulfill({json:{phase:"blocked",blocking_reasons:["CALIBRATED_MODEL_BUNDLE_UNAVAILABLE"]}}));
+  try {
+    await page.goto("http://127.0.0.1:5196/#/ranking");
+    await expect.poll(()=>requested).toBe(true);
+    await expect(page.getByText("ランキングを読み込んでいます…")).toBeVisible();
+    await page.getByRole("button",{name:"ランキングを更新"}).click();
+    await expect(page.getByText("取り込んだモデルの利用条件を確認してください。")).toBeVisible();
+    await page.addStyleTag({content:"html{font-size:150%}"});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  } finally {release();}
+});
+
 for (const panel of ["market", "model"]) test(`leaving ${panel} skips its not-yet-started reads`, async ({page})=>{
   let release!:()=>void;
   const gate=new Promise<void>(resolve=>{release=resolve;});
