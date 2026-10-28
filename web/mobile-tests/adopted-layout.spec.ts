@@ -714,7 +714,7 @@ test("daily evidence opens on request and fits a narrow screen",async({page})=>{
     return route.fulfill({json:{runs:[{run_id:"synthetic-daily",as_of:"2026-10-26T11:30:00+09:00",generated_at:"2026-10-26T11:32:00+09:00",prediction_count:489,excluded_candidates:[{}],has_5d_return:true,has_20d_return:true,has_20d_rank:true}]}});
   });
   await page.setViewportSize({width:320,height:800});
-  await page.goto("/#/validation");
+  await page.goto("http://127.0.0.1:5196/#/validation");
   const panel=page.getByRole("region",{name:"日次予測の記録"});
   await expect(panel).toBeVisible();
   expect(requests).toBe(0);
@@ -744,7 +744,7 @@ test("forward evidence registers and records outcomes at 320px",async({page})=>{
     return route.fulfill({json:{runs:[run],registrations:registered?[registration]:[],observations:observed?[{observation_id:"c",run_id:run.run_id,horizon:5,count:2,scored_count:1,mean_absolute_error:.03,observed_at:"2026-10-28T00:00:00Z"}]:[]}});
   });
   await page.setViewportSize({width:320,height:800});
-  await page.goto("/#/validation");
+  await page.goto("http://127.0.0.1:5196/#/validation");
   const panel=page.getByRole("region",{name:"日次予測の記録"});
   await panel.getByRole("button",{name:"記録を確認"}).click();
   await panel.getByRole("button",{name:"現在のモデルで検証を開始"}).click();
@@ -765,7 +765,7 @@ test("forward evidence registers and records outcomes at 320px",async({page})=>{
 test("older forecasts can be reached after twenty sessions",async({page})=>{
   const runs=Array.from({length:25},(_,i)=>({run_id:String(i),as_of:`2026-10-${String(i+1).padStart(2,"0")}T11:30:00+09:00`,generated_at:`2026-10-${String(i+1).padStart(2,"0")}T11:31:00+09:00`,prediction_count:1,excluded_candidates:[],has_5d_return:true,has_20d_return:true,has_20d_rank:true}));
   await page.route("**/api/v1/mobile/forward-evidence",route=>route.fulfill({json:{runs}}));
-  await page.setViewportSize({width:320,height:800});await page.goto("/#/validation");
+  await page.setViewportSize({width:320,height:800});await page.goto("http://127.0.0.1:5196/#/validation");
   const panel=page.getByRole("region",{name:"日次予測の記録"});
   await panel.getByRole("button",{name:"記録を確認"}).click();
   await expect(panel.locator("li")).toHaveCount(10);
