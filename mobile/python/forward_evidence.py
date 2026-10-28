@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from . import forecasts
+from . import forecasts, forward_protocol
 from .storage import connect
 
 
@@ -65,5 +65,7 @@ def inventory(path: Path, store, *, now: datetime) -> dict:
         "schema_version": "daily-evidence-inventory-v1",
         "read_at": now.isoformat(),
         "runs": rows,
+        "registrations": forward_protocol.registrations(path),
+        "observations": forward_protocol.observations(path),
         "formal_evaluation": False,
     }

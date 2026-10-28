@@ -64,6 +64,14 @@ test("production compute entry boots offline under the native CSP and returns du
   const afterFailure = await send(5, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });
   expect(afterFailure.result).toEqual(saved.result);
   expect(afterFailure.state).toBeNull();
+  const emptyEvidence = await send(22, { command: "request", method: "GET", path: "/api/v1/mobile/forward-evidence" });
+  expect(emptyEvidence.result).toMatchObject({ status: 200, body: { runs: [], registrations: [], observations: [], formal_evaluation: false } });
+  expect(emptyEvidence.state).toBeNull();
+  const missingModel = await send(23, { command: "request", method: "POST", path: "/api/v1/mobile/forward-evidence/register", body: "{}" });
+  expect(missingModel.result?.status).toBe(422);
+  expect(missingModel.state).toBeTruthy();
+  const stillEmpty = await send(24, { command: "request", method: "GET", path: "/api/v1/mobile/forward-evidence" });
+  expect(stillEmpty.result).toMatchObject({ status: 200, body: { registrations: [], observations: [] } });
   const exception = await send(6, { command: "request", method: "POST", path: "/api/v1/mobile/features", body: "null" });
   expect(exception.error).toBe("COMPUTE_WORKER_FAILED");
   const afterException = await send(7, { command: "request", method: "GET", path: "/api/v1/mobile/portfolio" });

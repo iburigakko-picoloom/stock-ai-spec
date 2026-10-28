@@ -14,7 +14,7 @@ test("daily records load only on request and do not claim outcomes",()=>{
   render(<ForwardEvidencePanel />);
   expect(native.isAndroid()).toBe(true);
   expect(use).toHaveBeenLastCalledWith("/api/v1/mobile/forward-evidence",expect.objectContaining({enabled:false}));
-  expect(screen.getByText(/実績との比較や最終評価はまだ/)).toBeVisible();
+  expect(screen.getByText(/正式な採用評価は行っていません/)).toBeVisible();
   fireEvent.click(screen.getByRole("button",{name:"記録を確認"}));
   expect(use).toHaveBeenLastCalledWith("/api/v1/mobile/forward-evidence",expect.objectContaining({enabled:true}));
   expect(screen.getByText(/10銘柄 · 予測対象外 1銘柄 · 一部モデル未提供/)).toBeVisible();

@@ -164,7 +164,7 @@ jobs:
           uv run python -m pytest tests/test_dividends.py tests/test_market_nav.py tests/test_assumed_market.py tests/test_daily_nav.py tests/test_daily_strategy.py -q --basetemp=.demo-artifacts/pytest-market-nav-ci
           uv run python -m pytest tests/test_daily_market.py tests/test_daily_instruments.py -q --basetemp=.demo-artifacts/pytest-instrument-rules-ci
           uv run python -m pytest tests/test_research_funding.py tests/test_market_funding.py -q --basetemp=.demo-artifacts/pytest-funding-ci
-          uv run python -m pytest tests/test_research_comparison.py tests/test_mobile_forward_evidence.py -q --basetemp=.demo-artifacts/pytest-forward-evidence-ci
+          uv run python -m pytest tests/test_research_comparison.py tests/test_mobile_forward_evidence.py tests/test_mobile_forward_protocol.py -q --basetemp=.demo-artifacts/pytest-forward-evidence-ci
           uv run python -m pytest tests/test_mobile_frozen_export.py tests/test_advanced_research.py tests/test_locked_holdout.py tests/test_holdout_prediction_population.py -q --basetemp=.demo-artifacts/pytest-frozen-export-ci
           uv run python -m pytest tests/test_oof_population_recovery.py tests/test_daily_ensemble_population.py tests/test_holdout_frozen_composition.py tests/test_mobile_research_ensemble.py tests/test_mobile_ensemble_forecasts.py tests/test_mobile_predictable_rank.py tests/test_ensemble_prediction_snapshot.py tests/test_final_strategy.py tests/test_nav_share_exchange.py tests/test_nav_posthoc_accounting.py -q --basetemp=.demo-artifacts/pytest-completion-ci
           uv run python -m pytest tests/test_cost_tax.py tests/test_tax_acquisition.py -q --basetemp=.demo-artifacts/pytest-cost-tax-ci

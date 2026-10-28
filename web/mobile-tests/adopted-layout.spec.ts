@@ -721,9 +721,56 @@ test("daily evidence opens on request and fits a narrow screen",async({page})=>{
   await panel.getByRole("button",{name:"記録を確認"}).click();
   await expect(panel.getByText(/489銘柄 · 予測対象外 1銘柄/)).toBeVisible();
   expect(requests).toBe(1);
-  await expect(panel.getByText(/実績との比較や最終評価はまだ/)).toBeVisible();
+  await expect(panel.getByText(/正式な採用評価は行っていません/)).toBeVisible();
   for(const font of [100,150]){
     await page.addStyleTag({content:`html{font-size:${font}%}`});
     expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
   }
+});
+
+test("forward evidence registers and records outcomes at 320px",async({page})=>{
+  const registration={registration_id:"a".repeat(64),model_version:"mobile-bundle:test",registered_at:"2026-10-25T09:00:00Z",eligible_from:"2026-10-25T15:00:00Z"};
+  const run={run_id:"b".repeat(64),model_version:registration.model_version,as_of:"2026-10-26T11:30:00+09:00",generated_at:"2026-10-26T11:32:00+09:00",prediction_count:2,excluded_candidates:[],has_5d_return:true,has_20d_return:true,has_20d_rank:true};
+  let registered=false,observed=false;
+  await page.route("**/api/v1/mobile/forward-evidence**",async route=>{
+    const url=route.request().url();
+    if(url.endsWith("/observations/c"))return route.fulfill({json:{observation_id:"c",evidence:{horizon:5,results:[{symbol:"7203",expected_return:.02,actual_return:.05,rank_score:null,status:"available"},{symbol:"1000",expected_return:.01,actual_return:null,rank_score:null,status:"price_missing"}]}}});
+    if(url.endsWith("/register")){registered=true;return route.fulfill({json:registration});}
+    if(url.endsWith("/observe")){
+      const body=route.request().postDataJSON();
+      expect(body).toEqual({registration_id:registration.registration_id,run_id:run.run_id,horizon:5});
+      observed=true;return route.fulfill({json:{evidence:{count:2,scored_count:1,mean_absolute_error:.03}}});
+    }
+    return route.fulfill({json:{runs:[run],registrations:registered?[registration]:[],observations:observed?[{observation_id:"c",run_id:run.run_id,horizon:5,count:2,scored_count:1,mean_absolute_error:.03,observed_at:"2026-10-28T00:00:00Z"}]:[]}});
+  });
+  await page.setViewportSize({width:320,height:800});
+  await page.goto("/#/validation");
+  const panel=page.getByRole("region",{name:"日次予測の記録"});
+  await panel.getByRole("button",{name:"記録を確認"}).click();
+  await panel.getByRole("button",{name:"現在のモデルで検証を開始"}).click();
+  await expect(panel.getByText(/検証記録を開始しました/)).toBeVisible();
+  await panel.getByRole("button",{name:"5日結果を記録"}).click();
+  await expect(panel.getByText(/5日の結果を記録しました/)).toContainText("比較可能 1 / 2銘柄");
+  await expect(panel.getByText(/記録した参考結果/)).toBeVisible();
+  await panel.getByRole("button",{name:"銘柄別を見る"}).click();
+  const detail=panel.getByRole("region",{name:"銘柄別の参考結果"});
+  await expect(detail.getByText(/7203/)).toContainText("値予測 2.00% · 実績 5.00%");
+  await expect(detail.getByText(/1000/)).toContainText("株価不足");
+  for(const font of [100,150]){
+    await page.addStyleTag({content:`html{font-size:${font}%}`});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  }
+});
+
+test("older forecasts can be reached after twenty sessions",async({page})=>{
+  const runs=Array.from({length:25},(_,i)=>({run_id:String(i),as_of:`2026-10-${String(i+1).padStart(2,"0")}T11:30:00+09:00`,generated_at:`2026-10-${String(i+1).padStart(2,"0")}T11:31:00+09:00`,prediction_count:1,excluded_candidates:[],has_5d_return:true,has_20d_return:true,has_20d_rank:true}));
+  await page.route("**/api/v1/mobile/forward-evidence",route=>route.fulfill({json:{runs}}));
+  await page.setViewportSize({width:320,height:800});await page.goto("/#/validation");
+  const panel=page.getByRole("region",{name:"日次予測の記録"});
+  await panel.getByRole("button",{name:"記録を確認"}).click();
+  await expect(panel.locator("li")).toHaveCount(10);
+  await panel.getByRole("button",{name:"過去の記録をさらに表示"}).click();
+  await expect(panel.locator("li")).toHaveCount(20);
+  await panel.getByRole("button",{name:"過去の記録をさらに表示"}).click();
+  await expect(panel.locator("li")).toHaveCount(25);
 });

@@ -32,6 +32,7 @@ from . import (
     forecast_history,
     forecasts,
     forward_evidence,
+    forward_protocol,
     manual_chatgpt,
     market,
     membership,
@@ -331,6 +332,41 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
                 OperationalIntegrityError):
             return {"status": 422, "body": {"detail": "保存した日次予測の記録を確認できません。"}}
+    if path == "/api/v1/mobile/forward-evidence/register" and method == "POST":
+        try:
+            if json.loads(body) != {}:
+                raise ValueError("Unexpected registration input")
+            return {"status": 200, "body": forward_protocol.register(
+                STATE / "mobile.sqlite3", datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error):
+            return {"status": 422, "body": {
+                "detail": "現在のモデルを確認できず、検証を開始できません。"}}
+    if path == "/api/v1/mobile/forward-evidence/observe" and method == "POST":
+        try:
+            incoming = json.loads(body)
+            if (not isinstance(incoming, dict)
+                    or set(incoming) != {"registration_id", "run_id", "horizon"}
+                    or any(not isinstance(incoming[k], str)
+                           or not re.fullmatch(r"[0-9a-f]{64}", incoming[k])
+                           for k in ("registration_id", "run_id"))
+                    or type(incoming["horizon"]) is not int):
+                raise ValueError("Invalid observation input")
+            return {"status": 200, "body": forward_protocol.observe(
+                STATE / "mobile.sqlite3", _app.state.store, incoming["registration_id"],
+                incoming["run_id"], incoming["horizon"], datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "予測と市場データの記録を照合できません。"}}
+    observation = re.fullmatch(r"/api/v1/mobile/forward-evidence/observations/([0-9a-f]{64})", path)
+    if observation and method == "GET":
+        try:
+            return {"status": 200, "body": forward_protocol.observation(
+                STATE / "mobile.sqlite3", observation[1],
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError):
+            return {"status": 422, "body": {"detail": "保存した実績記録を確認できません。"}}
     history = re.fullmatch(
         r"/api/v1/mobile/stocks/([A-Z0-9]{4})/forecast-history(?:\?days=(30|90|180|366))?",
         path,
