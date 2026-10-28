@@ -697,6 +697,32 @@ test("proposal details and calculation method fit narrow screens", async ({page}
   expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
 });
 
+test("proposal details show progress and failure while today read is stalled", async ({page})=>{
+  if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width:320,height:800});
+  let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  let requested=false;
+  await page.route("**/api/v1/today",async route=>{requested=true;await gate;await route.fulfill({json:adoptedPayloads({})["/api/v1/today"]});});
+  await page.evaluate(() => {
+    const native=window as unknown as {Capacitor:{nativePromise:(plugin:string,method:string,options?:unknown)=>Promise<unknown>}};
+    const previous=native.Capacitor.nativePromise;
+    native.Capacitor.nativePromise=async(plugin,method,options)=>{
+      if(method==="dailyStatus")return {enabled:true,state:"retry",notificationsEnabled:true,retryAt:"2026-10-28T03:30:00Z"};
+      if(method==="analysisStatus")return {state:"blocked",blockingReasons:["NO_USABLE_FORECAST"]};
+      return previous(plugin,method,options);
+    };
+  });
+  try {
+    await page.goto("http://127.0.0.1:5196/#/today/details");
+    await expect.poll(()=>requested).toBe(true);
+    await expect(page.getByText("今日の状態を確認しています")).toBeVisible();
+    await expect(page.getByText(/予測に必要な株価履歴が不足/)).toBeVisible();
+    await expect(page.getByText(/再試行予定/)).toBeVisible();
+    await page.addStyleTag({content:"html{font-size:150%}"});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  } finally {release();}
+});
+
 for (const panel of ["market", "model"]) test(`leaving ${panel} skips its not-yet-started reads`, async ({page})=>{
   let release!:()=>void;
   const gate=new Promise<void>(resolve=>{release=resolve;});

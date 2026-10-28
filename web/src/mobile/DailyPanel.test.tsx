@@ -42,6 +42,13 @@ test.each(["retry", "compute_wait", "paused", "inputs", "consultation_ready", "c
   expect(screen.queryByText(/画面を閉じても続けます/)).not.toBeInTheDocument();
 });
 
+test("retry state displays the recorded retry time without inventing a failure cause", () => {
+  render(<DailyControls status={{ ...idle, enabled:true, state:"retry", retryAt:"2026-10-28T03:30:00Z" }} busy={false} message="" onChange={vi.fn()} />);
+  expect(screen.getByText(/詳しい原因は記録されていません/)).toBeVisible();
+  expect(screen.getByText(/再試行予定：10\/28 12:30以降/)).toBeVisible();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
 test.each([
   ["forecast_saved", "原予測を保存済み・株数判定待ち"],
   ["consultation_ready", "研究用の原予測を保存済み・ChatGPTへの相談準備完了"],

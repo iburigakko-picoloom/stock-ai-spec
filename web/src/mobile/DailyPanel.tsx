@@ -20,7 +20,7 @@ const labels: Record<string, string> = {
   compute_wait: "Androidの計算待ち・アプリで保存状態を確認してください",
   numerical_saved: "数値判定を保存済み・ChatGPT調査は別途確認", inputs: "モデル・本人設定の確認が必要です",
   late: "11:30までの当日情報が不足しています", credentials: "APIキー・契約を確認して再開してください",
-  retry: "中断・保存済みの続きから再試行待ち", paused: "停止中・取得済みのデータを保持しています",
+  retry: "更新が中断し、保存済みの続きから再試行待ちです。中断の詳しい原因は記録されていません。", paused: "停止中・取得済みのデータを保持しています",
   research_running: "数値判定を保存済み・ChatGPT調査を進めています",
   research_complete: "数値判定・ChatGPT調査を保存しました",
   research_attention: "数値判定を保存済み・ChatGPT調査の確認が必要です",
@@ -36,6 +36,7 @@ export function useDailyAutomation() {
   const [status, setStatus] = useState<DailyStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [readWarning, setReadWarning] = useState("");
   const changing = useRef(false);
   const revision = useRef(0);
   useEffect(() => {
@@ -43,14 +44,17 @@ export function useDailyAutomation() {
     let active = true;
     let occupied = false;
     let pendingFocus = false;
+    let readTimer = 0;
     const refresh = (focus = false): void => {
       if (!active || changing.current || document.visibilityState !== "visible") return;
       if (occupied) { if (focus) pendingFocus = true; return; }
       occupied = true;
       const observed = revision.current;
-      void StockAI.dailyStatus().then(value => { if (active && !changing.current && observed === revision.current) setStatus(value); })
-        .catch(() => { if (active && !changing.current && observed === revision.current) setMessage("自動処理の状態を確認できません。アプリを再起動してください。"); })
+      readTimer = window.setTimeout(() => { if (active && !changing.current && observed === revision.current) setReadWarning("自動更新の状態の確認に時間がかかっています。確認が終わると自動で表示します。"); }, 15_000);
+      void StockAI.dailyStatus().then(value => { if (active && !changing.current && observed === revision.current) { setStatus(value); setReadWarning(""); } })
+        .catch(() => { if (active && !changing.current && observed === revision.current) setReadWarning("自動更新の状態を確認できません。再確認を続けます。"); })
         .finally(() => {
+          window.clearTimeout(readTimer);
           occupied = false;
           if (active && pendingFocus) { pendingFocus = false; refresh(); }
         });
@@ -58,7 +62,7 @@ export function useDailyAutomation() {
     refresh();
     const timer = window.setInterval(() => refresh(), 15000);
     const stopForeground = listenForForegroundRefresh(() => refresh(true));
-    return () => { active = false; window.clearInterval(timer); stopForeground(); };
+    return () => { active = false; window.clearInterval(timer); window.clearTimeout(readTimer); stopForeground(); };
   }, []);
   async function change(start: boolean): Promise<void> {
     if (changing.current) return;
@@ -82,7 +86,7 @@ export function useDailyAutomation() {
     } catch { setMessage("通知の許可状態を確認できません。Androidのアプリ設定を確認してください。"); }
     finally { changing.current = false; setBusy(false); }
   }
-  return { status, busy, message, change, requestNotifications };
+  return { status, busy, message: message || readWarning, change, requestNotifications };
 }
 
 export function DailyPanel({compact=false}:{compact?:boolean}): ReactNode {
@@ -96,6 +100,8 @@ export function DailyControls({ status, busy, message, onChange, explanations=tr
 }): ReactNode {
   const delayed = status?.state === "waiting_cutoff" && status.day && Date.now() >= Date.parse(`${status.day}T11:30:00+09:00`);
   const stage = status && status.enabled && status.state !== "calculating" ? stages[status.state] : undefined;
+  const retryTime = status && ["retry", "history_wait", "compute_wait"].includes(status.state) && status.retryAt && Number.isFinite(Date.parse(status.retryAt))
+    ? new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(status.retryAt)) : null;
   return <section className="section daily-panel" aria-label="毎日の自動処理">
     <h2>毎日の自動処理</h2>
     <p role="status">{status ? delayed ? "締切後の実行待ち・Androidの予約処理を待っています" : labels[status.state] ?? "保存状態を確認してください" : "状態を確認しています…"}</p>
@@ -106,6 +112,7 @@ export function DailyControls({ status, busy, message, onChange, explanations=tr
     </div>}
     {status?.enabled && ["history", "membership", "calculating", "deciding"].includes(status.state) && <p className="daily-background">画面を閉じても続けます。省電力などで中断した場合は、保存済みの続きから再開します。</p>}
     {status?.day && <p>対象日：{status.day}</p>}
+    {retryTime && <p>再試行予定：{retryTime}以降（Androidの実行待ち）</p>}
     <div className="button-stack">
       <button className="button button--primary" hidden={!!status?.enabled && status.state !== "credentials"} disabled={busy || !status || (status.enabled && status.state !== "credentials")} onClick={() => onChange(true)}>{status?.state === "paused" || status?.state === "credentials" ? "続きから再開" : "開始"}</button>
       <button className="button button--secondary" hidden={!status?.enabled} disabled={busy || !status?.enabled} onClick={() => onChange(false)}>自動処理を停止</button>

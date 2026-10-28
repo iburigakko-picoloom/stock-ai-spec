@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PageHeader, RuntimeBanner, StatePanel, dateTime, currency as yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, SavedAnalysis, TodayResponse } from "../types";
-import { DailyStatusLink } from "../mobile/DailyPanel";
+import { DailyPanel, DailyStatusLink } from "../mobile/DailyPanel";
 import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";
 import { isAndroid } from "../mobile/native";
 import { ReferenceAnalysis } from "../mobile/ReferenceAnalysis";
@@ -52,8 +52,15 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
 export function TodayPage(): ReactNode {
   const detailed = useLocation().pathname === "/today/details";
   const [showReadiness, setShowReadiness] = useState(false);
+  const [slow, setSlow] = useState(false);
   const { data, error, loading, savedAt, reload } = useApiData<TodayResponse>("/api/v1/today");
-  if ((loading && !data) || error || !data) return <div className="page today-page"><PageHeader title={detailed ? "提案の計算詳細" : "今日"} backTo={detailed ? "/today" : undefined} /><div className="screen-today"><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} />{!detailed && <div className="today-actions"><div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions?manual=1">取引を記録 ＋</Link></div><Link className="quiet-link" to="/today/details">詳細・更新状況</Link></div>}</div></div>;
+  useEffect(() => {
+    if (!loading) { setSlow(false); return; }
+    const timer = window.setTimeout(() => setSlow(true), 15_000);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
+  const delay = slow && loading && <p role="status" className="setting-footnote">提案の確認に時間がかかっています。計算や保存の終了待ちの場合があります。確認が終わると自動で更新します。</p>;
+  if ((loading && !data) || error || !data) return <div className="page today-page"><PageHeader title={detailed ? "提案の計算詳細" : "今日"} backTo={detailed ? "/today" : undefined} /><div className="screen-today">{detailed && <DailyPanel compact />}<StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} />{delay}{error && <button className="button button--secondary" onClick={reload}>提案をもう一度確認</button>}{!detailed && <div className="today-actions"><div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions?manual=1">取引を記録 ＋</Link></div><Link className="quiet-link" to="/today/details">詳細・更新状況</Link></div>}</div></div>;
   const previous = isAndroid() && (loading || !!savedAt);
   const proposal = (!previous && (loading || data.isStale)) ? null : data.proposal;
   const visible = proposal?.lines
@@ -67,8 +74,11 @@ export function TodayPage(): ReactNode {
   return <div className="page today-page">
     <PageHeader title={detailed ? "提案の計算詳細" : "今日"} backTo={detailed ? "/today" : undefined} actions={!detailed && <DailyStatusLink />} />
     <div className="screen-today">
+    {detailed && <DailyPanel compact />}
     {data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
     {previous && <p role="status" className="setting-footnote">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
+    {delay}
+    {detailed && loading && data.blockingReason && <p className="setting-footnote">前回の停止理由（更新を確認中）：{proposalBlockLabel(data.blockingReason)}</p>}
     {!detailed && <div className="today-heading"><h3>今日の提案</h3></div>}
     <div id="today-source">
     {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" /> : !proposal ? <>

@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { AnalysisProgress } from "./AnalysisProgress";
 import { StockAI, type AnalysisStatus } from "./native";
 vi.mock("./native", () => ({ isAndroid: () => true, StockAI: { analysisStatus: vi.fn() } }));
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 test("one foreground return causes one progress read", async () => {
   let finish!: (value: AnalysisStatus) => void;
   vi.mocked(StockAI.analysisStatus).mockReset().mockResolvedValueOnce({ state: "idle" })
@@ -23,6 +23,24 @@ test("missing old reasons do not send the user to another copy of this screen", 
   render(<AnalysisProgress />);
   expect(await screen.findByText(/以前の失敗理由が記録されていません/)).toBeVisible();
   expect(screen.queryByText(/予測設定で/)).not.toBeInTheDocument();
+});
+test("a failed progress read is visible instead of silently appearing idle", async () => {
+  vi.mocked(StockAI.analysisStatus).mockRejectedValue(new Error("unavailable"));
+  render(<AnalysisProgress />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("進捗・停止理由を確認できません");
+});
+test("a delayed progress read warns, then displays the late result", async () => {
+  vi.useFakeTimers();
+  let finish!: (value: AnalysisStatus) => void;
+  vi.mocked(StockAI.analysisStatus).mockReset().mockReturnValue(new Promise(resolve => { finish=resolve; }));
+  const view=render(<AnalysisProgress />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+  expect(screen.getByRole("alert")).toHaveTextContent("進捗・停止理由を確認できません");
+  expect(StockAI.analysisStatus).toHaveBeenCalledOnce();
+  await act(async () => finish({state:"blocked",blockingReasons:["NO_USABLE_FORECAST"]}));
+  expect(screen.getByText(/予測に必要な株価履歴が不足/)).toBeVisible();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  view.unmount(); vi.useRealTimers();
 });
 test("reopened HTTP failure displays the diagnostic locally even without blocking reasons", async () => {
   vi.mocked(StockAI.analysisStatus).mockResolvedValue({ state: "blocked", responseStatus: 422, responseCode: "FORECAST_VALIDATION_FAILED", diagnostic: "ValueError:stock_ai.mobile.forecasts:generate:443" });

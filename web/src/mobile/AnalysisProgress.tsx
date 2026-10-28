@@ -14,16 +14,20 @@ function blockedReason(codes: string[]) {
 
 export function AnalysisProgress({ busy = false }: { busy?: boolean }) {
   const [status, setStatus] = useState<AnalysisStatus | null>(null);
+  const [readFailed, setReadFailed] = useState(false);
   useEffect(() => {
     if (!isAndroid()) return;
     let alive = true;
     let occupied = false;
     let pendingFocus = false;
+    let readTimer = 0;
     const refresh = (focus = false): void => {
       if (!alive || document.visibilityState !== "visible") return;
       if (occupied) { if (focus) pendingFocus = true; return; }
       occupied = true;
-      void StockAI.analysisStatus().then(value => { if (alive) setStatus(value); }).catch(() => {}).finally(() => {
+      readTimer = window.setTimeout(() => { if (alive) setReadFailed(true); }, 15_000);
+      void StockAI.analysisStatus().then(value => { if (alive) { setStatus(value); setReadFailed(false); } }).catch(() => { if (alive) setReadFailed(true); }).finally(() => {
+        window.clearTimeout(readTimer);
         occupied = false;
         if (alive && pendingFocus) { pendingFocus = false; refresh(); }
       });
@@ -31,8 +35,10 @@ export function AnalysisProgress({ busy = false }: { busy?: boolean }) {
     refresh();
     const timer = window.setInterval(() => refresh(), 1000);
     const stopForeground = listenForForegroundRefresh(() => refresh(true));
-    return () => { alive = false; window.clearInterval(timer); stopForeground(); };
+    return () => { alive = false; window.clearInterval(timer); window.clearTimeout(readTimer); stopForeground(); };
   }, []);
+  if (!isAndroid()) return null;
+  if (readFailed) return <p role="alert" className="setting-footnote">計算の進捗・停止理由を確認できません。状態を再確認します。</p>;
   if (!busy && !["running", "interrupted", "blocked"].includes(status?.state ?? "")) return null;
   const percent = status?.percent;
   const paused = status?.state === "interrupted" || status?.state === "blocked";
