@@ -27,7 +27,7 @@ function unfinishedItems(data: Readiness): string[] {
 export function proposalBlockLabel(reason: string | null): string {
   if (!reason) return "当日の提案はまだ作成されていません。";
   const labels: Record<string, string> = {
-    ALPHA_CUTOFF_OPEN: "今日の予測は11:30以降に更新します。時刻までお待ちください。",
+    ALPHA_CUTOFF_OPEN: "当日の株数提案はまだ作成されていません。ランキングは17:00以降に更新します。",
     PERSONAL_INPUTS_CHANGED: "登録内容が前回の計算後に変更されています。最新の登録内容で再計算が必要です。",
     PERSONAL_SETTINGS_AFTER_ALPHA_CUTOFF: "補足設定が判定時刻より後に更新されています。次の判定時刻に合うデータで再計算が必要です。",
     NUMERICAL_FORECAST_INCOMPLETE: "数値予測がまだ完成していません。分析に失敗した場合は、この画面に停止理由を表示します。",

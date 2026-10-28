@@ -36,7 +36,7 @@ test("previous saved analysis stays read-only through refresh and switches with 
   response(data);
   const view = render(<MemoryRouter><TodayPage /></MemoryRouter>);
   expect(screen.getByRole("heading", { name: "2026/10/21の分析" })).toBeVisible();
-  expect(screen.getByText("今日の予測は11:30以降に更新します。時刻までお待ちください。")).toBeVisible();
+  expect(screen.getByText("当日の株数提案はまだ作成されていません。ランキングは17:00以降に更新します。")).toBeVisible();
   expect(screen.getByText("1234")).toBeVisible();
   expect(screen.getByText("（保有）")).toBeVisible();
   expect(screen.getByText("—")).toBeVisible();
@@ -82,7 +82,7 @@ test("detail shows the saved result and immediate reason without starting an ext
   response(data);
   render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
   expect(screen.getByRole("heading", { name: "2026/10/21の分析" })).toBeVisible();
-  expect(screen.getByRole("region", { name: "提案の状況" })).toHaveTextContent("11:30以降");
+  expect(screen.getByRole("region", { name: "提案の状況" })).toHaveTextContent("17:00以降");
   expect(screen.getByRole("button", { name: "登録状況を詳しく確認" })).toBeVisible();
   expect(screen.getByRole("link", { name: "更新状況を確認 ›" })).toHaveAttribute("href", "/settings?edit=daily");
   expect(useApiData).toHaveBeenCalledTimes(1);

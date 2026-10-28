@@ -15,8 +15,8 @@ export function ReferenceAnalysis({ onSaved, hasSaved, disabled = false, onBusy,
     if (acting.current || disabled) return;
     acting.current = true; setBusy(true); onBusy?.(true); setMessage("");
     try {
-      const result = await apiPost<{ phase: string; blocking_reasons: string[] }>("/api/v1/mobile/daily/generate", { reference_only: true });
-      if (result.phase === "reference_saved") { onSaved(); setMessage("ランキングを保存しました。"); }
+      const result = await apiPost<{ phase: string; blocking_reasons: string[]; reused?: boolean }>("/api/v1/mobile/daily/generate", { reference_only: true });
+      if (result.phase === "reference_saved") { onSaved(); setMessage(result.reused ? "取得済みの同じデータで予測済みのため、ランキングの更新は不要です。" : "ランキングを保存しました。"); setTarget(""); }
       else {
         const codes = result.blocking_reasons;
         if (codes.some(x => x === "PERSONAL_HOLDINGS_UNCONFIRMED" || x === "HOLDINGS_NEED_RECONCILIATION")) {

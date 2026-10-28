@@ -1480,3 +1480,24 @@ def test_reference_latest_completed_prices_do_not_require_a_trading_cutoff() -> 
     ):
         build_production_data(FrameCatalog(frames), source_snapshot_as_of=now-timedelta(hours=1),
                               reference_as_of=now-timedelta(hours=1), minimum_market_coverage=0.60)
+
+
+def test_reference_accepts_same_day_only_after_seventeen_and_actual_receipt() -> None:
+    frames, dates = _source_frames(periods=5)
+    now = datetime.combine(dates[-1].date(), datetime.min.time(), JST).replace(hour=17)
+    for frame in frames.values():
+        frame["available_at"] = pd.Timestamp(now - timedelta(minutes=1))
+    with pytest.raises(ValueError, match="Reference analysis"):
+        build_production_data(
+            FrameCatalog(frames), source_snapshot_as_of=now-timedelta(seconds=1),
+            reference_as_of=now-timedelta(seconds=1), minimum_market_coverage=0.60,
+        )
+    bundle = build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                                   reference_as_of=now, minimum_market_coverage=0.60)
+    latest = bundle.daily.loc[bundle.daily.trading_date == dates[-1]]
+    assert not latest.empty
+    assert (latest.available_at == pd.Timestamp(now)).all()
+    frames[next(iter(frames))]["available_at"] = pd.Timestamp(now + timedelta(seconds=1))
+    with pytest.raises(ValueError, match="after source_snapshot_as_of"):
+        build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                              reference_as_of=now, minimum_market_coverage=0.60)

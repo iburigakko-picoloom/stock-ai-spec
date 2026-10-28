@@ -13,14 +13,14 @@ export function DailyStatusLink() {
 
 const labels: Record<string, string> = {
   idle: "未開始", queued: "開始待ち", history: "履歴を取得しています", membership: "当日の銘柄一覧を取得しています",
-  waiting_cutoff: "11:30の締切待ち", calculating: "予測を計算しています", closed: "今日は休場日です",
+  waiting_cutoff: "17:00の更新待ち", calculating: "予測を計算しています", closed: "今日は休場日です",
   forecast_saved: "原予測を保存済み・株数判定待ち", deciding: "株数を計算しています",
   reference_saved: "参考ランキングを保存済み・株数提案はありません",
   consultation_ready: "研究用の原予測を保存済み・ChatGPTへの相談準備完了",
   history_wait: "Androidの取得待ち・アプリで保存状態を確認してください",
   compute_wait: "Androidの計算待ち・アプリで保存状態を確認してください",
   numerical_saved: "数値判定を保存済み・ChatGPT調査は別途確認", inputs: "モデル・本人設定の確認が必要です",
-  late: "11:30までの当日情報が不足しています", credentials: "APIキー・契約を確認して再開してください",
+  late: "市場データの取得状況を確認してください", credentials: "APIキー・契約を確認して再開してください",
   retry: "更新が中断し、保存済みの続きから再試行待ちです。中断の詳しい原因は記録されていません。", paused: "停止中・取得済みのデータを保持しています",
   research_running: "数値判定を保存済み・ChatGPT調査を進めています",
   research_complete: "数値判定・ChatGPT調査を保存しました",
@@ -99,7 +99,7 @@ export function DailyPanel({compact=false}:{compact?:boolean}): ReactNode {
 export function DailyControls({ status, busy, message, onChange, explanations=true }: {
   status: DailyStatus | null; busy: boolean; message: string; onChange: (start: boolean) => void; explanations?:boolean;
 }): ReactNode {
-  const delayed = status?.state === "waiting_cutoff" && status.day && Date.now() >= Date.parse(`${status.day}T11:30:00+09:00`);
+  const delayed = status?.state === "waiting_cutoff" && status.day && Date.now() >= Date.parse(`${status.day}T17:00:00+09:00`);
   const stage = status && status.enabled && status.state !== "calculating" ? stages[status.state] : undefined;
   const retryTime = status && ["retry", "history_wait", "compute_wait"].includes(status.state) && status.retryAt && Number.isFinite(Date.parse(status.retryAt))
     ? new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(status.retryAt)) : null;
@@ -121,9 +121,8 @@ export function DailyControls({ status, busy, message, onChange, explanations=tr
     {message && <p role="alert">{message}</p>}
     {status && !status.notificationsEnabled && <p>通知はオフです。計算結果はアプリ内に保存します。</p>}
     {explanations ? <section><h3 className="plain-section-title">取得と実行時刻について</h3>
-      <p>口座・保有・初回台帳とモデル一式を確認し、APIキーを保存してから開始します。初期履歴を取得し、以後は毎営業日の差分と予測・株数の保存へ進みます。モバイル回線を使用します。</p>
-      <p>Androidの省電力や通信状態で実行が遅れることがあります。11:30を過ぎた受領を締切内へ戻しません。停止・再起動後も保存済みの続きから再開します。Androidの「強制停止」後はアプリを開いてください。</p>
-      <p>ChatGPT連携とモデル設定がある場合は、数値上位20銘柄と全保有を調査します。中断・上限・認証切れは未完了として保存し、調査画面で確認できます。</p>
+      <p>APIキーとモデル一式を確認して開始します。初期履歴を取得し、毎営業日17:00以降に当日終値のランキングを更新します。モバイル回線を使用します。</p>
+      <p>株価データの配信遅延やAndroidの省電力、通信状態によって更新が遅れることがあります。停止・再起動後は保存済みの続きから再開します。Androidの「強制停止」後はアプリを開いてください。</p>
       {status?.updatedAt && <p>状態の記録：{new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "short", timeStyle: "medium" }).format(new Date(status.updatedAt))} JST</p>}
     </section> : <Link className="quiet-link" to="/settings/logs">処理状況・実行記録 ›</Link>}
   </section>;

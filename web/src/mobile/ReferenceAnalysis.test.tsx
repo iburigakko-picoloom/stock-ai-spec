@@ -34,6 +34,16 @@ test("first analysis uses reference mode, prevents duplicate work and reloads th
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 });
 
+test("explains when the current source data has already been predicted", async () => {
+  vi.mocked(apiPost).mockResolvedValue({ phase: "reference_saved", blocking_reasons: [], reused: true });
+  const reload = vi.fn();
+  render(<MemoryRouter><ReferenceAnalysis onSaved={reload} hasSaved /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "ランキングを更新" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("予測済みのため、ランキングの更新は不要です");
+  expect(reload).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});
+
 test.each([
   ["UNIVERSE_PRICE_SESSION_MISSING", "market"],
   ["ENSEMBLE_RANK_POPULATION_INCOMPLETE", "market"],

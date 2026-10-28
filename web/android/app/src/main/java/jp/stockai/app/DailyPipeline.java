@@ -62,8 +62,7 @@ final class DailyPipeline {
             && ("published".equals(value.optString("phase")) || "cash_only".equals(value.optString("phase")));
     }
 
-    // Reference results are separate from the 11:30 forecast and can never
-    // activate a share decision. At most one automatic attempt per day.
+    // Closing-price rankings are read-only and never activate a share decision.
     boolean referenceFallback(String today) throws Exception {
         check();
         JSONObject response = core.request("GET", "/api/v1/mobile/daily/reference", "null");
@@ -73,13 +72,24 @@ final class DailyPipeline {
         JSONObject previous = response.optJSONObject("body");
         if (previous != null) {
             try {
-                if (java.time.OffsetDateTime.parse(previous.getString("checked_at")).atZoneSameInstant(JST)
-                        .toLocalDate().equals(LocalDate.parse(today))) {
-                    progress.state("reference_saved".equals(previous.optString("phase"))
-                        && previous.optJSONObject("snapshot") != null ? "reference_saved" : "inputs", today);
+                JSONObject scope = previous.optJSONObject("scope");
+                JSONObject universe = scope == null ? null : scope.optJSONObject("universe");
+                if ("reference_saved".equals(previous.optString("phase"))
+                        && previous.optJSONObject("snapshot") != null && universe != null
+                        && today.equals(universe.optString("latest_source_date"))) {
+                    progress.state("reference_saved", today);
                     return false;
                 }
-            } catch (org.json.JSONException | java.time.DateTimeException error) { throw new CoreFailure(); }
+                if (!"reference_saved".equals(previous.optString("phase"))
+                        && previous.has("checked_at")) {
+                    ZonedDateTime attempted = java.time.OffsetDateTime.parse(previous.getString("checked_at")).atZoneSameInstant(JST);
+                    if (today.equals(attempted.toLocalDate().toString())
+                            && !attempted.toLocalTime().isBefore(LocalTime.of(17, 0))) {
+                        progress.state("inputs", today);
+                        return false;
+                    }
+                }
+            } catch (RuntimeException error) { throw new CoreFailure(); }
         }
         progress.state("calculating", today);
         JSONObject reference = api("POST", "daily/generate", new JSONObject().put("reference_only", true));
@@ -122,7 +132,7 @@ final class DailyPipeline {
         JSONObject membership = api("GET", "market/membership", null);
         if (!today.equals(membership.getString("date"))) return true;
         if (!membership.isNull("acquisitionId")) market.acknowledge(true, today, membership.getString("acquisitionId"));
-        if (!now.toLocalTime().isBefore(LocalTime.of(10, 30)) && now.toLocalTime().isBefore(LocalTime.of(11, 30))
+        if (!now.toLocalTime().isBefore(LocalTime.of(17, 0))
                 && membership.isNull("latest_received_at")) {
             if (!acquire(true, today)) return true;
             membership = api("GET", "market/membership", null);
@@ -136,7 +146,8 @@ final class DailyPipeline {
         Set<String> completed = new HashSet<>();
         JSONArray days = saved.getJSONArray("completed_dates");
         for (int i = 0; i < days.length(); i++) completed.add(days.getString(i));
-        LocalDate first = LocalDate.parse(firstDay), last = now.toLocalDate().minusDays(1);
+        LocalDate first = LocalDate.parse(firstDay), last = now.toLocalTime().isBefore(LocalTime.of(17, 0))
+            ? now.toLocalDate().minusDays(1) : now.toLocalDate();
         if (first.isAfter(last)) throw new IllegalArgumentException("INVALID_HISTORY_RANGE");
         for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1)) {
             if (!completed.contains(day.toString())) {
@@ -149,8 +160,14 @@ final class DailyPipeline {
         if (acquisitionOnly) return true;
         check(); now = clock.get().atZone(JST);
         if (!today.equals(now.toLocalDate().toString())) return true;
-        if (Boolean.FALSE.equals(membership.opt("is_business_day"))) { progress.state("closed", today); return false; }
-        if (now.toLocalTime().isBefore(LocalTime.of(11, 30))) { progress.state("waiting_cutoff", today); return false; }
+        if (now.toLocalTime().isBefore(LocalTime.of(17, 0))) { progress.state("waiting_cutoff", today); return false; }
+        if (Boolean.FALSE.equals(membership.opt("latest_is_business_day"))) { progress.state("closed", today); return false; }
+        return referenceFallback(today);
+    }
+
+    // The legacy proposal path remains available for historical/manual records;
+    // automated daily ranking updates use the closing-price path above.
+    boolean legacyProposal(String today, JSONObject membership) throws Exception {
         if (!membership.optBoolean("available_at_cutoff")) {
             return referenceFallback(today);
         }

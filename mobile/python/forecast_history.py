@@ -23,7 +23,7 @@ def read(path: Path, store, symbol: str, now: datetime, *, days: int = 90):
     records = []
     linked = set()
 
-    def add(snapshot, kind, run_id):
+    def add(snapshot, kind, run_id, price_day=None):
         decision_day = snapshot.as_of.astimezone(jst).date()
         if snapshot.generated_at > now or not first <= decision_day <= last:
             return
@@ -40,6 +40,9 @@ def read(path: Path, store, symbol: str, now: datetime, *, days: int = 90):
             "modelVersion": snapshot.model_version,
             "return5d": prediction.expected_return_5d,
             "return20d": prediction.expected_return_20d,
+            "_dedupe": (price_day, snapshot.model_version, prediction.expected_return_5d,
+                        prediction.expected_return_20d, getattr(prediction, "rank_score_20d", None))
+                       if kind == "reference" and price_day is not None else None,
         })
 
     with connect(path) as db:
@@ -58,7 +61,8 @@ def read(path: Path, store, symbol: str, now: datetime, *, days: int = 90):
                 linked.add(snapshot.snapshot_id)
                 if kind == "daily" and store.prediction_snapshot(snapshot.snapshot_id) != snapshot:
                     raise ValueError("Published snapshot differs from saved forecast")
-                add(snapshot, kind, receipt["run_id"])
+                price_day = receipt["scope"].get("universe", {}).get("latest_source_date")
+                add(snapshot, kind, receipt["run_id"], price_day)
     with store._connect() as db:
         ids = [row[0] for row in db.execute("SELECT snapshot_id FROM prediction_snapshots")]
     for identity in ids:
@@ -67,4 +71,16 @@ def read(path: Path, store, symbol: str, now: datetime, *, days: int = 90):
     records.sort(key=lambda item: (
         item["date"], datetime.fromisoformat(item["generatedAt"]), item["runId"]
     ))
+    # Existing receipts remain immutable; collapse duplicate reference points
+    # in the graph while preserving distinct models, prices, and daily runs.
+    seen = set()
+    unique = []
+    for row in reversed(records):
+        key = row.pop("_dedupe")
+        if key is not None and key in seen:
+            continue
+        if key is not None:
+            seen.add(key)
+        unique.append(row)
+    records = list(reversed(unique))
     return {"symbol": symbol, "firstDate": str(first), "lastDate": str(last), "forecasts": records}

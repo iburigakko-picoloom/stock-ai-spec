@@ -126,7 +126,9 @@ def build_production_data(
     if reference_as_of is not None:
         if (proposal_as_of is not None or reference_as_of.tzinfo is None
                 or reference_as_of != source_snapshot_as_of
-                or business_dates[-1].date() >= reference_as_of.astimezone(_JST).date()):
+                or business_dates[-1].date() > reference_as_of.astimezone(_JST).date()
+                or (business_dates[-1].date() == reference_as_of.astimezone(_JST).date()
+                    and reference_as_of.astimezone(_JST).time() < time(17, 0))):
             raise ValueError(
                 "Reference analysis requires completed prior-session prices "
                 "and actual receipt time")

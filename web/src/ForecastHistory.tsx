@@ -44,7 +44,7 @@ function ForecastLines({forecasts}:{forecasts:Forecast[]}) {
       </svg>
       </div>
     </div>
-    <p className="small muted">横軸は予測の基準日、下段は作成時刻です。保存結果を等間隔に並べ、同じ日の結果も分けて直線で結びます。実績ではありません。未提供の値をまたぐ線は描きません。</p>
+    <p className="small muted">横軸は予測の基準日、下段は作成時刻です。同じ株価日・モデルで同じ予測値の参考分析は一つにまとめます。実績ではありません。未提供の値をまたぐ線は描きません。</p>
     <label className="forecast-selection">数値を見る日<select value={key(current)} onChange={event=>setSelection(event.target.value)}>{forecasts.slice().reverse().map(item=><option key={key(item)} value={key(item)}>{item.date} · {time(item.generatedAt)} · {item.kind==="reference" ? "参考分析" : item.kind==="archive" ? "保存予測" : "日次予測"}</option>)}</select></label>
     <p className="forecast-selected-values">5日 {percent(current.return5d)} / 20日 {percent(current.return20d)}</p>
   </>;

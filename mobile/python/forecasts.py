@@ -14,7 +14,12 @@ from stock_ai.operations.daily import PredictionSnapshot, canonical_json, conten
 from stock_ai.operations.store import OperationalConflictError
 
 from . import checkpoints, market, models, universe
-from .features import bundled_selection, calculate, predictability_code_sha256
+from .features import (
+    bundled_selection,
+    calculate,
+    predictability_code_sha256,
+    reference_calculation_code_sha256,
+)
 from .model_bundle import ModelBundle
 from .portable_model import predict
 from .research_ensemble import (
@@ -248,6 +253,36 @@ def _save(path: Path, store, scope: dict, now: datetime, *, snapshot=None,
     reference = scope.get("analysis_mode") == "latest_available_reference"
     table = "mobile_reference_runs" if reference else "mobile_forecast_runs"
     with connect(path) as db:
+        if reference and snapshot is not None:
+            db.execute("BEGIN IMMEDIATE")
+            # A new execution time alone does not make a new market prediction.
+            # Keep the original receipt when all model inputs and outputs agree.
+            row = db.execute(
+                "SELECT run_id,scope_hash,payload,content_hash,phase FROM mobile_reference_runs "
+                "WHERE phase='reference_saved' ORDER BY sequence DESC LIMIT 1"
+            ).fetchone()
+            if row is not None:
+                previous, previous_snapshot = _checked_with_snapshot(row)
+                old_scope = previous["scope"]
+                old_proof = previous["data_proof"]
+                if (previous_snapshot is not None
+                        and datetime.fromisoformat(previous["checked_at"]) <= now
+                        and old_scope.get("bundle_sha256") == scope.get("bundle_sha256")
+                        and old_scope.get("reference_compute_code")
+                            == scope.get("reference_compute_code")
+                        and old_scope.get("holding_symbols") == scope.get("holding_symbols")
+                        and old_scope.get("universe", {}).get("decision_symbols")
+                            == scope.get("universe", {}).get("decision_symbols")
+                        and old_scope.get("universe", {}).get("latest_source_date")
+                            == scope.get("universe", {}).get("latest_source_date")
+                        and content_id(old_proof.get("source_snapshot_ids"))
+                            == content_id(proof.get("source_snapshot_ids"))
+                        and content_id(previous["outputs"]) == content_id(body["outputs"])
+                        and content_id(previous["excluded_candidates"])
+                            == content_id(body["excluded_candidates"])
+                        and content_id(previous.get("component_outputs"))
+                            == content_id(body.get("component_outputs"))):
+                    return {**previous, "reused": True}
         db.execute(f"INSERT OR IGNORE INTO {table} VALUES(NULL,?,?,?,?,?)", (
             body["run_id"], scope_hash, canonical_json(body), content_id(body),
             ("reference_saved" if reference else "computed") if snapshot is not None else outcome,
@@ -430,6 +465,8 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
                  feature_manifest_hash=bundle.feature_manifest_hash,
                  calibration=(None if bundle.calibration is None else
                               bundle.calibration.model_dump(mode="json")))
+    if reference_only:
+        scope["reference_compute_code"] = reference_calculation_code_sha256()
     if isinstance(bundle, ResearchEnsembleBundle):
         if any(recipe.rank_universe == "all_market_symbols" for recipe in bundle.outputs):
             # The candidate-only feature cache cannot certify an all-market rank.
@@ -472,6 +509,28 @@ def generate(path: Path, store, now: datetime, *, reference_only=False) -> dict:
         checkpoints.plan(preparation + int(inputs["daily"]["symbol"].nunique()) + count + 1)
     if reference_only and inputs.get("reference_price_date") != selection["latest_source_date"]:
         return blocked("REFERENCE_MARKET_DATE_MISMATCH")
+    if inputs["as_of"] != cutoff.isoformat():
+        raise ValueError("Feature cutoff mismatch")
+    if reference_only:
+        # Reuse a completed prediction before running feature calculation and
+        # model inference when the actual input snapshot and population match.
+        previous = latest_reference(path, cutoff, saved_only=True)
+        if previous is not None:
+            old_scope = previous["scope"]
+            old_selection = old_scope.get("universe", {})
+            same_population = all(old_selection.get(key) == selection.get(key) for key in (
+                "policy", "membership_mode", "latest_source_date", "decision_symbols",
+                "new_candidates", "held_only", "excluded",
+            ))
+            if (old_scope.get("bundle_sha256") == scope.get("bundle_sha256")
+                    and old_scope.get("reference_compute_code")
+                        == scope.get("reference_compute_code")
+                    and old_scope.get("holding_symbols") == scope.get("holding_symbols")
+                    and old_scope.get("reference_holdings") == scope.get("reference_holdings")
+                    and same_population
+                    and content_id(previous["data_proof"]["source_snapshot_ids"])
+                        == content_id(inputs["source_snapshot_ids"])):
+                return {**previous, "reused": True}
     predictable_recipes = ([recipe for recipe in bundle.outputs
                            if recipe.rank_universe == "predictable_decision_symbols"]
                           if isinstance(bundle, ResearchEnsembleBundle) else [])

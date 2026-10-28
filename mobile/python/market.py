@@ -142,6 +142,9 @@ def ingest(path: Path, payload: dict) -> dict:
     received = receipt_time(payload["received_at"]).astimezone(UTC)
     if day > received.astimezone(ZoneInfo("Asia/Tokyo")).date():
         raise ValueError("Invalid source/receipt date")
+    local_received = received.astimezone(ZoneInfo("Asia/Tokyo"))
+    if day == local_received.date() and local_received.time() < time(17, 0):
+        raise ValueError("Same-day closing prices are only accepted after 17:00")
     if set(payload["datasets"]) != {dataset.value for dataset in DatasetName}:
         raise ValueError("Incomplete acquisition")
     calendars = payload["datasets"]["trading_calendar"]

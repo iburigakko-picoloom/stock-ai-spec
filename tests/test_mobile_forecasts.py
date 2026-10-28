@@ -710,6 +710,21 @@ def test_reference_received_history_without_feature_doubles(tmp_path, monkeypatc
     assert view["priceDate"] == result["scope"]["universe"]["latest_source_date"]
 
 
+def test_reference_uses_received_same_day_close_after_seventeen(tmp_path, monkeypatch):
+    from scripts.mobile_capacity_check import make_payload
+
+    _, path, store, cutoff, _, _, _ = received_history_ready(tmp_path, monkeypatch)
+    payload = make_payload(cutoff.date(), 270, 24, random.Random(20261017),
+                           initial_receipt=cutoff.replace(hour=17, minute=0))
+    market.ingest(path, payload)
+    now = market.receipt_time(payload["received_at"]) + timedelta(seconds=1)
+    result = forecasts.generate(path, store, now, reference_only=True)
+    assert result["phase"] == "reference_saved", result["blocking_reasons"]
+    assert result["scope"]["universe"]["latest_source_date"] == str(cutoff.date())
+    assert forecasts.reference_view(path, now)["priceDate"] == str(cutoff.date())
+    assert forecasts.latest(path) is None
+
+
 def test_checkpoint_pipeline_keeps_partial_models_out_of_published_forecasts(ready, monkeypatch):
     import pandas as pd
     from mobile.python import checkpoints

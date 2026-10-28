@@ -149,6 +149,7 @@ def status(path: Path, now: datetime) -> dict:
             "latest_received_at": None if latest is None else latest["received_at"],
             "available_at_cutoff": eligible is not None,
             "is_business_day": None if eligible is None else eligible["is_business_day"],
+            "latest_is_business_day": None if latest is None else latest["is_business_day"],
             "acquisitionId": None if latest is None else latest["acquisitionId"],
             "eligible_acquisition_id": None if eligible is None else eligible["acquisitionId"],
             "eligible_received_at": None if eligible is None else eligible["received_at"],

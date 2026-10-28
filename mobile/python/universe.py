@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -74,6 +74,17 @@ def _observations(path, dataset, first, last, cutoff):
                                  "received_at": received, "payload_hash": digest}
 
 
+def reference_end_date(path, as_of):
+    """Prefer today's received closing prices after 17:00; otherwise retain the last session."""
+    local = as_of.astimezone(ZoneInfo("Asia/Tokyo"))
+    today = local.date()
+    if local.time() >= time(17, 0):
+        batches = _observations(path, "daily_prices", today, today, as_of)
+        if any(rows for _, rows, _ in batches):
+            return today
+    return today - timedelta(days=1)
+
+
 def _reference_topix500(path, as_of, holding_symbols):
     """Use the last closed session's observed master only for read-only analysis."""
     from .preselection import RULE, SCALES, _liquidity_window
@@ -83,7 +94,7 @@ def _reference_topix500(path, as_of, holding_symbols):
     held = sorted(set(holding_symbols))
     if any(not isinstance(x, str) or not re.fullmatch(r"[0-9A-Z]{4,5}", x) for x in held):
         raise ValueError("Invalid holding symbol")
-    window, sources = _liquidity_window(path, as_of)
+    window, sources = _liquidity_window(path, as_of, include_today=True)
     result = {"as_of": as_of.isoformat(), "policy": RULE,
               "membership_mode": "last_closed_reference", "membership_verified": False,
               "latest_source_date": window[-1] if window else None,
@@ -170,7 +181,8 @@ def select(path: Path, as_of: datetime, holding_symbols=(), *, current_membershi
             "received_at": current["received_at"], "payload_hash": current["payload_hash"],
             "provider": "J-Quants", "source_endpoint": "/v2/equities/master",
         })
-    last = as_of.astimezone(ZoneInfo("Asia/Tokyo")).date() - timedelta(days=1)
+    local = as_of.astimezone(ZoneInfo("Asia/Tokyo"))
+    last = reference_end_date(path, as_of) if reference_only else local.date() - timedelta(days=1)
     first = last - timedelta(days=89)
     calendar = {}
     sources = result["sources"]

@@ -79,6 +79,55 @@ def test_same_day_daily_and_reference_are_kept_separate(ready, monkeypatch):
     ]
 
 
+def test_repeated_reference_is_saved_once_and_old_duplicates_are_collapsed(ready, monkeypatch):
+    _, store, path, selected, features, _ = ready
+    stamp = [NOW + timedelta(minutes=1)]
+    source_hash = ["4" * 64]
+
+    def select(*args, **kwargs):
+        return {**selected, "as_of": stamp[0].isoformat()}
+
+    def reference_inputs(*args, **kwargs):
+        return {
+            "as_of": stamp[0].isoformat(),
+            "latest_source_received_at": NOW.isoformat(),
+            "reference_price_date": selected["latest_source_date"],
+            "source_snapshot_ids": [(name.value, source_hash[0]) for name in market.DatasetName],
+            "revision_policy": "synthetic-fixture-conservative",
+        }
+
+    def calculate(*args):
+        result = {**features, "as_of": stamp[0].isoformat()}
+        result["features"] = {
+            horizon: [{**row, "available_at": stamp[0].isoformat()} for row in rows]
+            for horizon, rows in features["features"].items()
+        }
+        return result
+
+    monkeypatch.setattr(forecasts.universe, "select", select)
+    monkeypatch.setattr(forecasts.market, "feature_inputs", reference_inputs)
+    monkeypatch.setattr(forecasts, "calculate", calculate)
+    first = forecasts.generate(path, store, stamp[0], reference_only=True)
+    stamp[0] += timedelta(minutes=1)
+    monkeypatch.setattr(forecasts, "calculate", lambda *args: pytest.fail("duplicate calculation"))
+    reused = forecasts.generate(path, store, stamp[0], reference_only=True)
+    assert reused == {**first, "reused": True}
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM mobile_reference_runs").fetchone()[0] == 1
+
+    # Different source data is retained even if its predictions happen to agree.
+    monkeypatch.setattr(forecasts, "calculate", calculate)
+    source_hash[0] = "5" * 64
+    stamp[0] += timedelta(minutes=1)
+    second = forecasts.generate(path, store, stamp[0], reference_only=True)
+    assert second["run_id"] != first["run_id"]
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM mobile_reference_runs").fetchone()[0] == 2
+    rows = forecast_history.read(path, store, "7203", stamp[0] + timedelta(seconds=1))["forecasts"]
+    assert len(rows) == 1
+    assert rows[0]["runId"] == second["run_id"]
+
+
 def test_history_api_rejects_tampered_original(ready, monkeypatch):
     device, store, path, *_ = ready
     forecasts.generate(path, store, NOW)

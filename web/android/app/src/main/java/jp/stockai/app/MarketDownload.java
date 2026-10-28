@@ -52,8 +52,10 @@ final class MarketDownload {
         if (pageBudget < 1) throw new IllegalArgumentException();
         synchronized (LOCK) {
             LocalDate selected = LocalDate.parse(day);
-            LocalDate today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
-            if (!selected.toString().equals(day) || (membershipOnly ? selected.isAfter(today) : !selected.isBefore(today)))
+            java.time.ZonedDateTime local = java.time.ZonedDateTime.now(ZoneId.of("Asia/Tokyo"));
+            LocalDate today = local.toLocalDate();
+            if (!selected.toString().equals(day) || selected.isAfter(today)
+                    || (!membershipOnly && selected.equals(today) && local.toLocalTime().isBefore(java.time.LocalTime.of(17, 0))))
                 throw new IOException("CLOSED_SOURCE_DAY_REQUIRED");
             db.execSQL("INSERT OR IGNORE INTO market_downloads VALUES(?,?,0,NULL,0,NULL)",
                 new Object[]{key(day), UUID.randomUUID().toString()});
@@ -80,6 +82,9 @@ final class MarketDownload {
                     .put("failedDataset", endpoints[index][0]).put("acquisitionId", id);
                 JSONObject body = response.getJSONObject("body");
                 JSONArray values = body.getJSONArray("data");
+                if (!membershipOnly && selected.equals(today) && cursor == null && values.length() == 0
+                        && (endpoints[index][0].equals("daily_prices") || endpoints[index][0].equals("topix")))
+                    throw new IOException("TODAY_PRICES_NOT_READY");
                 if (values.length() > 50000) throw new IOException("PAGE_LIMIT");
                 for (int i = 0; i < values.length(); i++) {
                     JSONObject value = values.getJSONObject(i);

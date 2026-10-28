@@ -29,7 +29,8 @@ public class DailyPipelineTest {
     JSONObject membership() throws Exception {
         return new JSONObject().put("date", today).put("acquisitionId", JSONObject.NULL)
             .put("latest_received_at", late ? JSONObject.NULL : "2026-01-06T01:45:00Z")
-            .put("available_at_cutoff", !late).put("is_business_day", !closed);
+            .put("available_at_cutoff", !late).put("is_business_day", !closed)
+            .put("latest_is_business_day", !closed);
     }
     JSONObject core(String method, String path, String body) throws Exception {
         events.add(method + " " + path);
@@ -37,7 +38,7 @@ public class DailyPipelineTest {
             .put("body", new JSONObject().put("day", today));
         JSONObject result;
         if (path.endsWith("/membership")) result = membership();
-        else if (path.endsWith("/market")) result = new JSONObject().put("completed_dates", complete ? new JSONArray().put(prior) : new JSONArray())
+        else if (path.endsWith("/market")) result = new JSONObject().put("completed_dates", complete ? new JSONArray().put(prior).put(today) : new JSONArray())
             .put("committed_acquisitions", complete ? new JSONArray().put(new JSONObject().put("date", prior).put("acquisitionId", "fixture-acquisition")) : new JSONArray());
         else if (path.endsWith("/ingest")) {
             if (failCommit) throw new IllegalStateException("synthetic disk failure");
@@ -48,7 +49,8 @@ public class DailyPipelineTest {
             if (new JSONObject(body).optBoolean("reference_only")) {
                 events.add("mode:reference");
                 reference = new JSONObject().put("phase", referenceBlocked ? "blocked" : "reference_saved")
-                    .put("checked_at", now.toString()).put("scope", new JSONObject().put("analysis_mode", "latest_available_reference"))
+                    .put("checked_at", now.toString()).put("scope", new JSONObject().put("analysis_mode", "latest_available_reference")
+                        .put("universe", new JSONObject().put("latest_source_date", today)))
                     .put("snapshot", referenceBlocked ? JSONObject.NULL : new JSONObject().put("snapshot_id", "synthetic"));
                 return new JSONObject().put("status", 200).put("body", reference);
             }
@@ -113,7 +115,7 @@ public class DailyPipelineTest {
     @Test public void returnOnlyConsultationIsSavedWithoutClaimingQuantityCompletion() throws Exception {
         complete = true; returnOnly = true;
         forecast = forecast("published", today + "T11:30:00+09:00");
-        assertFalse(pipeline().tick(prior));
+        assertFalse(pipeline().legacyProposal(today, membership()));
         assertTrue(events.contains("state:consultation_ready"));
         assertFalse(events.contains("state:numerical_saved"));
         assertFalse(events.contains("state:inputs"));
@@ -121,14 +123,14 @@ public class DailyPipelineTest {
     @Test public void returnOnlyWithAnotherBlockCannotClaimConsultationReadiness() throws Exception {
         complete = true; returnOnly = true; extraBlock = true;
         forecast = forecast("published", today + "T11:30:00+09:00");
-        assertFalse(pipeline().tick(prior));
+        assertFalse(pipeline().legacyProposal(today, membership()));
         assertTrue(events.contains("state:inputs"));
         assertFalse(events.contains("state:consultation_ready"));
     }
     @Test public void returnOnlyWithoutAuthenticatedContextCannotClaimConsultationReadiness() throws Exception {
         complete = true; returnOnly = true; missingContext = true;
         forecast = forecast("published", today + "T11:30:00+09:00");
-        assertFalse(pipeline().tick(prior));
+        assertFalse(pipeline().legacyProposal(today, membership()));
         assertTrue(events.contains("state:inputs"));
         assertFalse(events.contains("state:consultation_ready"));
     }
@@ -137,10 +139,10 @@ public class DailyPipelineTest {
         try { pipeline().tick(prior); fail("lost ack ignored"); } catch (java.io.IOException expected) { }
         assertTrue(events.indexOf("POST /api/v1/mobile/market/ingest") < events.indexOf("ack:false:" + prior));
         events.clear(); failAck = false;
-        assertTrue(pipeline().tick(prior));
+        assertFalse(pipeline().tick(prior));
         assertTrue(events.contains("ack:false:" + prior));
         assertFalse(events.stream().anyMatch(e -> e.startsWith("fetch:")));
-        assertTrue(events.contains("state:forecast_saved"));
+        assertTrue(events.contains("state:waiting_cutoff"));
         assertFalse(events.contains("POST /api/v1/mobile/decision/generate"));
     }
     @Test public void failedNativeCommitLeavesPagesUnacknowledged() throws Exception {
@@ -158,17 +160,17 @@ public class DailyPipelineTest {
     @Test public void lateStartCannotAcquireOrBackdateCurrentMembership() throws Exception {
         complete = true; late = true;
         assertFalse(pipeline().tick(prior));
-        assertTrue(events.contains("mode:reference"));
-        assertTrue(events.contains("state:reference_saved"));
+        assertFalse(events.contains("mode:reference"));
+        assertTrue(events.contains("state:waiting_cutoff"));
         assertFalse(events.stream().anyMatch(e -> e.startsWith("fetch:") || e.contains("decision/generate")));
         events.clear();
         assertFalse(pipeline().tick(prior));
-        assertTrue(events.contains("state:reference_saved"));
+        assertTrue(events.contains("state:waiting_cutoff"));
         assertFalse(events.contains("mode:reference"));
     }
 
     @Test public void unconfirmedAccountCanProduceOneReferenceWithoutAQuantityDecision() throws Exception {
-        complete = true; personalBlocked = true;
+        complete = true; personalBlocked = true; now = Instant.parse("2026-01-06T08:00:00Z");
         assertFalse(pipeline().tick(prior));
         assertTrue(events.contains("mode:reference"));
         assertTrue(events.contains("state:reference_saved"));
@@ -180,7 +182,7 @@ public class DailyPipelineTest {
     }
 
     @Test public void blockedReferenceNeverClaimsSuccessOrRepeatsAutomaticallyThatDay() throws Exception {
-        complete = true; late = true; referenceBlocked = true;
+        complete = true; referenceBlocked = true; now = Instant.parse("2026-01-06T08:00:00Z");
         assertFalse(pipeline().tick(prior));
         assertTrue(events.contains("mode:reference"));
         assertTrue(events.contains("state:inputs"));
@@ -191,13 +193,13 @@ public class DailyPipelineTest {
         assertFalse(events.contains("mode:reference"));
     }
     @Test public void holidayAndInactiveDecisionNeverClaimCompletion() throws Exception {
-        complete = true; closed = true;
+        complete = true; closed = true; now = Instant.parse("2026-01-06T08:00:00Z");
         assertFalse(pipeline().tick(prior));
         assertTrue(events.contains("state:closed"));
         assertFalse(events.stream().anyMatch(e -> e.contains("generate")));
         events.clear(); closed = false; badDecision = true;
         forecast = forecast("published", today + "T11:30:00+09:00");
-        assertFalse(pipeline().tick(prior));
+        assertFalse(pipeline().legacyProposal(today, membership()));
         assertTrue(events.contains("state:inputs"));
         assertFalse(events.contains("state:numerical_saved"));
     }
@@ -219,32 +221,32 @@ public class DailyPipelineTest {
 
     @Test public void forecastSharesAndResearchPlanUseSeparateSlicesWithoutRecomputation() throws Exception {
         complete = true;
-        assertTrue(pipeline().tick(prior));
+        assertTrue(pipeline().legacyProposal(today, membership()));
         assertTrue(events.indexOf("state:calculating") < events.indexOf("POST /api/v1/mobile/daily/generate"));
         assertTrue(events.contains("state:forecast_saved"));
         assertFalse(events.stream().anyMatch(e -> e.contains("decision/generate") || e.contains("state:numerical_saved") || e.startsWith("notice:")));
         JSONObject committed = forecast;
         events.clear();
-        assertTrue(pipeline().tick(prior));
+        assertTrue(pipeline().legacyProposal(today, membership()));
         assertSame(committed, forecast);
         assertFalse(events.contains("POST /api/v1/mobile/daily/generate"));
         assertTrue(events.indexOf("state:deciding") < events.indexOf("POST /api/v1/mobile/decision/generate"));
         assertTrue(events.contains("state:numerical_saved"));
         assertTrue(events.contains("notice:" + today + ":fixture-result"));
         events.clear();
-        assertFalse(pipeline().tick(prior));
+        assertFalse(pipeline().legacyProposal(today, membership()));
         assertTrue(events.contains("state:numerical_saved"));
         assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ") || e.startsWith("notice:")));
     }
 
     @Test public void stopAfterForecastCommitResumesAtSharesAndKeepsOriginalReceipt() throws Exception {
         complete = true; stopAfterForecast = true;
-        try { pipeline().tick(prior); fail("stop ignored"); } catch (InterruptedException expected) { }
+        try { pipeline().legacyProposal(today, membership()); fail("stop ignored"); } catch (InterruptedException expected) { }
         assertNotNull(forecast);
         assertFalse(events.contains("state:forecast_saved"));
         JSONObject committed = forecast;
         events.clear(); stopped.set(false); stopAfterForecast = false;
-        assertTrue(pipeline().tick(prior));
+        assertTrue(pipeline().legacyProposal(today, membership()));
         assertSame(committed, forecast);
         assertTrue(events.contains("POST /api/v1/mobile/decision/generate"));
         assertFalse(events.contains("POST /api/v1/mobile/daily/generate"));
@@ -255,7 +257,7 @@ public class DailyPipelineTest {
         for (JSONObject saved : new JSONObject[]{forecast("published", prior + "T11:30:00+09:00"),
                 forecast("blocked", today + "T11:30:00+09:00"), forecast("published", today + "T11:29:59+09:00")}) {
             forecast = saved; events.clear();
-            assertTrue(pipeline().tick(prior));
+            assertTrue(pipeline().legacyProposal(today, membership()));
             assertTrue(events.contains("POST /api/v1/mobile/daily/generate"));
             assertFalse(events.contains("POST /api/v1/mobile/decision/generate"));
         }
@@ -263,42 +265,42 @@ public class DailyPipelineTest {
 
     @Test public void cashOnlyAndEquivalentUtcCutoffResumeWithoutNewForecast() throws Exception {
         complete = true; forecast = forecast("cash_only", "2026-01-06T02:30:00Z");
-        assertTrue(pipeline().tick(prior));
+        assertTrue(pipeline().legacyProposal(today, membership()));
         assertFalse(events.contains("POST /api/v1/mobile/daily/generate"));
         assertTrue(events.contains("state:numerical_saved"));
     }
 
     @Test public void malformedSavedCutoffFailsClosedWithoutAnotherForecast() throws Exception {
         complete = true; forecast = forecast("published", "invalid-time");
-        try { pipeline().tick(prior); fail("corrupt scope accepted"); } catch (DailyPipeline.CoreFailure expected) { }
+        try { pipeline().legacyProposal(today, membership()); fail("corrupt scope accepted"); } catch (DailyPipeline.CoreFailure expected) { }
         assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ")));
     }
 
     @Test public void wrongDecisionCutoffNeverClaimsNumericalCompletion() throws Exception {
         complete = true; forecast = forecast("published", today + "T11:30:00+09:00");
         decisionTime = today + "T11:29:59+09:00";
-        assertFalse(pipeline().tick(prior));
+        assertFalse(pipeline().legacyProposal(today, membership()));
         assertTrue(events.contains("state:inputs"));
         assertFalse(events.contains("state:numerical_saved"));
     }
 
     @Test public void midnightDuringEitherCommitDoesNotClaimCurrentDayCompletion() throws Exception {
         complete = true; rolloverAfterForecast = true;
-        assertTrue(pipeline().tick(prior));
+        assertTrue(pipeline().legacyProposal(today, membership()));
         assertFalse(events.stream().anyMatch(e -> e.equals("state:forecast_saved") || e.equals("state:numerical_saved") || e.startsWith("notice:")));
         now = Instant.parse("2026-01-06T14:59:00Z"); rolloverAfterForecast = false; rolloverAfterDecision = true;
         events.clear();
-        assertTrue(pipeline().tick(prior));
+        assertTrue(pipeline().legacyProposal(today, membership()));
         assertFalse(events.stream().anyMatch(e -> e.equals("state:numerical_saved") || e.startsWith("notice:")));
     }
 
     @Test public void acquisitionContinuationLeavesCalculationForFreshWorker() throws Exception {
-        complete = true;
+        complete = true; now = Instant.parse("2026-01-06T08:00:00Z");
         assertTrue(pipeline().tick(prior, true));
         assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ") || e.equals("state:calculating")));
         assertNull(forecast);
-        assertTrue(pipeline().tick(prior));
-        assertNotNull(forecast);
+        assertFalse(pipeline().tick(prior));
+        assertNotNull(reference);
     }
 
     @Test public void refusedHistoryForegroundStillCommitsOneBoundedSlice() throws Exception {
@@ -311,18 +313,18 @@ public class DailyPipelineTest {
         assertNull(forecast);
     }
 
-    @Test public void refusedMembershipForegroundStillAcquiresBeforeCutoff() throws Exception {
-        complete = true; late = true; rejectForeground = true; now = Instant.parse("2026-01-06T01:45:00Z");
-        assertFalse(pipeline().tick(prior));
+    @Test public void refusedMembershipForegroundStillAcquiresInBoundedSlice() throws Exception {
+        complete = true; late = true; rejectForeground = true; now = Instant.parse("2026-01-06T08:00:00Z");
+        assertTrue(pipeline().tick(prior, true));
         assertTrue(events.contains("state:membership"));
         assertTrue(events.contains("fetch:true:" + today));
         assertFalse(foregroundGranted);
-        assertTrue(events.contains("state:waiting_cutoff"));
+        assertFalse(events.contains("state:calculating"));
         assertNull(forecast);
     }
 
     @Test public void refusedForegroundDoesNotEnterEitherLongComputation() throws Exception {
-        complete = true; rejectForeground = true;
+        complete = true; rejectForeground = true; now = Instant.parse("2026-01-06T08:00:00Z");
         try { pipeline().tick(prior); fail("foreground refusal ignored"); } catch (DailyWorker.ForegroundUnavailable expected) { }
         assertFalse(events.stream().anyMatch(e -> e.startsWith("POST ")));
         events.clear(); forecast = forecast("published", today + "T11:30:00+09:00");

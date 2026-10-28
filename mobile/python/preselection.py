@@ -64,11 +64,12 @@ def _checked(row):
     return {**value, "list_hash": row[0]}
 
 
-def _liquidity_window(path, as_of):
+def _liquidity_window(path, as_of, *, include_today=False):
     """Freeze constraint evidence, without using liquidity to narrow membership."""
-    from .universe import _observations
+    from .universe import _observations, reference_end_date
 
-    last = as_of.astimezone(JST).date() - timedelta(days=1)
+    last = (reference_end_date(path, as_of) if include_today
+            else as_of.astimezone(JST).date() - timedelta(days=1))
     first = last - timedelta(days=89)
     calendar = {}
     for _, rows, _ in _observations(path, "trading_calendar", first, last, as_of):

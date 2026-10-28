@@ -32,6 +32,27 @@ def predictability_code_sha256() -> str:
     return hashlib.sha256(get_data(__file__).replace(b"\r\n", b"\n")).hexdigest()
 
 
+def reference_calculation_code_sha256() -> str:
+    """Bind reuse to the installed input and feature code, including WASM zip sources."""
+    import stock_ai.data.production as production
+    import stock_ai.features.engine as engine
+    import stock_ai.features.indicators as indicators
+
+    from . import forecasts, market, market_codec, model_bundle, portable_model, research_ensemble
+
+    modules = ((getattr(__loader__, "get_data", None), __file__), *(
+        (getattr(module.__loader__, "get_data", None), module.__file__)
+        for module in (production, engine, indicators, forecasts, market, market_codec,
+                       model_bundle, portable_model, research_ensemble)
+    ))
+    digest = hashlib.sha256()
+    for loader, path in modules:
+        if loader is None or path is None:
+            raise ValueError("Reference calculation source identity unavailable")
+        digest.update(loader(path).replace(b"\r\n", b"\n"))
+    return digest.hexdigest()
+
+
 def history_predictability(payload, selection, counts, focus, required):
     """Receipt of the same completed-session mask used below, before any model/label."""
     eligible = sorted(focus)
@@ -109,6 +130,9 @@ def calculate(payload: dict, selection: dict, *, include_predictability: bool = 
             frame["trading_date"] = pd.to_datetime(frame["trading_date"])
         frames[name] = frame
     as_of = datetime.fromisoformat(payload["as_of"])
+    local = as_of.astimezone(ZoneInfo("Asia/Tokyo"))
+    same_session = (payload.get("reference_price_date") == str(local.date())
+                    and local.hour >= 17)
     names = {name for item in selection["horizons"] for name in item["feature_names"]}
     required = max(FEATURE_REGISTRY.definition(name).warmup_period for name in names)
     for horizon in selection["horizons"]:
@@ -131,7 +155,8 @@ def calculate(payload: dict, selection: dict, *, include_predictability: bool = 
     else:
         completed = daily.loc[
             (daily.available_at <= as_of)
-            & (daily.trading_date.dt.date < as_of.astimezone(ZoneInfo("Asia/Tokyo")).date())
+            & (daily.trading_date.dt.date <= local.date() if same_session
+               else daily.trading_date.dt.date < local.date())
         ]
         counts = completed.groupby("symbol").trading_date.nunique()
         eligible = set(counts[counts >= required].index)
@@ -157,6 +182,7 @@ def calculate(payload: dict, selection: dict, *, include_predictability: bool = 
         frames["sector"],
         financials=frames["financials"],
         as_of=as_of,
+        allow_current_session=same_session,
         **({"batch_cache": checkpoints.feature_batch} if checkpoints.enabled() else {}),
     )
     excluded = sorted(set(result.symbol) - eligible)
