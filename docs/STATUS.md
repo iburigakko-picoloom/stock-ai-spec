@@ -1,3 +1,8 @@
+## 2026-10-28 — 非公開APKをアプリ内で選択
+
+- 設定「アプリ情報・詳細」に、Androidのファイル選択からDriveなどのAPKを選ぶ操作を追加。コピーの容量上限、アプリID・更新版・既存署名の検査後にAndroidのインストール確認を開く。許可・取消・失敗は画面に表示し、Driveの共有設定や本人データを変更しない。既存の公開Release更新も維持する。
+- 画面単体11件、狭いブラウザー画面1件、専用エミュレーターのAndroidテスト2件成功。実Driveのファイルプロバイダーと本人端末での操作は未確認。最初はこの機能入りAPKを従来どおり上書きする必要がある。
+
 ## 2026-10-28 — 非公開の更新APK 0.1.83
 
 - [確認用APK 0.1.83](https://drive.google.com/file/d/1k4uF-WGZCNn_Al87WDvtztf0FEHvp5Cl/view?usp=drivesdk)を非共有StockAIフォルダーに追加。提案詳細での進捗・停止理由復旧と長時間待機の表示を含む。source `b1f1c16ec383790227feeeb3143bc2fd273af6eb`、`jp.stockai.app`、code 10083、24,145,333 bytes、SHA-256 `1934602a0bd36d7827d453b9a81eda0488b2ef30a14af8a02c1597eb32e5b827`。同一署名・非debug・sourceと資産の一致を確認。

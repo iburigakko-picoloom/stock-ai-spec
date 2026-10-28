@@ -28,7 +28,7 @@ test.beforeEach(async ({ page }) => {
       CapacitorCustomPlatform: { name: "android" },
       Capacitor: {
         PluginHeaders: [
-          { name: "StockAI", methods: ["appInfo", "compute", "keyStatus", "checkUpdate", "installUpdate", "dailyStatus", "saveApiKey", "clearApiKey", "stopDaily", "startDaily", "requestDailyNotifications", "analysisStatus", "readSavedView"].map(name => ({ name, rtype: "promise" })) },
+          { name: "StockAI", methods: ["appInfo", "compute", "keyStatus", "checkUpdate", "installUpdate", "selectUpdate", "dailyStatus", "saveApiKey", "clearApiKey", "stopDaily", "startDaily", "requestDailyNotifications", "analysisStatus", "readSavedView"].map(name => ({ name, rtype: "promise" })) },
           { name: "StockAIChatGPT", methods: [{ name: "getStatus", rtype: "promise" }] },
         ],
         nativePromise: async (plugin: string, method: string, options?: { method: string; path: string; body?: string }) => {
@@ -45,6 +45,7 @@ test.beforeEach(async ({ page }) => {
             notes: "試験用の長い変更内容です。".repeat(80), sha256: "a".repeat(64), url: "https://example.invalid/StockAI.apk", size: 123,
           } : { available: false };
           if (method === "installUpdate") return { needsPermission: true };
+          if (method === "selectUpdate") return { needsPermission: false, cancelled: true };
           if (method === "dailyStatus") return { ...dailyStatus, state: localStorage.getItem("settingsTestDailyState") ?? dailyStatus.state };
           if (method === "requestDailyNotifications") return { granted: dailyStatus.notificationsEnabled };
           if (method === "startDaily") return (dailyStatus = { ...dailyStatus, enabled: true, state: "queued" });
@@ -721,6 +722,17 @@ test("proposal details show progress and failure while today read is stalled", a
     await page.addStyleTag({content:"html{font-size:150%}"});
     expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
   } finally {release();}
+});
+
+test("private update picker fits narrow settings and cancellation is clear", async ({page})=>{
+  if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width:320,height:800});
+  await page.goto("http://127.0.0.1:5196/#/settings?edit=about");
+  await page.addStyleTag({content:"html{font-size:150%}"});
+  const button=page.getByRole("button",{name:"Driveなどから更新ファイルを選ぶ"});
+  await expect(button).toBeVisible();
+  await button.click();
+  await expect(page.getByRole("status")).toContainText("選択を取り消しました");
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
 });
 
 for (const panel of ["market", "model"]) test(`leaving ${panel} skips its not-yet-started reads`, async ({page})=>{

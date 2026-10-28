@@ -32,6 +32,7 @@ export interface StockAINative {
   clearApiKey(): Promise<void>;
   checkUpdate(): Promise<ReleaseInfo>;
   installUpdate(input: { versionCode: number }): Promise<{ needsPermission: boolean }>;
+  selectUpdate(): Promise<{ needsPermission: boolean; cancelled?: boolean }>;
   fetchMarket(input: { date: string }): Promise<NativeMarketReceipt>;
   fetchMembership(input: { date: string }): Promise<NativeMarketReceipt>;
   acknowledgeMembership(input: { date: string; acquisitionId: string }): Promise<void>;

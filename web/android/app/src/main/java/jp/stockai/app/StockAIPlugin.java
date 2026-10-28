@@ -368,6 +368,65 @@ public class StockAIPlugin extends Plugin {
         if (a.length != 1 || b.length != 1 || !MessageDigest.isEqual(a[0].toByteArray(), b[0].toByteArray())) throw new SecurityException();
     }
 
+    // The document picker can read a private Drive file through Android's
+    // provider without granting this app access to the rest of the Drive.
+    @PluginMethod public void selectUpdate(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
+            getActivity().runOnUiThread(() -> getActivity().startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()))));
+            call.resolve(new JSObject().put("needsPermission", true)); return;
+        }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*")
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/vnd.android.package-archive", "application/octet-stream"});
+        startActivityForResult(call, intent, "updateSelected");
+    }
+
+    static void copySelectedApk(InputStream input, File target, long limit) throws Exception {
+        if (input == null) throw new IOException("UPDATE_INPUT_UNAVAILABLE");
+        try (InputStream source = input; FileOutputStream output = new FileOutputStream(target)) {
+            byte[] buffer = new byte[32768]; long count = 0; int length;
+            while ((length = source.read(buffer)) != -1) {
+                count += length;
+                if (count > limit) throw new IOException("UPDATE_TOO_LARGE");
+                output.write(buffer, 0, length);
+            }
+            if (count == 0) throw new IOException("UPDATE_EMPTY");
+            output.getFD().sync();
+        } catch (Exception error) { target.delete(); throw error; }
+    }
+
+    @ActivityCallback private void updateSelected(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            call.resolve(new JSObject().put("cancelled", true).put("needsPermission", false)); return;
+        }
+        Uri selected = result.getData().getData();
+        if (!"content".equals(selected.getScheme())) { call.reject("更新ファイルを開けません。", "UPDATE_FILE_INVALID"); return; }
+        networkExecutor.execute(() -> {
+            File apk = null;
+            try {
+                File directory = new File(getContext().getCacheDir(), "updates");
+                if (!directory.exists() && !directory.mkdirs()) throw new IOException("UPDATE_DIRECTORY_UNAVAILABLE");
+                apk = File.createTempFile("selected-", ".apk", directory);
+                copySelectedApk(getContext().getContentResolver().openInputStream(selected), apk, 300L * 1024 * 1024);
+                PackageInfo incoming = getContext().getPackageManager().getPackageArchiveInfo(apk.getAbsolutePath(), 0);
+                if (incoming == null) throw new SecurityException("UPDATE_INVALID_APK");
+                long version = Build.VERSION.SDK_INT >= 28 ? incoming.getLongVersionCode() : incoming.versionCode;
+                verifyApk(apk, version);
+                Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk);
+                Intent intent = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getActivity().runOnUiThread(() -> {
+                    try { getActivity().startActivity(intent); call.resolve(new JSObject().put("needsPermission", false)); }
+                    catch (Exception error) { call.reject("Androidの更新画面を開けませんでした。", "UPDATE_INSTALLER_UNAVAILABLE"); }
+                });
+            } catch (Exception error) {
+                if (apk != null) apk.delete();
+                call.reject("選んだAPKを確認できません。株AIの新しい更新ファイルを選んでください。", "UPDATE_FILE_INVALID");
+            }
+        });
+    }
+
     @PluginMethod public void installUpdate(PluginCall call) { network(call, () -> {
         if (pendingUpdate == null || call.getInt("versionCode", 0) != pendingUpdate.getLong("versionCode")) throw new SecurityException();
         if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
