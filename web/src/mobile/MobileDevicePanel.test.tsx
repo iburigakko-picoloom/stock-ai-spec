@@ -24,7 +24,7 @@ test("failed settings read stops showing checking and retry hydrates the editor"
   expect(await screen.findByRole("button", { name: /運用資金.*¥10,000/ })).toBeVisible();
 });
 
-test("saved settings display while a stalled read is bounded and cannot enable editing", async () => {
+test("saved settings stay read-only during a long read, then a late verified result enables editing", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   let finish!: (value: unknown) => void;
   vi.mocked(apiGet).mockReturnValue(new Promise(resolve => { finish = resolve; }));
@@ -37,8 +37,8 @@ test("saved settings display while a stalled read is bounded and cannot enable e
   await act(async () => { await vi.advanceTimersByTimeAsync(45_000); });
   expect(screen.getByRole("alert")).toHaveTextContent("時間がかかっています");
   await act(async () => finish(saved));
-  expect(screen.getByLabelText("投資上限（円・未定は空欄）")).toBeDisabled();
-  expect(screen.getByRole("button", { name: "口座・保有を読み直す" })).toBeVisible();
+  expect(screen.getByLabelText("投資上限（円・未定は空欄）")).toBeEnabled();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 test("edit fields wait for hydration and preserve values after a rejected save", async () => {
   let finish!: (value: unknown) => void;

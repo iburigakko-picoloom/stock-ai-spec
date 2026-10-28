@@ -52,6 +52,7 @@ test("a late initial model read cannot overwrite a successfully imported model",
   vi.mocked(StockAI.importModel).mockResolvedValue({content:"synthetic bundle"});
   vi.mocked(apiPost).mockResolvedValue({});
   panel();
+  await waitFor(() => expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/models"));
   fireEvent.click(screen.getByRole("button",{name:"モデル一式を取り込む"}));
   expect(await screen.findByText("2件取込済み")).toBeVisible();
   await act(async () => finish(model));
@@ -100,9 +101,9 @@ test("reopening keeps prior output read-only until current model and judgment ar
   expect(screen.queryByText("保存済みの一式を利用できません。確認済みのファイルを取り込んでください。")).not.toBeInTheDocument();
   expect(screen.queryByRole("link",{name:"今日の判定を見る"})).not.toBeInTheDocument();
   expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
-  await act(async()=>pending["/api/v1/mobile/models"](model));
-  await waitFor(()=>expect(pending["/api/v1/mobile/daily"]).toBeDefined());
   await act(async()=>pending["/api/v1/mobile/daily"](run));
+  await waitFor(()=>expect(pending["/api/v1/mobile/models"]).toBeDefined());
+  await act(async()=>pending["/api/v1/mobile/models"](model));
   await waitFor(()=>expect(pending["/api/v1/mobile/decision"]).toBeDefined());
   await act(async()=>pending["/api/v1/mobile/decision"](decision));
   expect(await screen.findByRole("link",{name:"今日の判定を見る"})).toBeVisible();
@@ -114,10 +115,44 @@ test("leaving a model panel stops the two remaining interpreter reads", async ()
   const content=(visible:boolean)=><MemoryRouter><Activity mode={visible ? "visible" : "hidden"}><MobileModelPanel disabled={false} inputsSaved onBusy={vi.fn()} /></Activity></MemoryRouter>;
   const view=render(content(true));
   expect(apiGet).toHaveBeenCalledTimes(1);
-  expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/models");
+  expect(apiGet).toHaveBeenCalledWith("/api/v1/mobile/daily");
   view.rerender(content(false));
   await act(async()=>finish(model));
   expect(apiGet).toHaveBeenCalledTimes(1);
+});
+
+test("saved numerical results remain visible when model verification is slow", async () => {
+  let finish!: (value:unknown)=>void;
+  vi.mocked(apiGet).mockImplementation(path => path.endsWith("/daily") ? Promise.resolve(run)
+    : path.endsWith("/models") ? new Promise(resolve => {finish=resolve;}) : Promise.resolve(decision));
+  panel();
+  expect(await screen.findByText("算出できた予測を見る 1社")).toBeVisible();
+  expect(screen.getByRole("cell", {name:"4%"})).toBeVisible();
+  expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+  await act(async()=>finish(model));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeEnabled());
+});
+
+test("saved numerical results are readable while the account is unverified", async () => {
+  vi.mocked(apiGet).mockImplementation(async path => path.endsWith("/models") ? model : path.endsWith("/daily") ? run : decision);
+  panel(false);
+  expect(await screen.findByRole("cell",{name:"4%"})).toBeVisible();
+  expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeDisabled();
+});
+
+test("a failed model check can be retried without losing the saved result", async () => {
+  let checks=0;
+  vi.mocked(apiGet).mockImplementation(async path => {
+    if(path.endsWith("/daily"))return run;
+    if(path.endsWith("/models") && ++checks===1)throw new Error("failed");
+    return path.endsWith("/models") ? model : decision;
+  });
+  panel();
+  expect(await screen.findByRole("alert")).toHaveTextContent("一部を確認できませんでした");
+  expect(screen.getByRole("cell",{name:"4%"})).toBeVisible();
+  fireEvent.click(screen.getByRole("button",{name:"もう一度確認"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"当日の予測・株数を計算・保存"})).toBeEnabled());
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 test("one file imports the reviewed bundle and refreshes saved status", async () => {
   vi.mocked(StockAI.importModel).mockResolvedValue({ content: "synthetic bundle file" });

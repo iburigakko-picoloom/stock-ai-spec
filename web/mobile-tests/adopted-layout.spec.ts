@@ -683,15 +683,29 @@ test("model information appears before a slow judgment read", async ({page})=>{
   }
 });
 
+test("proposal details and calculation method fit narrow screens", async ({page})=>{
+  if (!process.env.STOCKAI_ANDROID_UI) await page.setViewportSize({width:320,height:800});
+  await page.goto("http://127.0.0.1:5196/#/today/details");
+  await expect(page.getByRole("heading",{name:"費用と現状維持との差"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"計算に使った情報"})).toBeVisible();
+  await page.addStyleTag({content:"html{font-size:150%}"});
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+  await page.goto("http://127.0.0.1:5196/#/settings?edit=method");
+  await expect(page.getByRole("heading",{name:"何を計算するか"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"比較に使う条件"})).toBeVisible();
+  await page.addStyleTag({content:"html{font-size:150%}"});
+  expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+});
+
 for (const panel of ["market", "model"]) test(`leaving ${panel} skips its not-yet-started reads`, async ({page})=>{
   let release!:()=>void;
   const gate=new Promise<void>(resolve=>{release=resolve;});
   let requested=false, finished=false;
-  const first=panel === "market" ? "/api/v1/mobile/market" : "/api/v1/mobile/models";
-  const later=panel === "market" ? ["/api/v1/mobile/market/plan","/api/v1/mobile/market/membership","/api/v1/mobile/market/universe-policy"] : ["/api/v1/mobile/daily","/api/v1/mobile/decision"];
+  const first=panel === "market" ? "/api/v1/mobile/market" : "/api/v1/mobile/daily";
+  const later=panel === "market" ? ["/api/v1/mobile/market/plan","/api/v1/mobile/market/membership","/api/v1/mobile/market/universe-policy"] : ["/api/v1/mobile/models","/api/v1/mobile/decision"];
   await page.route(`**${first}`,async route=>{
     requested=true; await gate;
-    await route.fulfill({json:panel === "market" ? {latest_data_date:null,completed_dates:[]} : {approved_bundle_count:0,imported_bundle_count:0,bundle_ready:false,model_adopted:false}});
+    await route.fulfill({json:panel === "market" ? {latest_data_date:null,completed_dates:[]} : null});
     finished=true;
   });
   try {

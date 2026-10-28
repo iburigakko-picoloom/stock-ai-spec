@@ -74,22 +74,28 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
   const [runReady, setRunReady] = useState(false);
   const [decisionReady, setDecisionReady] = useState(false);
   const [readError, setReadError] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const [readAttempt, setReadAttempt] = useState(0);
   const modelRevision = useRef(0);
   const [message, setMessage] = useState("");
   const [calculating, setCalculating] = useState(false);
   const [referenceSaved, setReferenceSaved] = useState(false);
   useEffect(() => {
     let active = true;
-    setModelReady(false); setRunReady(false); setDecisionReady(false); setReadError(false);
+    setModelReady(false); setRunReady(false); setDecisionReady(false); setReadError(false); setSlow(false);
+    const timer = window.setTimeout(() => { if (active) setSlow(true); }, 15_000);
     const revision = modelRevision.current;
     const status = () => apiGet<ModelStatus>("/api/v1/mobile/models").then(value => {
       if (active && revision === modelRevision.current) { setModel(value); setModelReady(true); }
     });
     const saved = () => apiGet<ForecastRun | null>("/api/v1/mobile/daily").then(value => { if (active) { setRun(value); setRunReady(true); } });
     const shares = () => apiGet<DecisionRun | null>("/api/v1/mobile/decision").then(value => { if (active) { setDecision(value); setDecisionReady(true); } });
-    void visibleReads([status, saved, shares], () => active, isAndroid(), () => setReadError(true));
-    return () => { active = false; };
-  }, []);
+    // Show the saved numerical result before loading and validating the model
+    // bundle or checking whether the separate share decision is current.
+    void visibleReads([saved, status, shares], () => active, isAndroid(), () => setReadError(true))
+      .finally(() => window.clearTimeout(timer));
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [readAttempt]);
   const initialReady = modelReady && runReady && decisionReady && !readError;
   async function perform(task: () => Promise<void>): Promise<void> {
     onBusy(true); setMessage("");
@@ -115,6 +121,7 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
     <KV label="状態" value={!modelReady || !model ? readError ? "未確認" : "確認中" : model.model_adopted ? "採用確認済み" : "研究用・正式採用前"} />
     {!inputsSaved && <p>{inputStatus ?? "口座・保有の編集を保存してから予測を計算します。"}</p>}
     {modelReady && model?.bundle_blocking_reason && <p>保存済みの一式を利用できません。確認済みのファイルを取り込んでください。</p>}
+    {modelReady && model && !model.bundle_ready && !model.bundle_blocking_reason && <p>予測には、確認済みのモデル一式の取り込みが必要です。</p>}
     <Field label="予測期間"><input className="input" readOnly value="5日・20日" /></Field></section>
     <section className="card"><h3 className="section-title">2. モデル取り込み</h3><div className="button-stack">
       <button className="button button--secondary" disabled={disabled} onClick={() => void perform(async () => {
@@ -132,7 +139,10 @@ export function MobileModelPanel({ disabled, inputsSaved, inputStatus, onBusy }:
     </div>
     <AnalysisProgress busy={calculating} />
     <p role="status">{message}</p>
-    {readError && <p role="alert">保存済みのモデル・予測を確認できません。アプリを再起動してください。</p>}
+    {runReady && !run && <p>当日の予測は保存されていません。保存済みの参考分析はランキングで確認できます。</p>}
+    {runReady && !run && <Link className="quiet-link" to="/ranking">ランキングを確認 ›</Link>}
+    {slow && !initialReady && !readError && <p role="status">{!runReady ? "保存済みの予測を確認中です。" : !modelReady ? "予測は表示できます。モデルの利用条件を確認中です。" : "予測は表示できます。株数判定を確認中です。"}確認が終わると自動で更新します。</p>}
+    {readError && <div role="alert"><p>保存済みのモデル・予測・株数判定の一部を確認できませんでした。確認できた項目は表示しています。</p><button className="button button--secondary" disabled={disabled} onClick={() => setReadAttempt(value => value + 1)}>もう一度確認</button></div>}
     {run?.blocking_reasons.some(code => ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF", "LEDGER_RECEIVED_AFTER_ALPHA_CUTOFF", "ALPHA_CUTOFF_OPEN", "UNIVERSE_NON_BUSINESS_DAY"].includes(code)) &&
       <ReferenceAnalysis hasSaved={referenceSaved} disabled={disabled || calculating || !initialReady} onBusy={onBusy} onSaved={() => setReferenceSaved(true)} />}
     {referenceSaved && <Link className="button button--secondary" to="/ranking">保存したランキングを見る</Link>}

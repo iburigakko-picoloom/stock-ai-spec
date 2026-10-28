@@ -128,8 +128,9 @@ export function MobileDevicePanel(): ReactNode {
     let finished = false;
     const timer = window.setTimeout(() => {
       if (!active || finished) return;
-      finished = true;
-      setPortfolioError("口座情報の確認に時間がかかっています。再確認してください。");
+      // This is a warning, not cancellation: a slow authoritative read may
+      // still complete and must be allowed to hydrate the editor.
+      setPortfolioError("口座情報の確認に時間がかかっています。確認が終わると自動で表示します。");
     }, 45_000);
     if (typeof StockAI.readSavedView === "function") {
       void StockAI.readSavedView({ path: "/api/v1/mobile/portfolio" }).then(saved => {
@@ -300,7 +301,7 @@ export function MobileDevicePanel(): ReactNode {
     </div><MobileMarketPanel configured={configured === true} disabled={busy} onBusy={setBusy} onBackground={() => open("daily")} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "model"}>
-    <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} inputStatus={!portfolioLoaded ? "口座情報を読み込み中です。読込に失敗した場合は、この画面の「口座・保有を読み直す」を押してください。" : savedPortfolio === null ? "口座・保有が未登録です。証券口座と実保有を登録してください。" : "口座・保有の編集が未保存です。保存してから計算してください。"} onBusy={setBusy} />
+    <MobileModelPanel disabled={busy} inputsSaved={portfolioLoaded && savedPortfolio !== null && JSON.stringify(portfolio) === JSON.stringify(savedPortfolio.portfolio)} inputStatus={!portfolioLoaded ? portfolioError || "口座情報を確認中です。確認が終わると計算できます。" : savedPortfolio === null ? "口座・保有が未登録です。証券口座と実保有を登録してください。" : "口座・保有の編集が未保存です。保存してから計算してください。"} onBusy={setBusy} />
     </SettingsPanel>
     <SettingsPanel visible={selected === "daily"}>
     <div className="subscreen sub-settings"><div className="ss-compact"><SettingGroup number="01" title="更新状況"><DailyControls status={daily.status} busy={daily.busy} message={daily.message} onChange={start => void daily.change(start)} explanations={false} /></SettingGroup>

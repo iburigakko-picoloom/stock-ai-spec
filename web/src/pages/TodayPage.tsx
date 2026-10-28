@@ -1,16 +1,9 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PageHeader, RuntimeBanner, StatePanel, dateTime, currency as yen } from "../components";
 import { useApiData } from "../hooks";
 import type { ProposalLine, SavedAnalysis, TodayResponse } from "../types";
-import { DailyPanel, DailyStatusLink } from "../mobile/DailyPanel";
-
-function MarketOutlook() {
-  return <section className="today-market" aria-label="市場の見通し">
-    <b>市場の見通し</b><p>市場全体と保有株・候補の分析は、ChatGPTの会話で確認できます。</p>
-
-  </section>;
-}
+import { DailyStatusLink } from "../mobile/DailyPanel";
 import { ProposalReadiness, proposalBlockLabel } from "../mobile/ProposalReadiness";
 import { isAndroid } from "../mobile/native";
 import { ReferenceAnalysis } from "../mobile/ReferenceAnalysis";
@@ -58,6 +51,7 @@ function SavedAnalysisPanel({ analysis }: { analysis: SavedAnalysis }): ReactNod
 
 export function TodayPage(): ReactNode {
   const detailed = useLocation().pathname === "/today/details";
+  const [showReadiness, setShowReadiness] = useState(false);
   const { data, error, loading, savedAt, reload } = useApiData<TodayResponse>("/api/v1/today");
   if ((loading && !data) || error || !data) return <div className="page today-page"><PageHeader title={detailed ? "提案の計算詳細" : "今日"} backTo={detailed ? "/today" : undefined} /><div className="screen-today"><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "今日の状態を確認しています" : "今日の提案を取得できません"} detail={error} />{!detailed && <div className="today-actions"><div className="today-taskbar"><Link to="/today/chatgpt">ChatGPTに相談 ↗</Link><Link to="/today/executions?manual=1">取引を記録 ＋</Link></div><Link className="quiet-link" to="/today/details">詳細・更新状況</Link></div>}</div></div>;
   const previous = isAndroid() && (loading || !!savedAt);
@@ -75,31 +69,31 @@ export function TodayPage(): ReactNode {
     <div className="screen-today">
     {data.runtimeMode === "DETERMINISTIC_FIXTURE_ONLY" && <RuntimeBanner mode={data.runtimeMode} />}
     {previous && <p role="status" className="setting-footnote">前回の表示・閲覧用{savedAt ? `（${dateTime(savedAt, true)} JST）` : ""}。更新を確認中…</p>}
-    {detailed && <MarketOutlook />}
     {!detailed && <div className="today-heading"><h3>今日の提案</h3></div>}
     <div id="today-source">
     {!loading && !data.isStale && data.pipelineState === "CASH_ONLY" ? <StatePanel title="分析完了・全現金維持" detail="対象銘柄と保有がないため、今日は株数の変更がありません。" /> : !proposal ? <>
-      {((loading && !data.savedAnalysis) || !isAndroid()) && <StatePanel tone={data.isStale ? "warning" : "neutral"} title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"} detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)} />}
+      {((loading && !data.savedAnalysis) || (!isAndroid() && !detailed)) && <StatePanel tone={data.isStale ? "warning" : "neutral"} title={data.savedAnalysis ? "保存済みの分析を表示しています" : "今日の提案をまだ表示できません"} detail={loading ? "更新状況を確認中…" : proposalBlockLabel(data.blockingReason)} />}
       {data.savedAnalysis && <SavedAnalysisPanel analysis={data.savedAnalysis} />}
       {!loading && <ReferenceAnalysis onSaved={reload} hasSaved={!!data.savedAnalysis} />}
-      {detailed && !loading && !data.savedAnalysis && <ProposalReadiness reason={data.blockingReason} />}
-      {detailed && <Link className="quiet-link" to="/settings?edit=market">データの更新状況を確認</Link>}
-      {detailed && <DailyPanel />}
+      {detailed && !loading && <section className="card" aria-label="提案の状況"><h2>提案の状況</h2><p>{proposalBlockLabel(data.blockingReason)}</p>
+        {isAndroid() && !showReadiness && <button className="button button--secondary" onClick={() => setShowReadiness(true)}>登録状況を詳しく確認</button>}
+        <Link className="quiet-link" to="/settings?edit=daily">更新状況を確認 ›</Link></section>}
+      {detailed && !loading && showReadiness && <ProposalReadiness reason={data.blockingReason} />}
     </> : <>
       {!detailed && <section className="card" style={{marginTop:12}} aria-label="株数の変更">
         {visible && visible.length>0 ? visible.map(line=><ProposalRow key={line.lineId} line={line} />) : <StatePanel title="今日は株数変更なし" detail={proposal.noTradeReason || "HOLD比較後の純改善が基準に届きませんでした。"} />}
         {holds.length>0 && <section><h3 className="small">保有継続 {holds.length}銘柄</h3><div className="today-detail">{holds.map(line=><div className="row spread" style={{padding:"8px 0"}} key={line.lineId}><Link className="today-stock" to={`/stocks/${line.symbol}`} state={{from:"/today"}}><strong>{line.companyName}</strong></Link><span>{line.currentShares}株を継続</span></div>)}</div></section>}
       </section>}
-      <section className="card" style={{marginTop:12}} aria-label="提案サマリー"><div className="today-narrow-title">提案サマリー</div>
+      <section className="card" style={{marginTop:12}} aria-label="提案サマリー"><div className="today-narrow-title">{detailed ? "提案の金額" : "提案サマリー"}</div>
         <div className="today-finance"><div><span>推定購入額</span><b>{yen(proposal.estimatedBuyValue)}</b></div><div><span>推定売却額</span><b>{yen(proposal.estimatedSellValue)}</b></div><div className="wide"><span>取引後の推定現金</span><b>{yen(cashAfter)}</b></div></div>
         <div className="today-caption">費用 {yen(proposal.estimatedTransactionCost)} · 税 {yen(proposal.estimatedTaxEffect)}（推定） · {dateTime(proposal.asOf)} JST{proposal.isResearchOnly && " · 研究用"}</div>
       </section>
-      {detailed && <><section className="section"><h2>口座別の現金・推定改善</h2><dl className="summary-list">
-        {Object.entries(proposal.estimatedCashAfter).map(([bucket,cash])=><div key={bucket}><dt>{bucket}</dt><dd>{yen(cash)}</dd></div>)}
+      {detailed && <><section className="card"><h2>費用と現状維持との差</h2><dl className="summary-list">
+        {Object.entries(proposal.estimatedCashAfter).map(([bucket,cash])=><div key={bucket}><dt>{data.accountLabels?.[bucket] ?? bucket}の現金</dt><dd>{yen(cash)}</dd></div>)}
         <div><dt>推定取引コスト</dt><dd>{yen(proposal.estimatedTransactionCost)}</dd></div><div><dt>推定税影響</dt><dd>{yen(proposal.estimatedTaxEffect)}</dd></div>
         <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(proposal.estimatedTaxCashWithholding)}</dd></div><div><dt>何もしない場合に対する推定純改善</dt><dd className={Number(proposal.netImprovement)<0 ? "text-negative" : undefined}>{yen(proposal.netImprovement)}</dd></div>
       </dl><p className="explain">税影響と源泉徴収見込みは別の推定です。提案後の現金には源泉徴収見込みを反映しています。</p></section>
-      <section className="section"><h2>提案の基準時刻・モデル詳細</h2><dl className="summary-list"><div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div><div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div><div><dt>意思決定エンジン</dt><dd>{proposal.decisionEngineVersion}</dd></div></dl></section></>}
+      <section className="card"><h2>計算に使った情報</h2><dl className="summary-list"><div><dt>基準時刻</dt><dd>{dateTime(proposal.asOf)} JST</dd></div><div><dt>モデル</dt><dd>{proposal.modelBundleVersion}</dd></div><div><dt>計算方式</dt><dd>{proposal.decisionEngineVersion}</dd></div></dl></section></>}
     </>}
     </div>
     {detailed && <Link className="quiet-link" to="/today/chatgpt/history">保存済み記録（閲覧のみ）</Link>}

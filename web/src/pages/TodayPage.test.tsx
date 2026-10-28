@@ -76,6 +76,18 @@ test("Android keeps the saved analysis visible during refresh without a loading 
   expect(screen.queryByRole("link", { name: /判断を確認/ })).not.toBeInTheDocument();
 });
 
+test("detail shows the saved result and immediate reason without starting an extra readiness read", () => {
+  vi.mocked(isAndroid).mockReturnValue(true);
+  vi.mocked(useApiData).mockClear();
+  response(data);
+  render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
+  expect(screen.getByRole("heading", { name: "2026/10/21の分析" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "提案の状況" })).toHaveTextContent("11:30以降");
+  expect(screen.getByRole("button", { name: "登録状況を詳しく確認" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "更新状況を確認 ›" })).toHaveAttribute("href", "/settings?edit=daily");
+  expect(useApiData).toHaveBeenCalledTimes(1);
+});
+
 test("Android shows previous proposal during refresh but enables review only after fresh success", () => {
   vi.mocked(isAndroid).mockReturnValue(true);
   const current: TodayResponse = { ...data, isStale: false, proposal: {
