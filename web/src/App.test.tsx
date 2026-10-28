@@ -137,6 +137,8 @@ const today: TodayResponse = {
   proposal,
 };
 
+const executionContext = { businessDate:today.businessDate, proposal, accountLabels:{}, decision:{decision_id:"decision-1",version:1,lines:proposal.lines.map(line=>({proposal_line_id:line.lineId,selected_target_shares:line.recommendedShares}))} };
+
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
 }
@@ -146,7 +148,42 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+async function buyEntry() {
+  const choice=await screen.findByRole("combobox",{name:"銘柄"});
+  await userEvent.selectOptions(choice,"buy-line");
+  const view=within(screen.getByRole("group",{name:"購入会社の取引"}));
+  expect(view.getByLabelText("実行状態")).toHaveValue("open");
+  await userEvent.selectOptions(view.getByLabelText("実行状態"),"filled");
+  await userEvent.clear(view.getByLabelText("約定株数"));
+  await userEvent.type(view.getByLabelText("約定株数"),"100");
+  await userEvent.type(view.getByLabelText("平均約定単価"),"1000");
+  return view;
+}
+
 describe("Goal 5 PWA", () => {
+  it("preserves edited targets on identical refresh and blocks save until their review completes", async () => {
+    const pending: ((value: Response) => void)[] = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input).startsWith("/api/v1/today")) return Promise.resolve(jsonResponse(structuredClone(today)));
+      if (String(input).endsWith("/review")) return new Promise<Response>(resolve => pending.push(resolve));
+      throw new Error(`unexpected ${input}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const review = { estimated_cash_after: {}, estimated_buy_value: "0", estimated_sell_value: "0",
+      estimated_transaction_cost: "0", estimated_tax_effect: "0", resulting_positions: 0, constraint_violations: [] };
+    render(<MemoryRouter><DecisionReviewPage /></MemoryRouter>);
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await act(async () => pending[0](jsonResponse(review)));
+    expect(screen.getByRole("button", { name: "判断を保存" })).toBeEnabled();
+    await userEvent.click(screen.getByLabelText("購入会社の提案を採用"));
+    expect(screen.getByRole("button", { name: "判断を保存" })).toBeDisabled();
+    await waitFor(() => expect(pending).toHaveLength(2));
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(screen.getByLabelText("購入会社の提案を採用")).toHaveAttribute("aria-pressed","false"));
+    expect(pending).toHaveLength(2);
+    await act(async () => pending[1](jsonResponse(review)));
+    expect(screen.getByRole("button", { name: "判断を保存" })).toBeEnabled();
+  });
   it("shows a completed cash-only day without a fictitious proposal or review", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, pipelineState: "CASH_ONLY", proposal: null })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
@@ -162,16 +199,21 @@ describe("Goal 5 PWA", () => {
 
   it("formats times in Japan rather than the browser time zone", () => {
     expect(dateTime("2026-08-24T02:30:00Z")).toBe("8/24 11:30");
+    expect(dateTime("2026-12-31T15:30:00Z", true)).toBe("2027/1/1 00:30");
+    expect(dateTime("2026-01-01T00:30:00+09:00", true)).toBe("2026/1/1 00:30");
+    expect(dateTime("2026-12-31T15:30:00Z")).toBe("1/1 00:30");
     expect(dateTime("not-a-date")).toBe("—");
+    expect(dateTime(null, true)).toBe("—");
   });
 
   it("hides a stale proposal and does not offer review", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, isStale: true })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    await screen.findByText("今日は提案を表示できません");
+    await screen.findByText("今日の提案をまだ表示できません");
     expect(screen.queryByText("購入会社")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "判断を確認" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings/data");
+    await userEvent.click(screen.getByRole("link", { name: "詳細・更新状況" }));
+    expect(screen.getByRole("link", { name: "データの更新状況を確認" })).toHaveAttribute("href", "/settings?edit=market");
   });
 
   it("also blocks a stale proposal on the direct review route without posting", async () => {
@@ -183,14 +225,16 @@ describe("Goal 5 PWA", () => {
     expect(screen.queryByRole("button", { name: "判断を保存" })).not.toBeInTheDocument();
   });
 
-  it("shows cash from each account without exposing model details by default", async () => {
+  it("shows cash from each account with visible model information", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter: { taxable: "100000", nisa: "25000" }, netImprovement: "-200" } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    await screen.findByText("125,000円");
-    expect(screen.getByText("fixture-model").closest("details")).not.toHaveAttribute("open");
-    await userEvent.click(screen.getByText("口座別の現金・推定改善を確認"));
-    expect(screen.getByText("25,000円")).toBeVisible();
-    expect(screen.getByText("-200円")).toHaveClass("text-negative");
+    await screen.findByText("¥125,000");
+    expect(screen.getByRole("link", {name:"詳細・更新状況"})).toHaveAttribute("href","/today/details");
+    cleanup();
+    render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
+    await screen.findByText("fixture-model");
+    expect(screen.getByText("¥25,000")).toBeVisible();
+    expect(screen.getByText("¥-200")).toHaveClass("text-negative");
   });
 
   it("separates zero filing tax from cash withheld in the cash details", async () => {
@@ -199,33 +243,37 @@ describe("Goal 5 PWA", () => {
       estimatedCashAfter: { bucket: "98000" },
     } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    const details = await screen.findByText("口座別の現金・推定改善を確認");
-    expect(details.closest("details")).not.toHaveAttribute("open");
-    await userEvent.click(details);
-    expect(within(details.closest("details")!).getByText("2,000円")).toBeVisible();
-    expect(within(screen.getByText("推定税影響").parentElement!).getByText("0円"))
+    expect(await screen.findByRole("link",{name:"詳細・更新状況"})).toHaveAttribute("href","/today/details");
+    cleanup();
+    render(<MemoryRouter initialEntries={["/today/details"]}><TodayPage /></MemoryRouter>);
+    const details = await screen.findByText("口座別の現金・推定改善");
+    expect(within(details.closest("section")!).getByText("¥2,000")).toBeVisible();
+    expect(within(screen.getByText("推定税影響").parentElement!).getByText("¥0"))
       .toBeInTheDocument();
   });
 
   it("does not display a zero return before the first Paper observation", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ observations: 0, proposal_return: 0 })));
     render(<MemoryRouter><ValidationPage /></MemoryRouter>);
-    await screen.findByText("Paperの観測はまだありません");
+    await screen.findByText(/Paperの観測はまだありません/);
     expect(screen.queryByText("0.00%")).not.toBeInTheDocument();
   });
 
   it.each([{}, { bucket: " " }, { bucket: "invalid" }])("does not turn unknown cash into a zero balance: %j", async (estimatedCashAfter) => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...today, proposal: { ...proposal, estimatedCashAfter } })));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
-    const label = await screen.findByText("取引後の推定現金（合計）");
-    expect(label.parentElement?.querySelector("strong")?.textContent).toBe("—");
+    const label = await screen.findByText("取引後の推定現金");
+    expect(label.parentElement?.querySelector("b")?.textContent).toBe("—");
   });
 
-  it("offers settings when no actual portfolio is registered", async () => {
+  it("keeps the asset layout and registration route when no portfolio is registered", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ portfolio: null, holdings: [], runtimeMode: "LIVE" })));
     render(<MemoryRouter><HomePage /></MemoryRouter>);
-    await screen.findByText("資産データが未登録です");
-    expect(screen.getByRole("link", { name: "登録・口座の設定を確認" })).toHaveAttribute("href", "/settings");
+    await screen.findByText("資産はまだ登録されていません");
+    expect(screen.getByRole("region", { name: "資産残高" })).toContainElement(screen.getByText("総資産"));
+    expect(screen.getByText("総資産").nextElementSibling).toHaveTextContent("—");
+    expect(screen.getByRole("link", { name: "初回資産登録" })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: "資産を管理 ›" })).toHaveAttribute("href", "/assets");
     expect(screen.queryByText("0円")).not.toBeInTheDocument();
   });
 
@@ -267,21 +315,42 @@ describe("Goal 5 PWA", () => {
     }
   });
 
-  it("shows SELL before BUY, folds HOLD, and excludes SKIP from Today", async () => {
+  it("opens execution input with one compact read and keeps typed fills on focus",async()=>{
+    const fetchMock=vi.fn(async(input:RequestInfo|URL)=>{
+      if(String(input)==="/api/v1/execution-context?includeManual=1")return jsonResponse(executionContext);
+      throw new Error("Execution input must not load Today or prediction data");
+    });
+    vi.stubGlobal("fetch",fetchMock);
+    render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
+    const entry=await buyEntry();
+    window.dispatchEvent(new Event("focus"));
+    expect(entry.getByLabelText("約定株数")).toHaveValue(100);
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/v1/execution-context?includeManual=1",expect.objectContaining({cache:"no-store"}));
+  });
+
+  it("opens unapplied fill reflection without waiting for a proposal or decision",async()=>{
+    const fetchMock=vi.fn();vi.stubGlobal("fetch",fetchMock);
+    render(<MemoryRouter initialEntries={["/today/executions?apply=1"]}><ExecutionPage /></MemoryRouter>);
+    expect(screen.getByRole("heading",{name:"記録済み約定の反映"})).toBeVisible();
+    expect(screen.getByRole("button",{name:"記録済み約定を実保有へ反映"})).toBeEnabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows SELL before BUY, retains HOLD and excludes SKIP from Today", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(today)));
     render(<MemoryRouter><TodayPage /></MemoryRouter>);
     await screen.findByText("売却会社");
     const content = document.body.textContent || "";
     expect(content.indexOf("売却会社")).toBeLessThan(content.indexOf("購入会社"));
-    expect(screen.getByText("HOLD 1件を確認")).toBeInTheDocument();
+    expect(screen.getByText("保有継続 1銘柄")).toBeInTheDocument();
     expect(screen.queryByText("見送会社")).not.toBeInTheDocument();
-    expect(screen.getByText("保存しても証券会社への注文は行われません")).toBeInTheDocument();
+    expect(screen.getByRole("link", {name:"判断を確認"})).toHaveAttribute("href","/today/review");
   });
 
   it("recalculates 100-share decisions and saves only to the manual-record API", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url === "/api/v1/today") return jsonResponse(today);
+      if (url.startsWith("/api/v1/today")) return jsonResponse(today);
       if (url.endsWith("/review")) {
         return jsonResponse({
           proposal_id: "proposal-1",
@@ -298,14 +367,15 @@ describe("Goal 5 PWA", () => {
       }
       if (url.endsWith("/decision") && init?.method !== "POST") return jsonResponse(null);
       if (url.endsWith("/decisions")) return jsonResponse({ version: 1 });
+      if (url === "/api/v1/portfolio/apply-executions") return jsonResponse({ ok: true });
       throw new Error(`unexpected URL ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><DecisionReviewPage /></MemoryRouter>);
-    const selector = await screen.findByLabelText("購入会社の目標株数");
-    expect(selector).toHaveDisplayValue("AI提案 100株");
-    expect((await screen.findAllByText("100,000円", {}, { timeout: 2000 })).length).toBeGreaterThan(0);
+    const selector = await screen.findByLabelText("購入会社の提案を採用");
+    expect(selector).toHaveAttribute("aria-pressed","true");
+    expect((await screen.findAllByText("¥100,000", {}, { timeout: 2000 })).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: "判断を保存" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/decisions"))).toBe(true));
     const saveCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/decisions"));
@@ -316,6 +386,7 @@ describe("Goal 5 PWA", () => {
   it("records editable actual fill fields and can apply them to the next portfolio", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
       if (url === "/api/v1/today") return jsonResponse(today);
       if (url.endsWith("/decision")) return jsonResponse({
         decision_id: "decision-1",
@@ -333,11 +404,11 @@ describe("Goal 5 PWA", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    const company = await screen.findByText("購入会社");
-    const card = company.closest("section");
-    expect(card).not.toBeNull();
-    const cardView = within(card as HTMLElement);
+    const cardView = await buyEntry();
     await userEvent.selectOptions(cardView.getByLabelText("実行状態"), "partially_filled");
+    await userEvent.clear(cardView.getByLabelText("注文株数"));
+    await userEvent.type(cardView.getByLabelText("注文株数"),"200");
+    await userEvent.click(cardView.getByRole("checkbox"));
     await userEvent.clear(cardView.getByLabelText("約定株数"));
     await userEvent.type(cardView.getByLabelText("約定株数"), "100");
     await userEvent.clear(cardView.getByLabelText("源泉徴収税額"));
@@ -366,7 +437,7 @@ describe("Goal 5 PWA", () => {
       actualOtherCost: "0",
       taxWithheld: "0",
     });
-    await userEvent.click(screen.getByRole("button", { name: "記録済み約定を実保有へ反映" }));
+    expect(cardView.getByRole("button", { name: "記録済み" })).toBeDisabled();
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === "/api/v1/portfolio/apply-executions")).toBe(true));
   });
 
@@ -374,18 +445,20 @@ describe("Goal 5 PWA", () => {
     let attempts = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
       if (url === "/api/v1/today") return jsonResponse(today);
       if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
         lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
       if (url.includes("/executions")) return ++attempts === 1
         ? new Response(JSON.stringify({ detail: "約定単価を確認してください" }), { status: 422,
           headers: { "Content-Type": "application/json" } }) : jsonResponse({ ok: true });
+      if (url === "/api/v1/portfolio/apply-executions") return jsonResponse({ ok: true });
       throw new Error(`unexpected URL ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: () => "fixed-id" });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    const card = await buyEntry();
     await userEvent.clear(card.getByLabelText("平均約定単価"));
     await userEvent.type(card.getByLabelText("平均約定単価"), "1234");
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
@@ -395,7 +468,7 @@ describe("Goal 5 PWA", () => {
     await userEvent.clear(card.getByLabelText("平均約定単価"));
     await userEvent.type(card.getByLabelText("平均約定単価"), "1235");
     await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
-    await screen.findByText("購入会社の実行結果を記録しました。");
+    await screen.findByText("購入会社の実行結果を記録し、未反映の約定だけを残高へ反映しました。");
     expect(attempts).toBe(2);
   });
 
@@ -404,6 +477,7 @@ describe("Goal 5 PWA", () => {
     const bodies: Record<string, unknown>[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
       if (url === "/api/v1/today") return jsonResponse(today);
       if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
         lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
@@ -412,29 +486,57 @@ describe("Goal 5 PWA", () => {
         if (bodies.length === 1) return new Promise<Response>((_, reject) => { rejectFirst = reject; });
         return jsonResponse({ ok: true });
       }
+      if (url === "/api/v1/portfolio/apply-executions") return jsonResponse({ ok: true });
       throw new Error(`unexpected URL ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
     const uuid = vi.fn(() => "one-record"); vi.stubGlobal("crypto", { randomUUID: uuid });
     render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
-    const card = within((await screen.findByText("購入会社")).closest("section")!);
+    const card = await buyEntry();
     const button = card.getByRole("button", { name: "この結果を記録" });
     await userEvent.click(button);
     expect(button).toBeDisabled();
     expect(card.getByLabelText("平均約定単価")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "記録済み約定を実保有へ反映" })).toBeDisabled();
+    expect(fetchMock.mock.calls.filter(([url])=>String(url)==="/api/v1/portfolio/apply-executions")).toHaveLength(0);
     await userEvent.dblClick(button);
     expect(bodies).toHaveLength(1);
     await act(async () => { rejectFirst(new Error("保存応答を受け取れませんでした")); });
     await screen.findByText("保存応答を受け取れませんでした");
     expect(button).toBeEnabled();
     await userEvent.click(button);
-    await screen.findByText("購入会社の実行結果を記録しました。");
+    await screen.findByText("購入会社の実行結果を記録し、未反映の約定だけを残高へ反映しました。");
     expect(bodies).toHaveLength(2);
     expect(bodies[1]).toEqual(bodies[0]);
-    expect(uuid).toHaveBeenCalledTimes(1);
+    expect(uuid).toHaveBeenCalledTimes(2);
     expect(card.getByRole("button", { name: "記録済み" })).toBeDisabled();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/orders"))).toBe(false);
+  });
+
+  it("retries failed balance reflection without recording the execution twice", async () => {
+    let records = 0;
+    let applies = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/v1/execution-context?includeManual=1" || url === "/api/v1/execution-context") return jsonResponse(executionContext);
+      if (url === "/api/v1/today") return jsonResponse(today);
+      if (url.endsWith("/decision")) return jsonResponse({ decision_id: "decision-1", version: 1,
+        lines: proposal.lines.map(line => ({ proposal_line_id: line.lineId, selected_target_shares: line.recommendedShares })) });
+      if (url === "/api/v1/portfolio/apply-executions") {
+        applies++;
+        if (applies === 1) throw new Error("反映応答なし");
+        return jsonResponse({ ok: true });
+      }
+      if (url.endsWith("/executions")) { records++; return jsonResponse({ ok: true }); }
+      throw Error(url);
+    }));
+    render(<MemoryRouter><ExecutionPage /></MemoryRouter>);
+    const card = await buyEntry();
+    await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
+    await screen.findByText(/約定は記録済みです/);
+    await userEvent.click(card.getByRole("button", { name: "この結果を記録" }));
+    await screen.findByText("購入会社の実行結果を記録し、未反映の約定だけを残高へ反映しました。");
+    expect(records).toBe(1);
+    expect(applies).toBe(2);
   });
 
   it("renders the formal capital and model settings routes without Notifications API", async () => {
@@ -511,11 +613,11 @@ describe("Goal 5 PWA", () => {
     };
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(detail)));
     render(<MemoryRouter initialEntries={["/stocks/A"]}><StockDetailPage /></MemoryRouter>);
-    await screen.findByText("実保有合計");
+    await screen.findByText("実際の保有");
     expect(screen.getByText("300株")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: "nisa" }));
-    expect(screen.getByText("実保有 / nisa")).toBeInTheDocument();
+    expect(screen.getByText("実際の保有 / nisa")).toBeInTheDocument();
     expect(screen.getAllByText("100株").length).toBeGreaterThan(0);
-    expect(screen.getByText("800円")).toBeInTheDocument();
+    expect(screen.getByText(/加重平均取得 ¥800/)).toBeInTheDocument();
   });
 });

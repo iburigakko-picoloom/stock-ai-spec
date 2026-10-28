@@ -146,6 +146,12 @@ class AssumedMarketRequest(NavModel):
     known_action_blockers: tuple[KnownActionBlocker, ...] = ()
     cash_conversions: tuple[DocumentedCashConversion, ...] = ()
 
+    @model_validator(mode="after")
+    def preserve_existing_evidence_contract(self) -> AssumedMarketRequest:
+        if self.rule.accounting.posthoc_actions:
+            raise ValueError("assumed market entry rejects a new posthoc accounting contract")
+        return self
+
 
 def _sha(path: Path) -> str:
     with path.open("rb") as stream:
@@ -350,6 +356,16 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
         )
     ):
         raise ValueError("assumption research reaches the locked holdout")
+    domain_evidence = json.loads(request.eligible_universe.read())
+    if domain_evidence.get("schema_version") == "common-domestic-OOF-domain-v1":
+        # These archived cohorts were formed from supervised OOF keys. The
+        # production OOF builder removes unavailable future labels, including
+        # delisted exits. They remain readable historical results, but replaying
+        # them as an ex-ante investment universe hides missing predictions.
+        raise ValueError(
+            "LABEL_CONDITIONED_UNIVERSE: archived OOF coverage is not an independent "
+            "historical candidate list; provide dated membership and complete predictions"
+        )
     for blocker in request.known_action_blockers:
         blocker.evidence.read()
     cash_events = {c.action.event_id: c for c in request.cash_conversions}
@@ -409,7 +425,7 @@ def _evaluate_assumed_market(request: AssumedMarketRequest) -> dict[str, Any]:
             if pin is None or pin["parquet_sha256"] != obj["parquet_hash"]:
                 raise ValueError("market object is outside the frozen permitted acquisition")
     scores = _scores(request)
-    domains = json.loads(request.eligible_universe.read())["days"]
+    domains = domain_evidence["days"]
     instruments = {}
     for instrument_ref in request.instrument_receipts:
         proof = json.loads(instrument_ref.read())

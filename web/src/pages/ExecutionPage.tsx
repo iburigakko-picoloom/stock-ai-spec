@@ -1,8 +1,10 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { apiGet, apiPost } from "../api";
-import { DecisionSteps, PageHeader, StatePanel, yen } from "../components";
-import { useApiData } from "../hooks";
-import type { ProposalLine, TodayResponse } from "../types";
+import { PageHeader, StatePanel, dateTime, currency as yen } from "../components";
+import { Field, FormGroup, KV } from "../Adopted";
+import { ManualExecutionPage, type ManualEntryContext } from "./ManualExecutionPage";
+import type { ProposalLine } from "../types";
 
 interface DecisionLine {
   proposal_line_id: string;
@@ -13,6 +15,15 @@ interface SavedDecision {
   decision_id: string;
   version: number;
   lines: DecisionLine[];
+}
+
+type ExecutionLine=Pick<ProposalLine,"lineId"|"symbol"|"companyName"|"accountBucketId"|"currentShares"|"referencePrice">;
+interface ExecutionContext {
+  businessDate:string;
+  proposal:{proposalId:string;asOf:string;lines:ExecutionLine[]}|null;
+  decision:SavedDecision|null;
+  accountLabels:Record<string,string>;
+  manualContext?: ManualEntryContext;
 }
 
 interface EntryState {
@@ -35,7 +46,7 @@ function localDateTimeValue(value: Date): string {
 }
 
 const initialEntry: EntryState = {
-  status: "filled",
+  status: "open",
   side: "BUY",
   orderedShares: 0,
   filledShares: 0,
@@ -48,60 +59,73 @@ const initialEntry: EntryState = {
 };
 
 export function ExecutionPage(): ReactNode {
-  const today = useApiData<TodayResponse>("/api/v1/today");
-  const [decision, setDecision] = useState<SavedDecision | null>(null);
-  const [loadingDecision, setLoadingDecision] = useState(true);
+  const [params] = useSearchParams();
+  const applyOnly=params.has("apply");
+  const location = useLocation();
+  const [decisionRead, setDecisionRead] = useState<{ key: string; context: ExecutionContext | null; error: string | null; done: boolean } | null>(null);
+  const currentRead = decisionRead?.key === location.key ? decisionRead : null;
+  const context = currentRead?.context ?? null;
+  const loadingDecision = !currentRead || !currentRead.done;
+  const [selectedLine,setSelectedLine]=useState("");
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadError = currentRead?.error ?? null;
   const [busy, setBusy] = useState(false);
   const [recorded, setRecorded] = useState<Record<string, boolean>>({});
   const [applied, setApplied] = useState(false);
   const pending = useRef(false);
   const attempts = useRef(new Map<string, { key: string; id: string; confirmed: boolean }>());
-  const tomorrow = new Date(Date.now() + 86_400_000);
-  const [nextAsOf, setNextAsOf] = useState(localDateTimeValue(tomorrow));
-  const proposal = today.data?.proposal;
+  const [nextAsOf, setNextAsOf] = useState(localDateTimeValue(new Date()));
+  const proposal = context?.proposal;
+  const decision=context?.decision;
 
   useEffect(() => {
-    if (!proposal) {
-      setLoadingDecision(false);
-      return;
-    }
-    apiGet<SavedDecision | null>(`/api/v1/proposals/${proposal.proposalId}/decision`)
-      .then((value) => setDecision(value))
-      .catch((reason: unknown) => setLoadError(reason instanceof Error ? reason.message : "判断を取得できません"))
-      .finally(() => setLoadingDecision(false));
-  }, [proposal]);
+    if (applyOnly || params.has("manual")) return;
+    let active = true;
+    const key = location.key;
+    setDecisionRead({ key, context: null, error: null, done: false });
+    apiGet<ExecutionContext>("/api/v1/execution-context?includeManual=1")
+      .then(value => { if (active) setDecisionRead({ key, context: value, error: null, done: true }); })
+      .catch((reason: unknown) => { if (active) setDecisionRead({ key, context: null, error: reason instanceof Error ? reason.message : "判断を取得できません", done: true }); });
+    return () => {
+      active = false;
+      setDecisionRead(previous => previous?.key === key ? null : previous);
+    };
+  }, [applyOnly, params, location.key]);
 
-  if (today.loading || loadingDecision) return <StatePanel title="実行結果入力を準備しています" />;
-  if (today.error || loadError) return <StatePanel tone="error" title="入力を準備できません" detail={today.error || loadError} />;
-  if (!proposal || !decision) return <StatePanel title="実行待ちの保存済み判断がありません" />;
+  if (!applyOnly && (params.has("manual") || (!loadingDecision && !loadError && (!proposal || !decision)))) return <ManualExecutionPage initialContext={params.has("manual") ? null : context?.manualContext} />;
+
+  if (!applyOnly && (loadingDecision || loadError || !proposal || !decision)) {
+    const manualParams = new URLSearchParams({ manual: "1" });
+    const symbol = params.get("symbol");
+    if (symbol) manualParams.set("symbol", symbol);
+    return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="実行結果を記録" /><StatePanel tone={loadError ? "error" : "neutral"} title={loadingDecision ? "実行結果入力を準備しています" : loadError ? "入力を準備できません" : "実行待ちの保存済み判断がありません"} detail={loadError} /><Link className="button button--secondary" to={`/today/executions?${manualParams}`} state={location.state}>判断を使わず取引を入力</Link></div>;
+  }
 
   const savedDecision = decision;
-  const decisionTargets = new Map(savedDecision.lines.map((line) => [line.proposal_line_id, line.selected_target_shares]));
-  const changed = proposal.lines.filter((line) => decisionTargets.get(line.lineId) !== line.currentShares);
+  const decisionTargets = new Map((savedDecision?.lines ?? []).map((line) => [line.proposal_line_id, line.selected_target_shares]));
+  const changed = (proposal?.lines ?? []).filter((line) => decisionTargets.get(line.lineId) !== line.currentShares && (!params.get("symbol") || params.get("symbol") === line.symbol));
 
-  function entryFor(line: ProposalLine): EntryState {
+  function entryFor(line: ExecutionLine): EntryState {
     const target = decisionTargets.get(line.lineId) ?? line.currentShares;
     return entries[line.lineId] || {
       ...initialEntry,
       side: target > line.currentShares ? "BUY" : "SELL",
       orderedShares: Math.abs(target - line.currentShares),
-      filledShares: Math.abs(target - line.currentShares),
+      filledShares: 0,
       executedAt: localDateTimeValue(new Date()),
-      price: line.referencePrice,
+      price: "",
     };
   }
 
-  function patchEntry(line: ProposalLine, patch: Partial<EntryState>): void {
+  function patchEntry(line: ExecutionLine, patch: Partial<EntryState>): void {
     setEntries((current) => ({ ...current, [line.lineId]: { ...entryFor(line), ...patch } }));
     setRecorded(current => ({ ...current, [line.lineId]: false }));
   }
 
-  async function record(line: ProposalLine): Promise<void> {
-    if (pending.current) return;
+  async function record(line: ExecutionLine): Promise<void> {
+    if (pending.current || !savedDecision) return;
     pending.current = true; setBusy(true);
     const entry = entryFor(line);
     setEntries(current => ({ ...current, [line.lineId]: entry }));
@@ -135,11 +159,16 @@ export function ExecutionPage(): ReactNode {
         });
         attempt.confirmed = true;
       }
+      const reflectedAt = new Date();
+      await apiPost("/api/v1/portfolio/apply-executions", {
+        nextAsOf: reflectedAt.toISOString(), nextPortfolioId: `actual-${crypto.randomUUID()}`,
+      });
+      setNextAsOf(localDateTimeValue(reflectedAt));
       setRecorded(current => ({ ...current, [line.lineId]: true }));
-      setApplied(false);
-      setMessage(`${line.companyName}の実行結果を記録しました。`);
+      setApplied(true);
+      setMessage(`${line.companyName}の実行結果を記録し、未反映の約定だけを残高へ反映しました。`);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "実行結果を記録できませんでした");
+      setError(`${attempts.current.get(line.lineId)?.confirmed ? "約定は記録済みです。残高反映を再試行してください。" : ""}${reason instanceof Error ? reason.message : "実行結果を記録できませんでした"}`);
     } finally { pending.current = false; setBusy(false); }
   }
 
@@ -162,47 +191,48 @@ export function ExecutionPage(): ReactNode {
 
   return (
     <div className="page">
-      <PageHeader eyebrow="証券会社での手動操作後" title="実行結果を記録" />
-      <DecisionSteps current="execution" />
-      <section className="notice-box"><strong>実際の結果だけを入力</strong><span>提案株数ではなく、証券会社で確認した約定株数・単価を記録してください。</span></section>
-      {changed.length === 0 ? <StatePanel title="取引しない判断です" /> : changed.map((line) => {
+      <PageHeader title={params.has("apply") ? "記録済み約定の反映" : "取引記録"} backTo={params.has("apply") ? "/transactions" : params.get("symbol") ? `/stocks/${params.get("symbol")}` : "/today"} backState={location.state} />
+      <div className="subscreen stack">
+      {!applyOnly && <Link className="quiet-link" to={`/today/executions?manual=1${params.get("symbol") ? `&symbol=${params.get("symbol")}` : ""}`}>提案以外の取引を記録</Link>}
+      {proposal && savedDecision && <p className="small muted">{dateTime(proposal.asOf,true)} の保存済み判断 · 第{savedDecision.version}版</p>}
+      {!params.has("apply") && (changed.length === 0 ? <StatePanel title="取引しない判断です" /> : changed.map((line) => {
         const target = decisionTargets.get(line.lineId) ?? line.currentShares;
-        const orderedShares = Math.abs(target - line.currentShares);
         const entry = entryFor(line);
         return (
-          <section className="execution-card" key={line.lineId}>
-            <div className="execution-card__title"><div><strong>{line.companyName}</strong><span>{line.accountBucketId}</span></div><b>{target > line.currentShares ? "BUY" : "SELL"} {orderedShares}株</b></div>
-            <fieldset className="execution-fields" disabled={busy}>
-            <label>実行状態<select value={entry.status} onChange={(event) => patchEntry(line, { status: event.target.value })}>
-              <option value="not_ordered">未注文</option><option value="open">注文済み・未約定</option><option value="partially_filled">一部約定</option><option value="filled">全約定</option><option value="cancelled">取消</option><option value="expired">失効</option>
-            </select></label>
-            <div className="form-grid">
-              <label>売買方向<select value={entry.side} onChange={(event) => patchEntry(line, { side: event.target.value as "BUY" | "SELL" })}><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
-              <label>注文株数<input type="number" min="0" step="100" value={entry.orderedShares} onChange={(event) => patchEntry(line, { orderedShares: Number(event.target.value) })} /></label>
-              <label>実行日時<input type="datetime-local" step="0.001" value={entry.executedAt} onChange={(event) => patchEntry(line, { executedAt: event.target.value })} /></label>
-            </div>
-            {!(["not_ordered", "open"].includes(entry.status)) && <div className="form-grid">
-              <label>約定株数<input type="number" min="0" step="100" value={entry.filledShares} onChange={(event) => patchEntry(line, { filledShares: Number(event.target.value) })} /></label>
-              <label>平均約定単価<input inputMode="decimal" value={entry.price} onChange={(event) => patchEntry(line, { price: event.target.value })} /></label>
-              <label>実手数料<input inputMode="decimal" value={entry.commission} onChange={(event) => patchEntry(line, { commission: event.target.value })} /></label>
-              <label>その他費用<input inputMode="decimal" value={entry.otherCost} onChange={(event) => patchEntry(line, { otherCost: event.target.value })} /></label>
-              <label>源泉徴収税額<input inputMode="decimal" value={entry.taxWithheld} onChange={(event) => patchEntry(line, { taxWithheld: event.target.value })} /></label>
-            </div>}
-            <p className="reference">参考価格 {yen(line.referencePrice)} / 判断 {line.currentShares}株 → {target}株</p>
+          <div className="stack execution-entry" role="group" aria-label={`${line.companyName}の取引`} key={line.lineId} hidden={line.lineId !== (changed.some(item=>item.lineId===selectedLine) ? selectedLine : changed[0]?.lineId)}>
+            <section className="card"><fieldset className="account-form" disabled={busy}>
+            <FormGroup title="注文">
+              <Field label="銘柄"><select className="input" value={selectedLine || changed[0].lineId} onChange={e=>setSelectedLine(e.target.value)}>{changed.map(item=><option key={item.lineId} value={item.lineId}>{item.symbol} {item.companyName}</option>)}</select></Field>
+              <Field label="口座"><input className="input" readOnly value={context?.accountLabels?.[line.accountBucketId] ?? line.accountBucketId} /></Field>
+              <Field label="売買方向"><select className="input" value={entry.side} onChange={e=>patchEntry(line,{side:e.target.value as "BUY"|"SELL"})}><option value="BUY">買い</option><option value="SELL">売り</option></select></Field>
+              <Field label="注文株数"><input className="input" type="number" min="0" step="100" value={entry.orderedShares} onChange={e=>patchEntry(line,{orderedShares:Number(e.target.value)})} /></Field>
+              <Field label="実行日時"><input className="input" type="datetime-local" step="0.001" value={entry.executedAt} onChange={e=>patchEntry(line,{executedAt:e.target.value})} /></Field>
+            </FormGroup><FormGroup title="約定">
+            <Field label="実行状態"><select className="input" value={entry.status} onChange={e=>patchEntry(line,{status:e.target.value})}><option value="not_ordered">未注文</option><option value="open">注文済み・未約定</option><option value="partially_filled">一部約定</option><option value="filled">全約定</option><option value="cancelled">取消</option><option value="expired">失効</option></select></Field>
+            {!(["not_ordered","open"].includes(entry.status)) && <>
+              <Field label="約定株数"><input className="input" type="number" min="0" step="1" value={entry.filledShares} onChange={e=>patchEntry(line,{filledShares:Number(e.target.value)})} /></Field>
+              <Field label="平均約定単価"><input className="input" inputMode="decimal" value={entry.price} onChange={e=>patchEntry(line,{price:e.target.value})} /></Field>
+              <Field label="実手数料"><input className="input" inputMode="decimal" value={entry.commission} onChange={e=>patchEntry(line,{commission:e.target.value})} /></Field>
+              <Field label="その他費用"><input className="input" inputMode="decimal" value={entry.otherCost} onChange={e=>patchEntry(line,{otherCost:e.target.value})} /></Field>
+              <Field label="源泉徴収税額"><input className="input" inputMode="decimal" value={entry.taxWithheld} onChange={e=>patchEntry(line,{taxWithheld:e.target.value})} /></Field>
+            </>}</FormGroup>
             <label className="checkbox"><input type="checkbox" checked={entry.confirmDifference} onChange={(event) => patchEntry(line, { confirmDifference: event.target.checked })} />保存済み判断と異なる実行を明示確認する</label>
-            </fieldset>
-            <button className="button button--secondary" disabled={busy || recorded[line.lineId]} onClick={() => void record(line)}>{recorded[line.lineId] ? "記録済み" : "この結果を記録"}</button>
-          </section>
+            </fieldset></section>
+            <section className="card stack"><h3 className="section-title">変更プレビュー</h3><KV label="注文" value={`${line.companyName} · ${entry.side==="BUY" ? "買い" : "売り"} ${entry.orderedShares}株`} /><KV label="今回の約定" value={`${["not_ordered","open"].includes(entry.status) ? 0 : entry.filledShares}株`} /><KV label="判断" value={`${line.currentShares} → ${target}株`} /><KV label="参考価格" value={yen(line.referencePrice)} /><p className="small muted">記録済みの約定は重ねて入力せず、今回新しく約定した分を入力してください。</p></section>
+            <div className="subactions"><button className="button" disabled={busy || recorded[line.lineId]} onClick={() => void record(line)}>{recorded[line.lineId] ? "記録済み" : "この結果を記録"}</button><Link className="button secondary" to="/transactions">取引履歴</Link></div>
+          </div>
         );
-      })}
-      <section className="section preview-panel">
-        <h2>翌日以降の実保有へ反映</h2>
-        <p className="explain">すべての手動注文結果を記録した後、反映時点を確認して実行します。提案株数ではなく、記録済み約定だけを使用します。</p>
+      }))}
+      {params.has("apply") && <section className="card stack">
+        <h2>残高への反映状況</h2>
+        <p className="explain">記録時に未反映の約定だけを反映します。CSV取込後や反映に失敗した場合は、ここから再試行できます。</p>
         <label>次の保有状態の時点<input type="datetime-local" value={nextAsOf} disabled={busy} onChange={(event) => { setNextAsOf(event.target.value); setApplied(false); }} /></label>
         <button className="button button--primary" disabled={busy || applied} onClick={() => void applyRecorded()}>{applied ? "実保有へ反映済み" : "記録済み約定を実保有へ反映"}</button>
-      </section>
-      {message && <StatePanel title={message} detail="翌日状態は確定した実約定だけから更新されます。" />}
+      </section>}
+      {message && <StatePanel title={message} detail="保有と現金は確定した実約定だけから更新されます。" />}
       {error && <StatePanel tone="error" title="記録できませんでした" detail={error} />}
+      {error && <Link className="quiet-link" to="/today/executions?apply=1">記録済み約定の反映を確認</Link>}
+      </div>
     </div>
   );
 }

@@ -19,7 +19,7 @@ from stock_ai.data.normalize import canonical_payload_hash, normalize_payload
 from stock_ai.data.production import _source_frame_id, _source_row_hashes, build_production_data
 from stock_ai.data.quality import require_quality, validate_rows
 
-from . import market_codec
+from . import checkpoints, market_codec
 from .features import model_input_frame
 from .storage import connect
 
@@ -142,6 +142,9 @@ def ingest(path: Path, payload: dict) -> dict:
     received = receipt_time(payload["received_at"]).astimezone(UTC)
     if day > received.astimezone(ZoneInfo("Asia/Tokyo")).date():
         raise ValueError("Invalid source/receipt date")
+    local_received = received.astimezone(ZoneInfo("Asia/Tokyo"))
+    if day == local_received.date() and local_received.time() < time(17, 0):
+        raise ValueError("Same-day closing prices are only accepted after 17:00")
     if set(payload["datasets"]) != {dataset.value for dataset in DatasetName}:
         raise ValueError("Incomplete acquisition")
     calendars = payload["datasets"]["trading_calendar"]
@@ -302,14 +305,15 @@ def compact_legacy(path: Path, budget: int = 5) -> int:
     return len(rows) + len(valuations)
 
 
-def _daily_snapshots(db, dataset, as_of, *, descending=False):
+def _daily_snapshots(db, dataset, as_of, *, descending=False, first_day=None):
     return db.execute(
         "WITH versions AS (SELECT sequence,day,raw,normalized,normalized_hash,"
         "ROW_NUMBER() OVER(PARTITION BY day ORDER BY received_at DESC,sequence DESC) n "
-        "FROM market_batches WHERE dataset=? AND received_at<=?) "
+        "FROM market_batches WHERE dataset=? AND received_at<=? AND (? IS NULL OR day>=?)) "
         "SELECT sequence,day,raw,normalized,normalized_hash FROM versions WHERE n=1 "
         + ("ORDER BY day DESC" if descending else "ORDER BY day"),
-        (dataset.value, as_of.astimezone(UTC).isoformat(timespec="microseconds")),
+        (dataset.value, as_of.astimezone(UTC).isoformat(timespec="microseconds"),
+         first_day, first_day),
     )
 
 
@@ -410,7 +414,7 @@ class SQLiteSource:
         frame.reset_index(drop=True, inplace=True)
         return frame
 
-    def latest_closed_prices(self, as_of):
+    def latest_closed_prices(self, as_of, *, reference_only=False):
         """The same latest common-issue rows, without assembling all historical prices."""
         if not as_of.tzinfo:
             raise ValueError("Aware cutoff required")
@@ -419,24 +423,31 @@ class SQLiteSource:
         local_day = as_of.astimezone(ZoneInfo("Asia/Tokyo")).date()
         with connect(self.path) as db:
             db.execute("BEGIN")
-            for _, _, raw, normalized, expected in _daily_snapshots(db, kind, as_of):
-                frame = market_codec.frame(db, normalized, raw, expected, cache)
-                if not frame.empty:
-                    profiles.append(market_codec.frame_profile(frame))
-            if not profiles:
-                return pd.DataFrame()
-            common = pd.concat(profiles, ignore_index=True).dtypes
-            for name, dtype in _mixed_datetime_casts(profiles).items():
-                common[name] = dtype
+            common = None
+            if not reference_only:
+                for _, _, raw, normalized, expected in _daily_snapshots(db, kind, as_of):
+                    frame = market_codec.frame(db, normalized, raw, expected, cache)
+                    if not frame.empty:
+                        profiles.append(market_codec.frame_profile(frame))
+                if not profiles:
+                    return pd.DataFrame()
+                common = pd.concat(profiles, ignore_index=True).dtypes
+                for name, dtype in _mixed_datetime_casts(profiles).items():
+                    common[name] = dtype
             profiles.clear()
             for sequence, day, raw, normalized, expected in _daily_snapshots(
                 db, kind, as_of, descending=True
             ):
+                # Ledger references need verified source values, not the concat
+                # dtype of unrelated history. Keep the feature reader unchanged.
+                if reference_only and date.fromisoformat(day) >= local_day:
+                    continue
                 frame = market_codec.frame(db, normalized, raw, expected, cache)
                 if frame.empty:
                     continue
                 frame = _canonical_daily_part(
-                    frame, common, ["trading_date", "provider_code"], sequence, day
+                    frame, frame.dtypes if common is None else common,
+                    ["trading_date", "provider_code"], sequence, day
                 )
                 if date.fromisoformat(day) >= local_day:
                     continue
@@ -466,14 +477,25 @@ class FeatureSource(SQLiteSource):
         DatasetName.DAILY_PRICES: ["trading_date", "provider_code"],
     }
 
-    def __init__(self, path):
+    def __init__(self, path, *, first_day=None, verified_day=None, common_schemas=None,
+                 context_only=False):
         super().__init__(path)
         self._identities = {}
         self._retained = []
+        self.first_day = first_day
+        self.verified_day = verified_day
+        self.common_schemas = common_schemas or {}
+        self.context_only = context_only
+        self.shared_frames = {}
 
     def point_in_time(self, dataset, as_of):
         if dataset not in self.KEYS:
-            return super().point_in_time(dataset, as_of)
+            frame = super().point_in_time(dataset, as_of)
+            if self.context_only:
+                # Only small shared sources, for reuse within this one build.
+                # No large master/price frame is retained by the reader.
+                self.shared_frames[dataset] = frame
+            return frame
         if not as_of.tzinfo:
             raise ValueError("Aware cutoff required")
         cache, profiles, parts = OrderedDict(), [], []
@@ -486,8 +508,15 @@ class FeatureSource(SQLiteSource):
             # Both passes must observe the same immutable selection, even if a
             # separate connection receives a correction during the read.
             db.execute("BEGIN")
-            for _, _, raw, normalized, expected in _daily_snapshots(db, dataset, as_of):
-                profile = market_codec.dtype_profile(db, normalized, raw, expected, cache)
+            for sequence, day, raw, normalized, expected in _daily_snapshots(
+                db, dataset, as_of, first_day=self.first_day
+            ):
+                profile = checkpoints.source_part(
+                    ["profile", dataset.value, sequence, expected],
+                    "profile:" + dataset.value + ":" + day,
+                    lambda normalized=normalized, raw=raw, expected=expected:
+                        market_codec.dtype_profile(db, normalized, raw, expected, cache),
+                )
                 if not profile.empty:
                     profiles.append(profile)
             if not profiles:
@@ -497,21 +526,58 @@ class FeatureSource(SQLiteSource):
             for name, dtype in _mixed_datetime_casts(profiles).items():
                 common[name] = dtype
             profiles.clear()
+            if dataset.value in self.common_schemas:
+                expected = pd.Series({name: pd.api.types.pandas_dtype(dtype)
+                                      for name, dtype in self.common_schemas[dataset.value]})
+                # A new schema can change old row hashes/dtypes. The caller must
+                # rebuild its derived cache instead of mixing source identities.
+                if set(common.index) != set(expected.index):
+                    raise ValueError("INPUT_CACHE_SCHEMA_CHANGED")
+                for name, dtype in common.items():
+                    if dtype == expected[name]:
+                        continue
+                    dates = (name in {"effective_date", "trading_date"}
+                             and pd.api.types.is_datetime64_dtype(expected[name]))
+                    zones = (isinstance(dtype, pd.DatetimeTZDtype)
+                             and isinstance(expected[name], pd.DatetimeTZDtype)
+                             and str(expected[name].tz) == "UTC")
+                    if not (dates or zones):
+                        raise ValueError("INPUT_CACHE_SCHEMA_CHANGED")
+                common = expected
             schema = tuple((str(name), str(dtype)) for name, dtype in common.items())
             metadata = json.dumps({"dataset": dataset.value, "schema": schema}, sort_keys=True)
             identity = hashlib.sha256(metadata.encode())
             keys = self.KEYS[dataset]
-            for sequence, day, raw, normalized, expected in _daily_snapshots(db, dataset, as_of):
-                frame = market_codec.frame(db, normalized, raw, expected, cache)
-                if frame.empty:
-                    continue
-                frame = _canonical_daily_part(frame, common, keys, sequence, day)
-                identity.update(_source_row_hashes(frame).tobytes())
-                columns = (
-                    self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
-                    else self.PRICE_COLUMNS
+            for sequence, day, raw, normalized, expected in _daily_snapshots(
+                db, dataset, as_of, first_day=self.first_day
+            ):
+                def verified_projection(normalized=normalized, raw=raw, expected=expected,
+                                        sequence=sequence, day=day):
+                    frame = market_codec.frame(db, normalized, raw, expected, cache)
+                    if frame.empty:
+                        return {"projected": frame, "hashes": ""}
+                    frame = _canonical_daily_part(frame, common, keys, sequence, day)
+                    columns = (self.MASTER_COLUMNS if dataset is DatasetName.SECURITY_MASTER
+                               else self.PRICE_COLUMNS)
+                    if self.context_only and dataset is DatasetName.SECURITY_MASTER:
+                        columns = columns - {"company_name"}
+                    return {
+                        "projected": frame.loc[:, [name for name in frame
+                                                  if name in columns]].copy(),
+                        "hashes": _source_row_hashes(frame).tobytes().hex(),
+                    }
+
+                part = checkpoints.source_part(
+                    ["verified", dataset.value, sequence, expected, schema, self.context_only],
+                    "verified:" + dataset.value + ":" + day, verified_projection,
                 )
-                projected = frame.loc[:, [name for name in frame if name in columns]].copy()
+                projected = part["projected"]
+                row_hashes = bytes.fromhex(part["hashes"])
+                identity.update(row_hashes)
+                if self.verified_day is not None:
+                    self.verified_day(dataset.value, day, schema, row_hashes)
+                if projected.empty:
+                    continue
                 # Immutable text repeats across daily batches. Retain one
                 # string per value instead of a new allocation for each day;
                 # keep the exact values, nulls, dtype and full-source identity.
@@ -545,7 +611,7 @@ class FeatureSource(SQLiteSource):
                     projected_digest = hashlib.sha256(header.encode())
                 projected_digest.update(_source_row_hashes(projected).tobytes())
                 parts.append(projected)
-        del frame, projected
+        del projected, part
         cache.clear()
         result = pd.concat(parts, ignore_index=True)
         parts.clear()
@@ -582,8 +648,94 @@ def master_references(path: Path, cutoff: datetime) -> list[dict]:
              "received_at": row[2], "payload_hash": row[3]} for row in rows]
 
 
+def consultation_evidence(path: Path, cutoff: datetime) -> list[dict]:
+    """Small verified summaries; never rebuild model features for consultation."""
+    if cutoff.utcoffset() is None:
+        raise ValueError("Aware research cutoff required")
+    cache = OrderedDict()
+    today = cutoff.astimezone(ZoneInfo("Asia/Tokyo")).date()
+    with connect(path) as db:
+        db.execute("BEGIN")
+
+        def recent(kind, limit):
+            result = []
+            for sequence, day, raw, normalized, expected in _daily_snapshots(
+                db, kind, cutoff, descending=True,
+                first_day=str(today - timedelta(days=90)),
+            ):
+                if date.fromisoformat(day) >= today:
+                    continue
+                frame = market_codec.frame(db, normalized, raw, expected, cache)
+                if frame.empty:
+                    continue
+                frame = frame.loc[pd.to_datetime(frame.available_at, utc=True) <= cutoff]
+                if frame.empty:
+                    continue
+                result.append((day, frame, {
+                    "observation_id": sequence, "normalized_sha256": expected,
+                    "available_at": pd.to_datetime(frame.available_at, utc=True).max().isoformat(),
+                    "date": day,
+                    "source_url": "https://api.jquants.com/v2" + ENDPOINT_SCHEMAS[kind].endpoint,
+                }))
+                if len(result) == limit:
+                    break
+            return result
+
+        indices = recent(DatasetName.TOPIX, 21)
+        daily = recent(DatasetName.DAILY_PRICES, 2)
+        master = recent(DatasetName.SECURITY_MASTER, 1)
+    facts = []
+
+    def fact(topic, kind, day, frame, refs, values):
+        return {
+            "topic": topic,
+            "source_url": "https://api.jquants.com/v2" + ENDPOINT_SCHEMAS[kind].endpoint,
+            "observed_at": datetime.combine(
+                date.fromisoformat(day), time(15, 30), ZoneInfo("Asia/Tokyo")
+            ).isoformat(),
+            "available_at": max(
+                datetime.fromisoformat(r["available_at"]) for r in refs
+            ).isoformat(),
+            "checked_at": cutoff.isoformat(), "published_at": None,
+            "source_records": refs, "values": values,
+        }
+    if indices:
+        day, frame, ref = indices[0]
+        series = [{"date": d, "close": float(f.iloc[0]["close"])} for d, f, _ in reversed(indices)
+                  if len(f) == 1 and pd.notna(f.iloc[0]["close"])]
+        if series:
+            facts.append(fact("topix", DatasetName.TOPIX, day, frame,
+                              [r for _, _, r in indices], {"daily_closes": series}))
+    if len(daily) == 2 and master:
+        day, latest, ref = daily[0]
+        previous = daily[1][1]
+        names = master[0][1]
+        current = latest[["provider_code", "research_close"]].merge(
+            previous[["provider_code", "research_close"]],
+            on="provider_code", suffixes=("", "_previous"),
+            validate="one_to_one",
+        ).merge(names[["provider_code", "sector_33_name"]],
+                on="provider_code", validate="one_to_one")
+        current = current.loc[
+            current.provider_code.astype(str).str.fullmatch(r"[0-9A-Z]{4}0")
+            & current.research_close_previous.gt(0) & current.research_close.notna()
+        ].copy()
+        current["return"] = current.research_close / current.research_close_previous - 1
+        sectors = [{"sector": str(name), "mean_return": float(group["return"].mean()),
+                    "count": len(group)} for name, group in current.groupby("sector_33_name")]
+        if sectors:
+            facts.append(fact("sectors", DatasetName.DAILY_PRICES, day, latest,
+                              [ref, daily[1][2], master[0][2]], {
+                                  "basis": "equal_weight_observed_common_stocks_not_sector_index",
+                                  "previous_date": daily[1][0],
+                                  "unit": "fractional_return", "sectors": sectors,
+                              }))
+    return facts
+
+
 def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
-                   decision_symbols: list[str] | tuple[str, ...] | None = None) -> dict:
+                   decision_symbols: list[str] | tuple[str, ...] | None = None,
+                   preselected: bool = False, reference_only: bool = False) -> dict:
     # Keep full-market verification/context construction. Only the individual
     # model frames are projected before copying/JSON precision conversion.
     selected = None
@@ -593,14 +745,21 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
                 or len(set(decision_symbols)) != len(decision_symbols)):
             raise ValueError("Invalid decision-symbol calculation scope")
         selected = frozenset(decision_symbols)
-    cutoff = datetime.combine(
+    cutoff = as_of if reference_only else datetime.combine(
         as_of.astimezone(ZoneInfo("Asia/Tokyo")).date(), time(11, 30), ZoneInfo("Asia/Tokyo")
     )
     if as_of < cutoff:
         raise ValueError("11:30 input cutoff is not closed")
+    if preselected and not reference_only:
+        if selected is None or not as_frames:
+            raise ValueError("Preselection requires explicit frame calculation scope")
+        from .input_cache import inputs
+
+        return inputs(path, cutoff, selected)
     bundle = build_production_data(
         FeatureSource(path) if as_frames else SQLiteSource(path),
-        source_snapshot_as_of=cutoff, proposal_as_of=cutoff
+        source_snapshot_as_of=cutoff,
+        **({"reference_as_of": cutoff} if reference_only else {"proposal_as_of": cutoff})
     )
     with connect(path) as db:
         latest_receipt = db.execute(
@@ -615,12 +774,15 @@ def feature_inputs(path: Path, as_of: datetime, as_frames: bool = False,
         "source_snapshot_ids": list(bundle.source_snapshot_ids),
         "revision_policy": bundle.revision_policy.value,
     }
+    if reference_only:
+        result["reference_price_date"] = str(bundle.daily.trading_date.max().date())
     for key, frame in [("daily", bundle.daily), ("market", bundle.market_context),
                        ("sector", bundle.sector_context), ("financials", bundle.financials)]:
         if selected is not None and key in ("daily", "financials"):
             frame = frame.loc[frame.symbol.isin(selected)].reset_index(drop=True)
         result[key] = (model_input_frame(key, frame) if as_frames else
-                       json.loads(frame.to_json(orient="records", date_format="iso")))
+                       json.loads(frame.to_json(
+                           orient="records", date_format="iso", date_unit="ns")))
     if selected is not None:
         result["decision_symbols"] = sorted(selected)
     return result

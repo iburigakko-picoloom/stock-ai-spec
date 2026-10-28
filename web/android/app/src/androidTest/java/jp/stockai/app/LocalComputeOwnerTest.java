@@ -10,6 +10,7 @@ import com.getcapacitor.JSObject;
 import java.io.File;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,6 +35,210 @@ public class LocalComputeOwnerTest {
     }
 
     static <T> T result(CompletableFuture<T> value) throws Exception { return value.get(300, TimeUnit.SECONDS); }
+
+    private static java.util.concurrent.ExecutorService viewWriter(SavedReadViews views) throws Exception {
+        java.lang.reflect.Field field=SavedReadViews.class.getDeclaredField("writer"); field.setAccessible(true);
+        return (java.util.concurrent.ExecutorService)field.get(views);
+    }
+    private static void drainViews(SavedReadViews views) throws Exception {
+        viewWriter(views).submit(() -> {}).get(60, TimeUnit.SECONDS);
+    }
+
+    @Test public void restoreInvalidatesHomeCopyQueuedDuringTheRestoreInterval() throws Exception {
+        String accountId="00000000-0000-4000-8000-000000000001";
+        JSONObject profile=new JSONObject(emptyProfile()).put("holdings_status","recorded").put("investment_budget_yen","1000000")
+            .put("accounts",new org.json.JSONArray().put(new JSONObject().put("id",accountId).put("name","synthetic-account")
+                .put("account_type","taxable_specified").put("withholding_mode","withholding").put("available_cash_yen","250000")))
+            .put("holdings",new org.json.JSONArray().put(new JSONObject().put("account_id",accountId).put("symbol","7203")
+                .put("shares",100).put("average_acquisition_price_yen","1234.50")));
+        JSObject original=result(owner.request("POST","/api/v1/mobile/portfolio",profile.toString()));
+        assertEquals(200,original.getInt("status"));
+        String payload=result(owner.readState()).getString("payload");
+        long generation=owner.state.currentGeneration();
+        owner.readViews.clear();
+        long before=owner.readViews.epoch();
+        java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1),release=new java.util.concurrent.CountDownLatch(1);
+        viewWriter(owner.readViews).execute(()->{entered.countDown();try{release.await();}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        assertTrue(entered.await(10,TimeUnit.SECONDS));
+        try {
+            CompletableFuture<JSObject> restoring=owner.restore(payload,generation);
+            long deadline=android.os.SystemClock.elapsedRealtime()+60_000;
+            while(owner.readViews.epoch()==before && !restoring.isDone() && android.os.SystemClock.elapsedRealtime()<deadline) Thread.sleep(10);
+            assertNotEquals("Restore must begin by clearing historical displays",before,owner.readViews.epoch());
+            assertFalse("Restore finished before the race could be exercised",restoring.isDone());
+            long during=before+1;
+            assertEquals("Restore must still be between its two display clears",during,owner.readViews.epoch());
+            String old=new JSONObject().put("status",200).put("body",new JSONObject().put("synthetic_old",true)).toString();
+            owner.readViews.saveAsyncIfUnchanged("/api/v1/home/ledger",old,generation,during);
+            assertEquals("The old copy must actually have been queued during restore",1,
+                ((java.util.concurrent.ThreadPoolExecutor)viewWriter(owner.readViews)).getQueue().size());
+            assertTrue("Restore must publish a new state generation",result(restoring).getLong("generation")>generation);
+        } finally {release.countDown();}
+        drainViews(owner.readViews);
+        assertFalse("Old display saved during restore must not survive",owner.readViews.read("/api/v1/home/ledger").getBoolean("available"));
+        assertJsonEqual(original.getJSONObject("body"),result(owner.request("GET","/api/v1/mobile/portfolio","null")).getJSONObject("body"));
+    }
+
+    @Test public void authoritativeReadDoesNotWaitForDisplayCopyAndClearRejectsQueuedCopy() throws Exception {
+        result(owner.request("GET", "/api/v1/health", "null"));
+        java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1), release=new java.util.concurrent.CountDownLatch(1);
+        viewWriter(owner.readViews).execute(() -> {entered.countDown();try{release.await();}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        assertTrue(entered.await(10,TimeUnit.SECONDS));
+        try {
+            JSObject home=owner.request("GET", "/api/v1/home", "null").get(60,TimeUnit.SECONDS);
+            assertEquals(200,home.getInt("status"));
+            assertFalse(owner.readViews.read("/api/v1/home").getBoolean("available"));
+            owner.readViews.clear();
+        } finally { release.countDown(); }
+        drainViews(owner.readViews);
+        assertFalse(owner.readViews.read("/api/v1/home").getBoolean("available"));
+        JSObject fresh=result(owner.request("GET", "/api/v1/home", "null"));
+        drainViews(owner.readViews);
+        assertJsonEqual(fresh.getJSONObject("body"),owner.readViews.read("/api/v1/home").getJSONObject("body"));
+    }
+
+    @Test public void realPythonForecastFailureIsVisibleAfterOwnerReopen() throws Exception {
+        JSObject response = result(owner.request("POST", "/api/v1/mobile/daily/generate", "{\"reference_only\":\"invalid\"}"));
+        assertEquals(422, response.getInt("status"));
+        assertEquals("FORECAST_VALIDATION_FAILED", response.getJSONObject("body").getString("code"));
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        JSObject status = owner.checkpoints.status(false);
+        assertEquals("blocked", status.getString("state"));
+        assertEquals(422, status.getInt("responseStatus"));
+        assertEquals("FORECAST_VALIDATION_FAILED", status.getString("responseCode"));
+        assertTrue(status.getString("diagnostic").startsWith("ValueError:stock_ai.mobile.runtime:request:"));
+        assertEquals(0, status.getJSONArray("blockingReasons").length());
+    }
+
+    @Test public void currentPortfolioReadBypassesColdPythonAndBusyCalculationQueue() throws Exception {
+        String profile = "{\"schema_version\":\"manual-portfolio-v1\",\"holdings_status\":\"none\",\"investment_budget_yen\":\"1040000\",\"maximum_drawdown_percent\":10,\"accounts\":[],\"holdings\":[]}";
+        JSONObject expected = result(owner.request("POST", "/api/v1/mobile/portfolio", profile)).getJSONObject("body");
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        java.lang.reflect.Field host = LocalComputeOwner.class.getDeclaredField("host"); host.setAccessible(true);
+        assertNull(host.get(owner));
+        long start = android.os.SystemClock.elapsedRealtime();
+        JSObject actual = NativePortfolioReader.read(context, owner.state);
+        long directMs = android.os.SystemClock.elapsedRealtime() - start;
+        assertJsonEqual(expected, actual.getJSONObject("body"));
+        assertNull("Personal read must not boot Python", host.get(owner));
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        ownerQueue().execute(() -> { entered.countDown(); try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            assertJsonEqual(expected, NativePortfolioReader.read(context, owner.state).getJSONObject("body"));
+        } finally { release.countDown(); }
+        start = android.os.SystemClock.elapsedRealtime();
+        assertJsonEqual(expected, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body"));
+        long coldMs = android.os.SystemClock.elapsedRealtime() - start;
+        android.util.Log.i("StockAIPersonalBenchmark", "direct_ms=" + directMs + " cold_python_ms=" + coldMs);
+        assertTrue("Direct read must complete within ten seconds", directMs < 10000);
+        assertTrue("Direct read must beat cold Python", directMs < coldMs);
+        JSObject full = result(owner.readState());
+        owner.state.write(owner.state.currentGeneration(), full.getString("payload"));
+        try (LocalStateStore.StartupLease lease = owner.state.openStartupLease()) { assertNull(lease.operations); }
+        assertJsonEqual(expected, NativePortfolioReader.read(context, owner.state).getJSONObject("body"));
+        File[] leftovers = context.getCacheDir().listFiles((dir, name) -> name.startsWith("personal-read-"));
+        assertNotNull(leftovers); assertEquals(0, leftovers.length);
+    }
+
+    @Test public void directPersonalReadRejectsInvalidRecordAndRemovesTemporaryFiles() throws Exception {
+        File database = File.createTempFile("invalid-personal-test-", ".sqlite3", context.getCacheDir());
+        try {
+            try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(database, null)) {
+                db.execSQL("CREATE TABLE manual_portfolio_imports (payload TEXT, content_hash TEXT, export_sha256 TEXT, revision_id TEXT, revision_sequence INTEGER, owner_scope_hash TEXT)");
+                db.execSQL("INSERT INTO manual_portfolio_imports VALUES ('{}','invalid','invalid','invalid',1,'invalid')");
+            }
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("operations.sqlite3"));
+                java.nio.file.Files.copy(database.toPath(), zip);
+                zip.closeEntry();
+            }
+            owner.state.write(owner.state.currentGeneration(), android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP));
+            try { NativePortfolioReader.read(context, owner.state); fail("Invalid record accepted"); }
+            catch (SecurityException expected) { assertEquals("PERSONAL_CONTENT_HASH", expected.getMessage()); }
+            File[] leftovers = context.getCacheDir().listFiles((dir, name) -> name.startsWith("personal-read-"));
+            assertNotNull(leftovers); assertEquals(0, leftovers.length);
+        } finally { SQLiteDatabase.deleteDatabase(database); }
+    }
+
+    @Test public void currentBalancesMatchPythonWithoutStartingTheInterpreter() throws Exception {
+        JSONObject fixture;
+        try (java.io.InputStream input = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("account-editor-fixture.json")) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192]; int count;
+            while ((count = input.read(buffer)) != -1) bytes.write(buffer, 0, count);
+            fixture = new JSONObject(bytes.toString("UTF-8"));
+        }
+        assertTrue(fixture.getBoolean("synthetic_only"));
+        owner.state.write(owner.state.currentGeneration(), fixture.getString("state"));
+        long start = android.os.SystemClock.elapsedRealtime();
+        assertJsonEqual(fixture.getJSONObject("expected"), NativePortfolioReader.read(context, owner.state, true).getJSONObject("body"));
+        android.util.Log.i("StockAIPersonalBenchmark", "current_balances_ms=" + (android.os.SystemClock.elapsedRealtime() - start));
+        java.lang.reflect.Field host = LocalComputeOwner.class.getDeclaredField("host"); host.setAccessible(true);
+        assertNull(host.get(owner));
+    }
+
+    private static void assertJsonEqual(Object expected, Object actual) throws Exception {
+        if (expected instanceof JSONObject) {
+            JSONObject left = (JSONObject) expected, right = (JSONObject) actual;
+            assertEquals(left.length(), right.length());
+            java.util.Iterator<String> keys = left.keys();
+            while (keys.hasNext()) { String key = keys.next(); assertJsonEqual(left.get(key), right.get(key)); }
+        } else if (expected instanceof org.json.JSONArray) {
+            org.json.JSONArray left = (org.json.JSONArray) expected, right = (org.json.JSONArray) actual;
+            assertEquals(left.length(), right.length());
+            for (int i = 0; i < left.length(); i++) assertJsonEqual(left.get(i), right.get(i));
+        } else if (expected instanceof Number) { assertEquals(((Number) expected).doubleValue(), ((Number) actual).doubleValue(), 0); }
+        else assertEquals(expected, actual);
+    }
+
+    @Test public void splitStartupSkipsCommitAndSavedDisplayBypassesBusyOwner() throws Exception {
+        JSObject saved = result(owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile()));
+        JSObject home = result(owner.request("GET", "/api/v1/home", "null"));
+        drainViews(owner.readViews);
+        long generation = owner.state.currentGeneration();
+        assertTrue(owner.readViews.read("/api/v1/home").getBoolean("readOnly"));
+        assertTrue(owner.readViews.read("/api/v1/mobile/portfolio").getBoolean("readOnly"));
+        assertEquals(home.getJSONObject("body").toString(), owner.readViews.read("/api/v1/home").getJSONObject("body").toString());
+        try (LocalStateStore.StartupLease leases = owner.state.openStartupLease()) {
+            assertNotNull("Personal save stays an independent operations overlay", leases.operations);
+        }
+        result(owner.closeForTest()); owner = LocalComputeOwner.get(context, file);
+        assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
+        assertEquals(saved.getJSONObject("body").toString(), result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
+        // Wait for the optional copy from that GET before testing an idle saved view.
+        // A read concurrent with replacement may correctly return unavailable.
+        drainViews(owner.readViews);
+        assertEquals("Unchanged startup does not republish state", generation, owner.state.currentGeneration());
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        ownerQueue().execute(() -> { entered.countDown(); try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } });
+        try {
+            assertTrue(entered.await(10, TimeUnit.SECONDS));
+            assertTrue(owner.readViews.read("/api/v1/home").getBoolean("available"));
+            assertTrue(owner.readViews.read("/api/v1/mobile/portfolio").getBoolean("available"));
+            try { owner.readViews.read("/api/v1/today/review"); fail("Unsafe route cached"); }
+            catch (IllegalArgumentException expected) { }
+        } finally { release.countDown(); }
+    }
+
+    @Test public void readOnlyReviewDoesNotPublishStateAndImportsUseOperationsOverlay() throws Exception {
+        result(owner.request("GET", "/api/v1/health", "null"));
+        long generation = owner.state.currentGeneration();
+        JSObject review = result(owner.request("POST", "/api/v1/proposals/missing/review", "{\"selectedTargets\":{}}"));
+        assertTrue(review.getInteger("status") >= 400);
+        assertEquals(generation, owner.state.currentGeneration());
+        for (String path : new String[]{"/api/v1/imports/positions/preview", "/api/v1/imports/executions/preview"}) {
+            assertTrue(LocalComputeOwner.operationsOnly("POST", path));
+            assertEquals(422, result(owner.request("POST", path, "{\"csvText\":\"invalid csv\"}")).getInt("status"));
+            try (LocalStateStore.StartupLease saved = owner.state.openStartupLease()) {
+                assertNotNull(saved.operations);
+            }
+        }
+        assertFalse(LocalComputeOwner.operationsOnly("POST", "/api/v1/mobile/market/ingest"));
+    }
 
     private java.util.concurrent.ExecutorService ownerQueue() throws Exception {
         java.lang.reflect.Field field = LocalComputeOwner.class.getDeclaredField("queue");
@@ -220,12 +425,14 @@ public class LocalComputeOwnerTest {
     @Test public void realOfflineInterpreterSerializesCallersAndRestoresAfterOwnerRecreation() throws Exception {
         System.out.println("StockAI test WebView=" + android.webkit.WebView.getCurrentWebViewPackage().versionName);
         assertEquals(200, result(owner.request("GET", "/api/v1/health", "null")).getInt("status"));
+        long saveStarted = android.os.SystemClock.elapsedRealtime();
         CompletableFuture<JSObject> first = owner.request("POST", "/api/v1/mobile/portfolio", emptyProfile());
         // Independent callers use the same authoritative state. The second
         // initial revision must conflict, rather than overwriting the first.
         CompletableFuture<JSObject> competing = LocalComputeOwner.get(context, file)
             .request("POST", "/api/v1/mobile/portfolio", emptyProfile());
         JSObject saved = result(first);
+        System.out.println("StockAI synthetic_empty_profile_save_ms=" + (android.os.SystemClock.elapsedRealtime() - saveStarted));
         assertEquals(200, saved.getInt("status"));
         assertEquals(409, result(competing).getInt("status"));
         String original = saved.getJSONObject("body").toString();
@@ -239,7 +446,8 @@ public class LocalComputeOwnerTest {
         assertEquals(original, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
         result(owner.restore(backup, null));
         assertEquals(original, result(owner.request("GET", "/api/v1/mobile/portfolio", "null")).getJSONObject("body").toString());
-        owner.state.database.execSQL("CREATE TRIGGER fail_compute_commit BEFORE INSERT ON state BEGIN SELECT RAISE(ABORT,'synthetic disk failure'); END");
+        // Small profile saves now update the envelope after staging an operations delta.
+        owner.state.database.execSQL("CREATE TRIGGER fail_compute_commit BEFORE UPDATE ON state BEGIN SELECT RAISE(ABORT,'synthetic disk failure'); END");
         org.json.JSONObject changed = new org.json.JSONObject().put("expected_revision_id", saved.getJSONObject("body").getString("revision_id"))
             .put("portfolio", new org.json.JSONObject(emptyProfile()));
         try { result(owner.request("POST", "/api/v1/mobile/portfolio", changed.toString())); fail("failed native commit acknowledged"); }

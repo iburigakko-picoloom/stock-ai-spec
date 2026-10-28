@@ -1,5 +1,15 @@
 # Data Contract
 
+2026-10-27追記（D267）：判断に依存しない実約定は `decision_id=null`、`source=manual` として実約定のみ保存する。既存の判断付き原文・hash・FKは保全する。操作DB schema6で `executions.decision_id` のNULLを許容。専用POST `/api/v1/executions/manual` は取引と残高を原子的に保存し、同じ実約定IDの再送は二重計上しない。判断/提案は自動作成しない。残高の基準時点より後の実約定を時刻順に登録する。
+
+2026-10-26追記（D257、D255の相談範囲/回答期限を更新）：相談対象は既存選定の上位20＋全保有。原予測全件から5日/20日別の順位・母集団ID/構成銘柄/件数・順位の根拠を計算し、scoreとfractional returnを分離する。保有株数/評価額/資産比率、総現金/確保中/買付に利用できる現金と時点を送信許可後に射影する。5日の順位head未提供時はreturn順の参考順位。市場資料は既存の出典・日時・内容hashを保持し不足はWeb検索へ。回答原本と出典/日時を期限後も保存でき、最新条件の検算/順位反映を別操作にする。コピー・新規送信の許可条件/期限は維持する。原予測・保有台帳・取引履歴は変更しない。旧形式の入力/回答/自動調査identityは保持する。
+
+2026-10-26追記（D255）：ランキングのChatGPT回答はsnapshot/期間/上位50件の内容identityに固定した別記録。原予測/株数提案/台帳に昇格しない。相談入力は24時間・外部利用許可を確認し、回答は完全な対象銘柄の順列と理由だけを許可する。既存暗号化archiveで相談入力/回答を保持する。
+
+2026-10-26追記（D254）：端末の特徴量入力・出力JSONはPython datetimeのマイクロ秒を保持する日時精度を明示し、既定のミリ秒切捨てを使わない。参考分析のas_ofとの完全一致検証を保持する。数値精度・元source identity・受領条件は変更しない。
+
+2026-10-24追記（D244）：端末の参考分析は実行時刻をas_ofとし、実際にその時刻までに受信した直近確定営業日のデータを使う。元受信時刻・source hashを保持し、11:30に遡及しない。参照株価日と生成時刻を分離し、独立したmobile_reference_runsに保存。当日予測・株数判断・台帳への昇格は禁止。通常の日次提案の11:30締切とPIT条件は変更しない。
+
 2026-10-18追記（D162）：今回のデータ/予測/モデル/口座snapshot/評価結果の接続と評価区分は[DAILY_INTEGRATION_CONTRACT.md](DAILY_INTEGRATION_CONTRACT.md)で固定する。研究価格と実取引価格、当時の公開情報と後日訂正、配当の権利と入金を分ける。外部ChatGPT用射影は上位20と全保有に必要なfieldだけとし、口座番号・認証情報を含めない。原予測・ChatGPT目標株数案・本人の実約定は別保存し、回答取込で実台帳を更新しない。
 
 2026-10-18追記（D174）：日足市場射影はrawの`ExRT`を`ex_rights_type`へ引き継ぎ、`ex_rights_type_source_present`で元列の不存在と報告済みnullを区別する。1=分割、2=併合、3=ライツ。CSVの空文字はnullと扱い、未知codeは保存して未対応とする。正規化列が存在すればrawとの値/欠損の一致も認証し、古い列なしpartitionは認証済みrawから補完する。非単位/不明の調整係数、または非nullの種類は企業行動の根拠確認対象。nullや係数1から全期間の企業行動なしを推定しない。[公式日足仕様](https://jpx-jquants.com/ja/spec/eq-bars-daily)。
@@ -533,3 +543,18 @@ live_delay
 ## D188：returnのみの研究用原予測
 
 `PredictionSnapshot.predictions` の内側schema3は `ReturnOnlyPrediction`。5日/20日returnは有限の小数比率で、1日値、下振れquantile、下落確率、uncertainty、risk horizonと校正metadataはnull。snapshot全体がresearchであることと全行同じ提供範囲を要求し、正式adoption/mixed riskを拒否する。旧schema1/2の必須risk契約は変更しない。新しい派生propertyを旧原本のserialized hashへ加えない。手動相談の口座/原予測/設定結合digestは新しい相談だけへ付け、旧比較原本のnull fieldはserializeしない。
+
+
+### Mobile intermediate calculation cache (D250)
+
+Native encrypted checkpoint tables are rebuildable execution state, separate from the immutable forecast/account archive. Their identity binds input generation, APK code, exact request and JST date. Retained daily source projections include the complete canonical source row hashes; cached feature/model units preserve exact numeric values and whole-population normalization. Only a complete, validated final archive is published. The native index contains no payload; request-fenced offline reads load one authenticated unit at a time. These caches are not portable-backup inputs and cannot be used across changed input generations. A reference-analysis retry retains the first execution cutoff without backdating its final generated timestamp.
+
+D253：予測生成の409/422応答は固定codeを持つ。422のdiagnosticは例外型と自前module/function/行番号のみで、例外引数・データ値・絶対パスは含めない。native metadataへresponseStatus/responseCode/diagnosticを制限付きで保存し、完成予測と区別する。旧metadataで欠けるfieldは未記録として扱う。
+
+### Stock note and execution record views (D264)
+
+`GET /api/v1/execution-context` projects the latest saved proposal for the current JST day and its latest UserDecision, without recomputing forecast eligibility. Each line contains only lineId, symbol, companyName, accountBucketId, currentShares and referencePrice. Fills still use existing validated write APIs and incremental application. `stock-note:<symbol>` operational metadata contains a `stock-note-v1` canonical UTF-8 JSON payload and SHA256. Payload fields: schema_version, symbol, text (max 5000 characters), updated_at (aware server time), previous_revision. The API uses expectedRevision for compare-and-save, preserves exact text, and returns symbol/text/revision/updatedAt. Empty text is a revisioned clear; identical retries return the current value. Backup/restore verifies these records. No note is an alpha input, financial ledger entry, or ChatGPT export field.
+
+### Display-first reads (D265)
+
+`GET /api/v1/home/ledger` projects the current committed portfolio with account labels and saved same-day company names; action/recommendedShares/proposalId are null. It does not validate or load predictions. Mobile includes the same initialLedger receipt as `/home`. Executions, portfolio history and jobs retain the existing API schemas, ordering and financial values. Native reads authenticate the encrypted generation/archive and verify content hashes before projection. Historical display copies are restricted to read-only paths and replaced or cleared by authoritative validation. Concurrent GET sharing lasts only until settlement and is fenced at POST start and completion; no response cache or relaxed write validation is introduced.

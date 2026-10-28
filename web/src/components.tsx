@@ -1,7 +1,8 @@
 import { type ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import type { Action } from "./types";
 import { MobileUpdateNotice } from "./mobile/MobileDevicePanel";
+import { ScrollMemory } from "./ScrollMemory";
 
 export function yen(value: string | number | null | undefined): string {
   if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return "—";
@@ -10,46 +11,64 @@ export function yen(value: string | number | null | undefined): string {
   return `${Math.round(number).toLocaleString("ja-JP")}円`;
 }
 
+export function currency(value:string|number|null|undefined):string {
+  const formatted=yen(value);
+  return formatted === "—" ? formatted : `¥${formatted.slice(0,-1)}`;
+}
+
 export function pct(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   const sign = value > 0 ? "+" : "";
   return `${sign}${(value * 100).toFixed(2)}%`;
 }
 
+const dateTimeFormatters: Partial<Record<"short" | "year", Intl.DateTimeFormat>> = {};
+
 export function dateTime(value: string | null | undefined, showYear = false): string {
   if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) return "—";
-  return new Intl.DateTimeFormat("ja-JP", {
+  const key = showYear ? "year" : "short";
+  const formatter = dateTimeFormatters[key] ??= new Intl.DateTimeFormat("ja-JP", {
     timeZone: "Asia/Tokyo",
     year: showYear ? "numeric" : undefined,
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(parsed);
+  });
+  return formatter.format(parsed);
 }
 
 export function ActionBadge({ action }: { action: Action }): ReactNode {
-  return <span className={`action action--${action.toLowerCase()}`}>{action}</span>;
+  const labels = { BUY:"購入", HOLD:"保有継続", REDUCE:"縮小", SELL:"売却", SKIP:"見送り" };
+  return <span aria-label={action} className={`action action--${action.toLowerCase()}`}>{labels[action]}</span>;
 }
 
 export function PageHeader({
   eyebrow,
   title,
   meta,
+  actions,
+  backTo,
+  backState,
 }: {
   eyebrow?: string;
   title: string;
   meta?: string;
+  actions?: ReactNode;
+  backTo?: string;
+  backState?: unknown;
 }): ReactNode {
   return (
-    <header className="page-header">
-      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+    <header className="page-header phone-top app-brand">
       <div className="page-header__line">
-        <h1>{title}</h1>
-        {meta && <span className="page-header__meta">{meta}</span>}
+        {backTo && <Link className="back-button" to={backTo} state={backState} aria-label="← 戻る">‹</Link>}
+        <span className="brand-mark" aria-hidden="true">株AI</span>
+        <h1 className="phone-title">{title}</h1>
+        {actions && <div className="page-header__actions">{actions}</div>}
       </div>
+      {(eyebrow || meta) && <div className="page-header__context">{eyebrow && <p className="eyebrow">{eyebrow}</p>}{meta && <span className="page-header__meta">{meta}</span>}</div>}
     </header>
   );
 }
@@ -88,32 +107,39 @@ export function RuntimeBanner({ mode }: { mode: string }): ReactNode {
 
 const nav = [
   ["/", "M3 10 12 3l9 7v10H3Z M9 20v-7h6v7", "ホーム"],
-  ["/today", "M8 3h8v4H8Z M8 5H5v16h14V5h-3 M8 12l2 2 5-5 M8 18h8", "今日"],
-  ["/ranking", "M4 20V12h4v8 M10 20V4h4v16 M16 20V8h4v12", "ランキング"],
-  ["/validation", "M4 3v17h17 M7 15l4-5 4 3 5-7", "検証"],
-  ["/settings", "M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6", "設定"],
+  ["/today", "M5 5h14v16H5Z M8 3v4 M16 3v4 M5 10h14 M9 14h.01 M15 14h.01 M9 18h.01 M15 18h.01", "今日"],
+  ["/ranking", "m3 6 5 4 4-7 4 7 5-4-2 14H5Z", "ランキング"],
+  ["/validation", "M8 3h8 M10 3v7L4 19q-1 2 2 2h12q3 0 2-2l-6-9V3 M7 16h10", "検証"],
+  ["/settings", "m10 3-.5 3-2 1-2.8-1L3 10l2.4 2L3 14l1.7 4 2.8-1 2 1 .5 3h4l.5-3 2-1 2.8 1 1.7-4-2.4-2L21 10l-1.7-4-2.8 1-2-1L14 3Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0", "設定"],
 ] as const;
+const adoptedNav: Record<string,string> = {
+  "/ranking":"M5 20v-6h3v6 M11 20V8h3v12 M17 20V3h3v17",
+  "/validation":"M3 3v18h18 M6 16l4-6 4 3 6-8",
+  "/settings":"M4 6h16 M4 12h16 M4 18h16 M10 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0 M18 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0 M12 18a2 2 0 1 1-4 0 2 2 0 0 1 4 0",
+};
 
 export function AppShell(): ReactNode {
+  const location = useLocation();
+  const adopted = !(location.pathname === "/settings" && !new URLSearchParams(location.search).has("edit"));
+  const from: unknown = location.state?.from;
+  const stockParent = location.pathname === "/holdings" || location.pathname.startsWith("/assets") || location.pathname === "/transactions" ? "/" : location.pathname.startsWith("/stocks/") ? from === "/" || from === "/ranking" ? from : (typeof from === "string" && /^\/transactions(?:\?[^#]*)?$/.test(from)) ? "/" : "/today" : null;
   return (
-    <div className="app-shell">
+    <div className={`app-shell${adopted ? " app-shell--adopted" : ""}`}>
+      <ScrollMemory />
       <MobileUpdateNotice />
       <a className="skip-link" href="#main">本文へ移動</a>
-      <header className="app-brand">
-        <span className="brand-mark" aria-hidden="true">株</span>
-        <strong>株AI<span>投資判断サポート</span></strong>
-        <span className="manual-only">自動発注なし</span>
-      </header>
       <main id="main" className="app-main">
         <Outlet />
       </main>
-      <nav className="bottom-nav" aria-label="メインナビゲーション">
-        {nav.map(([to, path, label]) => (
-          <NavLink key={to} to={to} end={to === "/"}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg>
+      <nav className="bottom-nav bottom-nav--adopted" aria-label="メインナビゲーション">
+        {nav.map(([to, path, label]) => {
+          const content = <>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={adoptedNav[to] ?? path} /></svg>
             <strong>{label}</strong>
-          </NavLink>
-        ))}
+          </>;
+          return stockParent ? <Link key={to} to={to} className={stockParent === to ? "active" : undefined} aria-current={stockParent === to ? "page" : undefined}>{content}</Link>
+            : <NavLink key={to} to={to} end={to === "/"}>{content}</NavLink>;
+        })}
       </nav>
     </div>
   );

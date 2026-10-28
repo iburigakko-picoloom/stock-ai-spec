@@ -4,6 +4,7 @@ import { BrowserRouter, HashRouter } from "react-router-dom";
 import { isAndroid } from "./mobile/native";
 import { App } from "./App";
 import "./styles.css";
+import "./adopted.css";
 
 const Router = isAndroid() ? HashRouter : BrowserRouter;
 createRoot(document.getElementById("root")!).render(

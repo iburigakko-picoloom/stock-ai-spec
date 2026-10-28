@@ -1,0 +1,62 @@
+{
+  "status": "PUBLISHED_LATEST_ANONYMOUS_UPDATE_ENDPOINT_AND_APK_VERIFIED",
+  "verified_at": "2026-10-20T13:05:43.693984+00:00",
+  "release_id": 418407868,
+  "tag": "android-v0.1.26",
+  "release_url": "https://github.com/iburigakko-picoloom/stock-ai-spec/releases/tag/android-v0.1.26",
+  "published_at": "2026-10-20T13:05:03Z",
+  "draft": false,
+  "prerelease": false,
+  "source_commit": "18fb6d83f3c6517007979c9ce840ee99d6294717",
+  "version_code": 10026,
+  "version_name": "0.1.26-candidate",
+  "application_id": "jp.stockai.app",
+  "research_only": true,
+  "sha256": "699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603",
+  "bytes": 23980369,
+  "same_verified_candidate": true,
+  "existing_client_tag_and_URL_contract": true,
+  "authentication_used": false,
+  "API": {
+    "HTTP_status": 200,
+    "bytes": 9777,
+    "sha256": "65b55aaf6a06895beba55ee7a3e4648a70b9d28fe8de0d0695f7d12133e9ace0",
+    "final_host": "api.github.com",
+    "authentication_used": false
+  },
+  "assets": {
+    "update.json": {
+      "HTTP_status": 200,
+      "bytes": 1642,
+      "sha256": "a8c555fb31b96d3df5bf1bced36cbe608cad6eb0ea5b191715392b3e8de1b23e",
+      "final_host": "release-assets.githubusercontent.com",
+      "authentication_used": false
+    },
+    "SHA256SUMS": {
+      "HTTP_status": 200,
+      "bytes": 79,
+      "sha256": "a59bc61048187addac8a133a24b45555e9512b28e08a731272229b3e30fda112",
+      "final_host": "release-assets.githubusercontent.com",
+      "authentication_used": false
+    },
+    "signature.txt": {
+      "HTTP_status": 200,
+      "bytes": 965,
+      "sha256": "d912fb41971283275431e41a2a9c3906af73c2eb80be98649f4414b14aa77c79",
+      "final_host": "release-assets.githubusercontent.com",
+      "authentication_used": false
+    },
+    "StockAI.apk": {
+      "HTTP_status": 200,
+      "bytes": 23980369,
+      "sha256": "699c8d8c3601ab944bdcfe8e7e3fbdf3422cbaac693779cc8f3bbffc31835603",
+      "final_host": "release-assets.githubusercontent.com",
+      "authentication_used": false
+    }
+  },
+  "published_with_owner_approval": true,
+  "main_merged": false,
+  "Xiaomi_verified": false,
+  "installed_on_owner_device": false,
+  "formal_adoption": "HOLD"
+}

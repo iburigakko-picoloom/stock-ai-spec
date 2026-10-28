@@ -132,6 +132,10 @@ def save_settings(store, settings, expected, now):
     settings.validate_portfolio(
         profile["revision_id"], ManualPortfolio.model_validate(profile["portfolio"])
     )
+    if "nisa_capacity_out_of_range" in settings.missing_fields(
+        ManualPortfolio.model_validate(profile["portfolio"])
+    ):
+        raise ValueError("NISA成長投資枠は年間240万円・保有限度1200万円以内です。")
     with connect(store.path) as db:
         db.execute("BEGIN IMMEDIATE")
         current = read_settings(store, db)
@@ -190,7 +194,7 @@ def input_state(store, now):
 def reference_prices(market_path, symbols, now):
     if not symbols:
         return {"date": None, "prices": {}, "source_hash": None}
-    frame = SQLiteSource(market_path).latest_closed_prices(now)
+    frame = SQLiteSource(market_path).latest_closed_prices(now, reference_only=True)
     if frame.empty:
         raise ValueError("held_prices_missing")
     frame = frame.loc[

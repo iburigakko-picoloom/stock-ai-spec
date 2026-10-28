@@ -94,6 +94,8 @@ class MarketStrategyRequest(NavModel):
 
     @model_validator(mode="after")
     def explicit_dividend_treatment(self) -> Self:
+        if self.strategy.accounting.posthoc_actions:
+            raise ValueError("strict market evaluation rejects posthoc accounting actions")
         if any(
             event.kind == "cash_conversion_pending_payment"
             for event in self.strategy.accounting.actions

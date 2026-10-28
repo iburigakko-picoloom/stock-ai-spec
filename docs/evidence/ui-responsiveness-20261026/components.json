@@ -1,0 +1,53 @@
+{
+  "scope": "synthetic CPython component benchmark; not Android/end-to-end",
+  "python": "3.12.14",
+  "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+  "portfolio_snapshots": 501,
+  "synthetic_market_payload_mib": 16,
+  "full_integrity": {
+    "median_ms": 14.024400996277109,
+    "samples_ms": [
+      15.099588010343723,
+      14.076298000873066,
+      13.571163988672197,
+      14.024400996277109,
+      13.647675004904158
+    ]
+  },
+  "unchanged_integrity": {
+    "median_ms": 0.010866002412512898,
+    "samples_ms": [
+      0.019017999875359237,
+      0.013029988622292876,
+      0.010866002412512898,
+      0.010264993761666119,
+      0.009644994861446321
+    ]
+  },
+  "full_archive": {
+    "median_ms": 450.94949200574774,
+    "samples_ms": [
+      450.94949200574774,
+      396.0728199890582,
+      464.25852899847087
+    ],
+    "base64_characters": 22486196
+  },
+  "operations_archive": {
+    "median_ms": 12.939760999870487,
+    "samples_ms": [
+      12.257986003533006,
+      12.939760999870487,
+      13.338820994249545
+    ],
+    "base64_characters": 78312
+  },
+  "excludes": [
+    "cold startup",
+    "queue wait",
+    "native transfer/encryption",
+    "device storage",
+    "actual market compression ratio",
+    "screen rendering"
+  ]
+}

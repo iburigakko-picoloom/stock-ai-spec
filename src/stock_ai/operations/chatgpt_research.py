@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator, model_validator
 
 from stock_ai.domain.models import DomainModel, _require_aware
+from stock_ai.operations.consultation import RESEARCH_ORDER
 from stock_ai.operations.daily import (
     PredictionSnapshot,
     canonical_json,
@@ -17,7 +18,7 @@ from stock_ai.operations.daily import (
     require_daily_close_label,
 )
 
-PROMPT_VERSION: Literal["independent-company-research-v1"] = "independent-company-research-v1"
+PROMPT_VERSION = "market-portfolio-research-v2"
 INSTRUCTIONS = """あなたは日本株の企業調査担当です。日本語で判断と根拠を整理してください。
 数値モデルや依頼者の期待に同調せず、肯定・否定の材料を同じ注意で調べてください。
 会社のIR・決算・適時開示を優先し、必要なら他の公開情報も調べてください。
@@ -35,7 +36,9 @@ INSTRUCTIONS = """あなたは日本株の企業調査担当です。日本語�
 class ResearchConfiguration(DomainModel):
     model: str = Field(min_length=1, max_length=160, pattern=r"^[a-zA-Z0-9._:-]+$")
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
-    prompt_version: Literal["independent-company-research-v1"] = PROMPT_VERSION
+    prompt_version: Literal["independent-company-research-v1", "market-portfolio-research-v2"] = (
+        "market-portfolio-research-v2"
+    )
 
 
 class ResearchContext(DomainModel):
@@ -46,6 +49,8 @@ class ResearchContext(DomainModel):
     research_as_of: datetime
     configuration: ResearchConfiguration
     revision: int = Field(default=1, ge=1)
+    # Omit absent fields on serialization to preserve all v1 content identities.
+    consultation: dict[str, Any] | None = Field(default=None, exclude_if=lambda v: v is None)
 
     _aware = field_validator("numerical_as_of", "research_as_of")(_require_aware)
 
@@ -61,8 +66,9 @@ class ResearchSource(DomainModel):
     title: str = Field(min_length=1, max_length=1000)
     # Provider search citations do not prove a publication time. Never guess one.
     published_at: datetime | None = None
+    observed_at: datetime | None = Field(default=None, exclude_if=lambda v: v is None)
 
-    @field_validator("published_at")
+    @field_validator("published_at", "observed_at")
     @classmethod
     def aware_publication(cls, value: datetime | None) -> datetime | None:
         return None if value is None else _require_aware(value)
@@ -86,8 +92,24 @@ def _target(context: ResearchContext) -> dict[str, object]:
 
 def independent_request(context: ResearchContext) -> dict[str, object]:
     """This interface has no numerical score, rank, holdings or account input."""
+    if context.configuration.prompt_version == PROMPT_VERSION:
+        known = context.consultation or {}
+        return {
+            "instructions": INSTRUCTIONS + RESEARCH_ORDER.partition("3.")[0] + (
+                "\n第一段階では市場全体→企業の独立調査まで行ってください。"
+                "数値予測と保有情報は次の段階で渡します。各期間の市場見通しと企業への影響を残してください。"
+            ),
+            "input": [{"role": "user", "content": canonical_json({
+                **_target(context), "market_evidence": known.get("market_evidence", []),
+                "market_topics": known.get("market_topics", []),
+                "web_research_needed": known.get("web_research_needed", []),
+            })}],
+            "tools": [{"type": "web_search"}], "include": ["web_search_call.action.sources"],
+        }
     return {
         "instructions": INSTRUCTIONS + (
+            RESEARCH_ORDER if context.configuration.prompt_version == PROMPT_VERSION else ""
+        ) + (
             "\n第一段階です。外部公開情報を検索し、独立した企業調査をしてください。"
         ),
         "input": [{"role": "user", "content": canonical_json(_target(context))}],
@@ -124,6 +146,8 @@ def comparison_request(
             "independent_research": independent.text,
             "independent_sources": [item.model_dump(mode="json") for item in independent.sources],
             "numerical_prediction": _prediction_summary(snapshot, context.symbol),
+            **({"consultation": context.consultation}
+               if context.configuration.prompt_version == PROMPT_VERSION else {}),
         })}],
         "tools": [{"type": "web_search"}],
         "include": ["web_search_call.action.sources"],
@@ -162,6 +186,9 @@ class ResearchPass(DomainModel):
             for item in self.sources
         ):
             raise ValueError("research includes a source published after its cutoff")
+        if any(item.observed_at is not None and item.observed_at > self.completed_at
+               for item in self.sources):
+            raise ValueError("source confirmation cannot be after research completion")
         if self.pass_id != content_id(self.model_dump(mode="json", exclude={"pass_id"})):
             raise ValueError("research pass identity mismatch")
         return self
@@ -297,7 +324,9 @@ def accept_response(
             for annotation in part.get("annotations", []):
                 if annotation.get("type") == "url_citation":
                     source = ResearchSource(
-                        url=annotation["url"], title=annotation.get("title") or "出典"
+                        url=annotation["url"], title=annotation.get("title") or "出典",
+                        **({"observed_at": completed_at}
+                           if context.configuration.prompt_version == PROMPT_VERSION else {}),
                     )
                     sources[source.url] = source
     if phase == "comparison" and independent is not None:

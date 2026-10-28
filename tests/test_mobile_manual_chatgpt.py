@@ -48,6 +48,30 @@ def answer_for(exported):
     )
 
 
+def test_new_prompt_is_for_reading_in_chatgpt_and_preserves_source_inputs(ready):
+    _, _, store, _, _ = ready
+    before = store.latest_portfolio().model_dump_json()
+    exported = export(ready)
+    assert exported["response_mode"] == "chatgpt-readable-report-v2"
+    prompt = exported["prompt"]
+    assert "日本語のMarkdown本文・表・出典リンク" in prompt
+    assert "5日・20日それぞれの下落シナリオ" in prompt
+    assert "根拠が足りなければ確率は不明" in prompt
+    assert "アプリへの回答の貼り戻しは行いません" in prompt
+    assert "回答JSON・機械取込用schema" in prompt
+    assert "出力しないでください" in prompt
+    assert "回答は次のschemaのJSONだけ" not in prompt
+    assert "chatgpt-target-shares-v1" not in prompt
+    assert "全保有" in prompt and "5営業日・20営業日" in prompt
+    assert "実約定による損益の再現ではありません" in prompt
+    assert "未約定売却代金" in prompt and "元の数値予測" in prompt
+    package = json.loads(prompt.split("\n入力:\n")[1])
+    assert package["input_snapshot_id"] == exported["input_snapshot_id"]
+    assert package["consultation"]["securities"]
+    assert store.latest_portfolio().model_dump_json() == before
+    store.verify_integrity()
+
+
 def test_manual_exchange_restores_exact_json_and_never_updates_actual_state(ready):
     device, path, store, _, _ = ready
     exported = export(ready)
@@ -70,6 +94,29 @@ def test_manual_exchange_restores_exact_json_and_never_updates_actual_state(read
     assert replay == result
     assert store.metadata("chatgpt-manual:answer:" + result["record_id"]) == saved
     assert len(manual_chatgpt.status(path, store, NOW)["answers"]) == 1
+    context = json.loads(exported["prompt"].split("\n入力:\n")[1])["consultation"]
+    status = manual_chatgpt.status(path, store, NOW)
+    assert status["research"][0]["consultation"] == context
+    assert status["decision_source"]["recordId"] == result["record_id"]
+    assert status["decision_source"]["checkedAt"] == NOW.isoformat()
+    assert all(
+        line["accountBucketId"]
+        in {bucket.bucket_id for bucket in store.latest_portfolio().account_buckets}
+        for line in status["decision_source"]["lines"]
+    )
+    assert [
+        (line["symbol"], line["currentShares"], line["targetShares"])
+        for line in status["decision_source"]["lines"]
+    ] == [
+        (line["symbol"], line["current_shares"], line["target_shares"])
+        for line in result["review"]["lines"]
+    ]
+    assert status["current_shares"] == {
+        symbol: sum(
+            item.shares for item in store.latest_portfolio().positions if item.symbol == symbol
+        )
+        for symbol in {item.symbol for item in store.latest_portfolio().positions}
+    }
     device.initialize(device.export_state())
     restored = device._app.state.store
     assert restored.metadata("chatgpt-manual:answer:" + result["record_id"]) == saved
@@ -192,3 +239,41 @@ def test_expired_comparison_keeps_history_but_never_reoffers_saved_prompt(ready)
     assert not expired["ready"]
     assert expired["saved_input"] is None
     assert len(expired["answers"]) == 1
+
+
+def test_long_research_is_saved_then_rechecked_against_fresh_conditions(ready):
+    device, path, store, _, _ = ready
+    exported = export(ready)
+    original = json.dumps(answer_for(exported))
+    before = store.latest_portfolio()
+    later = NOW + timedelta(hours=2)
+    saved = manual_chatgpt.save_answer(path, store, {
+        "input_record_id": exported["input_record_id"], "answer_json": original,
+    }, later)
+    assert saved["saved"] and not saved["reviewed"]
+    assert not manual_chatgpt.status(path, store, later)["answers"]
+    device.initialize(device.export_state())
+    store = device._app.state.store
+    assert manual_chatgpt.status(path, store, later)["research"][0]["original_json"] == original
+    result = manual_chatgpt.review_saved(path, store, {
+        "research_record_id": saved["research_record_id"],
+    }, later)
+    assert result["review"]["checked_comparison_id"]
+    assert not result["review"]["order_submitted"]
+    assert store.latest_portfolio() == before
+
+
+def test_expired_send_permission_does_not_discard_returned_research(ready):
+    _, path, store, _, _ = ready
+    exported = export(ready)
+    saved = manual_chatgpt.save_answer(path, store, {
+        "input_record_id": exported["input_record_id"],
+        "answer_json": json.dumps(answer_for(exported)),
+    }, NOW + timedelta(days=2))
+    assert saved["saved"]
+    assert manual_chatgpt.status(path, store, NOW + timedelta(days=2))["saved_input"] is None
+    with pytest.raises(ValueError):
+        manual_chatgpt.review_saved(path, store, {
+            "research_record_id": saved["research_record_id"],
+        }, NOW + timedelta(days=2))
+    store.verify_integrity()

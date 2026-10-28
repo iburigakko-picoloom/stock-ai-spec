@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,60 @@ from stock_ai.features.engine import (
     MARKET_REQUIRED,
     SECTOR_REQUIRED,
 )
+from stock_ai.operations.daily import content_id
+
+from . import checkpoints
+from .research_ensemble import FeaturePredictability
+
+
+def predictability_code_sha256() -> str:
+    # SourceFileLoader on PC and zipimporter in bundled WASM both expose get_data.
+    # Never open the zip's virtual __file__ with Path.read_bytes().
+    get_data = getattr(__loader__, "get_data", None)
+    if get_data is None:
+        raise ValueError("Predictability source loader cannot provide a code identity")
+    return hashlib.sha256(get_data(__file__).replace(b"\r\n", b"\n")).hexdigest()
+
+
+def reference_calculation_code_sha256() -> str:
+    """Bind reuse to the installed input and feature code, including WASM zip sources."""
+    import stock_ai.data.production as production
+    import stock_ai.features.engine as engine
+    import stock_ai.features.indicators as indicators
+
+    from . import forecasts, market, market_codec, model_bundle, portable_model, research_ensemble
+
+    modules = ((getattr(__loader__, "get_data", None), __file__), *(
+        (getattr(module.__loader__, "get_data", None), module.__file__)
+        for module in (production, engine, indicators, forecasts, market, market_codec,
+                       model_bundle, portable_model, research_ensemble)
+    ))
+    digest = hashlib.sha256()
+    for loader, path in modules:
+        if loader is None or path is None:
+            raise ValueError("Reference calculation source identity unavailable")
+        digest.update(loader(path).replace(b"\r\n", b"\n"))
+    return digest.hexdigest()
+
+
+def history_predictability(payload, selection, counts, focus, required):
+    """Receipt of the same completed-session mask used below, before any model/label."""
+    eligible = sorted(focus)
+    observed = [(symbol, int(counts.get(symbol, 0))) for symbol in eligible]
+    predictable = [symbol for symbol, number in observed if number >= required]
+    return FeaturePredictability.model_validate({
+        "as_of": payload["as_of"],
+        "feature_selection_id": selection["feature_selection_id"],
+        "feature_manifest_hash": selection["feature_manifest_hash"],
+        "calculation_code_sha256": predictability_code_sha256(),
+        "source_snapshot_ids": payload["source_snapshot_ids"],
+        "required_history_sessions": required,
+        "eligible_symbols": eligible, "eligible_sha256": content_id(eligible),
+        "completed_sessions": observed,
+        "predictable_symbols": predictable, "predictable_sha256": content_id(predictable),
+        "abstentions": [(symbol, "INSUFFICIENT_COMPLETED_HISTORY") for symbol, number in observed
+                        if number < required],
+    }).model_dump(mode="json")
 
 
 def model_input_frame(name: str, source: pd.DataFrame) -> pd.DataFrame:
@@ -30,11 +85,11 @@ def model_input_frame(name: str, source: pd.DataFrame) -> pd.DataFrame:
 
 
 def _json_records_frame(source: pd.DataFrame) -> pd.DataFrame:
-    """Match the shipped records JSON precision/inference one column at a time."""
+    """Keep numeric JSON inference while preserving timestamp precision."""
     if (source.empty or not source.columns.is_unique
             or any(not isinstance(name, str) for name in source.columns)):
         return pd.DataFrame.from_records(
-            json.loads(source.to_json(orient="records", date_format="iso"))
+            json.loads(source.to_json(orient="records", date_format="iso", date_unit="ns"))
         )
     columns = {}
     for name in source.columns:
@@ -45,18 +100,18 @@ def _json_records_frame(source: pd.DataFrame) -> pd.DataFrame:
             # a separate Python string allocation for every historical row.
             codes, unique = pd.factorize(column, sort=False, use_na_sentinel=False)
             encoded = pd.Series(unique, dtype=column.dtype).to_frame(name=name)
-            parsed = json.loads(encoded.to_json(orient="values", date_format="iso"))
+            parsed = json.loads(encoded.to_json(orient="values", date_format="iso", date_unit="ns"))
             values = [row[0] for row in parsed]
             columns[name] = pd.Series([values[code] for code in codes])
             del codes, unique, encoded, parsed, values
         else:
-            values = json.loads(column.to_json(orient="values", date_format="iso"))
+            values = json.loads(column.to_json(orient="values", date_format="iso", date_unit="ns"))
             columns[name] = pd.Series(values)
             del values
     return pd.DataFrame(columns, copy=False)
 
 
-def calculate(payload: dict, selection: dict) -> dict:
+def calculate(payload: dict, selection: dict, *, include_predictability: bool = False) -> dict:
     frames = {}
     for name in ("daily", "market", "sector", "financials"):
         source = payload[name]
@@ -75,6 +130,9 @@ def calculate(payload: dict, selection: dict) -> dict:
             frame["trading_date"] = pd.to_datetime(frame["trading_date"])
         frames[name] = frame
     as_of = datetime.fromisoformat(payload["as_of"])
+    local = as_of.astimezone(ZoneInfo("Asia/Tokyo"))
+    same_session = (payload.get("reference_price_date") == str(local.date())
+                    and local.hour >= 17)
     names = {name for item in selection["horizons"] for name in item["feature_names"]}
     required = max(FEATURE_REGISTRY.definition(name).warmup_period for name in names)
     for horizon in selection["horizons"]:
@@ -91,15 +149,21 @@ def calculate(payload: dict, selection: dict) -> dict:
             frame = frames[name]
             if not frame.empty and ("symbol" not in frame or set(frame.symbol) - set(focus)):
                 raise ValueError("Individual inputs differ from the decision-symbol scope")
+    counts = pd.Series(dtype=int)
     if focus is not None and daily.empty:
         eligible = set()
     else:
         completed = daily.loc[
             (daily.available_at <= as_of)
-            & (daily.trading_date.dt.date < as_of.astimezone(ZoneInfo("Asia/Tokyo")).date())
+            & (daily.trading_date.dt.date <= local.date() if same_session
+               else daily.trading_date.dt.date < local.date())
         ]
         counts = completed.groupby("symbol").trading_date.nunique()
         eligible = set(counts[counts >= required].index)
+    if include_predictability and focus is None:
+        raise ValueError("Predictability requires an independent decision population")
+    population = ({"predictability_proof": history_predictability(
+        payload, selection, counts, focus, required)} if include_predictability else {})
     if not eligible:
         if focus is not None:
             # Preserve missing/short candidate and held coverage for the
@@ -110,7 +174,7 @@ def calculate(payload: dict, selection: dict) -> dict:
                     "research_only": True,
                     "excluded_for_insufficient_history": (
                         sorted(set(daily.symbol)) if "symbol" in daily else []),
-                    "required_history_sessions": required}
+                    "required_history_sessions": required, **population}
         raise ValueError(f"INSUFFICIENT_HISTORY: at least {required} completed sessions required")
     result = FeatureEngine(V2_EXTENDED_MANIFEST).latest_snapshot(
         frames["daily"],
@@ -118,14 +182,20 @@ def calculate(payload: dict, selection: dict) -> dict:
         frames["sector"],
         financials=frames["financials"],
         as_of=as_of,
+        allow_current_session=same_session,
+        **({"batch_cache": checkpoints.feature_batch} if checkpoints.enabled() else {}),
     )
     excluded = sorted(set(result.symbol) - eligible)
     result = result.loc[result.symbol.isin(eligible)]
+    # Reference cutoffs include sub-millisecond time. Default pandas JSON
+    # truncates to milliseconds and would fail exact provenance validation.
     output = {}
     for horizon in selection["horizons"]:
         days, names = horizon["horizon"], horizon["feature_names"]
         output[str(days)] = json.loads(
-            result[["symbol", "available_at", *names]].to_json(orient="records", date_format="iso")
+            result[["symbol", "available_at", *names]].to_json(
+                orient="records", date_format="iso", date_unit="ns"
+            )
         )
     return {
         "as_of": payload["as_of"],
@@ -133,6 +203,7 @@ def calculate(payload: dict, selection: dict) -> dict:
         "research_only": True,
         "excluded_for_insufficient_history": excluded,
         "required_history_sessions": required,
+        **population,
     }
 
 

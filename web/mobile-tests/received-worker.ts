@@ -12,7 +12,7 @@ self.onmessage = async (event: MessageEvent<Record<string, unknown>>) => {
 import sys, json, types, math
 from datetime import datetime, timedelta
 sys.path.insert(0, '/stockai-code')
-from stock_ai.mobile import runtime, models, forecasts, decisions, market
+from stock_ai.mobile import runtime, models, forecasts, decisions, market, stock_chart, explanations
 fixture = json.loads(fixture_json)
 assert fixture['synthetic_only'] is True
 return_only = fixture.get('return_only_research', False)
@@ -32,7 +32,7 @@ path, store = runtime.STATE / 'mobile.sqlite3', runtime._app.state.store
 ledger = store.latest_portfolio()
 assert store.latest_prediction_snapshot() is None
 assert forecasts.latest(path) is None and decisions.latest(path) is None
-numerical = await runtime.request('POST', '/api/v1/mobile/daily/generate', 'null')
+numerical = await runtime.request('POST', '/api/v1/mobile/daily/generate', '{}')
 assert numerical['status'] == 200, numerical
 numerical = numerical['body']
 assert numerical['phase'] == 'published', numerical['blocking_reasons']
@@ -40,9 +40,28 @@ snapshot = store.latest_prediction_snapshot()
 assert len(snapshot.predictions) == len(snapshot.candidate_symbols) == 24
 assert snapshot.holding_symbols == ('1023',)
 assert snapshot.mode == 'research' and snapshot.adoption_review_id is None
+chart = stock_chart.read(path, store, '1023', now, days=90)
+assert chart['prices'] and len(chart['forecasts']) == 1
+assert chart['forecasts'][0]['snapshotId'] == snapshot.snapshot_id
+assert chart['forecasts'][0]['horizons'][0]['expectedReturn'] == .01
+assert chart['forecasts'][0]['horizons'][0]['status'] == 'pending'
+assert chart['forecasts'][0]['horizons'][0]['return'] is None
+history = await runtime.request('GET', '/api/v1/mobile/stocks/1023/forecast-history?days=90')
+assert history['status'] == 200, history
+assert len(history['body']['forecasts']) == 1
+assert history['body']['forecasts'][0]['snapshotId'] == snapshot.snapshot_id
+assert history['body']['forecasts'][0]['return5d'] == .01
+assert history['body']['forecasts'][0]['return20d'] == .04
+explanation = explanations.read(path, store, '1023', snapshot.snapshot_id, now)
+assert explanation['snapshotId'] == snapshot.snapshot_id
+assert [m['available'] for m in explanation['models']] == [True, True, False]
+assert [m['prediction'] for m in explanation['models'][:2]] == [.01, .04]
 assert not models.status(path, store)['model_adopted']
 assert len(numerical['data_proof']['source_snapshot_ids']) == 5
-assert numerical['data_proof'] == fixture['wasm_data_proof']
+assert numerical['data_proof'] == fixture['wasm_data_proof'], [
+    key for key in numerical['data_proof'].keys() | fixture['wasm_data_proof'].keys()
+    if numerical['data_proof'].get(key) != fixture['wasm_data_proof'].get(key)
+]
 assert snapshot.data_snapshot_id == fixture['wasm_data_snapshot_id']
 assert numerical['scope']['universe']['membership_verified']
 assert snapshot.data_as_of < snapshot.as_of == datetime.fromisoformat(fixture['cutoff'])
@@ -124,9 +143,25 @@ status = await runtime.request('GET', '/api/v1/mobile/chatgpt-manual/status', 'n
 assert status['status'] == 200 and status['body']['answers'] == [accepted['body']['review']]
 assert reference == {name:evidence.table_snapshot(runtime.STATE/name) for name in reference}
 store.verify_integrity()
+registration = await runtime.request('POST', '/api/v1/mobile/forward-evidence/register', '{}')
+assert registration['status'] == 200, registration
+registration = registration['body']
+assert not registration['formal_evaluation'] and not registration['external_time_authenticated']
+old = await runtime.request('POST', '/api/v1/mobile/forward-evidence/observe', json.dumps({
+    'registration_id':registration['registration_id'], 'run_id':numerical['run_id'], 'horizon':5,
+}))
+assert old['status'] == 422, old  # The already-produced forecast cannot be backdated.
+forward_capsule = runtime.export_state()
+runtime.initialize(forward_capsule)
+forward = await runtime.request('GET', '/api/v1/mobile/forward-evidence')
+assert forward['status'] == 200 and forward['body']['registrations'] == [registration]
+assert not forward['body']['observations'] and not forward['body']['formal_evaluation']
+store = runtime._app.state.store
+assert ledger == store.latest_portfolio() and snapshot == store.latest_prediction_snapshot()
 json.dumps({'predictions':numerical['snapshot']['predictions'], 'proposal':proposal,
             'daily_rows':len(daily), 'target_pairs':len(targets), 'risk_groups':len(set(expected_loss.values())),
-            'restored_exact':True, 'ledger_unchanged':True, 'executions':0,
+            'restored_exact':True, 'forward_registration_restored':True,
+            'ledger_unchanged':True, 'executions':0,
             'rejected_status':rejected['status'], 'answer_count':len(status['body']['answers']),
             'table_counts':{name:len(value['tables']) for name,value in reference.items()},
             'manual_review':{key:accepted['body']['review'][key] for key in

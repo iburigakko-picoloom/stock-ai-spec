@@ -16,6 +16,9 @@ export interface ReleaseInfo {
   notes: string; sha256: string; url: string; size: number;
 }
 export interface StockAINative {
+  appInfo(): Promise<{ applicationId: string; versionName: string; versionCode: number }>;
+  analysisStatus(): Promise<AnalysisStatus>;
+  readSavedView(input: { path: string }): Promise<{ available: boolean; savedAt?: string; readOnly?: boolean; body?: unknown }>;
   dailyStatus(): Promise<DailyStatus>;
   startDaily(): Promise<DailyStatus>;
   stopDaily(): Promise<DailyStatus>;
@@ -29,6 +32,7 @@ export interface StockAINative {
   clearApiKey(): Promise<void>;
   checkUpdate(): Promise<ReleaseInfo>;
   installUpdate(input: { versionCode: number }): Promise<{ needsPermission: boolean }>;
+  selectUpdate(): Promise<{ needsPermission: boolean; cancelled?: boolean }>;
   fetchMarket(input: { date: string }): Promise<NativeMarketReceipt>;
   fetchMembership(input: { date: string }): Promise<NativeMarketReceipt>;
   acknowledgeMembership(input: { date: string; acquisitionId: string }): Promise<void>;
@@ -40,6 +44,12 @@ export interface StockAINative {
   discardBackup(input: { token: string }): Promise<void>;
   restoreBackup(input: { token: string; confirmed: true }): Promise<{ generation: number }>;
   importModel(): Promise<{ content: string }>;
+}
+export interface AnalysisStatus {
+  state: "idle" | "running" | "interrupted" | "blocked" | "complete";
+  phase?: string; percent?: number | null; savedUnits?: number; totalUnits?: number;
+    savedRevision?: number; failure?: string; blockingReasons?: string[];
+    responseStatus?: number; responseCode?: string; diagnostic?: string;
 }
 export const isAndroid = (): boolean => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 export const StockAI = registerPlugin<StockAINative>("StockAI");

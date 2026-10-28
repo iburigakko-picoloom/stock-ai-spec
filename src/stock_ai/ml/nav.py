@@ -14,10 +14,18 @@ from datetime import date, datetime
 from decimal import Context, Decimal, localcontext
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from stock_ai.decision.costs import CostPolicy, TransactionCostEngine
 from stock_ai.domain import TradeSide, TransactionCostEstimate
@@ -118,7 +126,9 @@ class NavOrder(NavModel):
 class NavAction(NavModel):
     event_id: str = Field(min_length=1)
     symbol: str = Field(min_length=1)
-    kind: Literal["split", "dividend", "cash_conversion", "cash_conversion_pending_payment"]
+    kind: Literal[
+        "split", "dividend", "cash_conversion", "cash_conversion_pending_payment", "share_exchange"
+    ]
     effective_at: datetime
     available_at: datetime
     source_id: str = Field(min_length=1)
@@ -127,6 +137,14 @@ class NavAction(NavModel):
     cash_per_share: Money | None = None
     payment_at: datetime | None = None
     fractional_cash_price: Money | None = None
+    recipient_symbol: str | None = Field(default=None, min_length=1)
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if self.recipient_symbol is None:
+            value.pop("recipient_symbol", None)
+        return value
 
     @model_validator(mode="after")
     def valid_action(self) -> Self:
@@ -134,11 +152,20 @@ class NavAction(NavModel):
             raise ValueError("corporate-action evidence is not available at its effective time")
         if self.payment_at is not None and self.payment_at < self.effective_at:
             raise ValueError("payment cannot precede entitlement")
+        if self.kind != "share_exchange" and self.recipient_symbol is not None:
+            raise ValueError("only share exchange can specify a recipient symbol")
         if self.kind == "split":
             if self.cash_per_share is not None or self.numerator == self.denominator:
                 raise ValueError("split requires a non-unit share ratio and no distribution")
             if (self.fractional_cash_price is None) != (self.payment_at is None):
                 raise ValueError("fractional cash requires both an amount and a payment time")
+        elif self.kind == "share_exchange":
+            if self.recipient_symbol is None or self.recipient_symbol == self.symbol:
+                raise ValueError("share exchange requires a different recipient symbol")
+            if self.cash_per_share is not None:
+                raise ValueError("share exchange cannot substitute a cash distribution")
+            if self.payment_at is not None and self.fractional_cash_price is None:
+                raise ValueError("fractional payment requires a verified cash price")
         elif self.kind == "cash_conversion_pending_payment":
             if (
                 self.cash_per_share is None
@@ -161,6 +188,107 @@ class NavAction(NavModel):
         return self
 
 
+class PosthocOfficialSource(NavModel):
+    """Actual late acquisition of a primary document; no fabricated PIT clock."""
+
+    url: str = Field(pattern=r"^https://[^/]+/")
+    document_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    actual_received_at: datetime
+    publication_date: date
+    publication_at: datetime | None = None
+    authority: Literal["issuer", "exchange"]
+
+    @model_validator(mode="after")
+    def distinct_source_clocks(self) -> Self:
+        if self.actual_received_at.astimezone(JST).date() < self.publication_date:
+            raise ValueError("posthoc source receipt precedes its publication date")
+        if self.publication_at is not None and (
+            self.publication_at.astimezone(JST).date() != self.publication_date
+            or self.publication_at > self.actual_received_at
+        ):
+            raise ValueError("posthoc publication time contradicts its date or actual receipt")
+        return self
+
+
+class NavPosthocAction(NavModel):
+    """Ex-post accounting terms, never decision-time information or NavAction.
+
+    The quantity basis is a declared research convention. It is distinct from
+    the legal effective date and the documents' actual current receipt clocks.
+    """
+
+    event_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    kind: Literal["split", "share_exchange"]
+    actual_received_at: datetime
+    official_sources: tuple[PosthocOfficialSource, ...] = Field(min_length=1)
+    legal_effective_date: date
+    legal_effective_at: datetime | None = None
+    ex_rights_date: date | None = None
+    quantity_basis_at: datetime
+    quantity_basis: Literal["legal_effective", "ex_rights_daily_price_proxy"]
+    research_assumption_version: str = Field(min_length=1)
+    evidence_use: Literal["posthoc_accounting_only_never_alpha"] = (
+        "posthoc_accounting_only_never_alpha"
+    )
+    numerator: Annotated[int, Field(strict=True, gt=0)] = 1
+    denominator: Annotated[int, Field(strict=True, gt=0)] = 1
+    recipient_symbol: str | None = Field(default=None, min_length=1)
+    fractional_cash_price: Money | None = None
+    payment_at: datetime | None = None
+
+    @property
+    def effective_at(self) -> datetime:
+        """Accounting ordering only; never a source or legal effective clock."""
+        return self.quantity_basis_at
+
+    @property
+    def cash_per_share(self) -> None:
+        # A cash-conversion event cannot be smuggled into this share-only type.
+        return None
+
+    @model_validator(mode="after")
+    def valid_posthoc_share_terms(self) -> Self:
+        if self.actual_received_at <= self.quantity_basis_at:
+            raise ValueError("posthoc terms require an actual late receipt")
+        if self.actual_received_at.astimezone(JST).date() < self.legal_effective_date:
+            raise ValueError("posthoc accounting cannot certify a future legal event")
+        if any(s.actual_received_at > self.actual_received_at for s in self.official_sources):
+            raise ValueError("posthoc event receipt precedes one of its source receipts")
+        ids = [s.document_sha256 for s in self.official_sources]
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate posthoc primary source hash")
+        if self.legal_effective_at is not None and (
+            self.legal_effective_at.astimezone(JST).date() != self.legal_effective_date
+        ):
+            raise ValueError("posthoc legal effective time contradicts its legal date")
+        basis_date = self.quantity_basis_at.astimezone(JST).date()
+        expected = (
+            self.ex_rights_date
+            if self.quantity_basis == "ex_rights_daily_price_proxy"
+            else self.legal_effective_date
+        )
+        if expected is None or basis_date != expected:
+            raise ValueError("posthoc quantity basis lacks its separately declared date")
+        if self.ex_rights_date is not None and self.ex_rights_date > self.legal_effective_date:
+            raise ValueError("posthoc ex-rights date cannot follow legal effectiveness")
+        if self.payment_at is not None and (
+            self.payment_at < self.quantity_basis_at
+            or self.payment_at.astimezone(JST).date() < self.legal_effective_date
+        ):
+            raise ValueError("posthoc fractional payment precedes entitlement")
+        if self.kind == "split":
+            if self.recipient_symbol is not None or self.numerator == self.denominator:
+                raise ValueError("posthoc split requires a non-unit ratio and no recipient")
+            if (self.fractional_cash_price is None) != (self.payment_at is None):
+                raise ValueError("posthoc split fractional cash requires amount and payment")
+        elif self.recipient_symbol is None or self.recipient_symbol == self.symbol:
+            raise ValueError("posthoc share exchange requires a different recipient")
+        elif self.payment_at is not None and self.fractional_cash_price is None:
+            raise ValueError("posthoc fractional payment requires a verified cash price")
+        return self
+
+
 class NavInput(NavModel):
     schema_version: Literal["daily-nav-input-v1"] = "daily-nav-input-v1"
     data_mode: Literal["fixture", "historical_research"]
@@ -175,13 +303,27 @@ class NavInput(NavModel):
     sessions: tuple[NavSession, ...]
     orders: tuple[NavOrder, ...] = ()
     actions: tuple[NavAction, ...] = ()
+    posthoc_actions: tuple[NavPosthocAction, ...] = ()
     cost_policy: CostPolicy
     fill_fraction: Annotated[Decimal, Field(ge=0, le=1, allow_inf_nan=False)] = ONE
     lot_size: Annotated[int, Field(strict=True, gt=0)] = 100
     tax_mode: Literal["pre_tax"] = "pre_tax"
 
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if not self.posthoc_actions:
+            value.pop("posthoc_actions", None)
+        return value
+
+    @property
+    def accounting_actions(self) -> tuple[NavAction | NavPosthocAction, ...]:
+        """Combined accounting order, with both input types preserved verbatim."""
+        return (*self.actions, *self.posthoc_actions)
+
     @model_validator(mode="after")
     def coherent_input(self) -> Self:
+        actions = self.accounting_actions
         dates = tuple(session.trading_date for session in self.sessions)
         if not dates or dates != tuple(sorted(set(dates))) or dates != self.calendar_dates:
             raise ValueError("sessions must cover the entire ordered fixed calendar")
@@ -198,12 +340,20 @@ class NavInput(NavModel):
             raise ValueError("initial holdings require an exact initial valuation")
         if len({order.order_id for order in self.orders}) != len(self.orders):
             raise ValueError("duplicate order ID")
-        if len({event.event_id for event in self.actions}) != len(self.actions):
+        if len({event.event_id for event in actions}) != len(actions):
             raise ValueError("duplicate corporate-action ID")
-        if len({(e.symbol, e.effective_at) for e in self.actions}) != len(self.actions):
+        if len({(e.symbol, e.effective_at) for e in actions}) != len(actions):
             raise ValueError(
                 "simultaneous same-symbol corporate actions require explicit sequencing"
             )
+        if any(
+            exchange.kind == "share_exchange"
+            and exchange.recipient_symbol == other.symbol
+            and exchange.effective_at == other.effective_at
+            for exchange in actions
+            for other in actions
+        ):
+            raise ValueError("simultaneous recipient corporate actions require explicit sequencing")
         previous = self.initial_as_of
         windows: dict[date, tuple[datetime, datetime]] = {}
         for session in self.sessions:
@@ -227,7 +377,7 @@ class NavInput(NavModel):
                 raise ValueError("decision must precede execution and follow prior valuation")
         if any(
             not self.initial_as_of < e.effective_at <= self.sessions[-1].close_at
-            for e in self.actions
+            for e in actions
         ):
             raise ValueError("corporate action is outside the evaluation window")
         return self
@@ -239,13 +389,47 @@ class NavReceivable(NavModel):
     amount: Money
     payment_at: datetime | None
     kind: Literal[
-        "sale", "dividend", "cash_conversion", "fractional_cash", "cash_conversion_pending_payment"
+        "sale", "dividend", "cash_conversion", "fractional_cash", "cash_conversion_pending_payment",
+        "fractional_cash_pending_payment",
     ]
+    cost_basis: Money | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if self.cost_basis is None:
+            value.pop("cost_basis", None)
+        return value
 
     @model_validator(mode="after")
     def explicit_pending_payment(self) -> Self:
-        if (self.payment_at is None) != (self.kind == "cash_conversion_pending_payment"):
+        if (self.payment_at is None) != (
+            self.kind in {"cash_conversion_pending_payment", "fractional_cash_pending_payment"}
+        ):
             raise ValueError("only explicitly pending cash conversion can lack a payment time")
+        if self.cost_basis is not None and self.kind not in {
+            "fractional_cash", "fractional_cash_pending_payment"
+        }:
+            raise ValueError("fractional cost basis requires a fractional cash claim")
+        return self
+
+
+class NavFractionalEntitlement(NavModel):
+    """An exact share right with unknown cash value; never spendable or a zero claim."""
+
+    reference_id: str = Field(min_length=1)
+    source_symbol: str = Field(min_length=1)
+    recipient_symbol: str = Field(min_length=1)
+    bucket: str = Field(min_length=1)
+    numerator: Annotated[int, Field(strict=True, gt=0)]
+    denominator: Annotated[int, Field(strict=True, gt=0)]
+    cost_basis: Money
+    value_confirmed: Literal[False] = False
+
+    @model_validator(mode="after")
+    def valid_fraction(self) -> Self:
+        if self.numerator >= self.denominator or self.source_symbol == self.recipient_symbol:
+            raise ValueError("unresolved entitlement requires a proper recipient-share fraction")
         return self
 
 
@@ -276,6 +460,14 @@ class NavDay(NavModel):
     trading_cost: Money
     # Nominal claims with unverified payment timing are not confirmed daily NAV.
     unresolved_cash_payments: tuple[str, ...] = ()
+    fractional_entitlements: tuple[NavFractionalEntitlement, ...] = ()
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if not self.fractional_entitlements:
+            value.pop("fractional_entitlements", None)
+        return value
 
 
 class NavResult(NavModel):
@@ -301,6 +493,14 @@ class NavDecisionState(NavModel):
     positions: tuple[NavPosition, ...]
     receivables: tuple[NavReceivable, ...]
     applied_event_ids: tuple[str, ...]
+    fractional_entitlements: tuple[NavFractionalEntitlement, ...] = ()
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_payload(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        value: dict[str, Any] = handler(self)
+        if not self.fractional_entitlements:
+            value.pop("fractional_entitlements", None)
+        return value
 
 
 def fixed_bps_policy(bps: Decimal) -> CostPolicy:
@@ -331,8 +531,9 @@ class _Ledger:
         self.cash = {item.bucket: item for item in request.cash}
         self.positions = {item.key: item for item in request.positions if item.shares}
         self.receivables: list[NavReceivable] = []
+        self.fractional_entitlements: list[NavFractionalEntitlement] = []
         self.cost_engine = TransactionCostEngine(request.cost_policy)
-        self.events: list[NavAction] = []
+        self.events: list[NavAction | NavPosthocAction] = []
 
     def settle(self, at: datetime) -> None:
         pending = []
@@ -355,8 +556,9 @@ class _Ledger:
         payment_at: datetime | None,
         kind: Literal[
             "sale", "dividend", "cash_conversion", "fractional_cash",
-            "cash_conversion_pending_payment",
+            "cash_conversion_pending_payment", "fractional_cash_pending_payment",
         ],
+        cost_basis: Decimal | None = None,
     ) -> None:
         self.receivables.append(
             NavReceivable(
@@ -365,15 +567,27 @@ class _Ledger:
                 amount=amount,
                 payment_at=payment_at,
                 kind=kind,
+                cost_basis=cost_basis,
             )
         )
 
-    def apply_action(self, event: NavAction) -> None:
+    def apply_action(self, event: NavAction | NavPosthocAction) -> None:
+        if isinstance(event, NavPosthocAction):
+            event = NavPosthocAction.model_validate(event.model_dump())
+        else:
+            event = NavAction.model_validate(event.model_dump())
+        for applied in self.events:
+            if applied.event_id == event.event_id:
+                if applied != event:
+                    raise ValueError("conflicting corporate-action ID")
+                return
         self.settle(event.effective_at)
         for key, position in list(self.positions.items()):
             if position.symbol != event.symbol:
                 continue
-            if event.kind == "split":
+            if event.kind == "share_exchange":
+                self._exchange_position(event, key, position)
+            elif event.kind == "split":
                 # Integer arithmetic identifies fractional shares without Decimal rounding.
                 shares, remainder = divmod(position.shares * event.numerator, event.denominator)
                 ratio = Decimal(event.numerator) / Decimal(event.denominator)
@@ -411,6 +625,56 @@ class _Ledger:
         self.events.append(event)
         self.settle(event.effective_at)
 
+    def _exchange_position(
+        self, event: NavAction | NavPosthocAction, key: tuple[str, str], position: NavPosition
+    ) -> None:
+        assert event.recipient_symbol is not None
+        total_numerator = position.shares * event.numerator
+        shares, remainder = divmod(total_numerator, event.denominator)
+        book = position.shares * position.unit_cost
+        fractional_book = book * remainder / total_numerator if remainder else ZERO
+        recipient_book = book - fractional_book
+        recipient_key = event.recipient_symbol, position.bucket
+        existing = self.positions.get(recipient_key)
+        if shares:
+            prior_shares = existing.shares if existing else 0
+            prior_book = existing.unit_cost * prior_shares if existing else ZERO
+            ratio = Decimal(event.numerator) / event.denominator
+            self.positions[recipient_key] = NavPosition(
+                symbol=event.recipient_symbol,
+                bucket=position.bucket,
+                shares=prior_shares + shares,
+                unit_cost=(prior_book + recipient_book) / (prior_shares + shares),
+                # A scaled old reference is stale, not a verified recipient mark.
+                # mark() still requires the recipient's actual session quote.
+                last_price=existing.last_price if existing else position.last_price / ratio,
+                last_price_at=existing.last_price_at if existing else position.last_price_at,
+            )
+        if remainder:
+            if event.fractional_cash_price is None:
+                self.fractional_entitlements.append(
+                    NavFractionalEntitlement(
+                        reference_id=event.event_id,
+                        source_symbol=event.symbol,
+                        recipient_symbol=event.recipient_symbol,
+                        bucket=position.bucket,
+                        numerator=remainder,
+                        denominator=event.denominator,
+                        cost_basis=fractional_book,
+                    )
+                )
+            else:
+                self.claim(
+                    reference=event.event_id,
+                    bucket=position.bucket,
+                    amount=Decimal(remainder) * event.fractional_cash_price / event.denominator,
+                    payment_at=event.payment_at,
+                    kind="fractional_cash" if event.payment_at is not None
+                    else "fractional_cash_pending_payment",
+                    cost_basis=fractional_book,
+                )
+        del self.positions[key]
+
     def fill(
         self,
         order: NavOrder,
@@ -433,8 +697,13 @@ class _Ledger:
         if order.shares % lot:
             return no_fill("INVALID_LOT")
         if any(
-            event.symbol == order.symbol
-            and event.kind in {"split", "cash_conversion", "cash_conversion_pending_payment"}
+            (
+                event.symbol == order.symbol
+                or (event.kind == "share_exchange" and event.recipient_symbol == order.symbol)
+            )
+            and event.kind in {
+                "split", "cash_conversion", "cash_conversion_pending_payment", "share_exchange"
+            }
             and order.decided_at < event.effective_at <= session.execution_at
             for event in self.events
         ):
@@ -445,6 +714,8 @@ class _Ledger:
             for e in self.events
         ):
             return no_fill("CASH_CONVERSION_COMPLETE")
+        if any(e.symbol == order.symbol and e.kind == "share_exchange" for e in self.events):
+            return no_fill("SHARE_EXCHANGE_COMPLETE")
         quote = prices.get(order.symbol)
         if quote is None or quote.execution_price is None:
             return no_fill("MISSING_EXECUTION_PRICE")
@@ -553,7 +824,7 @@ class _Ledger:
                 self.positions[key] = position
                 known += position.shares * quote.close_price
         pending = tuple(sorted({r.reference_id for r in self.receivables if r.payment_at is None}))
-        nav = known if not missing and not pending else None
+        nav = known if not missing and not pending and not self.fractional_entitlements else None
         daily_return = nav / previous_nav - ONE if nav is not None and previous_nav else None
         return NavDay(
             trading_date=session.trading_date,
@@ -572,6 +843,7 @@ class _Ledger:
             traded_notional=sum((fill.notional for fill in fills), ZERO),
             trading_cost=sum((fill.cost.total for fill in fills), ZERO),
             unresolved_cash_payments=pending,
+            fractional_entitlements=tuple(self.fractional_entitlements),
         )
 
 
@@ -632,7 +904,9 @@ def _replay_daily_nav(
     initial += sum((position.shares * position.last_price for position in request.positions), ZERO)
     if initial <= 0:
         raise ValueError("initial NAV must be positive")
-    pending_actions = iter(sorted(request.actions, key=lambda e: (e.effective_at, e.event_id)))
+    pending_actions = iter(
+        sorted(request.accounting_actions, key=lambda e: (e.effective_at, e.event_id))
+    )
     event = next(pending_actions, None)
     previous_nav: Decimal | None = initial
     days: list[NavDay] = []
@@ -665,6 +939,7 @@ def _replay_daily_nav(
                 positions=tuple(ledger.positions[k] for k in sorted(ledger.positions)),
                 receivables=tuple(ledger.receivables),
                 applied_event_ids=tuple(applied),
+                fractional_entitlements=tuple(ledger.fractional_entitlements),
             )
             daily_orders = [NavOrder.model_validate(order.model_dump()) for order in decide(state)]
             for order in daily_orders:

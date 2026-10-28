@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import gc
 import hashlib
+import json
 from collections.abc import Callable, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from importlib.metadata import version
 from itertools import pairwise
 from pathlib import Path
@@ -31,6 +32,7 @@ from stock_ai.ml.evaluation_metrics import (
     evaluate_probabilities,
     evaluate_quantiles,
     evaluate_ranking_panel,
+    evaluate_return_errors,
 )
 from stock_ai.ml.production import _file_sha256, load_production_dataset_snapshot
 from stock_ai.ml.research_metrics import within_date_rank_standardize
@@ -40,6 +42,26 @@ VERSION = "daily-forward-crossfit-v1"
 TASKS = ("regression", "ranking", "large_loss", "quantile")
 FloatArray = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
+
+# This is a separate artifact identity. The strict v1 entry point below is unchanged.
+POPULATION_VERSION = "daily-outcome-independent-forward-crossfit-v1"
+POPULATION_KEYS = ("trading_date", "symbol", "as_of", "horizon", "fold", "data_snapshot_id")
+
+
+@dataclass(frozen=True)
+class PopulationComponent:
+    """One authenticated OOF version, with an explicit, complete predictable domain.
+
+    ``predictions`` contains POPULATION_KEYS and prediction in exactly panel order.
+    source_id identifies the original or whole-fold regenerated artifact; callers
+    authenticate it before this in-memory API. It must not relabel recovered rows
+    as the original OOF. as_of/fold mean decision_as_of/fold_id in the input contract.
+    """
+
+    component_id: str
+    task: str
+    source_id: str
+    predictions: pd.DataFrame
 
 
 def fit_simplex(
@@ -475,6 +497,489 @@ def crossfit_panel(
         ),
         "large_loss_threshold": threshold,
         "quantile_alpha": alpha,
+    }
+
+
+def _population_keys(frame: pd.DataFrame, *, horizon: int) -> pd.DataFrame:
+    if frame.empty or not set(POPULATION_KEYS).issubset(frame.columns):
+        raise ValueError("population requires explicit nonempty keys")
+    keys = frame.loc[:, list(POPULATION_KEYS)].reset_index(drop=True).copy()
+    keys["trading_date"] = pd.to_datetime(keys.trading_date).astype("datetime64[ns]")
+    keys["as_of"] = _aware(keys.as_of)
+    folds = pd.to_numeric(keys.fold, errors="raise")
+    if (
+        keys.isna().any().any()
+        or (keys.trading_date != keys.trading_date.dt.normalize()).any()
+        or not keys.symbol.map(lambda v: isinstance(v, str) and bool(v.strip())).all()
+        or not keys.data_snapshot_id.map(lambda v: isinstance(v, str) and bool(v.strip())).all()
+        or not keys.horizon.eq(horizon).all()
+        or not np.isfinite(folds).all()
+        or not (folds >= 1).all()
+        or not (folds == np.floor(folds)).all()
+        or keys.duplicated(["trading_date", "symbol"]).any()
+    ):
+        raise ValueError("invalid or duplicate population keys")
+    keys["fold"] = folds.astype("int64")
+    keys["horizon"] = keys.horizon.astype("int64")
+    return keys
+
+
+def validate_population_panel(
+    frame: pd.DataFrame, *, horizon: int, holdout_start: str
+) -> pd.DataFrame:
+    """Validate inference and outcome domains separately; unknown outcomes stay rows.
+
+    label_evaluable is an explicit scoring mask, not an eligibility condition.
+    Unavailable labels may have NaT endpoints/receipts; known endpoints and receipts
+    still satisfy the same development/PIT lower bounds as the strict entry point.
+    """
+    if horizon not in (5, 20):
+        raise ValueError("daily crossfit supports only 5d and 20d")
+    keys = _population_keys(frame, horizon=horizon)
+    required = {"target", "label_end", "available_at", "label_available_at", "label_evaluable"}
+    if not required.issubset(frame.columns):
+        raise ValueError("population requires explicit outcome mask and availability metadata")
+    if not keys.equals(keys.sort_values(["trading_date", "symbol"]).reset_index(drop=True)):
+        raise ValueError("population panel must be sorted by date and symbol")
+    result = frame.reset_index(drop=True).copy()
+    for name in POPULATION_KEYS:
+        result[name] = keys[name]
+    result["target"] = pd.to_numeric(result.target, errors="raise").astype(float)
+    if result.label_evaluable.isna().any() or result.label_evaluable.dtype != np.bool_:
+        raise ValueError("label_evaluable must be an explicit nonmissing boolean mask")
+    result["label_end"] = pd.to_datetime(result.label_end).astype("datetime64[ns]")
+    result["available_at"] = _aware(result.available_at)
+    known_receipts = result.label_available_at.notna()
+    receipts = pd.Series(pd.NaT, index=result.index, dtype="datetime64[ns, UTC]")
+    receipts.loc[known_receipts] = _aware(result.loc[known_receipts, "label_available_at"])
+    result["label_available_at"] = receipts
+    dates, endpoints = result.trading_date, result.label_end
+    end_midnight = endpoints.dt.tz_localize("Asia/Tokyo").dt.tz_convert("UTC")
+    local_as_of = result.as_of.dt.tz_convert("Asia/Tokyo").dt.tz_localize(None)
+    boundary = pd.Timestamp(holdout_start)
+    usable = result.label_evaluable
+    if (
+        (dates >= boundary).any()
+        or (local_as_of >= boundary).any()
+        or (endpoints >= boundary).any()
+        or (endpoints.notna() & (endpoints != endpoints.dt.normalize())).any()
+        or (endpoints <= dates).any()
+        or (end_midnight <= result.as_of).any()
+        or (local_as_of.dt.normalize() <= dates).any()
+        or (result.available_at > result.as_of).any()
+        or (known_receipts & endpoints.isna()).any()
+        or (receipts < end_midnight).any()
+        or np.isinf(result.target.to_numpy(float)).any()
+        or (usable & (~np.isfinite(result.target) | endpoints.isna() | receipts.isna())).any()
+        or not result.groupby("trading_date").as_of.nunique().eq(1).all()
+    ):
+        raise ValueError("invalid population timing, outcome mask or holdout boundary")
+    day_as_of = result.groupby("trading_date").as_of.first()
+    if not day_as_of.is_monotonic_increasing or day_as_of.duplicated().any():
+        raise ValueError("daily decision timestamps must increase strictly")
+    return result
+
+
+def population_combine(matrix: FloatArray, weights: Sequence[float]) -> FloatArray:
+    """Canonical mobile sum: Python float products in declared component order.
+
+    Do not replace this with BLAS/matrix multiplication, pairwise reduction, or a
+    batch-specific normalization: tiny rounding changes can alter tied top-N sets.
+    """
+    if (
+        matrix.ndim != 2
+        or matrix.shape[1] != len(weights)
+        or len(weights) == 0
+        or not np.isfinite(matrix).all()
+        or not np.isfinite(weights).all()
+        or any(w < 0 for w in weights)
+        or abs(sum(weights) - 1) > 1e-10
+    ):
+        raise ValueError("invalid population composition")
+    return np.array(
+        [sum(float(w) * float(v) for w, v in zip(weights, row, strict=True)) for row in matrix],
+        dtype=np.float64,
+    )
+
+
+def _population_top(frame: pd.DataFrame, prediction: FloatArray, size: int) -> dict[str, Any]:
+    daily = []
+    scored = frame.assign(prediction=prediction)
+    for day, part in scored.groupby("trading_date", sort=True):
+        # Input symbol order is canonical; stable sorting gives symbol-ascending ties.
+        selected = part.sort_values("prediction", ascending=False, kind="stable").head(size)
+        known = selected.label_evaluable
+        complete = bool(known.all())
+        daily.append(
+            {
+                "trading_date": str(pd.Timestamp(str(day)).date()),
+                "selected_symbols": selected.symbol.tolist(),
+                "selected_rows": len(selected),
+                "label_evaluable_rows": int(known.sum()),
+                "unknown_rows": int((~known).sum()),
+                "complete": complete,
+                "mean_target": float(selected.target.mean()) if complete else None,
+            }
+        )
+    complete_days = [d for d in daily if d["complete"]]
+    return {
+        "selection": "all_predictable_rows_before_label_mask; score_desc_symbol_asc_ties",
+        "requested_n": size,
+        "dates": len(daily),
+        "complete_dates": len(complete_days),
+        "unknown_rows": sum(d["unknown_rows"] for d in daily),
+        "mean_target": (
+            float(np.mean([d["mean_target"] for d in daily]))
+            if len(complete_days) == len(daily)
+            else None
+        ),
+        "daily": daily,
+    }
+
+
+def score_population_predictions(
+    frame: pd.DataFrame,
+    predictions: dict[str, tuple[FloatArray, str]],
+    *,
+    threshold: float,
+    alpha: float,
+) -> dict[str, Any]:
+    """Explicit denominators; missing selected labels never promote other stocks."""
+    mask = frame.label_evaluable.to_numpy(bool)
+    y = frame.loc[mask, "target"].to_numpy(float)
+    scores: dict[str, Any] = {}
+    for name, (values, task) in predictions.items():
+        if values.shape != (len(frame),) or not np.isfinite(values).all():
+            raise ValueError("invalid population predictions")
+        item: dict[str, Any] = {
+            "task": task,
+            "predictable_rows": len(frame),
+            "label_evaluable_rows": int(mask.sum()),
+            "unknown_label_rows": int((~mask).sum()),
+            "scores": None,
+        }
+        if task in ("regression", "ranking"):
+            item["prediction_units"] = "fractional_return" if task == "regression" else "rank_score"
+            item["top_10"] = _population_top(frame, values, 10)
+            item["top_20"] = _population_top(frame, values, 20)
+            if len(y):
+                ranking = asdict(
+                    evaluate_ranking_panel(frame.loc[mask].assign(prediction=values[mask]))
+                )
+                # Top-N/relevance metrics on a label-filtered cross-section describe
+                # another population, so only the IC fields survive this subset audit.
+                ranking["metrics"] = {
+                    k: v
+                    for k, v in ranking["metrics"].items()
+                    if k
+                    in {
+                        "rows",
+                        "dates",
+                        "mean_daily_rank_ic",
+                        "rank_ic_standard_deviation",
+                        "rank_icir",
+                    }
+                }
+                item["scores"] = {"rank_ic_on_label_evaluable_subset": ranking}
+                if task == "regression":
+                    item["scores"]["return_errors"] = evaluate_return_errors(
+                        y.tolist(), values[mask].tolist()
+                    )
+        elif task == "large_loss":
+            if ((values < 0) | (values > 1)).any():
+                raise ValueError("invalid population probabilities")
+            if len(y):
+                item["scores"] = asdict(
+                    evaluate_probabilities(
+                        (y <= threshold).astype(float).tolist(), values[mask].tolist()
+                    )
+                )
+        elif task == "quantile":
+            if len(y):
+                item["scores"] = asdict(
+                    evaluate_quantiles(y.tolist(), [alpha], values[mask].reshape(-1, 1).tolist())
+                )
+        else:
+            raise ValueError("unknown population task")
+        scores[name] = item
+    return scores
+
+
+def crossfit_population_panel(
+    frame: pd.DataFrame,
+    components: Sequence[PopulationComponent],
+    *,
+    eligible_population: pd.DataFrame,
+    population_id: str,
+    horizon: int,
+    holdout_start: str,
+    expected_component_ids: Sequence[str] | None = None,
+    threshold: float = -0.08,
+    alpha: float = 0.1,
+    batch_rows: int = 32_768,
+    progress: Callable[[str], None] = lambda _message: None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """New development-only forward path; original strict/v1 artifacts are untouched.
+
+    Supply an independently authenticated eligible_population, including rows with
+    unavailable features and their explicit abstention_reason. frame is its full
+    predictable subset, independent of outcomes. Every component must cover exactly
+    that subset, including predictions whose future target is unavailable.
+    No artifact or data source is loaded, and this function grants no adoption.
+    """
+    panel = validate_population_panel(frame, horizon=horizon, holdout_start=holdout_start)
+    if not population_id.strip() or not components or not np.isfinite(threshold) or threshold >= 0:
+        raise ValueError("invalid population identity or risk definitions")
+    if not 0 < alpha < 0.5 or batch_rows < 1:
+        raise ValueError("invalid population risk definitions or batch size")
+    keys = panel.loc[:, list(POPULATION_KEYS)]
+    eligible_keys = _population_keys(eligible_population, horizon=horizon)
+    local_eligible = eligible_keys.as_of.dt.tz_convert("Asia/Tokyo").dt.tz_localize(None)
+    if (
+        (eligible_keys.trading_date >= pd.Timestamp(holdout_start)).any()
+        or (local_eligible >= pd.Timestamp(holdout_start)).any()
+        or (local_eligible.dt.normalize() <= eligible_keys.trading_date).any()
+        or not eligible_keys.groupby("trading_date").as_of.nunique().eq(1).all()
+        or set(eligible_keys.trading_date) != set(keys.trading_date)
+    ):
+        raise ValueError("invalid eligible timing or entirely unpredictable decision dates")
+    joined = eligible_keys.merge(keys, on=list(POPULATION_KEYS), how="outer", indicator=True)
+    if (joined._merge == "right_only").any():
+        raise ValueError("predictable rows must belong to the independent eligible population")
+    abstentions = joined.loc[joined._merge == "left_only", list(POPULATION_KEYS)]
+    if not abstentions.empty:
+        if "abstention_reason" not in eligible_population.columns:
+            raise ValueError("eligible feature abstentions require explicit reasons")
+        reasons = eligible_keys.assign(
+            abstention_reason=eligible_population.abstention_reason.to_numpy()
+        )
+        abstentions = abstentions.merge(reasons, on=list(POPULATION_KEYS), validate="one_to_one")
+        if not abstentions.abstention_reason.map(
+            lambda v: isinstance(v, str) and bool(v.strip())
+        ).all():
+            raise ValueError("eligible feature abstentions require explicit reasons")
+    ids = [c.component_id for c in components]
+    if len(ids) != len(set(ids)) or any(not v.strip() for v in ids):
+        raise ValueError("component IDs must be nonempty and unique")
+    expected = list(expected_component_ids) if expected_component_ids is not None else ids
+    if not expected or len(expected) != len(set(expected)) or any(not v.strip() for v in expected):
+        raise ValueError("expected comparison components must be nonempty and unique")
+    if set(ids) - set(expected):
+        raise ValueError("component outside the declared expected comparison scope")
+    uncompared = [name for name in expected if name not in ids]
+    values: dict[str, FloatArray] = {}
+    sources = []
+    for c in components:
+        if c.task not in TASKS or not c.source_id.strip():
+            raise ValueError("component task and original/derived source identity required")
+        component_keys = _population_keys(c.predictions, horizon=horizon)
+        if not component_keys.equals(keys):
+            raise ValueError("component keys must exactly cover the ordered predictable population")
+        if "prediction" not in c.predictions:
+            raise ValueError("component prediction missing")
+        prediction = c.predictions.prediction.to_numpy(float)
+        if not np.isfinite(prediction).all():
+            raise ValueError("nonfinite component prediction; intersection is forbidden")
+        if c.task == "large_loss" and ((prediction < 0) | (prediction > 1)).any():
+            raise ValueError("invalid population probabilities")
+        values[c.component_id] = prediction
+        sources.append(
+            {
+                "component_id": c.component_id,
+                "task": c.task,
+                "source_id": c.source_id,
+                "key_prediction_sha256": hashlib.sha256(
+                    component_keys.assign(prediction=prediction)
+                    .to_json(orient="records", date_format="iso", date_unit="ns")
+                    .encode()
+                ).hexdigest(),
+            }
+        )
+    rank_components = [c for c in components if c.task in ("regression", "ranking")]
+    if not rank_components:
+        raise ValueError("at least one regression or ranking component required")
+    rank_matrix = np.column_stack(
+        [
+            within_date_rank_standardize(pd.Series(values[c.component_id]), panel.trading_date)
+            for c in rank_components
+        ]
+    )
+    # forward_splits sees every prediction date, while only evaluable outcomes can
+    # enter its mature fit/calibration masks. Keep original metadata in the output.
+    split_panel = panel.copy()
+    unscorable = ~panel.label_evaluable
+    split_panel.loc[unscorable, "label_end"] = pd.NaT
+    split_panel.loc[unscorable, "label_available_at"] = pd.NaT
+    splits = forward_splits(split_panel, horizon=horizon)
+    target = panel.target.to_numpy(float)
+    safe_target = np.where(panel.label_evaluable.to_numpy(bool), target, 0.0)
+    outputs, audits = [], []
+    tasks: dict[str, str] = {}
+    recipes: dict[str, dict[str, Any]] = {}
+    for fit, cal, evaluate, audit in splits:
+        progress(f"{horizon}d independent population meta fold {audit['meta_fold']}")
+        rank_target = np.zeros(len(panel))
+        rank_target[fit] = within_date_rank_standardize(
+            panel.loc[fit, "target"], panel.loc[fit, "trading_date"]
+        )
+        rank_fit = fit_simplex(rank_matrix, rank_target, fit, batch_rows=batch_rows)
+        rank_weights = rank_fit["weights"]
+        predictions: dict[str, tuple[FloatArray, str]] = {
+            f"component__{c.component_id}": (values[c.component_id], c.task) for c in components
+        }
+        models = {"rank": rank_fit}
+        for name, weights in (
+            ("uniform_rank", [1 / len(rank_components)] * len(rank_components)),
+            ("weighted_rank", rank_weights),
+        ):
+            predictions[name] = (population_combine(rank_matrix, weights), "ranking")
+            recipes[name] = {
+                "components": [c.component_id for c in rank_components],
+                "transform": "within_date_average_percentile_v1",
+                "role": "ranking",
+                "weights": weights if name == "uniform_rank" else "fold.models.rank.weights",
+            }
+        calibration: dict[str, Any] = {}
+        rank = predictions["weighted_rank"][0]
+        x, y = rank[cal], safe_target[cal]
+        xc, yc = float(x.mean()), float(y.mean())
+        centered = x - xc
+        variance = float(centered @ centered)
+        slope = max(0.0, float(centered @ (y - yc)) / variance) if variance > 1e-20 else 0.0
+        intercept = yc - slope * xc
+        calibration["rank_to_return"] = {"slope": slope, "intercept": intercept}
+        predictions["rank_calibrated_return"] = (intercept + slope * rank, "regression")
+        recipes["rank_calibrated_return"] = {
+            **recipes["weighted_rank"],
+            "role": "regression",
+            "calibration": "fold.calibration_model.rank_to_return",
+        }
+        for task, suffix in (
+            ("regression", "return"),
+            ("large_loss", "probability"),
+            ("quantile", "quantile"),
+        ):
+            selected = [c for c in components if c.task == task]
+            if not selected:
+                continue
+            matrix = np.column_stack([values[c.component_id] for c in selected])
+            uniform = [1 / len(selected)] * len(selected)
+            predictions[f"uniform_{suffix}"] = (population_combine(matrix, uniform), task)
+            recipes[f"uniform_{suffix}"] = {
+                "components": [c.component_id for c in selected],
+                "transform": "identity",
+                "role": task,
+                "weights": uniform,
+            }
+            if task != "quantile":
+                objective = (
+                    (safe_target <= threshold).astype(float)
+                    if task == "large_loss"
+                    else safe_target
+                )
+                model = fit_simplex(matrix, objective, fit, batch_rows=batch_rows)
+                models[suffix] = model
+                predictions[f"weighted_{suffix}"] = (
+                    population_combine(matrix, model["weights"]),
+                    task,
+                )
+                recipes[f"weighted_{suffix}"] = {
+                    **recipes[f"uniform_{suffix}"],
+                    "weights": f"fold.models.{suffix}.weights",
+                }
+            if task == "large_loss":
+                probability = predictions["weighted_probability"][0]
+                iso = IsotonicRegression(increasing=True, out_of_bounds="clip").fit(
+                    probability[cal], (safe_target[cal] <= threshold).astype(float)
+                )
+                calibration["isotonic"] = {
+                    "x": iso.X_thresholds_.tolist(),
+                    "y": iso.y_thresholds_.tolist(),
+                }
+                predictions["calibrated_probability"] = (
+                    np.interp(probability, iso.X_thresholds_, iso.y_thresholds_),
+                    task,
+                )
+                recipes["calibrated_probability"] = {
+                    **recipes["weighted_probability"],
+                    "calibration": "fold.calibration_model.isotonic",
+                }
+            elif task == "quantile":
+                quantile = predictions["uniform_quantile"][0]
+                offset = float(
+                    np.quantile(safe_target[cal] - quantile[cal], alpha, method="linear")
+                )
+                calibration["quantile_offset"] = offset
+                predictions["calibrated_quantile"] = (quantile + offset, task)
+                recipes["calibrated_quantile"] = {
+                    **recipes["uniform_quantile"],
+                    "calibration": "fold.calibration_model.quantile_offset",
+                }
+        part = panel.loc[evaluate].copy()
+        part["meta_fold"] = audit["meta_fold"]
+        evaluation_values = {}
+        for name, (prediction, task) in predictions.items():
+            part[name] = prediction[evaluate]
+            evaluation_values[name] = (prediction[evaluate], task)
+            tasks[name] = task
+        audit.update(
+            models=models,
+            calibration_model=calibration,
+            scores=score_population_predictions(
+                part, evaluation_values, threshold=threshold, alpha=alpha
+            ),
+        )
+        audits.append(audit)
+        outputs.append(part)
+    result = pd.concat(outputs).sort_index()
+    if result.index.duplicated().any():
+        raise ValueError("crossfit evaluation rows overlap")
+    output_values = {
+        name: (result[name].to_numpy(float), task) for name, task in tasks.items() if name in result
+    }
+    return result.reset_index(drop=True), {
+        "version": POPULATION_VERSION,
+        "population_id": population_id,
+        "horizon": horizon,
+        "eligible_rows": len(eligible_keys),
+        "predictable_rows": len(panel),
+        "label_evaluable_rows": int(panel.label_evaluable.sum()),
+        "evaluation_rows": len(result),
+        "burn_in_rows": len(panel) - len(result),
+        "feature_abstentions": json.loads(
+            abstentions.to_json(orient="records", date_format="iso", date_unit="ns")
+        ),
+        "eligible_key_sha256": hashlib.sha256(
+            eligible_keys.to_json(orient="records", date_format="iso", date_unit="ns").encode()
+        ).hexdigest(),
+        "component_sources": sources,
+        "component_order": ids,
+        "comparison_scope": (
+            "caller_expected_components"
+            if expected_component_ids is not None
+            else "declared_components_only"
+        ),
+        "expected_component_ids": expected,
+        "uncompared_component_ids": uncompared,
+        "comparison_status": "PARTIAL" if uncompared else "DECLARED_SCOPE_COMPLETE",
+        "all_18_configurations_compared": False,
+        "predictable_panel_sha256": hashlib.sha256(
+            panel.to_json(orient="records", date_format="iso", date_unit="ns").encode()
+        ).hexdigest(),
+        "rank_component_order": [c.component_id for c in rank_components],
+        "composition_arithmetic": "python_float_sequential_sum_in_component_order",
+        "rank_population": "all_predictable_rows_on_each_date_before_label_mask",
+        "recipes": recipes,
+        "folds": audits,
+        "scores": score_population_predictions(
+            result, output_values, threshold=threshold, alpha=alpha
+        ),
+        "large_loss_threshold": threshold,
+        "quantile_alpha": alpha,
+        "adoption_eligible": False,
+        "research_only": True,
+        "execution_eligible": "not_inferred_from_prediction_or_label_availability",
+        "valuation_resolvable": "not_inferred_from_prediction_or_label_availability",
     }
 
 

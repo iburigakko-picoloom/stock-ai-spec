@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "runtime": "pinned Pyodide WASM32 under Node",
+  "checks": [
+    "unchanged proof reuse",
+    "write invalidation",
+    "execution context",
+    "corruption rejection",
+    "operations overlay restoration"
+  ],
+  "android_native_test": false
+}

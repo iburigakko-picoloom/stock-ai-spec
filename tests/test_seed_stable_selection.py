@@ -49,6 +49,7 @@ def evidence(horizon=5):
                     rows=100,
                     dates=10,
                     mean_daily_rank_ic=score,
+                    mean_squared_error=loss if task == "regression" else None,
                     pinball_loss=loss if task == "quantile" else None,
                     brier_score=loss if task == "large_loss" else None,
                 )
@@ -78,7 +79,7 @@ def evidence(horizon=5):
 
 @pytest.mark.parametrize("horizon", [5, 20])
 @pytest.mark.parametrize(
-    "task,expected", [("regression", 0.4), ("quantile", 0.2), ("large_loss", 0.2)]
+    "task,expected", [("regression", 0.2), ("quantile", 0.2), ("large_loss", 0.2)]
 )
 def test_daily_heads_choose_family_mean_and_predeclared_seed_not_lucky_seed(
     horizon, task, expected
@@ -90,7 +91,9 @@ def test_daily_heads_choose_family_mean_and_predeclared_seed_not_lucky_seed(
     assert result.model_family == "xgboost" and result.seed == 17
     assert result.selection_metric_value == pytest.approx(expected)
     assert result.selection_metric_name.startswith("family_seed_mean_")
-    assert result.selection_metric_name.endswith("fixed_min_seed_v1")
+    assert result.selection_metric_name.endswith(
+        "fixed_min_seed_v2" if task == "regression" else "fixed_min_seed_v1"
+    )
     assert result.source_report_id == reports[result.component_name].report.report_id
 
 
@@ -121,7 +124,7 @@ def test_missing_bad_or_mixed_seed_evidence_is_rejected_without_selecting_a_subs
     elif change == "duplicate":
         metrics.append(metrics[index])
     elif change == "metric":
-        metrics[index] = metrics[index].model_copy(update={"mean_daily_rank_ic": None})
+        metrics[index] = metrics[index].model_copy(update={"mean_squared_error": None})
     elif change == "horizon":
         metrics[index] = metrics[index].model_copy(update={"horizon": 20})
     else:
@@ -146,6 +149,23 @@ def test_seed_input_order_cannot_change_the_representative_or_family_score():
         list(reversed(metrics)), task="regression", reports=reports, seeds=(43, 17, 29)
     )
     assert first == second
+
+
+def test_return_head_uses_error_even_when_rank_ic_favors_another_family():
+    metrics, reports, _, _ = evidence()
+    metrics = [
+        item.model_copy(update={"mean_daily_rank_ic": 0.99})
+        if item.model_family == "catboost" and item.task == "regression" else item
+        for item in metrics
+    ]
+    selected = selection._seed_stable_component(
+        metrics, task="regression", reports=reports, seeds=SEEDS
+    )
+    assert selected.model_family == "xgboost"
+    assert selected.seed == 17
+    assert selected.selection_metric_name == (
+        "family_seed_mean_mean_squared_error__fixed_min_seed_v2"
+    )
 
 
 @pytest.mark.parametrize("horizon", [5, 20])

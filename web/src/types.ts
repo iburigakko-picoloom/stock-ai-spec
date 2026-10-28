@@ -48,7 +48,17 @@ export interface DailyProposal {
   noTradeReason: string | null;
 }
 
+export interface SavedAnalysis {
+  analysisKind?: "latest_available_reference"; priceDate?: string;
+  snapshotId: string; asOf: string; generatedAt: string; dataAsOf: string;
+  modelVersion: string; readOnly: true; holdingSymbols: string[];
+  predictions: { symbol: string; expected_return_5d: number | null;
+    expected_return_20d: number | null; rank_score_20d?: number | null }[];
+}
+
 export interface TodayResponse {
+  accountLabels?: Record<string,string>;
+  savedAnalysis?: SavedAnalysis | null;
   businessDate: string;
   pipelineState: string;
   isStale: boolean;
@@ -61,6 +71,8 @@ export interface PortfolioSummary {
   asOf: string;
   totalAssets: string;
   cashValue: string;
+  reservedCash?: string;
+  buyingPower?: string;
   equityValue: string;
   holdingsCount: number;
 }
@@ -80,6 +92,8 @@ export interface HoldingView {
 }
 
 export interface HomeResponse {
+  portfolioId?: string;
+  accountLabels?: Record<string,string>;
   initialLedger?: { confirmedAt: string; referencePriceDate: string | null } | null;
   runtimeMode: string;
   portfolio: PortfolioSummary | null;
@@ -186,6 +200,7 @@ export interface PaperReadout {
 }
 
 export interface StockDetail {
+  accountLabels?: Record<string,string>;
   symbol: string;
   positions: Array<{
     symbol: string;
@@ -197,10 +212,12 @@ export interface StockDetail {
   proposalLines: ProposalLine[];
   proposal: DailyProposal | null;
   forecast: {
+    ranks?:{return5d:number|null;return20d:number|null;rank20d:number|null;total:number};
     snapshotId: string; asOf: string; generatedAt: string; isStale: boolean;
     mode: "research" | "paper" | "owner_approved"; blockingReasons: string[];
     labelDefinition?: string; labelDefinitionSupported?: boolean;
-    prediction: { expected_return_5d: number; expected_return_20d: number; large_loss_probability: number | null };
+    prediction: { expected_return_5d: number | null; expected_return_20d: number | null; large_loss_probability: number | null;
+      rank_score_5d?: number | null; rank_score_20d?: number | null };
     researchEligible: boolean;
   } | null;
   researchRuns: import("./mobile/chatgpt").ResearchRunView[];

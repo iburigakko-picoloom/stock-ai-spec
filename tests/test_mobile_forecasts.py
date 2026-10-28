@@ -10,7 +10,7 @@ import struct
 from datetime import timedelta
 
 import pytest
-from mobile.python import forecasts, market, models, personal
+from mobile.python import forecasts, market, models, personal, rankings
 
 from stock_ai.operations.daily import PredictionSnapshot, canonical_json, content_id
 from stock_ai.operations.store import OperationalConflictError
@@ -91,6 +91,25 @@ def test_identical_freeze_reuses_original_numbers_and_generation_time(ready, mon
     assert forecasts.generate(path, store, NOW + timedelta(minutes=1)) == original
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT COUNT(*) FROM mobile_forecast_runs").fetchone()[0] == 1
+
+
+def test_preselection_dispatch_and_proof_ignore_nonsemantic_cache_hit_metrics(ready, monkeypatch):
+    _, store, path, selected, _, _ = ready
+    selected["policy"] = "jquants-scalecat-topix500-v1"
+    original = forecasts.market.feature_inputs
+    calls = []
+    def prepared(*args, decision_symbols, preselected):
+        assert preselected is True
+        result = original(*args, decision_symbols=decision_symbols)
+        calls.append(True)
+        result["input_cache"] = {"mode": "cold" if len(calls) == 1 else "warm",
+                                 "code_version": "a" * 64, "cache_schema_version": "test",
+                                 "common_population": "full_historical_eligible_market"}
+        return result
+    monkeypatch.setattr(forecasts.market, "feature_inputs", prepared)
+    first = forecasts.generate(path, store, NOW)
+    assert first["data_proof"]["input_preparation"]["code_version"] == "a" * 64
+    assert forecasts.generate(path, store, NOW + timedelta(seconds=1)) == first
 
 
 @pytest.mark.parametrize("omit_holding", [False, True])
@@ -214,6 +233,49 @@ def test_publication_marker_is_reconciled_after_restart(ready, monkeypatch):
     device.initialize(device.export_state())
     assert forecasts.latest(path)["phase"] == "published"
     assert device._app.state.store.latest_prediction_snapshot() == snapshot
+
+
+def test_startup_publication_reuses_each_checked_snapshot(ready, monkeypatch):
+    _, store, path, *_ = ready
+    saved = forecasts.generate(path, store, NOW)
+    snapshot = PredictionSnapshot.model_validate(saved["snapshot"])
+    class Archive:
+        def __init__(self):
+            self.selected = []
+        def prediction_snapshot(self, identity):
+            assert identity == snapshot.snapshot_id
+            return snapshot
+        def append_prediction_snapshot(self, value, **kwargs):
+            self.selected.append((value, kwargs))
+    archive = Archive()
+    validate = PredictionSnapshot.model_validate
+    digest = forecasts.content_id
+    calls = []
+    proof_hashes = []
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return validate(*args, **kwargs)
+    def counted_digest(value):
+        if value == saved["data_proof"]:
+            proof_hashes.append(1)
+        return digest(value)
+    with monkeypatch.context() as patch:
+        patch.setattr(PredictionSnapshot, "model_validate", counted)
+        patch.setattr(forecasts, "content_id", counted_digest)
+        forecasts.reconcile_publications(path, archive)
+    assert len(calls) == 1
+    assert len(proof_hashes) == 1
+    assert archive.selected[-1][0] == snapshot
+    with forecasts.connect(path) as db:
+        db.execute("UPDATE mobile_forecast_runs SET phase='computed' WHERE run_id=?",
+                   (saved["run_id"],))
+    calls.clear()
+    with monkeypatch.context() as patch:
+        patch.setattr(PredictionSnapshot, "model_validate", counted)
+        forecasts.reconcile_publications(path, archive)
+    assert len(calls) == 2
+    assert forecasts.latest(path)["phase"] == "published"
+    assert archive.selected[-1][0] == snapshot
 
 
 def test_uncommitted_selection_never_uses_old_snapshot_after_restart(ready, monkeypatch):
@@ -492,3 +554,218 @@ def test_received_history_to_forecast_manual_review_and_restore_without_feature_
     assert manual_chatgpt.import_answer(path, restored, {
         "input_record_id": exported["input_record_id"], "answer_json": original,
     }, now + timedelta(seconds=1)) == reply
+
+
+def test_reference_after_registration_uses_actual_time_and_never_selects_daily(ready, monkeypatch):
+    device, store, path, selected, features, _ = ready
+    original = forecasts.generate(path, store, NOW)
+    active = store.latest_prediction_snapshot()
+    manual = store.latest_manual_portfolio()
+    personal.save_portfolio(store, manual.portfolio, manual.export.revision_id, NOW)
+    reference_time = NOW + timedelta(minutes=1)
+    selected["as_of"] = reference_time.isoformat()
+    features["as_of"] = reference_time.isoformat()
+    for rows in features["features"].values():
+        for row in rows:
+            row["available_at"] = reference_time.isoformat()
+    def reference_inputs(*args, **kwargs):
+        assert kwargs["reference_only"] is True
+        return {"as_of": reference_time.isoformat(), "latest_source_received_at": NOW.isoformat(),
+                "reference_price_date": selected["latest_source_date"],
+                "source_snapshot_ids": [(name.value, "4" * 64) for name in market.DatasetName],
+                "revision_policy": "synthetic-fixture-conservative"}
+    monkeypatch.setattr(forecasts.market, "feature_inputs", reference_inputs)
+    value = forecasts.generate(path, store, reference_time, reference_only=True)
+    assert value["phase"] == "reference_saved"
+    assert value["scope"]["as_of"] == reference_time.isoformat()
+    assert value["snapshot"]["data_as_of"] == NOW.isoformat()
+    assert forecasts.latest(path) == original
+    assert store.prediction_snapshot(active.snapshot_id) == active
+    with pytest.raises(ValueError, match="cannot become an active"):
+        forecasts._publish(path, store, value)
+    expected_snapshot = forecasts.PredictionSnapshot.model_validate(value["snapshot"])
+    validate = forecasts.PredictionSnapshot.model_validate
+    validations = []
+    def counted_validate(*args, **kwargs):
+        validations.append(1)
+        return validate(*args, **kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(forecasts.PredictionSnapshot, "model_validate", counted_validate)
+        view = forecasts.reference_view(path, reference_time)
+    assert len(validations) == 1
+    assert view["readOnly"] is True
+    assert view["snapshotId"] == expected_snapshot.snapshot_id
+    assert view["predictions"] == [
+        next(item for item in expected_snapshot.predictions if item.symbol == symbol)
+        .model_dump(mode="json")
+        for symbol in expected_snapshot.research_symbols()
+    ]
+    checked_ids = []
+    def count_snapshots(*args, **kwargs):
+        checked_ids.append(args[0].get("snapshot_id"))
+        return validate(*args, **kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(forecasts.PredictionSnapshot, "model_validate", count_snapshots)
+        ranked_snapshot, _, price_date = rankings._latest(path, store, reference_time)
+    assert ranked_snapshot == expected_snapshot
+    assert price_date == selected["latest_source_date"]
+    assert checked_ids.count(expected_snapshot.snapshot_id) == 1
+    assert forecasts.reference_view(path, NOW) is None
+    archive = device.export_state()
+    device.initialize(archive)
+    assert forecasts.latest_reference(path, reference_time) == value
+    assert forecasts.reference_view(path, reference_time)["analysisKind"] == (
+        "latest_available_reference")
+    daily = forecasts.generate(path, device._app.state.store, reference_time)
+    assert daily["blocking_reasons"] == ["PERSONAL_INPUT_AFTER_ALPHA_CUTOFF"]
+    # A new blocked reference attempt must preserve the last completed reference.
+    later = reference_time + timedelta(seconds=1)
+    selected["blocking_reasons"] = ["price_session_missing"]
+    blocked = forecasts.generate(path, device._app.state.store, later, reference_only=True)
+    assert blocked["snapshot"] is None
+    assert forecasts.reference_view(path, later)["snapshotId"] == value["snapshot"]["snapshot_id"]
+    with forecasts.connect(path) as db:
+        db.execute("UPDATE mobile_reference_runs SET content_hash=? WHERE run_id=?",
+                   ("0" * 64, value["run_id"]))
+    with pytest.raises(ValueError, match="Forecast run receipt changed"):
+        forecasts.reference_view(path, later)
+
+
+@pytest.mark.parametrize("ledger_available", [False, True])
+def test_reference_ranking_does_not_require_manual_portfolio_or_change_the_ledger(
+    ready, monkeypatch, ledger_available,
+):
+    device, store, path, selected, features, _ = ready
+    before = store.latest_portfolio()
+    reference_time = NOW + timedelta(minutes=1)
+    selected["as_of"] = reference_time.isoformat()
+    features["as_of"] = reference_time.isoformat()
+    if not ledger_available:
+        selected["decision_symbols"] = ["1000"]
+        selected["held_only"] = []
+    for horizon in ("5", "20"):
+        features["features"][horizon] = [row for row in features["features"][horizon]
+                                         if ledger_available or row["symbol"] == "1000"]
+        for row in features["features"][horizon]:
+            row["available_at"] = reference_time.isoformat()
+    def reference_inputs(*args, **kwargs):
+        assert kwargs["reference_only"] is True
+        assert sorted(kwargs["decision_symbols"]) == selected["decision_symbols"]
+        return {"as_of": reference_time.isoformat(), "latest_source_received_at": NOW.isoformat(),
+                "reference_price_date": selected["latest_source_date"],
+                "source_snapshot_ids": [(name.value, "4" * 64) for name in market.DatasetName],
+                "revision_policy": "synthetic-fixture-conservative"}
+    monkeypatch.setattr(forecasts.market, "feature_inputs", reference_inputs)
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "latest_manual_portfolio", lambda: None)
+        if not ledger_available:
+            patch.setattr(store, "latest_portfolio", lambda: None)
+        result = forecasts.generate(path, store, reference_time, reference_only=True)
+        assert result["phase"] == "reference_saved"
+        assert result["scope"]["reference_holdings"] == (
+            "ledger" if ledger_available else "unconfirmed")
+        assert result["snapshot"]["holding_symbols"] == (["7203"] if ledger_available else [])
+        assert forecasts.latest(path) is None
+        assert store.latest_prediction_snapshot() is None
+        view = rankings.view(path, store, reference_time, "20d")
+        assert view["referenceHoldings"] == result["scope"]["reference_holdings"]
+        assert view["rows"]
+    assert store.latest_portfolio() == before
+    archive = device.export_state()
+    device.initialize(archive)
+    assert forecasts.latest_reference(path, reference_time)["run_id"] == result["run_id"]
+    assert device._app.state.store.latest_portfolio() == before
+    assert device._app.state.store.latest_prediction_snapshot() is None
+
+
+def test_empty_reference_universe_is_not_misreported_as_an_all_cash_decision(ready):
+    _, store, path, selected, _, _ = ready
+    selected["decision_symbols"] = []
+    selected["new_candidates"] = []
+    result = forecasts.generate(path, store, NOW, reference_only=True)
+    assert result["blocking_reasons"] == ["NO_USABLE_FORECAST"]
+    assert result["snapshot"] is None
+    assert forecasts.latest(path) is None
+    assert store.latest_prediction_snapshot() is None
+
+
+@pytest.mark.parametrize("microsecond", [0, 123000, 123456])
+def test_reference_received_history_without_feature_doubles(tmp_path, monkeypatch, microsecond):
+    _device, path, store, _cutoff, now, _, _ = received_history_ready(tmp_path, monkeypatch)
+    now += timedelta(hours=7, microseconds=microsecond)
+    manual = store.latest_manual_portfolio()
+    personal.save_portfolio(store, manual.portfolio, manual.export.revision_id, now)
+    now += timedelta(seconds=1)
+    result = forecasts.generate(path, store, now, reference_only=True)
+    assert result["phase"] == "reference_saved", result["blocking_reasons"]
+    assert result["scope"]["as_of"] == now.isoformat()
+    saved = forecasts.latest_reference(path, now)
+    assert saved == result
+    assert result["scope"]["universe"]["latest_source_date"] < now.date().isoformat()
+    assert result["snapshot"]["predictions"]
+    assert forecasts.latest(path) is None
+    assert store.latest_prediction_snapshot() is None
+    assert store.latest_archived_prediction(now) is None
+    view = forecasts.reference_view(path, now)
+    assert view["priceDate"] == result["scope"]["universe"]["latest_source_date"]
+
+
+def test_reference_uses_received_same_day_close_after_seventeen(tmp_path, monkeypatch):
+    from scripts.mobile_capacity_check import make_payload
+
+    _, path, store, cutoff, _, _, _ = received_history_ready(tmp_path, monkeypatch)
+    payload = make_payload(cutoff.date(), 270, 24, random.Random(20261017),
+                           initial_receipt=cutoff.replace(hour=17, minute=0))
+    market.ingest(path, payload)
+    now = market.receipt_time(payload["received_at"]) + timedelta(seconds=1)
+    result = forecasts.generate(path, store, now, reference_only=True)
+    assert result["phase"] == "reference_saved", result["blocking_reasons"]
+    assert result["scope"]["universe"]["latest_source_date"] == str(cutoff.date())
+    assert forecasts.reference_view(path, now)["priceDate"] == str(cutoff.date())
+    assert forecasts.latest(path) is None
+
+
+def test_checkpoint_pipeline_keeps_partial_models_out_of_published_forecasts(ready, monkeypatch):
+    import pandas as pd
+    from mobile.python import checkpoints
+
+    _, store, path, _, _, _ = ready
+    original = forecasts.market.feature_inputs
+
+    def prepared(*args, **kwargs):
+        result = original(*args, **kwargs)
+        result["daily"] = pd.DataFrame({"symbol": ["1000", "7203"]})
+        return result
+
+    monkeypatch.setattr(forecasts.market, "feature_inputs", prepared)
+    saved, messages = {}, []
+
+    def persist(text):
+        value = json.loads(text)
+        messages.append(value)
+        assert 0 <= value["done"] < value["total"]
+        if value["data"] is not None:
+            saved[value["key"]] = value["data"]
+
+    def interrupted(text):
+        persist(text)
+        if json.loads(text)["key"].startswith("model-"):
+            raise InterruptedError("Synthetic model interruption")
+
+    try:
+        checkpoints.configure({"records": {}, "startedAt": NOW.isoformat()}, interrupted)
+        with pytest.raises(InterruptedError):
+            forecasts.generate(path, store, NOW)
+        assert store.latest_prediction_snapshot() is None
+        assert any(key.startswith("model-") for key in saved)
+        checkpoints.configure({"records": saved.copy(), "startedAt": NOW.isoformat()}, persist)
+        monkeypatch.setattr(forecasts.market, "feature_inputs",
+                            lambda *a, **kw: pytest.fail("Prepared data was recomputed"))
+        result = forecasts.generate(path, store, NOW)
+        assert result["phase"] == "published"
+        assert all(row.expected_return_5d == .01 and row.expected_return_20d == .04
+                   for row in store.latest_prediction_snapshot().predictions)
+        assert any(value["key"].startswith("model-") and value["data"] is None
+                   for value in messages)
+    finally:
+        checkpoints.configure()

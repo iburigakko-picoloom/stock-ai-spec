@@ -1,0 +1,77 @@
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { PageHeader, StatePanel, dateTime, currency as yen } from "../components";
+import { KV } from "../Adopted";
+import { useApiData } from "../hooks";
+
+interface Ledger { portfolio_id: string; as_of: string; positions: { symbol: string; shares: number; account_bucket_id: string; average_acquisition_price: string }[]; cash: { account_bucket_id: string; available_cash: string; reserved_cash: string }[]; applied_execution_ids: string[]; correctionRecord?:{date:string;reason:string;kind:string}|null }
+interface Execution { execution_id: string; executed_at: string; symbol: string; account_bucket_id: string; side: string; status: string; ordered_shares: number; filled_shares: number; average_fill_price: string | null; actual_commission: string; actual_other_cost: string; tax_withheld: string }
+function useProgressiveCount(total: number, enabled: boolean, batchSize: number): number {
+  const [visibleCount, setVisibleCount] = useState(1);
+  useEffect(() => {
+    if (!enabled || visibleCount >= total) return;
+    let nextFrame = 0;
+    const frame = window.requestAnimationFrame(() => {
+      nextFrame = window.requestAnimationFrame(() => {
+        setVisibleCount(count => Math.min(total, count + Math.min(count, batchSize)));
+      });
+    });
+    return () => { window.cancelAnimationFrame(frame); window.cancelAnimationFrame(nextFrame); };
+  }, [total, enabled, visibleCount, batchSize]);
+  return visibleCount;
+}
+export function HistoryPage() {
+  return useLocation().pathname === "/transactions" ? <ExecutionHistory /> : <LedgerHistory />;
+}
+function ExecutionHistory() {
+  const { data, error, loading, savedAt } = useApiData<{ records: Execution[]; appliedIds: string[] }>("/api/v1/executions");
+  const [params]=useSearchParams();
+  const navigate=useNavigate();
+  const id=params.get("record") ?? "";
+  const setId=useCallback((value:string)=>navigate({search:`?${new URLSearchParams({record:value})}`},{replace:true}),[navigate]);
+  const rows = useMemo(() => [...(data?.records ?? [])].reverse(), [data?.records]);
+  const appliedIds = useMemo(() => new Set(data?.appliedIds ?? []), [data?.appliedIds]);
+  const visibleCount = useProgressiveCount(rows.length, !!data && !error, 128);
+  const selected = id ? rows.find(row => row.execution_id === id) : rows[0];
+  const missingSelection = loading ? "前回の表示に選択した取引記録はありません" : "選択した取引記録は見つかりません";
+  return <div className="page"><PageHeader title="取引履歴" backTo="/assets" /><div className="subscreen stack"><Link className="button secondary" to="/today/executions">取引を追加</Link>
+    {loading && data && !error && <p role="status" className="setting-footnote">{savedAt ? `${dateTime(savedAt,true)} JSTの保存済み履歴・閲覧用。` : "前回の履歴を表示中・"}更新を確認しています。</p>}
+    {error ? <StatePanel tone="error" title="取引履歴を取得できません" detail={error} /> : loading && !data ? <StatePanel title="取引履歴を読み込んでいます" /> : rows.length===0 ? <StatePanel title={id ? missingSelection : loading ? "前回の表示では取引記録はありません" : "取引記録はまだありません"} /> : <>
+      <table className="subtable execution-history-table"><thead><tr><th>注文</th><th>約定</th></tr></thead><tbody>{rows.slice(0,visibleCount).map(row=><ExecutionRow key={row.execution_id} row={row} selected={selected?.execution_id===row.execution_id} applied={appliedIds.has(row.execution_id)} onSelect={setId} />)}</tbody></table>
+      {visibleCount < rows.length && <p role="status" className="setting-footnote">残りの取引履歴を表示しています…</p>}
+      {id && selected ? <section className="card"><h3 className="section-title">{selected.symbol} · {selected.side === "BUY" ? "購入" : "売却"}</h3><p>{selected.account_bucket_id}</p>
+        <dl className="summary-list"><div><dt>約定株数</dt><dd>{selected.filled_shares}株 / 注文 {selected.ordered_shares}株</dd></div><div><dt>平均約定単価</dt><dd>{yen(selected.average_fill_price)}</dd></div><div><dt>手数料</dt><dd>{yen(selected.actual_commission)}</dd></div><div><dt>その他費用</dt><dd>{yen(selected.actual_other_cost)}</dd></div><div><dt>源泉徴収税</dt><dd>{yen(selected.tax_withheld)}</dd></div><div><dt>残高</dt><dd>{appliedIds.has(selected.execution_id) ? "反映済み" : "未反映"}</dd></div></dl>
+        <Link className="button button--secondary" to={`/stocks/${selected.symbol}`} state={{ from: `/transactions?${params.toString()}` }}>銘柄詳細</Link>
+      </section> : id ? <StatePanel title={missingSelection} detail="一覧から記録を選び直してください。" /> : null}</>}
+    <Link className="quiet-link" to="/today/executions?apply=1">記録済み約定の残高反映を確認 ›</Link></div></div>;
+}
+type ExecutionRowProps = {row:Execution;selected:boolean;applied:boolean;onSelect:(value:string)=>void};
+const ExecutionRow = memo(function ExecutionRow({row,selected,applied,onSelect}:ExecutionRowProps) {
+  return <tr><td><small>{dateTime(row.executed_at,true)}</small><p>{row.symbol} / {row.account_bucket_id}</p><p>{row.side === "BUY" ? "買い" : "売り"} {row.ordered_shares}株</p><button className="button secondary" onClick={()=>onSelect(row.execution_id)} aria-pressed={selected}>記録を確認</button></td><td><small>{row.status === "filled" ? "全約定" : row.status === "partially_filled" ? "一部約定" : row.status === "cancelled" ? "取消" : row.status === "expired" ? "失効" : "未約定"}</small><p>{row.filled_shares ? `${row.filled_shares}株 × ${yen(row.average_fill_price)}` : "約定なし"}</p><small>手数料 {yen(row.actual_commission)} / 税 {yen(row.tax_withheld)}</small><p className="setting-footnote">{row.filled_shares===0 ? "残高の変更なし" : applied ? "残高へ反映済み" : "残高へ未反映"}</p></td></tr>;
+}, (previous, next) => {
+  if (previous.selected !== next.selected || previous.applied !== next.applied || previous.onSelect !== next.onSelect) return false;
+  if (previous.row === next.row) return true;
+  // API refreshes create new objects; compare every field so changed data is never hidden.
+  const keys = Object.keys(previous.row) as (keyof Execution)[];
+  return keys.length === Object.keys(next.row).length && keys.every(key => Object.prototype.hasOwnProperty.call(next.row, key) && previous.row[key] === next.row[key]);
+});
+function LedgerHistory() {
+  const { data, error, loading, savedAt } = useApiData<Ledger[]>("/api/v1/portfolio/history");
+  const visibleCount = useProgressiveCount(data?.length ?? 0, !!data && !error, 8);
+  const previousShares = useMemo(() => (data ?? []).map((_, index) => {
+    const symbols = new Map<string, Map<string, number>>();
+    for (const position of data?.[index + 1]?.positions ?? []) {
+      let accounts = symbols.get(position.symbol);
+      if (!accounts) { accounts = new Map(); symbols.set(position.symbol, accounts); }
+      if (!accounts.has(position.account_bucket_id)) accounts.set(position.account_bucket_id, position.shares);
+    }
+    return symbols;
+  }), [data]);
+  return <div className="page"><PageHeader title="残高・修正履歴" backTo="/assets" />
+    <div className="subscreen stack">{loading && data && !error && <p role="status" className="setting-footnote">{savedAt ? `${dateTime(savedAt,true)} JSTの保存済み履歴・閲覧用。` : "前回の履歴を表示中・"}更新を確認しています。</p>}{error ? <StatePanel tone="error" title="残高履歴を取得できません" detail={error} /> : loading && !data ? <StatePanel title="残高履歴を読み込んでいます" /> : !data?.length ? <StatePanel title={loading ? "前回の表示では残高履歴はありません" : "残高履歴はまだありません"} /> : <>{data.slice(0, visibleCount).map((item,index)=><LedgerCard key={item.portfolio_id} item={item} previous={previousShares[index]} initial={index===data.length-1} />)}{visibleCount < data.length && <p role="status" className="setting-footnote">残りの履歴を表示しています…</p>}</>}<Link className="button secondary" to="/assets">資産管理</Link></div>
+  </div>;
+}
+
+const LedgerCard = memo(function LedgerCard({ item, previous, initial }: { item: Ledger; previous: Map<string, Map<string, number>>; initial: boolean }) {
+  return <article className="card"><KV label={item.correctionRecord?.date || dateTime(item.as_of,true)} value={item.correctionRecord ? ({deposit:"入金",withdrawal:"出金",correction:"残高訂正"}[item.correctionRecord.kind] || "残高訂正") : initial ? "初回残高" : "残高の保存"} />{item.positions.map(row=><p className="small" key={`${row.symbol}:${row.account_bucket_id}`}>{row.symbol} / {row.account_bucket_id} {previous.get(row.symbol)?.get(row.account_bucket_id) ?? "—"} → {row.shares}株 · 取得単価 {yen(row.average_acquisition_price)}</p>)}{item.cash.map(row=><KV key={row.account_bucket_id} label={`${row.account_bucket_id} 現金`} value={yen(row.available_cash)} />)}{item.correctionRecord?.reason && <p className="small">理由：{item.correctionRecord.reason}</p>}</article>;
+});

@@ -6,7 +6,23 @@ from pathlib import Path
 
 import pytest
 from scripts.android_history_check import HistoryController, validate_fixture
-from scripts.mobile_native_history_fixture import FORMAT, ROOT, isolated, prepare, table_snapshot
+from scripts.mobile_native_history_fixture import (
+    FORMAT,
+    MOBILE_TABLES,
+    ROOT,
+    isolated,
+    prepare,
+    table_snapshot,
+)
+
+
+def test_native_fixture_table_allowlist_matches_a_fresh_database(tmp_path, monkeypatch) -> None:
+    from mobile.python import runtime
+
+    monkeypatch.setattr(runtime, "STATE", tmp_path)
+    monkeypatch.setattr(runtime, "_app", runtime._app)
+    runtime.initialize()
+    assert set(table_snapshot(tmp_path / "mobile.sqlite3")["tables"]) == MOBILE_TABLES
 
 
 def test_table_proof_covers_schema_types_all_cells_and_input_immutability(tmp_path) -> None:
@@ -118,7 +134,7 @@ def test_native_fixture_rejects_arbitrary_source_paths_without_reading_payload(t
         "sessions": 520,
         "models": 0,
         "characters": 90_000_000,
-        "mobile": {"tables": {str(index): {} for index in range(17)}},
+        "mobile": {"tables": {name: {} for name in MOBILE_TABLES}},
         "source_sha256": {"../../outside": "0" * 64},
     }
     (tmp_path / "report.json").write_text(json.dumps(report))

@@ -21,6 +21,8 @@ from stock_ai.operations.daily import (
 from stock_ai.operations.manual_portfolio import Digest, InputModel, strict_json
 
 from .portable_model import predict, validate
+from .research_ensemble import SCHEMA as ENSEMBLE_SCHEMA
+from .research_ensemble import ResearchEnsembleBundle, inference
 
 REQUIRED_HEADS = frozenset(((5, "regression"), (20, "regression"),
                             (20, "quantile"), (20, "large_loss")))
@@ -165,11 +167,12 @@ class ResearchModelBundle(InputModel):
 
 def reviewed(
     content: str, policy: dict, selection: dict | Callable[[], dict],
-) -> tuple[ModelBundle | ResearchModelBundle, dict]:
+) -> tuple[ModelBundle | ResearchModelBundle | ResearchEnsembleBundle, dict]:
     if not isinstance(content, str) or len(content.encode()) > MAX_BUNDLE_BYTES:
         raise ValueError("Model bundle size limit")
     value = strict_json(content)
-    if value.get("schema_version") != "stockai-mobile-research-bundle-v1":
+    ensemble = value.get("schema_version") == ENSEMBLE_SCHEMA
+    if value.get("schema_version") != "stockai-mobile-research-bundle-v1" and not ensemble:
         return approved(content, policy, selection)
     digest = hashlib.sha256(content.encode()).hexdigest()
     pins = [p for p in policy.get("research_bundles", []) if p["sha256"] == digest]
@@ -181,10 +184,11 @@ def reviewed(
         if not isinstance(entry.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", entry[key]):
             raise ValueError("RESEARCH_BUNDLE_EVIDENCE_MISSING")
     if (entry.get("distribution_review") != "private-research-import-approved"
-            or entry.get("use") != "return-only-research"):
+            or entry.get("use") != ("ensemble-research" if ensemble else "return-only-research")):
         raise ValueError("RESEARCH_BUNDLE_DISTRIBUTION_NOT_REVIEWED")
     selection = selection() if callable(selection) else selection
-    bundle = ResearchModelBundle.model_validate(value)
+    bundle = (ResearchEnsembleBundle.model_validate(value) if ensemble
+              else ResearchModelBundle.model_validate(value))
     require_daily_close_label(bundle.label_definition)
     if (entry.get("bundle_id") != bundle.bundle_id
             or entry["source_evidence_sha256"] != bundle.source_evidence_sha256
@@ -226,23 +230,32 @@ def approved(content: str, policy: dict,
     return bundle, entry
 
 
-def encoded(bundle: ModelBundle | ResearchModelBundle) -> str:
+def encoded(bundle: ModelBundle | ResearchModelBundle | ResearchEnsembleBundle) -> str:
     content = canonical_json(bundle.model_dump(mode="json"))
     if len(content.encode()) > MAX_BUNDLE_BYTES:
         raise ValueError("Model bundle size limit")
     return content
 
 
-def parity(content: str, rows: dict, selection: dict) -> dict:
+def parity(content: str, rows: dict, selection: dict, *,
+           rank_universes: dict | None = None) -> dict:
     """Read-only PC/device probe; never approve, import or publish a forecast."""
     if not isinstance(content, str) or len(content.encode()) > MAX_BUNDLE_BYTES:
         raise ValueError("Model bundle size limit")
+    value = strict_json(content)
+    if value.get("schema_version") == ENSEMBLE_SCHEMA:
+        composed = ResearchEnsembleBundle.model_validate(value)
+        return {**inference(composed, rows, selection, rank_universes=rank_universes),
+                "sha256": hashlib.sha256(content.encode()).hexdigest(),
+                "label_definition": composed.label_definition,
+                "label_definition_supported": (
+                    composed.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL
+                )}
     if (not isinstance(rows, dict) or set(rows) != {"5", "20"}
             or any(not isinstance(value, list) for value in rows.values())
             or sum(len(value) for value in rows.values()) > 1000
             or any(not isinstance(row, dict) for value in rows.values() for row in value)):
         raise ValueError("Parity input limit or shape")
-    value = strict_json(content)
     bundle = (ResearchModelBundle.model_validate(value)
               if value.get("schema_version") == "stockai-mobile-research-bundle-v1"
               else ModelBundle.model_validate(value))

@@ -1,64 +1,141 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { apiGet } from "./api";
-import { isAndroid } from "./mobile/native";
+import { isAndroid, StockAI } from "./mobile/native";
+import { ReadViewActivation } from "./readViewActivation";
 
-export function useApiData<T>(path: string): {
-  data: T | null;
-  error: string | null;
-  loading: boolean;
-  reload: () => void;
+export function useApiData<T>(path: string, { pollMs = 60_000, refreshOnFocus = true, enabled = true }: { pollMs?: number; refreshOnFocus?: boolean; enabled?: boolean } = {}): {
+  data: T | null; error: string | null; loading: boolean; savedAt: string | null; reload: () => void;
 } {
-  const [data, setData] = useState<T | null>(null);
+  const activation = useContext(ReadViewActivation);
+  const [result, setResult] = useState<{ path: string; activation: string; value: T | null }>({ path, activation, value: null });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const reload = useCallback(() => setRevision((value) => value + 1), []);
-
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const trigger = useRef<() => void>(() => undefined);
+  const reload = useCallback(() => trigger.current(), []);
   useEffect(() => {
+    if (!enabled) {
+      setResult({ path, activation, value: null });
+      setError(null); setSavedAt(null); setLoading(true);
+      return;
+    }
     let active = true;
-    setLoading(true);
-    setError(null);
-    apiGet<T>(path)
-      .then((value) => {
-        if (active) setData(value);
-      })
-      .catch((reason: unknown) => {
-        if (active) {
-          setData(null);
-          setError(reason instanceof Error ? reason.message : "データを取得できませんでした");
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    let epoch = 0;
+    let occupied = false;
+    let pending = false;
+    let deferred = 0;
+    let frame = 0;
+    let foregroundFrame = 0;
+    let foregroundTimer = 0;
+    let foregroundScheduled = false;
+    const available = () => isAndroid() || navigator.onLine;
+    const clearForeground = (): void => {
+      foregroundScheduled = false;
+      window.cancelAnimationFrame(foregroundFrame); window.clearTimeout(foregroundTimer);
+      foregroundFrame = 0; foregroundTimer = 0;
+    };
+    const drain = (): void => {
+      if (!active || occupied || !pending || foregroundScheduled || !available()) return;
+      pending = false;
+      occupied = true;
+      const started = epoch;
+      let freshCompleted = false;
+      setLoading(true); setError(null);
+      setResult(previous => previous.path === path
+        ? previous : { path, activation, value: null });
+      const canPreview = isAndroid() && typeof StockAI.readSavedView === "function"
+          && /^(\/api\/v1\/(home(?:\/ledger)?|today|executions|portfolio\/history)|\/api\/v1\/mobile\/ranking\/(5d|20d)|\/api\/v1\/ranking\?rankType=(overall|5d|20d|morning)&limit=50|\/api\/v1\/stocks\/[A-Z0-9]{1,10}|\/api\/v1\/validation\?mode=(paper|live|historical))$/.test(path);
+      let dispatched = false;
+      const fresh = (): void => {
+        if (dispatched) return;
+        dispatched = true;
+        window.clearTimeout(deferred); window.cancelAnimationFrame(frame);
+        if (!active) return;
+        if (started !== epoch) { occupied = false; drain(); return; }
+        void apiGet<T>(path).then(value => {
+          freshCompleted = true;
+          if (active && started === epoch && available()) { setResult({ path, activation, value }); setSavedAt(null); }
+        }).catch((reason: unknown) => {
+          freshCompleted = true;
+          if (active && started === epoch) {
+            setSavedAt(null);
+            setResult({ path, activation, value: null });
+            setError(reason instanceof Error ? reason.message : "データを取得できませんでした");
+          }
+        }).finally(() => {
+          occupied = false;
+          if (!active) return;
+          if (pending && available()) drain();
+          else setLoading(false);
+        });
+      };
+      if (canPreview) {
+        // Give a saved view a paint before cold Python restoration/validation.
+        // A busy display reader or paused animation frames cannot stall freshness.
+        deferred = window.setTimeout(fresh, 120);
+        void StockAI.readSavedView({ path }).then(saved => {
+          if (active && started === epoch && !freshCompleted && saved.available && saved.readOnly === true
+              && saved.savedAt && Number.isFinite(Date.parse(saved.savedAt)) && Date.parse(saved.savedAt) <= Date.now()) {
+            setResult({ path, activation, value: saved.body as T });
+            setSavedAt(saved.savedAt);
+            frame = window.requestAnimationFrame(() => { frame = window.requestAnimationFrame(fresh); });
+          } else {
+            fresh();
+          }
+        }).catch(fresh);
+      } else fresh();
+    };
+    const refresh = (): void => { clearForeground(); epoch++; pending = true; drain(); };
+    const visible = (): void => {
+      if (document.visibilityState === "visible" && available()) refresh();
+    };
+    const foreground = (): void => {
+      if (document.visibilityState !== "visible" || !available()) return;
+      // Both events can describe one return to the app. Invalidate old reads
+      // immediately, then dispatch once after the browser has delivered them.
+      epoch++; pending = true; setLoading(true);
+      if (foregroundScheduled) return;
+      foregroundScheduled = true;
+      const dispatch = (): void => {
+        if (!foregroundScheduled) return;
+        clearForeground();
+        if (active) drain();
+      };
+      foregroundFrame = window.requestAnimationFrame(dispatch);
+      foregroundTimer = window.setTimeout(dispatch, 120);
+    };
+    const offline = (): void => {
+      if (isAndroid()) { refresh(); return; }
+      clearForeground();
+      epoch++; pending = false;
+      setResult({ path, activation, value: null });
+      setError("オフラインです。古い提案は表示しません。"); setLoading(false);
+    };
+    trigger.current = refresh;
+    if (available()) refresh(); else offline();
+    if (refreshOnFocus) {
+      document.addEventListener("visibilitychange", foreground);
+      window.addEventListener("focus", foreground);
+    }
+    window.addEventListener("online", foreground);
+    window.addEventListener("offline", offline);
+    // A periodic check must not invalidate an unfinished authoritative read.
+    // Cold Android restoration can exceed one minute; superseding it on every
+    // tick otherwise discards its result and immediately queues another read.
+    // Explicit reload/focus still invalidates work after a possible change.
+    const timer = pollMs > 0 ? window.setInterval(() => { if (!occupied) visible(); }, pollMs) : null;
     return () => {
       active = false;
+      window.clearTimeout(deferred); window.cancelAnimationFrame(frame);
+      clearForeground();
+      if (trigger.current === refresh) trigger.current = () => undefined;
+      document.removeEventListener("visibilitychange", foreground);
+      window.removeEventListener("focus", foreground);
+      window.removeEventListener("online", foreground);
+      window.removeEventListener("offline", offline);
+      if (timer !== null) window.clearInterval(timer);
     };
-  }, [path, revision]);
-
-  useEffect(() => {
-    const refreshVisible = (): void => {
-      if (document.visibilityState === "visible" && (isAndroid() || navigator.onLine)) reload();
-    };
-    const invalidateOffline = (): void => {
-      if (isAndroid()) { reload(); return; }
-      setData(null);
-      setError("オフラインです。古い提案は表示しません。");
-      setLoading(false);
-    };
-    document.addEventListener("visibilitychange", refreshVisible);
-    window.addEventListener("online", refreshVisible);
-    window.addEventListener("focus", refreshVisible);
-    window.addEventListener("offline", invalidateOffline);
-    const timer = window.setInterval(refreshVisible, 60_000);
-    return () => {
-      document.removeEventListener("visibilitychange", refreshVisible);
-      window.removeEventListener("online", refreshVisible);
-      window.removeEventListener("focus", refreshVisible);
-      window.removeEventListener("offline", invalidateOffline);
-      window.clearInterval(timer);
-    };
-  }, [reload]);
-
-  return { data, error, loading, reload };
+  }, [path, activation, pollMs, refreshOnFocus, enabled]);
+  return { data: enabled && result.path === path ? result.value : null, error: enabled ? error : null, savedAt: enabled && result.path === path ? savedAt : null,
+    loading: enabled && (loading || result.path !== path || result.activation !== activation), reload };
 }

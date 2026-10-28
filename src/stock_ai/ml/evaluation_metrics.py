@@ -22,6 +22,39 @@ METRIC_VERSION = "daily-development-metrics-v1"
 LOG_LOSS_EPSILON = 1e-8
 
 
+def evaluate_return_errors(
+    target: Sequence[float], prediction: Sequence[float]
+) -> dict[str, Any]:
+    """Return-unit errors against a zero-return baseline on the identical rows.
+
+    This is raw prediction evaluation, not executable P&L or an in-sample
+    calibration fit. A zero baseline error has undefined skill, never infinity.
+    """
+    y, p = _paired_vectors(target, prediction)
+    error = p - y
+    mse = float(np.mean(error ** 2))
+    mae = float(np.mean(np.abs(error)))
+    baseline_mse = float(np.mean(y ** 2))
+    baseline_mae = float(np.mean(np.abs(y)))
+    return {
+        "version": "daily-return-errors-v1",
+        "rows": len(y),
+        "unit": "fractional_return",
+        "calibration": "raw_not_refitted",
+        "mae": mae,
+        "rmse": float(np.sqrt(mse)),
+        "mean_squared_error": mse,
+        "mean_prediction": float(np.mean(p)),
+        "mean_realized": float(np.mean(y)),
+        "mean_error": float(np.mean(error)),
+        "zero_return_baseline_mae": baseline_mae,
+        "zero_return_baseline_rmse": float(np.sqrt(baseline_mse)),
+        "mse_skill_vs_zero": 1 - mse / baseline_mse if baseline_mse > 0 else None,
+        "mae_skill_vs_zero": 1 - mae / baseline_mae if baseline_mae > 0 else None,
+        "is_execution_return": False,
+    }
+
+
 def evaluate_development_tasks(oof: pd.DataFrame, report: AdvancedResearchReport) -> dict[str, Any]:
     """Score only authenticated callers' development OOF, with aligned task keys.
 
@@ -34,6 +67,10 @@ def evaluate_development_tasks(oof: pd.DataFrame, report: AdvancedResearchReport
     for task, part in oof.groupby("task", sort=True):
         if task in {"regression", "ranking"}:
             scores[str(task)] = asdict(evaluate_ranking_panel(part))
+            if task == "regression":
+                scores[str(task)]["return_errors"] = evaluate_return_errors(
+                    part.target.tolist(), part.prediction.tolist()
+                )
         elif task == "quantile":
             scores[str(task)] = asdict(
                 evaluate_quantiles(

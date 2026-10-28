@@ -1,0 +1,55 @@
+{
+  "status": "REQUIRED_CI_PASSED",
+  "source_commit": "3209604c84fb84fb82827a63a7163a3626d85c5e",
+  "tested_merge": "878ffa24fd7bec05ad60517849d8b9af9c3293f0",
+  "tree": "a602b422f26f070495bd9a6f9bfb754506c69aff",
+  "tested_tree_exact": true,
+  "run_id": 39431174408,
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39431174408",
+  "jobs": [
+    {
+      "name": "android",
+      "conclusion": "success",
+      "started_at": "2026-10-20T13:31:52Z",
+      "completed_at": "2026-10-20T13:45:48Z"
+    },
+    {
+      "name": "verify",
+      "conclusion": "success",
+      "started_at": "2026-10-20T13:31:52Z",
+      "completed_at": "2026-10-20T14:14:09Z"
+    },
+    {
+      "name": "android-history",
+      "conclusion": "success",
+      "started_at": "2026-10-20T14:14:12Z",
+      "completed_at": "2026-10-20T14:19:27Z"
+    },
+    {
+      "name": "release",
+      "conclusion": "skipped",
+      "started_at": "2026-10-20T14:19:28Z",
+      "completed_at": "2026-10-20T14:19:27Z"
+    }
+  ],
+  "source_public_assets_exact": 43,
+  "local_Web_tests": 108,
+  "local_related_layout_tests": 18,
+  "native_test_evidence": {
+    "source_commit": "3209604c84fb84fb82827a63a7163a3626d85c5e",
+    "CI_run": 39431174408,
+    "suites": [
+      {
+        "path": "web/android/app/build/outputs/androidTest-results/connected/debug/TEST-emulator-5554 - 15-_app-.xml",
+        "tests": 89,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "total_XML_tests": 89,
+    "all_XML_failures_and_errors_zero": true,
+    "synthetic_CI_emulator_not_Xiaomi": true
+  },
+  "scope": "Current blue settings/compact top update notice, shared Python, storage, interpreter, native worker/upgrade, synthetic full-market capacity and full SQLite restore. Owner Xiaomi not tested."
+}

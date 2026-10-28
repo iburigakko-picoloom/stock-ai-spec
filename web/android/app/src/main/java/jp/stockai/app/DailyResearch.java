@@ -26,7 +26,7 @@ final class DailyResearch {
     final DailyPipeline.Progress progress;
     final BooleanSupplier stopped;
     final Supplier<Instant> clock;
-    static final String PROMPT = "independent-company-research-v1";
+    static final String PROMPT = "market-portfolio-research-v2";
 
     DailyResearch(Core core, Provider provider, Journal journal, DailyPipeline.Progress progress,
             BooleanSupplier stopped, Supplier<Instant> clock) {
@@ -66,7 +66,8 @@ final class DailyResearch {
                 || !batch.getString("model").equals(chosen.getString("model"))
                 || !batch.getString("effort").equals(chosen.getString("effort"))
                 || !batch.getString("account_key").equals(chosen.getString("account_key"))
-                || !PROMPT.equals(batch.getString("prompt_version"))) {
+                || !(PROMPT.equals(batch.getString("prompt_version"))
+                    || "independent-company-research-v1".equals(batch.getString("prompt_version")))) {
             attention(day, "RESEARCH_SELECTION_CHANGED"); return false;
         }
         java.util.Set<String> done = new java.util.HashSet<>();
@@ -98,7 +99,7 @@ final class DailyResearch {
             String run = runs.optString(symbol);
             if (run.isEmpty()) {
                 JSONObject configuration = new JSONObject().put("model", batch.getString("model"))
-                    .put("effort", batch.getString("effort")).put("prompt_version", PROMPT);
+                    .put("effort", batch.getString("effort")).put("prompt_version", batch.getString("prompt_version"));
                 JSONObject started = api("POST", "research/" + batch.getString("snapshot_id") + "/" + symbol + "/start",
                     new JSONObject().put("configuration", configuration));
                 run = started.getJSONObject("run").getString("run_id");

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiPost } from "../api";
-import { dateTime } from "../components";
+import { dateTime, pct } from "../components";
 import type { StockDetail } from "../types";
 import { ChatGPT, type ChatGPTStatus, type ResearchPass, type ResearchRunView } from "./chatgpt";
 import { isAndroid } from "./native";
@@ -22,16 +22,17 @@ function Findings({ value }: { value: ResearchPass }) {
 }
 
 export function CompanyResearchPanel({
-  symbol, forecast, runs = [], records = [], onChanged,
+  symbol, forecast, runs = [], records = [], onChanged, readOnly = false,
 }: {
   symbol: string; forecast: StockDetail["forecast"];
   runs: StockDetail["researchRuns"]; records: StockDetail["chatgptResearch"];
-  onChanged: () => void;
+  onChanged: () => void; readOnly?: boolean;
 }) {
   const [status, setStatus] = useState<ChatGPTStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [local, setLocal] = useState<ResearchRunView | null>(null);
+  const [historyId,setHistoryId]=useState("");
   const android = isAndroid();
   useEffect(() => {
     if (!android) return;
@@ -46,16 +47,16 @@ export function CompanyResearchPanel({
   const selection = status?.selection;
   const matching = allRuns.filter(item => item.run.context.configuration.model === selection?.model
     && item.run.context.configuration.effort === selection?.effort).at(-1);
-  const current = running ?? matching ?? allRuns.at(-1);
+  const current = allRuns.find(item=>item.run.run_id===historyId) ?? running ?? matching ?? allRuns.at(-1);
   const lastAttempt = current?.attempts.at(-1);
   const savedRecords = [...records, ...allRuns.flatMap(item => item.record ? [item.record] : [])];
-  const latestRecord = matching?.record ?? savedRecords.sort((a, b) => Date.parse(a.comparison.completed_at) - Date.parse(b.comparison.completed_at)).at(-1);
+  const latestRecord = historyId ? savedRecords.find(record=>record.research_id === historyId) ?? allRuns.find(item=>item.run.run_id === historyId)?.record : matching?.record ?? savedRecords.sort((a, b) => Date.parse(a.comparison.completed_at) - Date.parse(b.comparison.completed_at)).at(-1);
   const partial = current?.record ? null : current?.passes.find(item => item.phase === "independent");
-  const enabled = android && !!status?.planEnabled && !!selection?.model && !!forecast?.researchEligible
+  const enabled = !readOnly && android && !!status?.planEnabled && !!selection?.model && !!forecast?.researchEligible
     && !forecast.isStale;
 
   async function perform(rerun = false) {
-    if (!forecast) return;
+    if (!forecast || readOnly) return;
     setBusy(true); setMessage("");
     try {
       let view = running;
@@ -79,9 +80,25 @@ export function CompanyResearchPanel({
     } finally { setBusy(false); onChanged(); }
   }
 
-  return <section className="section company-research" aria-labelledby="company-research-title">
-    <div className="section-title"><div><span>COMPANY RESEARCH</span><h2 id="company-research-title">ChatGPTの見解</h2></div></div>
-    <p className="explain">企業を独立に調べた後、数値予測と照合します。数値予測と推奨株数は変更しません。</p>
+  return <div className="subscreen analysis-domain company-research">
+    <div className="ad-toolbar"><div><h3>{symbol} {current?.run.context.company_name || latestRecord?.context.company_name || ""}</h3><span className="ad-state">ChatGPT調査</span></div>{android && <button className="button" disabled={busy || !!running || !enabled} onClick={()=>void perform(!!matching?.record)}>新規調査</button>}</div>{message && <p role="status" className="substatus">{message}</p>}    {(allRuns.length > 0 || latestRecord) && <section className="ad-focus">
+      <div className="ad-list">{allRuns.map(item=><button className="button secondary" key={item.run.run_id} aria-pressed={(historyId || allRuns.at(-1)?.run.run_id)===item.run.run_id} onClick={()=>setHistoryId(item.run.run_id)}><strong>{researchTime(item.run.context.research_as_of)}</strong><span>{item.record ? "保存済み" : "未完了"}</span></button>)}</div><div className="card ad-entry"><h3 className="section-title">調査履歴・再調査</h3>
+      {latestRecord && <><div className="ad-toolbar"><strong>{researchTime(latestRecord.comparison.completed_at)}</strong><span className="badge">保存済み</span></div><section><h3 className="plain-section-title">照合結果と出典を見る</h3><Findings value={latestRecord.comparison} /></section><section><h3 className="plain-section-title">数値予測を見る前の独立調査</h3><Findings value={latestRecord.independent} /></section></>}
+      {allRuns.filter(item=>item.run.run_id === (historyId || allRuns.at(-1)?.run.run_id)).map(item => <section className="research-history" key={item.run.run_id}>
+        <h3 className="plain-section-title">第{item.run.context.revision}回 · {researchTime(item.run.context.research_as_of)} JST<br />
+          {item.run.context.configuration.model} · {item.run.context.configuration.effort} · {item.record ? "調査・照合済み" : "未完了"}</h3>
+        {!item.record && item.passes.map(value => <div key={value.pass_id}>
+          <h3>{value.phase === "independent" ? "独立調査" : "数値予測との照合"}</h3><Findings value={value} />
+        </div>)}
+        {item.attempts.filter(attempt => attempt.error_code).map(attempt => <p key={attempt.attempt_id}>{researchTime(attempt.finished_at)} JST · {researchFailure(attempt.error_code)}</p>)}
+      </section>)}
+      {android && matching?.record && <div className="research-actions"><button className="button button--secondary" disabled={busy || !!running || !enabled}
+        onClick={() => void perform(true)}>この設定で新たに再調査</button><p className="setting-footnote">利用枠を使って調べ直し、前の結果も残します。</p></div>}
+    </div></section>}
+    {forecast && <section className="card ad-entry"><div className="ad-toolbar"><h3>現在の数値予測</h3><span className="ad-state">{dateTime(forecast.generatedAt,true)}</span></div><table className="subtable"><thead><tr><th>期間</th><th>予測リターン</th></tr></thead><tbody><tr><td>5営業日</td><td>{pct(forecast.prediction?.expected_return_5d)}</td></tr><tr><td>20営業日</td><td>{pct(forecast.prediction?.expected_return_20d)}</td></tr></tbody></table></section>}
+<section className="card ad-entry">
+    {(allRuns.length>0 || savedRecords.length>0) && <label>調査日時<select value={historyId} onChange={e=>setHistoryId(e.target.value)}><option value="">現在の設定の最新結果</option>{allRuns.map(item=><option key={item.run.run_id} value={item.run.run_id}>第{item.run.context.revision}回 · {researchTime(item.run.context.research_as_of)} · {item.record ? "保存済み" : "未完了"}</option>)}{records.filter(record=>!allRuns.some(item=>item.record?.research_id === record.research_id)).map(record=><option key={record.research_id} value={record.research_id}>{researchTime(record.comparison.completed_at)} · 保存済み</option>)}</select></label>}
+    <p className="subhint">元の予測と台帳は変更しません。</p>
     {!forecast ? <p>照合する数値予測はまだありません。</p> : <>
       <p className="research-status">{running ? "調査実行中" : lastAttempt?.status === "failed" || lastAttempt?.status === "interrupted"
         ? "調査未完了" : current?.record || (!current && latestRecord) ? "調査と照合を保存済み" : partial ? "独立調査を保存済み・照合待ち" : "未調査"}</p>
@@ -90,33 +107,14 @@ export function CompanyResearchPanel({
       {current && <small className="research-meta">調査設定 {current.run.context.configuration.model} · {current.run.context.configuration.effort}
         <br />調査対象時点 {researchTime(current.run.context.research_as_of)} JST</small>}
       {android && (!matching?.record || !!running) && <div className="research-actions">
-        <button className="button button--primary" disabled={busy || (!running && !enabled)} onClick={() => void perform()}>
+        <button className="button button--primary" disabled={readOnly || busy || (!running && !enabled)} onClick={() => void perform()}>
           {busy ? "調査を処理しています…" : running ? "実行状況を確認" : lastAttempt?.status === "failed" || lastAttempt?.status === "interrupted" ? "中断した段階を再試行" : partial ? "照合の続きを実行" : "ChatGPTで調査"}
         </button>
         {!status?.planEnabled || !selection?.model ? <Link className="button button--secondary" to="/settings">ChatGPTの連携設定</Link> : null}
       </div>}
-      <p role="status" className="research-message">{message}</p>
+
       {android && <p className="setting-footnote">調査はChatGPTの利用枠を使います。同じ条件の保存済み結果は再利用します。</p>}
-      {android && <ExternalPermissionPanel />}
-    </>}
-    {latestRecord && <>
-      <p className="research-preview">{latestRecord.comparison.text.replace(/\s+/g, " ").slice(0, 180)}{latestRecord.comparison.text.length > 180 ? "…" : ""}</p>
-      <details className="research-disclosure"><summary>照合結果と出典を見る</summary><Findings value={latestRecord.comparison} /></details>
-      <details className="research-disclosure"><summary>数値予測を見る前の独立調査</summary><Findings value={latestRecord.independent} /></details>
-    </>}
-    {partial && <details className="research-disclosure" open><summary>保存済みの独立調査</summary><Findings value={partial} /></details>}
-    {(allRuns.length > 0 || latestRecord) && <details className="research-disclosure">
-      <summary>調査履歴・再調査</summary>
-      {allRuns.map(item => <details className="research-history" key={item.run.run_id}>
-        <summary>第{item.run.context.revision}回 · {researchTime(item.run.context.research_as_of)} JST<br />
-          {item.run.context.configuration.model} · {item.run.context.configuration.effort} · {item.record ? "調査・照合済み" : "未完了"}</summary>
-        {item.passes.map(value => <div key={value.pass_id}>
-          <h3>{value.phase === "independent" ? "独立調査" : "数値予測との照合"}</h3><Findings value={value} />
-        </div>)}
-        {item.attempts.filter(attempt => attempt.error_code).map(attempt => <p key={attempt.attempt_id}>{researchTime(attempt.finished_at)} JST · {researchFailure(attempt.error_code)}</p>)}
-      </details>)}
-      {android && matching?.record && <div className="research-actions"><button className="button button--secondary" disabled={busy || !!running || !enabled}
-        onClick={() => void perform(true)}>この設定で新たに再調査</button><p className="setting-footnote">利用枠を使って調べ直し、前の結果も残します。</p></div>}
-    </details>}
-  </section>;
+    </>}</section>
+    {android && forecast && !readOnly && <section className="card ad-entry"><ExternalPermissionPanel compact /></section>}
+  </div>;
 }

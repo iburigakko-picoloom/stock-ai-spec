@@ -1,0 +1,36 @@
+{
+  "status": "LOCAL_UI_CHECKS_PASSED",
+  "Web_tests": 108,
+  "Web_test_files": 14,
+  "related_browser_layout_tests": 18,
+  "lint": true,
+  "TypeScript": true,
+  "production_build": true,
+  "widths_px": [
+    320,
+    390
+  ],
+  "font_percent": [
+    100,
+    150
+  ],
+  "minimum_action_height_px": 48,
+  "minimum_action_gap_px": 12,
+  "top_notice_sticky": true,
+  "release_notes_initially_folded": true,
+  "no_automatic_install": true,
+  "native_permission_download_failure_retry_and_duplicate_tap_tests": true,
+  "screenshots_use_synthetic_native_bridge_and_values": true,
+  "Xiaomi_verified": false,
+  "native_changed": false,
+  "model_or_feature_definition_changed": false,
+  "initial_TypeScript_test_search_option_failure_preserved": true,
+  "source_files_sha256_lf": {
+    "web/src/mobile/MobileDevicePanel.tsx": "3b3a58234181d607f446bc37e50a6d3007a018873ed1940b0cb35f97ee2e918e",
+    "web/src/styles.css": "da478859ceaea21470edd7588b45fb896838e07f086caceab616bb0175586f0d",
+    "web/src/mobile/MobileUpdateNotice.test.tsx": "1814fe47198a0df75c1a317380047a745048f1475fdb46d4facb6ca82c0f38a3",
+    "web/mobile-tests/settings-layout.spec.ts": "3301e50b4fdade559fcf47c471ac8e960ad406ddf9951a48728112b31fca0a63"
+  },
+  "current_CI_evidence": "ci-result.json",
+  "delivery_evidence": "published-update.json"
+}

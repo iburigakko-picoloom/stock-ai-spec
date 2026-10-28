@@ -97,6 +97,13 @@ def test_universe_intervals_preserve_gaps_and_exclude_invalid_symbol_history(
     pdt.assert_series_equal(actual.listing_date, actual.valid_from, check_names=False)
     pdt.assert_series_equal(actual.delisting_date, actual.valid_to, check_names=False)
     assert actual.is_member.all()
+    context = production_module.build_point_in_time_universe(
+        master, business_dates=dates, context_only=True,
+    )
+    context_columns = [
+        "effective_date", "provider_code", "symbol", "sector_33_code", "sector_33_name",
+    ]
+    pdt.assert_frame_equal(context, actual[context_columns], check_exact=True)
     pdt.assert_frame_equal(master, before)
 
 
@@ -211,6 +218,13 @@ def test_bulk_adjusted_prices_follow_official_cumulative_factor_formula() -> Non
         adjusted["adjustment_version"].str.startswith("jquants-file-cumulative-adjfactor-v1:").all()
     )
     pdt.assert_frame_equal(frame, before, check_exact=True)
+    owned = frame.copy(deep=True)
+    pdt.assert_frame_equal(
+        production_module._reconstruct_bulk_adjusted_prices(owned, owned_input=True),
+        adjusted,
+        check_exact=True,
+    )
+    pdt.assert_frame_equal(frame, before, check_exact=True)
     changed_input = frame.copy()
     changed_input.loc[0, "raw_high"] += 1
     changed = production_module._reconstruct_bulk_adjusted_prices(changed_input)
@@ -285,6 +299,14 @@ def test_canonical_daily_joins_common_issues_by_provider_code() -> None:
 
     assert daily["provider_code"].tolist() == ["25930"]
     assert daily["symbol"].tolist() == ["2593"]
+    reused = production_module._canonical_daily(
+        prices,
+        universe=universe,
+        availability=availability,
+        revision_policy=HistoricalRevisionPolicy.SINGLE_VINTAGE_AS_REVISED,
+        reuse_working_frame=True,
+    )
+    pdt.assert_frame_equal(reused, daily, check_exact=True)
     pdt.assert_frame_equal(prices, before_prices, check_exact=True)
     pdt.assert_frame_equal(universe, before_universe, check_exact=True)
 
@@ -1437,3 +1459,45 @@ def test_source_identity_keeps_v1_with_32_bit_nullable_missing_hashes(empty, mon
     monkeypatch.setattr(pd.util, "hash_pandas_object", wasm_hash)
     assert production_module._source_frame_id(DatasetName.DAILY_PRICES, frame) == expected
     pdt.assert_frame_equal(frame, before, check_exact=True)
+
+
+def test_reference_latest_completed_prices_do_not_require_a_trading_cutoff() -> None:
+    frames, dates = _source_frames(periods=5)
+    now = datetime.combine(
+        (dates[-1] + timedelta(days=1)).date(), datetime.min.time(), JST).replace(hour=23)
+    for frame in frames.values():
+        frame["available_at"] = pd.Timestamp(now - timedelta(minutes=5))
+    bundle = build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                                   reference_as_of=now, minimum_market_coverage=0.60)
+    latest = bundle.daily.loc[bundle.daily.trading_date == dates[-1]]
+    assert not latest.empty
+    assert (latest.available_at == pd.Timestamp(now)).all()
+    with pytest.raises(ValueError, match="Reference analysis"):
+        build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                              reference_as_of=now, proposal_as_of=now, minimum_market_coverage=0.60)
+    with pytest.raises(
+        ValueError, match="security master contains a revision after source_snapshot_as_of"
+    ):
+        build_production_data(FrameCatalog(frames), source_snapshot_as_of=now-timedelta(hours=1),
+                              reference_as_of=now-timedelta(hours=1), minimum_market_coverage=0.60)
+
+
+def test_reference_accepts_same_day_only_after_seventeen_and_actual_receipt() -> None:
+    frames, dates = _source_frames(periods=5)
+    now = datetime.combine(dates[-1].date(), datetime.min.time(), JST).replace(hour=17)
+    for frame in frames.values():
+        frame["available_at"] = pd.Timestamp(now - timedelta(minutes=1))
+    with pytest.raises(ValueError, match="Reference analysis"):
+        build_production_data(
+            FrameCatalog(frames), source_snapshot_as_of=now-timedelta(seconds=1),
+            reference_as_of=now-timedelta(seconds=1), minimum_market_coverage=0.60,
+        )
+    bundle = build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                                   reference_as_of=now, minimum_market_coverage=0.60)
+    latest = bundle.daily.loc[bundle.daily.trading_date == dates[-1]]
+    assert not latest.empty
+    assert (latest.available_at == pd.Timestamp(now)).all()
+    frames[next(iter(frames))]["available_at"] = pd.Timestamp(now + timedelta(seconds=1))
+    with pytest.raises(ValueError, match="after source_snapshot_as_of"):
+        build_production_data(FrameCatalog(frames), source_snapshot_as_of=now,
+                              reference_as_of=now, minimum_market_coverage=0.60)

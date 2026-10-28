@@ -67,6 +67,18 @@ def test_delta_ingestion_is_idempotent_and_retains_exact_receipt_boundary(tmp_pa
     assert known.iloc[0].raw_close == 1
 
 
+def test_same_day_closing_data_is_rejected_before_seventeen(tmp_path):
+    path = tmp_path / "market.sqlite3"
+    market.initialize(path)
+    value = payload()
+    value["received_at"] = "2026-01-05T07:59:59+00:00"
+    with pytest.raises(ValueError, match="only accepted after 17:00"):
+        market.ingest(path, value)
+    assert market.status(path)["completed_days"] == 0
+    value["received_at"] = "2026-01-05T08:00:00+00:00"
+    assert market.ingest(path, value)["latest_data_date"] == "2026-01-05"
+
+
 def test_later_correction_does_not_replace_earlier_known_price(tmp_path):
     path = tmp_path / "market.sqlite3"
     market.initialize(path)

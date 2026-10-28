@@ -144,6 +144,22 @@ class ManualPersonalSettings(InputModel):
                 or item.nisa_lifetime_capacity_user_input is None
             ):
                 gaps.add("nisa_remaining_capacity")
+            # Keep historical inputs readable; reject their use until corrected.
+            if account.account_type == "nisa" and (
+                (item.nisa_annual_capacity_user_input is not None
+                 and Decimal(item.nisa_annual_capacity_user_input) > 2_400_000)
+                or (item.nisa_lifetime_capacity_user_input is not None
+                    and Decimal(item.nisa_lifetime_capacity_user_input) > 12_000_000)
+            ):
+                gaps.add("nisa_capacity_out_of_range")
+        nisa_ids = {account.id for account in portfolio.accounts if account.account_type == "nisa"}
+        for field, maximum in (
+            ("nisa_annual_capacity_user_input", Decimal("2400000")),
+            ("nisa_lifetime_capacity_user_input", Decimal("12000000")),
+        ):
+            if sum((Decimal(getattr(item, field) or "0") for item in self.accounts
+                    if item.account_id in nisa_ids), Decimal("0")) > maximum:
+                gaps.add("nisa_capacity_out_of_range")
         if any(
             value is None for key, value in self.cost_assumptions.model_dump().items()
             if key != "zero_commission_confirmed"

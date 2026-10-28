@@ -1,0 +1,113 @@
+@import "./mock-design.css";
+/* Application shell bindings for the adopted HTML. Financial state and actions
+   stay in React; this file only replaces the comparison studio's outer frame. */
+.app-shell--adopted { --line:#e4e8ef; --app-nav-height:68px; --app-nav-content-height:44px; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.875rem; line-height:1.6; color:#15243a; width:100%; max-width:600px; height:100dvh; min-height:0; display:flex; flex-direction:column; overflow:hidden; background:white; container-type:inline-size; }
+.app-shell--adopted [hidden] { display:none !important; }
+.app-shell--adopted .app-main { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; padding:0; overflow-anchor:none; }
+.app-shell--adopted .page { width:100%; max-width:none; margin:0; padding:0 14px 14px; }
+.app-shell--adopted .page--settings { padding:0; }
+.app-shell--adopted .device-settings { padding:0 14px 14px; }
+.app-shell--adopted .page-header,.app-shell--adopted .settings-page-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; margin:0 -14px 14px; padding:12px 14px 11px; border-bottom:1px solid #edf0f3; background:white; gap:8px; }
+.app-shell--adopted .page-header__line { display:flex; align-items:center; flex-wrap:nowrap; min-height:0; gap:9px; width:100%; }
+.app-shell--adopted .page-header .phone-title,.app-shell--adopted .settings-page-header h1 { color:#172033; margin:0; font-size:1.375rem; font-weight:700; letter-spacing:0; line-height:1.2; }
+.app-shell--adopted .page-header .brand-mark,.app-shell--adopted .settings-page-header .brand-mark,.app-shell--adopted .page-header__context { display:none; }
+.app-shell--adopted .page-header__actions { margin-left:auto; max-width:44%; }
+.app-shell--adopted .header-status { background:none; border:0; padding:3px 0; font-size:.625rem; color:#636d73; display:block; text-align:right; }
+.app-shell--adopted .back-button,.app-shell--adopted .settings-back { display:inline-grid; place-items:center; flex:none; width:29px; height:29px; min-height:29px; padding:0; margin:0; background:transparent; border:0; border-radius:6px; color:#526176; font-size:1.1875rem; }
+/* Navigation is shared even when the settings top keeps its existing content. */
+.bottom-nav.bottom-nav--adopted { width:min(100%,600px); display:flex; justify-content:space-around; flex:none; height:auto; min-height:68px; padding:8px calc(4px + var(--app-safe-right)) calc(7px + var(--app-safe-bottom)) calc(4px + var(--app-safe-left)); background:white; border-top:1px solid #e4e8ef; border-bottom:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.875rem; line-height:1.6; }
+.app-shell--adopted .bottom-nav { position:static; transform:none; order:initial; inset:auto; width:100%; }
+.bottom-nav.bottom-nav--adopted a { border:0; background:transparent; display:grid; justify-items:center; justify-content:normal; align-items:center; flex-direction:column; min-width:44px; min-height:0; gap:4px; color:#526176; font-size:.625rem; padding:3px 5px; border-radius:0; text-align:center; }
+.bottom-nav.bottom-nav--adopted a strong { font-size:inherit; font-weight:400; line-height:1.6; }
+.bottom-nav.bottom-nav--adopted a.active { color:#2859a6; background:transparent; }
+.bottom-nav.bottom-nav--adopted a.active strong { font-weight:600; }
+.bottom-nav.bottom-nav--adopted svg { height:20px; width:20px; stroke-width:1.8; }
+.app-shell--adopted .section { border:0; border-radius:0; margin:0 0 12px; padding:0; box-shadow:none; background:white; }
+.app-shell--adopted .button--secondary { background:white; border:1px solid #dfe4e8; color:#293445; }
+.app-shell--adopted a.button { text-decoration:none; }
+.app-shell--adopted .quiet-link,.app-shell--adopted .text-link { background:none; border:0; color:#2859a6; font:inherit; font-size:.75rem; padding:8px 0; display:inline-flex; align-items:center; cursor:pointer; }
+.app-shell--adopted .state-panel { border:1px solid #e4e8ef; border-radius:8px; padding:14px; margin:12px 0; text-align:left; box-shadow:none; font-size:.8125rem; }
+.app-shell--adopted .state-panel p { font-size:.75rem; }
+.app-shell--adopted .state-panel strong { font-size:inherit; }
+.app-shell--adopted .runtime-banner { border:0; background:none; color:#636d73; font-size:.6875rem; padding:0; margin:0 0 10px; }
+.app-shell--adopted .runtime-banner strong { font-size:inherit; }
+.app-shell--adopted .setting-footnote,.app-shell--adopted .explain { color:#636d73; font-size:.6875rem; }
+.app-shell--adopted .block { display:block; }
+.app-shell--adopted .form-section { display:block; padding:8px 0 16px; }
+.app-shell--adopted .form-section:last-child { border-bottom:0; padding-bottom:0; }
+.app-shell--adopted .form-section>.section-title { display:block; margin:0 0 12px; }
+.app-shell--adopted .subscreen section { min-width:0; }
+.app-shell--adopted .subgrid .field { margin:0; }
+.app-shell--adopted .subgrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.app-shell--adopted .account-form { border:0; padding:0; margin:0; min-width:0; }
+.app-shell--adopted .account-form legend { padding:0; }
+.app-shell--adopted .save-result { color:#19775e; font-size:.75rem; padding:9px 0; }
+.app-shell--adopted .save-result h2 { font-size:.875rem; margin:0; }
+.app-shell--adopted .sticky-action { position:static; transform:none; padding:0; width:auto; border:0; box-shadow:none; background:none; margin:18px 0 0; }
+.app-shell--adopted .plain-section-title { font-size:.8125rem; margin:14px 0 9px; font-weight:650; }
+.app-shell--adopted .ranking-search-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; margin:10px 0; }
+.app-shell--adopted .ranking-search-row .ranking-search { width:100%; min-width:0; }
+.app-shell--adopted .ranking-search-row .button { width:auto; min-width:60px; margin:0; }
+.app-shell--adopted .screen-today .today-taskbar a { padding:14px 8px; background:white; border:1px solid #dbe3ef; border-radius:12px; text-align:left; color:#17365f; font:inherit; font-size:.8125rem; }
+.app-shell--adopted .subtabs a { flex:1; text-align:center; padding:10px 8px; color:#64748b; font-size:.8125rem; }
+.app-shell--adopted .subscreen label:not(.row):not(.checkbox):not(.field) { display:flex; flex-direction:column; gap:6px; font-size:.75rem; font-weight:400; min-width:0; margin:0; }
+.app-shell--adopted .subscreen input:not([type=checkbox]):not([type=radio]),.app-shell--adopted .subscreen select,.app-shell--adopted .subscreen textarea { font:inherit; font-size:.8125rem; width:100%; min-width:0; max-width:100%; box-sizing:border-box; min-height:44px; border:1px solid #dfe4e8; border-radius:6px; padding:10px; background:white; color:#15243a; }
+.app-shell--adopted .subscreen input[readonly] { background:#fafbfc; }
+.app-shell--adopted .subscreen input[type=checkbox] { width:16px; height:16px; min-height:16px; flex:none; margin:0 5px 0 0; }
+.app-shell--adopted .subscreen .subrow { min-width:0; gap:10px; }
+.app-shell--adopted .subscreen .subrow strong { overflow-wrap:anywhere; }
+.app-shell--adopted .form-span { grid-column:1/-1; }
+.app-shell--adopted .consultation-targets { max-height:320px; overflow:auto; }
+.app-shell--adopted .card h2 { margin:0 0 12px; font-size:.8125rem; font-weight:650; }
+.app-shell--adopted .card .section-title { display:block; letter-spacing:0; text-transform:none; }
+.app-shell--adopted .card .summary-list { font-size:.8125rem; margin:0; }
+.app-shell--adopted .card .summary-list>div { padding:9px 0; gap:10px; }
+.app-shell--adopted .card .summary-list dd { font-size:inherit; }
+.app-shell--adopted .screen-review .chart-empty { height:180px; margin:0; padding:16px; background:white; border:0; border-radius:0; font-size:.75rem; }
+.app-shell--adopted .screen-review .paper-chart { margin:0; }
+.app-shell--adopted .screen-review .paper-chart svg { height:150px; }
+.app-shell--adopted .screen-review .paper-chart figcaption { font-size:.625rem; }
+.app-shell--adopted .screen-review .rev-link { width:100%; display:flex; align-items:center; justify-content:space-between; }
+.app-shell--adopted .screen-detail .metric>span { display:block; font-size:.6875rem; color:#636d73; }
+.app-shell--adopted .screen-detail .metric>strong { font-size:1.25rem; white-space:normal; overflow-wrap:anywhere; }
+.app-shell--adopted .stock-chart { min-width:0; }
+.app-shell--adopted .stock-chart-options { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+.app-shell--adopted .stock-chart-options button { flex:1 1 auto; min-height:40px; padding:6px; border:1px solid #dfe4e8; border-radius:6px; background:white; font-size:.75rem; }
+.app-shell--adopted .stock-chart-options button[aria-pressed="true"] { color:#2859a6; border-color:#2859a6; font-weight:700; }
+.app-shell--adopted .stock-chart-plot { display:block; width:100%; height:auto; }
+.app-shell--adopted .forecast-plot-frame { display:flex; min-width:0; max-width:100%; }
+.app-shell--adopted .forecast-axis { flex:none; width:58px; height:190px; }
+.app-shell--adopted .forecast-plot-scroll { flex:1; min-width:0; overflow-x:auto; overscroll-behavior-x:contain; }
+.app-shell--adopted .forecast-plot { display:block; max-width:none; }
+.app-shell--adopted .forecast-point-group { cursor:pointer; }
+.app-shell--adopted .forecast-selection { display:grid; gap:6px; font-size:.8rem; }
+.app-shell--adopted .forecast-selection select { width:100%; min-width:0; min-height:40px; }
+.app-shell--adopted .forecast-selected-values { margin:8px 0 0; overflow-wrap:anywhere; }
+.app-shell--adopted .forecast-key { display:inline-block; width:10px; height:10px; margin-right:4px; }
+.app-shell--adopted .forecast-key--five { background:#2859a6; border-radius:50%; }
+.app-shell--adopted .forecast-key--twenty { border:2px solid #8194ac; transform:rotate(45deg); }
+.app-shell--adopted .stock-chart-results>div { display:grid; gap:3px; padding:10px 0; border-top:1px solid #e4e8ef; overflow-wrap:anywhere; font-size:.75rem; }
+.app-shell--adopted .stock-explanation { min-width:0; }
+.app-shell--adopted .stock-effect-list { list-style:none; padding:0; margin:0; }
+.app-shell--adopted .stock-effect-list li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:3px 12px; padding:8px 0; border-bottom:1px solid #e4e8ef; overflow-wrap:anywhere; font-size:.75rem; }
+.app-shell--adopted .ss-group .daily-panel>h2 { display:none; }
+.app-shell--adopted .ss-group .daily-panel { margin:0; }
+.app-shell--adopted .ss-group .research-disclosure,.app-shell--adopted .ss-group .settings-disclosure { border:0; margin:0; padding:0; }
+.app-shell--adopted .subtabs a.button { border:0; padding:9px 6px; min-height:40px; background:transparent; color:#636d73; font-size:.75rem; border-radius:6px; }
+@container (max-width:360px) { .app-shell--adopted .subgrid { grid-template-columns:minmax(0,1fr); } }
+
+.app-shell--adopted .subtabs a.button.secondary { border-color:#dfe4e8; }
+
+/* Keep the entire execution timestamp readable in the narrow two-column form. */
+.execution-entry .field:has(input[type="datetime-local"]) { grid-column: 1 / -1; }
+
+/* Keep the adopted compact design while retaining a 48px settings touch target. */
+.app-shell--adopted .device-settings .button { min-height: 48px; }
+.app-shell--adopted .screen-home .home-stock-button { min-width: 0; overflow-wrap: anywhere; }
+.app-shell--adopted .screen-home .home-amount { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.app-shell--adopted .screen-home .home-holding-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; margin:10px 0; }
+.app-shell--adopted .screen-home .home-holding-metrics div { min-width:0; }
+.app-shell--adopted .screen-home .home-holding-metrics dt { color:#636d73; font-size:.6875rem; }
+.app-shell--adopted .screen-home .home-holding-metrics dd { margin:2px 0 0; font-size:.8125rem; font-weight:600; overflow-wrap:anywhere; }
+.app-shell--adopted .screen-home .home-price-date { display:block; color:#636d73; font-size:.625rem; font-weight:400; }
+.app-shell--adopted .screen-home .home-account-detail { display:flex; justify-content:space-between; flex-wrap:wrap; gap:0 8px; overflow-wrap:anywhere; }

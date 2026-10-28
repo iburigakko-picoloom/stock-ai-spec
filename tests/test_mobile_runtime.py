@@ -7,6 +7,7 @@ import json
 import sqlite3
 import zipfile
 from contextlib import closing
+from unittest.mock import Mock
 
 import pytest
 from mobile.python import runtime
@@ -21,6 +22,250 @@ def device(tmp_path, monkeypatch):
 
 def run(device, method, path, body=None):
     return asyncio.run(device.request(method, path, json.dumps(body)))
+
+
+def test_reference_request_is_explicit_and_today_projection_does_not_create_proposal(
+    device, monkeypatch,
+):
+    calls = []
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        return {"phase": "reference_saved" if kwargs else "blocked"}
+    monkeypatch.setattr(runtime.forecasts, "generate", generate)
+    endpoint = "/api/v1/mobile/daily/generate"
+    assert run(device, "POST", endpoint, {})["status"] == 200
+    assert run(device, "POST", endpoint, {"reference_only": True})["body"] == {
+        "phase": "reference_saved"}
+    for invalid in ({"reference_only": "true"}, {"reference_only": 1}, {"other": True}, None):
+        assert run(device, "POST", endpoint, invalid)["status"] == 422
+    assert calls == [{}, {"reference_only": True}]
+    original = run(device, "GET", "/api/v1/today")["body"]
+    reference = {"generatedAt": "2026-01-01T10:00:00+09:00", "readOnly": True,
+                 "analysisKind": "latest_available_reference"}
+    monkeypatch.setattr(runtime.forecasts, "reference_view", lambda *args: reference)
+    updated = run(device, "GET", "/api/v1/today")["body"]
+    assert updated == {**original, "savedAnalysis": reference}
+    assert device._app.state.store.latest_prediction_snapshot() is None
+
+
+def test_checked_startup_skips_unchanged_and_saves_only_changed_database(device, monkeypatch):
+    assert device.initialize_checked() == {"persistence": "none"}
+    initialize = device.initialize
+
+    def ledger_migration():
+        initialize()
+        with closing(sqlite3.connect(device.STATE / "operations.sqlite3")) as db:
+            db.execute("INSERT OR REPLACE INTO operational_metadata VALUES('startup_probe','v1')")
+            db.commit()
+
+    monkeypatch.setattr(device, "initialize", ledger_migration)
+    assert device.initialize_checked() == {"persistence": "operations"}
+    assert device.initialize_checked() == {"persistence": "none"}
+
+    def market_migration():
+        initialize()
+        with closing(sqlite3.connect(device.STATE / "mobile.sqlite3")) as db:
+            db.execute("CREATE TABLE startup_probe(id INTEGER PRIMARY KEY)")
+            db.commit()
+
+    monkeypatch.setattr(device, "initialize", market_migration)
+    assert device.initialize_checked() == {"persistence": "full"}
+
+
+def test_unchanged_startup_reuses_proof_and_releases_observer(device, monkeypatch):
+    original_create = device.create_app
+    verifiers = []
+    def traced_create(*args, **kwargs):
+        app = original_create(*args, **kwargs)
+        verify = Mock(wraps=app.state.store.verify_integrity)
+        monkeypatch.setattr(app.state.store, "verify_integrity", verify)
+        verifiers.append(verify)
+        return app
+    monkeypatch.setattr(device, "create_app", traced_create)
+    device.initialize()
+    assert verifiers[-1].call_count == 1
+    assert device._app.state.integrity_guard._observer is None
+    assert run(device, "GET", "/api/v1/today?includeSavedAnalysis=false")["status"] == 200
+    assert verifiers[-1].call_count == 2
+
+
+def test_startup_rechecks_and_rejects_corruption_during_reconciliation(device, monkeypatch):
+    from stock_ai.operations.store import OperationalIntegrityError
+    from tests.conftest import AS_OF, portfolio
+
+    device._app.state.store.append_portfolio(portfolio(), created_at=AS_OF)
+    initialize = device.personal.initialize
+    def corrupt_after_initial_check(store, path, now):
+        initialize(store, path, now)
+        with closing(sqlite3.connect(store.path)) as db:
+            db.execute("UPDATE portfolio_states SET content_hash='corrupt'")
+            db.commit()
+    monkeypatch.setattr(device.personal, "initialize", corrupt_after_initial_check)
+    with pytest.raises(OperationalIntegrityError):
+        device.initialize()
+    assert device._app.state.integrity_guard._observer is None
+
+
+def test_startup_rechecks_after_legitimate_store_change(device, monkeypatch):
+    original_create = device.create_app
+    verifiers = []
+    def traced_create(*args, **kwargs):
+        app = original_create(*args, **kwargs)
+        verify = Mock(wraps=app.state.store.verify_integrity)
+        monkeypatch.setattr(app.state.store, "verify_integrity", verify)
+        verifiers.append(verify)
+        return app
+    initialize = device.personal.initialize
+    def change_after_initial_check(store, path, now):
+        initialize(store, path, now)
+        with closing(sqlite3.connect(store.path)) as db:
+            db.execute("INSERT INTO operational_metadata VALUES('startup_probe','v1')")
+            db.commit()
+    monkeypatch.setattr(device, "create_app", traced_create)
+    monkeypatch.setattr(device.personal, "initialize", change_after_initial_check)
+    device.initialize()
+    assert verifiers[-1].call_count == 2
+    assert device._app.state.integrity_guard._observer is None
+    assert run(device, "GET", "/api/v1/today?includeSavedAnalysis=false")["status"] == 200
+    assert verifiers[-1].call_count == 3
+
+
+def test_split_startup_overlay_preserves_market_and_rejects_market_in_overlay(device):
+    from scripts.mobile_native_history_fixture import table_snapshot
+
+    market_before = table_snapshot(device.STATE / "mobile.sqlite3")
+    operations = device.StateExport(operations_only=True)
+    fragments = []
+    while (fragment := operations.read_next()) is not None:
+        fragments.append(fragment)
+    stream = device.StateImport(sum(map(len, fragments)))
+    for index, fragment in enumerate(fragments):
+        stream.append(index, fragment)
+    assert stream.finish(initialize_runtime=False, operations_only=True) == {}
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == market_before
+    assert device.initialize_checked()["persistence"] == "none"
+    full = device.export_state()
+    # Legacy compaction is part of export, before the rejected import starts.
+    before_rejected_import = table_snapshot(device.STATE / "mobile.sqlite3")
+    stream = device.StateImport(len(full))
+    for index, start in enumerate(range(0, len(full), 256 * 1024)):
+        stream.append(index, full[start:start + 256 * 1024])
+    with pytest.raises(ValueError, match="operations overlay"):
+        stream.finish(initialize_runtime=False, operations_only=True)
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == before_rejected_import
+
+
+def test_operations_export_does_not_copy_or_compact_market_database(device, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("A small ledger save must not compact market history")
+
+    monkeypatch.setattr(runtime.market, "compact_legacy", forbidden)
+    original = runtime.sqlite3.connect
+    opened = []
+
+    def connect(path, *args, **kwargs):
+        opened.append(str(path))
+        assert not str(path).endswith("mobile.sqlite3")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(runtime.sqlite3, "connect", connect)
+    stream = device.StateExport(operations_only=True)
+    fragments = []
+    while (fragment := stream.read_next()) is not None:
+        fragments.append(fragment)
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode("".join(fragments)))) as archive:
+        assert archive.namelist() == ["operations.sqlite3"]
+        assert archive.read("operations.sqlite3").startswith(b"SQLite format 3\x00")
+    assert any(path.endswith("operations.sqlite3") for path in opened)
+
+
+def test_stream_restore_closes_live_integrity_observer_before_replacing_database(device):
+    value = {"schema_version": "manual-portfolio-v1", "holdings_status": "none",
+             "investment_budget_yen": "1000", "maximum_drawdown_percent": None,
+             "accounts": [], "holdings": []}
+    saved = run(device, "POST", "/api/v1/mobile/portfolio", value)["body"]
+    export = device.StateExport(operations_only=True)
+    pieces = []
+    while (piece := export.read_next()) is not None:
+        pieces.append(piece)
+    assert run(device, "GET", "/api/v1/health")["status"] == 200
+    changed = {**value, "investment_budget_yen": "2000"}
+    assert run(device, "POST", "/api/v1/mobile/portfolio", {
+        "expected_revision_id": saved["revision_id"], "portfolio": changed,
+    })["status"] == 200
+    assert run(device, "GET", "/api/v1/health")["status"] == 200
+    assert device._app.state.integrity_guard._observer is not None
+    stream = device.StateImport(sum(map(len, pieces)))
+    for index, piece in enumerate(pieces):
+        stream.append(index, piece)
+    stream.finish(operations_only=True)
+    assert run(device, "GET", "/api/v1/mobile/portfolio")["body"] == saved
+    assert run(device, "GET", "/api/v1/health")["status"] == 200
+
+
+def test_decision_and_execution_overlay_survive_restore_without_market_rewrite(device):
+    from datetime import timedelta
+
+    from scripts.mobile_native_history_fixture import table_snapshot
+
+    from stock_ai.operations import bootstrap_goal5_fixture, create_app
+    from tests.conftest import AS_OF
+
+    store = device._app.state.store
+    proposal_id = bootstrap_goal5_fixture(store, as_of=AS_OF)
+    proposal = store.proposal(proposal_id)
+    device._app.state.integrity_guard.close()
+    device._app = create_app(store.path, clock=lambda: AS_OF + timedelta(hours=2))
+    base = device.export_state()
+    market_before = table_snapshot(device.STATE / "mobile.sqlite3")
+    operations_before = table_snapshot(store.path)
+    targets = {line.line_id: line.recommended_shares for line in proposal.lines}
+    assert run(device, "POST", f"/api/v1/proposals/{proposal_id}/review", {
+        "selectedTargets": targets,
+    })["status"] == 200
+    assert table_snapshot(store.path) == operations_before  # Review really is read-only.
+    assert run(device, "POST", f"/api/v1/proposals/{proposal_id}/decisions", {
+        "decisionId": "overlay-decision", "version": 1,
+        "savedAt": (proposal.generated_at + timedelta(minutes=1)).isoformat(),
+        "lines": [{"proposalLineId": key, "selectedTargetShares": value}
+                  for key, value in targets.items()],
+    })["status"] == 201
+    line = next(item for item in proposal.lines if item.share_difference != 0)
+    assert run(device, "POST", "/api/v1/decisions/overlay-decision/executions", {
+        "executionId": "overlay-fill", "executedAt": (AS_OF + timedelta(hours=1)).isoformat(),
+        "symbol": line.symbol, "accountBucketId": line.account_bucket_id,
+        "status": "not_ordered", "side": "BUY" if line.share_difference > 0 else "SELL",
+        "orderedShares": abs(line.share_difference), "filledShares": 0,
+        "averageFillPrice": None, "actualCommission": "0", "actualOtherCost": "0",
+        "taxWithheld": "0",
+    })["status"] == 201
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == market_before
+    expected = table_snapshot(store.path)
+    export = device.StateExport(operations_only=True)
+    pieces = []
+    while (piece := export.read_next()) is not None:
+        pieces.append(piece)
+    device.initialize(base)
+    importer = device.StateImport(sum(map(len, pieces)))
+    for index, piece in enumerate(pieces):
+        importer.append(index, piece)
+    importer.finish(initialize_runtime=False, operations_only=True)
+    importer.close()
+    device.initialize()
+    assert table_snapshot(device.STATE / "mobile.sqlite3") == market_before
+    assert table_snapshot(device.STATE / "operations.sqlite3") == expected
+    assert len(device._app.state.store.executions(decision_id="overlay-decision")) == 1
+
+
+def test_preselection_is_opt_in_and_policy_survives_archive_restore(device):
+    path = "/api/v1/mobile/market/universe-policy"
+    assert run(device, "GET", path)["body"]["mode"] == "legacy300"
+    assert run(device, "POST", path, {"mode": "topix500-preview"})["status"] == 200
+    device.initialize(device.export_state())
+    assert run(device, "GET", path)["body"]["mode"] == "topix500-preview"
+    assert run(device, "POST", path, {"mode": "unknown"})["status"] == 422
+    assert run(device, "GET", path)["body"]["mode"] == "topix500-preview"
+    assert run(device, "POST", path, {"mode": "legacy300"})["body"]["experimental"] is False
 
 
 def test_shared_api_runs_without_server_and_preserves_no_order_boundary(device):

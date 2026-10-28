@@ -157,6 +157,16 @@ test("offline Python preserves input and matches PC features, nine model vectors
   });
   const computed = result.values.result as { status: number; body: { features: Record<string, Record<string, unknown>[]> } };
   expect(computed.status).toBe(200);
+  // Pandas can emit the same UTC instant with millisecond or nanosecond zeros.
+  // Normalize precision without losing any nonzero subsecond digits.
+  function utcNanoseconds(value: unknown): string {
+    expect(typeof value).toBe("string");
+    const match = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z$/.exec(value as string);
+    expect(match).not.toBeNull();
+    return `${match![1]}.${(match![2] ?? "").padEnd(9, "0")}Z`;
+  }
+  expect(utcNanoseconds("2025-01-15T23:00:00.001Z")).toBe(utcNanoseconds("2025-01-15T23:00:00.001000000Z"));
+  expect(utcNanoseconds("2025-01-15T23:00:00.001000001Z")).not.toBe(utcNanoseconds("2025-01-15T23:00:00.001Z"));
   for (const horizon of ["5", "20"]) {
     const rows = computed.body.features[horizon];
     expect(rows).toHaveLength(golden.expected[horizon].length);
@@ -165,6 +175,7 @@ test("offline Python preserves input and matches PC features, nine model vectors
       expect(Object.keys(row)).toEqual(Object.keys(expected));
       for (const [key, value] of Object.entries(expected)) {
         if (typeof value === "number") expect(Number(row[key])).toBeCloseTo(value, 7);
+        else if (key === "available_at" && value !== null) expect(utcNanoseconds(row[key])).toBe(utcNanoseconds(value));
         else expect(row[key]).toBe(value);
       }
     });
@@ -221,8 +232,21 @@ test("offline personal settings compile and confirmed balances survive a new int
     const restored = await request("GET", "/api/v1/home");
     const restoredExtra = await request("GET", "/api/v1/mobile/personal/settings");
     const ready = await request("GET", "/api/v1/mobile/personal/readiness");
+    const current = await request("GET", "/api/v1/mobile/personal/current");
+    const ledger = current.result.body.ledger as { portfolio_id: string };
+    const correction = { base_ledger_id: ledger.portfolio_id, base_revision_id: saved.result.body.revision_id,
+      base_settings_id: (extra.result.body.saved as { revision_id: string }).revision_id,
+      as_of: new Date().toISOString(), group: "cash", changes: [{ account_bucket_id: account, total: "1040000", buying_power: "600000" }] };
+    const correctionPreview = await request("POST", "/api/v1/mobile/personal/current/preview", correction);
+    const corrected = await request("POST", "/api/v1/mobile/personal/current/confirm", correction);
     worker.terminate();
-    return { extra, preview, refused, applied, home, restored, restoredExtra, ready };
+    worker = new Worker("/src/mobile/compute-worker.ts", { type: "module" });
+    await send({ command: "initialize", state: corrected.state });
+    const correctedHome = await request("GET", "/api/v1/home");
+    const correctedProfile = await request("GET", "/api/v1/mobile/portfolio");
+    worker.terminate();
+    return { extra, preview, refused, applied, home, restored, restoredExtra, ready,
+      correctionPreview, corrected, correctedHome, correctedProfile };
   });
   expect(result.extra.result.status).toBe(200);
   expect(result.preview.result.body.blocking_reasons).toEqual([]);
@@ -232,4 +256,8 @@ test("offline personal settings compile and confirmed balances survive a new int
   expect(result.restored.result.body).toEqual(result.home.result.body);
   expect(result.restoredExtra.result.body).toEqual(result.extra.result.body);
   expect(result.ready.result.body).toMatchObject({ input_gaps: [], comparison: { proposal: null, research_only: true } });
+  expect(result.correctionPreview.result.status).toBe(200);
+  expect(result.corrected.result.status).toBe(200);
+  expect(result.correctedHome.result.body).toMatchObject({ portfolio: { cashValue: "1040000", reservedCash: "440000", buyingPower: "600000" } });
+  expect(result.correctedProfile.result.body).toMatchObject({ portfolio: { accounts: [{ available_cash_yen: "1040000" }] } });
 });

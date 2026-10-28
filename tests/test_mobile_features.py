@@ -77,14 +77,21 @@ def test_columnwise_roundtrip_matches_original_records_values_types_and_precisio
     source = frames[kind]
     original = source.copy(deep=True)
     expected = pd.DataFrame.from_records(
-        json.loads(source.to_json(orient="records", date_format="iso"))
+        json.loads(source.to_json(orient="records", date_format="iso", date_unit="ns"))
     )
     actual = features._json_records_frame(source)
     pd.testing.assert_frame_equal(actual, expected, check_exact=True)
-    assert actual.to_json(orient="table", date_format="iso") == expected.to_json(
-        orient="table", date_format="iso"
+    assert actual.to_json(orient="table", date_format="iso", date_unit="ns") == expected.to_json(
+        orient="table", date_format="iso", date_unit="ns"
     )
     pd.testing.assert_frame_equal(source, original, check_exact=True)
+    if kind == "typed":
+        # pandas timezone JSON supports Python datetime microseconds;
+        # preserve those instead of the previous millisecond truncation.
+        assert list(pd.to_datetime(actual["when"], utc=True)) == list(
+            source["when"].dt.floor("us"))
+        old = json.loads(source.to_json(orient="records", date_format="iso"))
+        pd.testing.assert_series_equal(actual["float"], pd.DataFrame(old)["float"])
 
 
 @pytest.mark.parametrize(
@@ -112,7 +119,7 @@ def test_dataframe_feature_inputs_produce_the_same_frozen_json_as_records(scenar
     )
     original = {name: frame.copy(deep=True) for name, frame in native.items()}
     legacy = {
-        name: json.loads(frame.to_json(orient="records", date_format="iso"))
+        name: json.loads(frame.to_json(orient="records", date_format="iso", date_unit="ns"))
         for name, frame in native.items()
     }
     native["as_of"] = legacy["as_of"] = cutoff.isoformat()

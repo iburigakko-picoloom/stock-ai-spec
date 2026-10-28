@@ -5,7 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "android", "public/python"] },
+  { ignores: ["dist", "node_modules", "android", "public/python", "**/.demo-artifacts/**"] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {

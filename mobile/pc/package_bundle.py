@@ -7,13 +7,17 @@ import hashlib
 from pathlib import Path
 
 from mobile.python.model_bundle import ModelBundle, ResearchModelBundle, encoded
+from mobile.python.research_ensemble import SCHEMA as ENSEMBLE_SCHEMA
+from mobile.python.research_ensemble import ResearchEnsembleBundle
 
 from stock_ai.operations.daily import canonical_json, content_id, require_daily_close_label
 from stock_ai.operations.manual_portfolio import strict_json
 
 
 def package(metadata: dict, heads: list[dict], selection: dict) -> tuple[str, dict]:
-    bundle = (ResearchModelBundle.create(**metadata, heads=heads)
+    bundle = (ResearchEnsembleBundle.create(**metadata, components=heads)
+              if metadata.get("schema_version") == ENSEMBLE_SCHEMA else
+              ResearchModelBundle.create(**metadata, heads=heads)
               if metadata.get("schema_version") == "stockai-mobile-research-bundle-v1"
               else ModelBundle.create(**metadata, heads=heads))
     require_daily_close_label(bundle.label_definition)
@@ -23,12 +27,13 @@ def package(metadata: dict, heads: list[dict], selection: dict) -> tuple[str, di
     for head in bundle.heads:
         head.decoded(selection)
     content = encoded(bundle)
-    if isinstance(bundle, ResearchModelBundle):
+    if isinstance(bundle, (ResearchModelBundle, ResearchEnsembleBundle)):
         return content, {
             "sha256": hashlib.sha256(content.encode()).hexdigest(), "bundle_id": bundle.bundle_id,
             "source_evidence_sha256": bundle.source_evidence_sha256,
             "pc_parity_evidence_sha256": None, "device_parity_evidence_sha256": None,
-            "use": "return-only-research", "distribution_review": "pending",
+            "use": "ensemble-research" if isinstance(bundle, ResearchEnsembleBundle)
+            else "return-only-research", "distribution_review": "pending",
         }
     proposal = {
         "sha256": hashlib.sha256(content.encode()).hexdigest(), "bundle_id": bundle.bundle_id,
@@ -55,9 +60,12 @@ def main() -> None:
         if not path.is_absolute():
             path = options.heads.parent / path
         content = path.read_bytes().decode("utf-8")
+        extra = ({"seed": source["seed"], "preprocessing_sha256": content_id(
+            strict_json(content)["preprocessor"])}
+                 if metadata.get("schema_version") == ENSEMBLE_SCHEMA else {})
         heads.append({"horizon": source["horizon"], "task": source["task"],
                       "model_id": source["model_id"], "content": content,
-                      "sha256": hashlib.sha256(content.encode()).hexdigest()})
+                      "sha256": hashlib.sha256(content.encode()).hexdigest(), **extra})
     selection = strict_json(options.selection.read_text(encoding="utf-8"))
     content, proposal = package(metadata, heads, selection.get("feature_selection", selection))
     proposal_path = options.output.with_suffix(".pin-proposal.json")

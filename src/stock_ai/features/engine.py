@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Final, cast
 
@@ -321,7 +321,12 @@ def _compute_symbol_batch(groups: list[pd.DataFrame]) -> pd.DataFrame:
     return result.set_flags(allows_duplicate_labels=metadata.flags["allows_duplicate_labels"])
 
 
-def _latest_symbol_batches(daily: pd.DataFrame) -> pd.DataFrame:
+BatchCache = Callable[[list[str], Callable[[], pd.DataFrame]], pd.DataFrame]
+
+
+def _latest_symbol_batches(
+    daily: pd.DataFrame, batch_cache: BatchCache | None = None,
+) -> pd.DataFrame:
     # Only the final contiguous segment can affect each stock's final row.
     # Indicators use observation offsets, while metadata keeps each stock's
     # own dates. Equal lengths can share column math without aligning dates.
@@ -335,10 +340,12 @@ def _latest_symbol_batches(daily: pd.DataFrame) -> pd.DataFrame:
         nonlocal pending_count
         groups = pending.pop(key)
         pending_count -= len(groups)
-        if len(groups) == 1:
-            outputs.append(_compute_contiguous_symbol(groups[0], latest_only=True).tail(1).copy())
-        else:
-            outputs.append(_compute_symbol_batch(groups))
+        def compute() -> pd.DataFrame:
+            if len(groups) == 1:
+                return _compute_contiguous_symbol(groups[0], latest_only=True).tail(1).copy()
+            return _compute_symbol_batch(groups)
+        symbols = [str(group.symbol.iloc[0]) for group in groups]
+        outputs.append(compute() if batch_cache is None else batch_cache(symbols, compute))
 
     for _, group in daily.groupby("symbol", sort=True):
         group = group.sort_values("trading_date").copy()
@@ -350,7 +357,10 @@ def _latest_symbol_batches(daily: pd.DataFrame) -> pd.DataFrame:
             final_start = np.flatnonzero(sessions.diff().ne(1).to_numpy())[-1]
             group = group.iloc[final_start:].copy()
         if not eligible:
-            outputs.append(_compute_symbol(group, latest_only=True).tail(1).copy())
+            def compute_single(current: pd.DataFrame = group) -> pd.DataFrame:
+                return _compute_symbol(current, latest_only=True).tail(1).copy()
+            outputs.append(compute_single() if batch_cache is None else
+                           batch_cache([str(group.symbol.iloc[0])], compute_single))
             continue
         key = len(group)
         pending.setdefault(key, []).append(group)
@@ -433,6 +443,8 @@ class FeatureEngine:
         financials: pd.DataFrame | None,
         as_of: datetime | pd.Timestamp | None,
         latest_only: bool,
+        batch_cache: BatchCache | None = None,
+        allow_current_session: bool = False,
     ) -> pd.DataFrame:
         _require_columns(daily, DAILY_REQUIRED, "daily market data")
         _require_columns(market_context, MARKET_REQUIRED, "market context data")
@@ -456,9 +468,16 @@ class FeatureEngine:
             if cutoff.tzinfo is None:
                 raise ValueError("as_of must be timezone-aware")
             local_day = cutoff.tz_convert("Asia/Tokyo").tz_localize(None).normalize()
-            safe_daily = safe_daily.loc[safe_daily["trading_date"] < local_day]
-            safe_market = safe_market.loc[safe_market["trading_date"] < local_day]
-            safe_sector = safe_sector.loc[safe_sector["trading_date"] < local_day]
+            if allow_current_session:
+                if cutoff.tz_convert("Asia/Tokyo").hour < 17:
+                    raise ValueError("Current-session features require 17:00 JST")
+                safe_daily = safe_daily.loc[safe_daily["trading_date"] <= local_day]
+                safe_market = safe_market.loc[safe_market["trading_date"] <= local_day]
+                safe_sector = safe_sector.loc[safe_sector["trading_date"] <= local_day]
+            else:
+                safe_daily = safe_daily.loc[safe_daily["trading_date"] < local_day]
+                safe_market = safe_market.loc[safe_market["trading_date"] < local_day]
+                safe_sector = safe_sector.loc[safe_sector["trading_date"] < local_day]
         if safe_daily.duplicated(["symbol", "trading_date"]).any():
             raise ValueError("daily data contains duplicate symbol/trading_date rows")
         if safe_market.duplicated(["trading_date"]).any():
@@ -547,7 +566,7 @@ class FeatureEngine:
             raise ValueError("BLOCKED_BY_DATA_CAPABILITY: sector context coverage is incomplete")
 
         if latest_only:
-            computed = _latest_symbol_batches(safe_daily)
+            computed = _latest_symbol_batches(safe_daily, batch_cache)
         else:
             parts = [_compute_symbol(group) for _, group in safe_daily.groupby("symbol", sort=True)]
             computed = pd.concat(parts, ignore_index=True)
@@ -654,6 +673,8 @@ class FeatureEngine:
         *,
         as_of: datetime | pd.Timestamp,
         financials: pd.DataFrame | None = None,
+        batch_cache: BatchCache | None = None,
+        allow_current_session: bool = False,
     ) -> pd.DataFrame:
         history = self._transform(
             daily,
@@ -662,5 +683,7 @@ class FeatureEngine:
             financials=financials,
             as_of=as_of,
             latest_only=True,
+            batch_cache=batch_cache,
+            allow_current_session=allow_current_session,
         )
         return history.groupby("symbol", as_index=False, sort=True).tail(1).reset_index(drop=True)

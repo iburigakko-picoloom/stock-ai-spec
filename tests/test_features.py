@@ -292,6 +292,23 @@ def test_same_day_bar_is_excluded_at_1130_even_if_timestamp_claims_available() -
     assert features["trading_date"].max() < last_date
 
 
+def test_current_session_features_require_evening_opt_in_and_received_data() -> None:
+    daily, market, sectors, financials = market_fixture(periods=30)
+    last_date = pd.Timestamp(daily["trading_date"].max())
+    evening = last_date.to_pydatetime().replace(hour=17, tzinfo=ZoneInfo("Asia/Tokyo"))
+    for frame in (daily, market, sectors):
+        frame.loc[frame["trading_date"] == last_date, "available_at"] = evening
+    engine = FeatureEngine()
+    with pytest.raises(ValueError, match="17:00 JST"):
+        engine.latest_snapshot(daily, market, sectors, financials=financials,
+                               as_of=evening-timedelta(seconds=1), allow_current_session=True)
+    latest = engine.latest_snapshot(daily, market, sectors, financials=financials,
+                                    as_of=evening, allow_current_session=True)
+    assert latest["trading_date"].max() == last_date
+    prior = engine.latest_snapshot(daily, market, sectors, financials=financials, as_of=evening)
+    assert prior["trading_date"].max() < last_date
+
+
 def test_invalid_or_empty_daily_capability_fails_with_domain_error() -> None:
     daily, market, sectors, financials = market_fixture(periods=30)
     broken = daily.copy()

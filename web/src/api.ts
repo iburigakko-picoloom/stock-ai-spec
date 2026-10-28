@@ -6,30 +6,19 @@ const MANUAL_HEADERS = {
   "X-Stock-AI-Intent": "manual-record",
 };
 
-export class ApiError extends Error {
-  readonly status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
+export { ApiError } from "./apiError";
+import { responseError } from "./apiError";
 
 async function parse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let detail = `API error ${response.status}`;
-    try {
-      const payload = (await response.json()) as { detail?: string };
-      detail = payload.detail || detail;
-    } catch {
-      // The stable status is still useful if a proxy returned a non-JSON page.
-    }
-    throw new ApiError(response.status, detail);
+    let body: unknown = null;
+    try { body = await response.json(); } catch { /* Keep the HTTP status. */ }
+    throw responseError(response.status, body);
   }
   return (await response.json()) as T;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
+async function performRead<T>(path: string): Promise<T> {
   if (isAndroid()) return mobileRequest<T>("GET", path);
   return parse<T>(
     await fetch(path, {
@@ -39,14 +28,28 @@ export async function apiGet<T>(path: string): Promise<T> {
   );
 }
 
+// Share concurrent reads only. A write is a barrier on both start and finish:
+// no caller after a save may reuse an earlier in-flight read.
+let writeEpoch = 0;
+const reads = new Map<string, { epoch: number; promise: Promise<unknown>; callers: number }>();
+export function apiGet<T>(path: string): Promise<T> {
+  const current = reads.get(path);
+  if (current?.epoch === writeEpoch) {
+    current.callers++;
+    return current.promise.then(value => structuredClone(value) as T);
+  }
+  const entry = { epoch: writeEpoch, promise: Promise.resolve() as Promise<unknown>, callers: 1 };
+  entry.promise = performRead<T>(path).finally(() => { if (reads.get(path) === entry) reads.delete(path); });
+  reads.set(path, entry);
+  return entry.promise.then(value => entry.callers === 1 ? value as T : structuredClone(value) as T);
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  if (isAndroid()) return mobileRequest<T>("POST", path, body);
-  return parse<T>(
-    await fetch(path, {
-      method: "POST",
-      headers: MANUAL_HEADERS,
-      body: JSON.stringify(body),
-      cache: "no-store",
-    }),
-  );
+  writeEpoch++;
+  try {
+  if (isAndroid()) return await mobileRequest<T>("POST", path, body);
+  return await parse<T>(await fetch(path, {
+    method: "POST", headers: MANUAL_HEADERS, body: JSON.stringify(body), cache: "no-store",
+  }));
+  } finally { writeEpoch++; }
 }

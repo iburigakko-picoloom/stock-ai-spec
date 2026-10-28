@@ -1,16 +1,43 @@
 import { type ReactNode, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, yen } from "../components";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { ActionBadge, Metric, PageHeader, StatePanel, dateTime, pct, currency as yen } from "../components";
 import { useApiData } from "../hooks";
+import { StockMemo } from "../StockMemo";
+import { ForecastHistory } from "../ForecastHistory";
+import { StockExplanation } from "../StockExplanation";
 import type { StockDetail } from "../types";
-import { CompanyResearchPanel } from "../mobile/CompanyResearchPanel";
+
+type RankingPreview = { symbol: string; companyName?: string; generatedAt: string; return5d: number | null; return20d: number | null; rank20d: number | null };
+
+function checkedRankingPreview(value: unknown, symbol: string): RankingPreview | null {
+  if (!value || typeof value !== "object") return null;
+  const preview = value as Record<string, unknown>;
+  const validNumber = (item: unknown) => item === null || (typeof item === "number" && Number.isFinite(item));
+  if (preview.symbol !== symbol || typeof preview.generatedAt !== "string" || !Number.isFinite(Date.parse(preview.generatedAt)) ||
+      (preview.companyName !== undefined && typeof preview.companyName !== "string") ||
+      !validNumber(preview.return5d) || !validNumber(preview.return20d) || !validNumber(preview.rank20d)) return null;
+  return preview as RankingPreview;
+}
+
+function RankingSnapshotPreview({ preview }: { preview: RankingPreview }) {
+  return <section className="card"><h3 className="section-title">ランキングで選んだ保存予測</h3>
+    <p>{preview.companyName && preview.companyName !== preview.symbol ? `${preview.companyName} (${preview.symbol})` : preview.symbol}</p>
+    <div className="detail-model-list">{[["5日・値予測", pct(preview.return5d)], ["20日・値予測", pct(preview.return20d)], ["20日・ランキング", preview.rank20d?.toFixed(2) ?? "未算出"]].map(([label, value]) => <div className="detail-model-row" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
+    <p className="setting-footnote">{dateTime(preview.generatedAt, true)} 作成 · ランキング表示時の内容・閲覧用</p>
+  </section>;
+}
 
 export function StockDetailPage(): ReactNode {
   const { symbol = "" } = useParams();
-  const { data, error, loading, reload } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
-  const [selectedBucket, setSelectedBucket] = useState("ALL");
-  if (loading) return <StatePanel title="銘柄情報を読み込んでいます" />;
-  if (error || !data) return <StatePanel tone="error" title="銘柄情報を取得できません" detail={error} />;
+  const location = useLocation();
+  const from: unknown = location.state?.from;
+  const backTo = from === "/" || from === "/ranking" || from === "/assets" || (typeof from==="string" && /^\/today\/review(?:\?source=(?:model|chatgpt))?$/.test(from)) || from === "/today/chatgpt" || (typeof from === "string" && /^\/transactions(?:\?[^#]*)?$/.test(from)) ? from : "/today";
+  const { data, error, loading, savedAt } = useApiData<StockDetail>(`/api/v1/stocks/${symbol}`);
+  const [selectedBucket, setSelectedBucket] = useState<string>(location.state?.bucket ?? "ALL");
+  const rankingSnapshotId = from === "/ranking" && typeof location.state?.rankingSnapshotId === "string" && /^[0-9a-f]{64}$/.test(location.state.rankingSnapshotId) ? location.state.rankingSnapshotId : null;
+  const rankingPreview = rankingSnapshotId ? checkedRankingPreview(location.state?.rankingPreview, symbol) : null;
+  const explanationSnapshotId = rankingSnapshotId ?? data?.forecast?.snapshotId;
+  if ((loading && !data) || error || !data) return <div className="page"><Link className="back-link" to={backTo}>← 戻る</Link><PageHeader eyebrow={symbol} title="銘柄詳細" /><StatePanel tone={loading ? "neutral" : "error"} title={loading ? "銘柄情報を読み込んでいます" : "銘柄情報を取得できません"} detail={error} />{rankingPreview && <RankingSnapshotPreview preview={rankingPreview} />}{!loading && <ForecastHistory key={symbol} symbol={symbol} />}{!loading && rankingSnapshotId && <StockExplanation key={`${symbol}:${rankingSnapshotId}`} symbol={symbol} snapshotId={rankingSnapshotId} fromRanking />}<div className="subscreen detail-foot"><Link className="button" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{from:backTo,bucket:selectedBucket}}>この銘柄の取引を記録</Link></div><StockMemo key={symbol} symbol={symbol} /></div>;
 
   const bucketIds = Array.from(new Set([
     ...data.positions.map((item) => item.account_bucket_id),
@@ -22,7 +49,7 @@ export function StockDetailPage(): ReactNode {
   const selectedLines = selectedBucket === "ALL"
     ? data.proposalLines
     : data.proposalLines.filter((item) => item.accountBucketId === selectedBucket);
-  const company = data.proposalLines[0]?.companyName || symbol;
+  const company = data.proposalLines[0]?.companyName || rankingPreview?.companyName || symbol;
   const totalShares = selectedPositions.reduce((sum, item) => sum + item.shares, 0);
   const weightedAverage = totalShares === 0
     ? null
@@ -31,60 +58,41 @@ export function StockDetailPage(): ReactNode {
       0,
     ) / totalShares;
 
-  return (
-    <div className="page">
-      <Link className="back-link" to="/today">← 戻る</Link>
-      <PageHeader eyebrow={symbol} title={company} meta={selectedLines.length === 1 ? yen(selectedLines[0].referencePrice) : undefined} />
-      {bucketIds.length > 1 && <div className="account-tabs" role="tablist">
-        <button role="tab" aria-selected={selectedBucket === "ALL"} className={selectedBucket === "ALL" ? "active" : ""} onClick={() => setSelectedBucket("ALL")}>合計</button>
-        {bucketIds.map((bucketId) => <button role="tab" aria-selected={selectedBucket === bucketId} className={selectedBucket === bucketId ? "active" : ""} onClick={() => setSelectedBucket(bucketId)} key={bucketId}>{bucketId}</button>)}
-      </div>}
-      <section className="section">
-        <div className="section-title"><div><span>ACTUAL POSITION</span><h2>{selectedBucket === "ALL" ? "実保有合計" : `実保有 / ${selectedBucket}`}</h2></div></div>
-        {selectedPositions.length === 0 ? <StatePanel title="未保有" /> : <div className="metric-grid metric-grid--2">
-          <Metric label="現在保有" value={`${totalShares}株`} />
-          <Metric label="加重平均取得" value={yen(weightedAverage)} />
-        </div>}
-      </section>
-      {selectedLines.length === 0 ? <StatePanel title="当日の提案はありません" /> : selectedLines.map((line) => <section className="section" key={line.lineId}>
-        <div className="proposal-focus">
-          <div><span>AI提案 / {line.accountBucketId}</span><ActionBadge action={line.action} /></div>
-          <strong>{line.currentShares}株 → {line.recommendedShares}株</strong>
-          <p>{line.shareDifference === 0 ? "変更なし" : `${line.shareDifference > 0 ? "+" : ""}${line.shareDifference}株`}</p>
-        </div>
-        <div className="reason-columns">
-          <div><strong>主な要因</strong>{line.positiveReasons.length ? <ul>{line.positiveReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : <p>構造化された追加理由はありません。</p>}</div>
-          {line.negativeReasons.length > 0 && <div><strong>注意要因</strong><ul>{line.negativeReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>}
-        </div>
-        <dl className="summary-list">
-          <div><dt>この口座行のコスト</dt><dd>-{yen(line.estimatedTransactionCost)}</dd></div>
-          <div><dt>この口座行の推定税影響</dt><dd>{yen(line.estimatedTaxEffect)}</dd></div>
-          <div><dt>売却時の源泉徴収見込み</dt><dd>{yen(line.estimatedTaxCashWithholding)}</dd></div>
-        </dl>
-      </section>)}
-      {data.proposal && <section className="section counterfactual">
-        <div className="section-title"><div><span>COUNTERFACTUAL</span><h2>現在維持 vs 提案全体</h2></div></div>
-        <dl className="summary-list">
-          <div><dt>現在のまま保有</dt><dd>{yen(data.proposal.holdExpectedValue)}</dd></div>
-          <div><dt>提案ポートフォリオ</dt><dd>{yen(data.proposal.proposedExpectedValue)}</dd></div>
-          <div className="emphasis"><dt>全体の純改善</dt><dd>{yen(data.proposal.netImprovement)}</dd></div>
-        </dl>
-      </section>}
-      {data.forecast && <section className="section numerical-forecast" aria-labelledby="numerical-forecast-title">
-        <div className="section-title"><div><span>NUMERICAL FORECAST</span><h2 id="numerical-forecast-title">数値モデルの予測</h2></div></div>
-        <p className="explain">入力締切 {dateTime(data.forecast.asOf, true)} JST{data.forecast.isStale && "（過去の予測）"}</p>
-        <p className="explain">{data.forecast.labelDefinitionSupported
-          ? "入力に使った株価日の翌営業日終値から、5・20営業日先までの研究予測です。実約定による損益ではありません。"
-          : "この予測の起点は現在のモデル契約に対応していません。新しい判断には使えません。"}</p>
-        <div className="metric-grid metric-grid--2">
-          <Metric label="5営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_5d)} />
-          <Metric label="20営業日の期待リターン" value={pct(data.forecast.prediction.expected_return_20d)} />
-        </div>
-        {data.forecast.mode !== "owner_approved" && <p className="explain">検証用の予測です。採用済みの運用提案として扱いません。</p>}
-        {data.forecast.prediction.large_loss_probability === null && <p className="explain">下振れ・下落確率・確信度は未提供です。リスクがないという意味ではありません。</p>}
-        {data.forecast.blockingReasons.length > 0 && <details className="research-disclosure"><summary>予測の未解決事項</summary><ul>{data.forecast.blockingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></details>}
-      </section>}
-      <CompanyResearchPanel symbol={symbol} forecast={data.forecast ?? null} runs={data.researchRuns ?? []} records={data.chatgptResearch ?? []} onChanged={reload} />
-    </div>
-  );
+  const marketValue=selectedPositions.reduce((sum,item)=>sum+item.shares*Number(item.market_price),0);
+  const prediction=data.forecast?.prediction;
+  return <div className="page stock-detail">
+    <PageHeader title="銘柄詳細" backTo={backTo} />
+    {(loading || savedAt) && <p role="status" className="setting-footnote">{savedAt ? `${dateTime(savedAt,true)}の保存済み表示・閲覧用。` : "前回の表示です・"}更新を確認中…</p>}
+    <div className="screen-detail"><header className="detail-identity"><div className="detail-code">{symbol}</div><h2>{company}</h2><span className="badge">{totalShares ? "保有中" : "未保有"}</span></header><div className="stack">
+    {bucketIds.length>1 && <div className="account-tabs" role="tablist" aria-label="口座の表示"><button role="tab" aria-selected={selectedBucket === "ALL"} className={selectedBucket === "ALL" ? "active" : ""} onClick={()=>setSelectedBucket("ALL")}>合計</button>{bucketIds.map(id=><button role="tab" aria-selected={selectedBucket === id} className={selectedBucket === id ? "active" : ""} key={id} onClick={()=>setSelectedBucket(id)}>{data.accountLabels?.[id] ?? id}</button>)}</div>}
+    <section className="card"><h3 className="section-title">実際の保有{selectedBucket!=="ALL" && ` / ${selectedBucket}`}</h3>
+      <div className="metric-grid metric-grid--2"><Metric label="現在保有" value={`${totalShares}株`} /><Metric label="評価額" value={yen(marketValue)} /></div>
+      <p>加重平均取得 {yen(weightedAverage)}{selectedPositions.length === 1 && ` · 株価 ${yen(selectedPositions[0].market_price)}`}</p>
+      <small>{selectedBucket === "ALL" ? bucketIds.join(" · ") : selectedBucket}</small>
+    </section>
+    {rankingPreview && rankingSnapshotId !== data.forecast?.snapshotId && <RankingSnapshotPreview preview={rankingPreview} />}
+    <section className="card" aria-labelledby="numerical-forecast-title"><h3 className="section-title" id="numerical-forecast-title">数値モデルの予測</h3>{rankingSnapshotId && rankingSnapshotId !== data.forecast?.snapshotId && <p className="setting-footnote">この欄はランキングで選択したものとは別の保存予測です。</p>}<div className="detail-model-list">
+      {([["5日・値予測",pct(prediction?.expected_return_5d),"予測リターン",data.forecast?.ranks?.return5d],["20日・値予測",pct(prediction?.expected_return_20d),"予測リターン",data.forecast?.ranks?.return20d],["20日・ランキング",prediction?.rank_score_20d?.toFixed(2) ?? "未算出","順位スコア",data.forecast?.ranks?.rank20d]] as const).map(([label,value,unit,rank])=><div className="detail-model-row" key={label}><div><span className="label">{label}</span>{rank!=null && <span className="small muted">{rank}位 / {data.forecast?.ranks?.total}銘柄</span>}</div><div><strong className="detail-return">{value}</strong><span className="small muted">{unit}</span></div></div>)}
+      </div><p className="small muted">{data.forecast ? `${dateTime(data.forecast.generatedAt,true)} 作成${data.forecast.isStale ? " · 過去の予測" : ""}` : "予測はまだ保存されていません"}</p>
+      <div className="link-row"><Link className="quiet-link" to="/ranking">予測ランキング</Link>{data.forecast?.mode !== "owner_approved" && <small>研究用・正式採用前</small>}</div>
+    </section>
+    <ForecastHistory key={symbol} symbol={symbol} />
+    {explanationSnapshotId && <StockExplanation key={`${symbol}:${explanationSnapshotId}`} symbol={symbol} snapshotId={explanationSnapshotId} fromRanking={!!rankingSnapshotId} />}
+    <section className="card"><h3 className="section-title">提案と理由</h3>
+      {selectedLines.length===0 ? <p className="setting-footnote">当日の提案はありません。</p> : selectedLines.map(line=><div className="detail-view" key={line.lineId}><div className="link-row"><strong>数値モデル</strong><ActionBadge action={line.action} /></div><small>{line.accountBucketId}</small><p className="detail-qty">{line.currentShares}株 → {line.recommendedShares}株</p>
+        {line.positiveReasons.length ? line.positiveReasons.map(reason=><p key={reason}>{reason}</p>) : <p className="setting-footnote">構造化された追加理由はありません。</p>}
+        {line.negativeReasons.map(reason=><p className="setting-footnote" key={reason}>{reason}</p>)}
+        <p className="setting-footnote">この口座行のコスト {yen(line.estimatedTransactionCost)} · 推定税影響 {yen(line.estimatedTaxEffect)} · 源泉徴収見込み {yen(line.estimatedTaxCashWithholding)}</p>
+      </div>)}
+      <Link className="button ghost" to="/today">全体の提案 ›</Link>
+    </section>
+    <div className="detail-foot"><Link className="button" to={`/today/executions?symbol=${encodeURIComponent(symbol)}`} state={{from:backTo,bucket:selectedBucket}}>この銘柄の取引を記録</Link></div>
+    {(data.chatgptResearch?.length || data.researchRuns?.some(run=>run.record)) ? <Link className="quiet-link" to={`/stocks/${symbol}/research`} state={{from:backTo,bucket:selectedBucket}}>過去の調査履歴</Link> : null}
+    {data.proposal && <Link className="quiet-link" to="/today/details">現在維持・提案全体の計算詳細 ›</Link>}
+    </div></div>
+    <StockMemo key={symbol} symbol={symbol} />
+    {data.forecast && <section className="section"><h2>予測の条件</h2><p className="setting-footnote">入力締切 {dateTime(data.forecast.asOf,true)} JST</p><p className="setting-footnote">{data.forecast.labelDefinitionSupported ? "入力に使った株価日の翌営業日終値から、5・20営業日先までの研究予測です。実約定による損益ではありません。" : "この予測の起点は現在のモデル契約に対応していません。新しい判断には使えません。"}</p>
+      {data.forecast.blockingReasons.length>0 && <ul>{data.forecast.blockingReasons.map(reason=><li key={reason}>{reason}</li>)}</ul>}
+    </section>}
+  </div>;
 }

@@ -1,5 +1,41 @@
 # Daily forward cross-fitting
 
+## Independent prediction population (D216)
+
+D217: the existence of a frozen dataset row is not evidence that the mobile
+250-completed-session requirement was met. Preserve that original population
+and its results. A separately pinned count of the original canonical history
+defines any new predictable subset before inspecting labels. Keep every eligible
+key and its abstention reason. Single-vintage reconstructed clocks remain
+counterfactual research; counting history does not certify historical receipts
+or point-in-time membership. The mobile `predictable_decision_symbols` recipe
+requires its own rule/evidence pins and identical 5/20-day populations. The old
+`decision_symbols` recipe still requires every eligible symbol.
+
+`crossfit_population_panel` is the separate development API for recovered full-fold
+predictions. The original CLI and `daily-forward-crossfit-v1` identities remain
+unchanged. The caller authenticates an independent eligible population, its
+predictable subset and each `PopulationComponent` source. Every component must
+cover exactly the ordered predictable keys: symbol, trading date, decision time,
+horizon, original fold and data snapshot. Missing features remain explicit
+eligible-population abstentions. Missing future labels never remove predictions
+from the within-date ranking population.
+
+The full original OOF date grid supplies the same three forward splits, purge,
+embargo and minimum 20 fitting/calibration dates. Do not apply cross-fitting again
+to just the saved later-half evaluation dates. Fit, calibration and scoring masks
+use mature evaluable labels separately; top 10/20 are selected before the scoring
+mask, and a missing selected label makes that top-return diagnostic incomplete.
+Execution and valuation eligibility are not inferred from these masks.
+
+The receipt pins component order and sources, population/key hashes, all split
+boundaries, recipes, weights, calibration and units. Composition uses Python
+float sequential summation in component order, matching the mobile research
+schema. Optional risk components may be absent. A receipt declares the compared
+and expected component IDs and any missing candidates; it never certifies the
+complete 18-configuration matrix by itself or grants adoption. The authenticated
+real-data runner must establish that matrix separately.
+
 `research crossfit-daily-ensemble` authenticates the frozen dataset, feature selection and all 18 original 5d/20d candidates. It writes new, immutable development diagnostics; it does not finalize a selection, open the holdout, adopt a model or change original predictions.
 
 ```text

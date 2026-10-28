@@ -13,6 +13,36 @@ CUTOFF = datetime.fromisoformat("2026-02-03T11:30:00+09:00")
 RECEIPT = "2026-02-03T01:00:00+00:00"
 
 
+def test_reference_topix_uses_closed_master_and_never_creates_daily_list(acquired):
+    from mobile.python import preselection
+
+    path, days = acquired
+    preselection.policy(path, preselection.MODE)
+    revised = daily(days[-1])
+    revised["received_at"] = "2026-02-03T10:00:00+00:00"
+    for row in revised["datasets"]["security_master"]:
+        row.update(ProdCat="011", ScaleCat="TOPIX Mid400")
+    revised["datasets"]["security_master"][-1]["ScaleCat"] = "TOPIX Small"
+    market.ingest(path, revised)
+    now = datetime.fromisoformat("2026-02-03T23:00:00+09:00")
+    selected = universe.select(path, now, ("1302",), reference_only=True)
+    assert not selected["blocking_reasons"]
+    assert selected["membership_mode"] == "last_closed_reference"
+    assert selected["membership_verified"] is False
+    assert selected["latest_source_date"] == str(days[-1])
+    assert selected["held_only"] == ["1302"]
+    assert len(selected["new_candidates"]) == 302
+    assert "1302" in selected["decision_symbols"]
+    early = universe.select(path, CUTOFF, reference_only=True)
+    assert early["blocking_reasons"] == ["topix500_scale_categories_unavailable"]
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT COUNT(*) FROM mobile_preselection_lists").fetchone()[0] == 0
+        db.execute("UPDATE market_batches SET payload_hash=? WHERE dataset='security_master'",
+                   ("0" * 64,))
+    with pytest.raises(ValueError, match="source changed"):
+        universe.select(path, now, reference_only=True)
+
+
 def daily(day, count=303):
     values = {name.value: [] for name in DatasetName}
     for index in range(count):

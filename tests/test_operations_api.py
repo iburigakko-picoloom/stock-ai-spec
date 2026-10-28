@@ -32,6 +32,32 @@ from tests.conftest import (
 runner = CliRunner()
 
 
+@pytest.mark.parametrize("future", [False, True])
+def test_portfolio_base_conflict_code_survives_api_mapping(tmp_path, monkeypatch, future):
+    from stock_ai.operations import store as implementation
+
+    client, _ = _client(tmp_path)
+    store = client.app.state.store
+    first = store.latest_portfolio()
+    assert first is not None
+    if future:
+        monkeypatch.setattr(
+            implementation, "_now_utc", lambda: first.as_of - timedelta(microseconds=1),
+        )
+        code = "PORTFOLIO_BASE_IN_FUTURE"
+    else:
+        store.append_portfolio(first.model_copy(update={"portfolio_id": "tied"}), created_at=AS_OF)
+        code = "PORTFOLIO_BASE_AMBIGUOUS"
+    response = client.post("/api/v1/portfolio/apply-executions", json={
+        "nextAsOf": (AS_OF + timedelta(days=1)).isoformat(), "nextPortfolioId": "must-not-write",
+    }, headers={"X-Stock-AI-Intent": "manual-record"})
+    assert response.status_code == 409
+    assert response.json()["code"] == code
+    assert client.get("/api/v1/home").json()["code"] == code
+    with pytest.raises(KeyError):
+        store.portfolio("must-not-write")
+
+
 def _client(tmp_path: Path) -> tuple[TestClient, PortfolioProposal]:
     database = tmp_path / "operations.sqlite3"
     store = OperationalStore(database)
@@ -60,6 +86,21 @@ def _client(tmp_path: Path) -> tuple[TestClient, PortfolioProposal]:
         )
     )
     return TestClient(create_app(database), base_url="http://127.0.0.1"), proposal
+
+
+def test_history_routes_are_read_only_and_authenticate_ledger_content(tmp_path: Path) -> None:
+    client, _ = _client(tmp_path)
+    store = client.app.state.store
+    original = store.latest_portfolio()
+    response = client.get("/api/v1/portfolio/history")
+    assert response.status_code == 200
+    assert response.json()[0]["portfolio_id"] == original.portfolio_id
+    assert client.get("/api/v1/executions").json() == {"records": [], "appliedIds": []}
+    assert store.latest_portfolio() == original
+    with store._connect() as connection:
+        connection.execute("UPDATE portfolio_states SET content_hash = ?", ("0" * 64,))
+        connection.commit()
+    assert client.get("/api/v1/portfolio/history").status_code == 503
 
 
 def test_today_and_home_keep_proposal_and_actual_portfolio_separate(tmp_path: Path) -> None:
@@ -507,7 +548,7 @@ def test_fixture_settings_are_bound_to_the_archived_decision_policy(tmp_path: Pa
     database = tmp_path / "settings.sqlite3"
     store = OperationalStore(database)
     jst = ZoneInfo("Asia/Tokyo")
-    as_of = datetime.now(jst).replace(hour=11, minute=30, second=0, microsecond=0)
+    as_of = datetime.now(jst).replace(microsecond=0) - timedelta(seconds=1)
     proposal_id = bootstrap_goal5_fixture(store, as_of=as_of)
 
     snapshot = store.decision_policy_snapshot(proposal_id)

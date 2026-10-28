@@ -9,8 +9,11 @@ on:
       - 'mobile/**'
       - 'src/stock_ai/**'
       - 'tests/test_mobile*.py'
+      - 'tests/test_api_integrity_guard.py'
+      - 'tests/test_reconciliation_guards.py'
       - 'tests/test_android_lifecycle_controller.py'
       - 'tests/test_android_history_check.py'
+      - 'tests/test_android_record_fixtures.py'
       - 'tests/test_android_upgrade.py'
       - 'tests/test_cost_tax.py'
       - 'tests/test_tax_acquisition.py'
@@ -21,15 +24,28 @@ on:
       - 'tests/test_assumed_market.py'
       - 'tests/test_daily_instruments.py'
       - 'tests/test_research_funding.py'
+      - 'tests/test_research_comparison.py'
       - 'tests/test_market_funding.py'
       - 'tests/test_daily_market.py'
       - 'tests/test_research_selection.py'
       - 'tests/test_seed_stable_selection.py'
+      - 'tests/test_return_error_metrics.py'
+      - 'tests/test_holdout_prediction_population.py'
+      - 'tests/test_oof_population_recovery.py'
+      - 'tests/test_daily_ensemble_population.py'
+      - 'tests/test_holdout_frozen_composition.py'
+      - 'tests/test_final_strategy.py'
+      - 'tests/test_ensemble_prediction_snapshot.py'
+      - 'tests/test_nav_share_exchange.py'
+      - 'tests/test_nav_posthoc_accounting.py'
+      - 'tests/test_locked_holdout.py'
       - 'tests/test_research_workflow.py'
       - 'tests/test_production_research.py'
       - 'tests/test_features.py'
       - 'tests/test_indicators.py'
       - 'scripts/*mobile*.py'
+      - 'scripts/check_mobile_ui_runtime.mjs'
+      - 'scripts/generate_research_ensemble_golden.py'
       - 'scripts/android_*.py'
       - 'scripts/sqlite_evidence.py'
       - 'scripts/fixtures/**'
@@ -42,8 +58,11 @@ on:
       - 'mobile/**'
       - 'src/stock_ai/**'
       - 'tests/test_mobile*.py'
+      - 'tests/test_api_integrity_guard.py'
+      - 'tests/test_reconciliation_guards.py'
       - 'tests/test_android_lifecycle_controller.py'
       - 'tests/test_android_history_check.py'
+      - 'tests/test_android_record_fixtures.py'
       - 'tests/test_android_upgrade.py'
       - 'tests/test_cost_tax.py'
       - 'tests/test_tax_acquisition.py'
@@ -54,15 +73,28 @@ on:
       - 'tests/test_assumed_market.py'
       - 'tests/test_daily_instruments.py'
       - 'tests/test_research_funding.py'
+      - 'tests/test_research_comparison.py'
       - 'tests/test_market_funding.py'
       - 'tests/test_daily_market.py'
       - 'tests/test_research_selection.py'
       - 'tests/test_seed_stable_selection.py'
+      - 'tests/test_return_error_metrics.py'
+      - 'tests/test_holdout_prediction_population.py'
+      - 'tests/test_oof_population_recovery.py'
+      - 'tests/test_daily_ensemble_population.py'
+      - 'tests/test_holdout_frozen_composition.py'
+      - 'tests/test_final_strategy.py'
+      - 'tests/test_ensemble_prediction_snapshot.py'
+      - 'tests/test_nav_share_exchange.py'
+      - 'tests/test_nav_posthoc_accounting.py'
+      - 'tests/test_locked_holdout.py'
       - 'tests/test_research_workflow.py'
       - 'tests/test_production_research.py'
       - 'tests/test_features.py'
       - 'tests/test_indicators.py'
       - 'scripts/*mobile*.py'
+      - 'scripts/check_mobile_ui_runtime.mjs'
+      - 'scripts/generate_research_ensemble_golden.py'
       - 'scripts/android_*.py'
       - 'scripts/sqlite_evidence.py'
       - 'scripts/fixtures/**'
@@ -75,6 +107,14 @@ on:
         type: choice
         options: [screen-wake-and-scheduler, unforced]
         default: screen-wake-and-scheduler
+      upgrade_diagnostics_only:
+        description: 'Run only the synthetic Android upgrade investigation; never release'
+        type: boolean
+        default: false
+      record_diagnostics_only:
+        description: 'Run only synthetic Android record and saved-view checks; never release'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -85,6 +125,7 @@ concurrency:
 
 jobs:
   verify:
+    if: ${{ !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only }}
     runs-on: ubuntu-24.04
     # Budget the complete serial sequence: observed pre-feature work is ~39m.
     # Keep the independent 15m capacity/12m feature and app 600s/RAM guards.
@@ -116,14 +157,18 @@ jobs:
           uv run ruff check .
           uv run mypy src
           uv run mypy src --platform win32
+          uv run python -m pytest tests/test_mobile_preselection.py tests/test_mobile_input_cache.py -q --basetemp=.demo-artifacts/pytest-preselection-ci
           uv run python -m pytest tests/test_chatgpt_manual.py tests/test_mobile_manual_chatgpt.py tests/test_mobile_research_bundle.py tests/test_candidate_registry.py tests/test_fixed_rule.py tests/test_production_research.py::test_daily_label_metadata_matches_actual_production_next_session_target -q --basetemp=.demo-artifacts/pytest-daily-integration-ci
-          uv run python -m pytest tests/test_research_selection.py tests/test_seed_stable_selection.py -q --basetemp=.demo-artifacts/pytest-seed-selection-ci
-          uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py tests/test_android_upgrade.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
+          uv run python -m pytest tests/test_research_selection.py tests/test_seed_stable_selection.py tests/test_return_error_metrics.py -q --basetemp=.demo-artifacts/pytest-seed-selection-ci
+          uv run python -m pytest tests/test_android_lifecycle_controller.py tests/test_android_history_check.py tests/test_android_record_fixtures.py tests/test_android_upgrade.py -q --basetemp=.demo-artifacts/pytest-lifecycle-controller-ci
           uv run python -m pytest tests/test_dividends.py tests/test_market_nav.py tests/test_assumed_market.py tests/test_daily_nav.py tests/test_daily_strategy.py -q --basetemp=.demo-artifacts/pytest-market-nav-ci
           uv run python -m pytest tests/test_daily_market.py tests/test_daily_instruments.py -q --basetemp=.demo-artifacts/pytest-instrument-rules-ci
           uv run python -m pytest tests/test_research_funding.py tests/test_market_funding.py -q --basetemp=.demo-artifacts/pytest-funding-ci
-          uv run python -m pytest tests/test_mobile_frozen_export.py tests/test_advanced_research.py tests/test_locked_holdout.py -q --basetemp=.demo-artifacts/pytest-frozen-export-ci
+          uv run python -m pytest tests/test_research_comparison.py tests/test_mobile_forward_evidence.py tests/test_mobile_forward_protocol.py tests/test_mobile_holding_names.py tests/test_mobile_rankings.py -q --basetemp=.demo-artifacts/pytest-forward-evidence-ci
+          uv run python -m pytest tests/test_mobile_frozen_export.py tests/test_advanced_research.py tests/test_locked_holdout.py tests/test_holdout_prediction_population.py -q --basetemp=.demo-artifacts/pytest-frozen-export-ci
+          uv run python -m pytest tests/test_oof_population_recovery.py tests/test_daily_ensemble_population.py tests/test_holdout_frozen_composition.py tests/test_mobile_research_ensemble.py tests/test_mobile_ensemble_forecasts.py tests/test_mobile_predictable_rank.py tests/test_ensemble_prediction_snapshot.py tests/test_final_strategy.py tests/test_nav_share_exchange.py tests/test_nav_posthoc_accounting.py -q --basetemp=.demo-artifacts/pytest-completion-ci
           uv run python -m pytest tests/test_cost_tax.py tests/test_tax_acquisition.py -q --basetemp=.demo-artifacts/pytest-cost-tax-ci
+          uv run python -m pytest tests/test_api_integrity_guard.py tests/test_reconciliation_guards.py -q --basetemp=.demo-artifacts/pytest-ui-integrity-ci
           uv run python -m pytest tests/test_mobile_runtime.py tests/test_mobile_personal.py tests/test_mobile_models.py tests/test_mobile_bundles.py tests/test_mobile_forecasts.py tests/test_mobile_decisions.py tests/test_mobile_research.py tests/test_mobile_market.py tests/test_mobile_market_codec.py tests/test_mobile_feature_source.py tests/test_mobile_features.py tests/test_mobile_universe.py tests/test_mobile_membership.py tests/test_mobile_release.py tests/test_bounded_decision.py tests/test_decision_engine.py tests/test_domain.py tests/test_daily_contracts.py tests/test_personal_comparison.py tests/test_production_research.py tests/test_features.py tests/test_indicators.py tests/test_chatgpt_research.py tests/test_research_workflow.py tests/test_operations_store.py tests/test_operations_api.py -q --basetemp=.demo-artifacts/pytest-mobile-ci
           uv run python -m pytest tests/test_research_checkpoint.py::test_fold_checkpoint_is_atomic_authenticated_and_read_only_status tests/test_locked_holdout.py::test_locked_holdout_resumes_components_and_never_refits_successes tests/test_research_memory.py::test_fit_guard_blocks_before_model_and_records_actual_headroom tests/test_research_memory.py::test_low_headroom_never_calls_fit -q --basetemp=.demo-artifacts/pytest-platform-ci
       - name: Prepare offline interpreter and PC reference vectors
@@ -131,7 +176,9 @@ jobs:
           PYTHONPATH: src
         run: |
           uv run python scripts/prepare_mobile.py --download
+          uv run python -m scripts.generate_research_ensemble_golden
           uv run python -m scripts.generate_mobile_golden
+          node scripts/check_mobile_ui_runtime.mjs
       - name: React and TypeScript checks
         working-directory: web
         run: |
@@ -141,8 +188,11 @@ jobs:
           npm run build
           npx playwright install --with-deps chromium
           npx playwright test --config playwright.mobile.config.ts
+          npx playwright test --config playwright.offline.config.ts
           npx playwright test --config playwright.compute.config.ts
           npx playwright test e2e/company-research.spec.ts e2e/tax-cash.spec.ts e2e/execution-recovery.spec.ts
+          npx playwright test e2e/reference-layout.spec.ts
+          npx playwright test e2e/research-ensemble.spec.ts
       - name: Validate package contents
         run: |
           uv run python scripts/android_source_audit.py
@@ -194,6 +244,9 @@ jobs:
     outputs:
       native_apks_ready: ${{ steps.native_apks.outcome }}
     steps:
+      - name: Reject conflicting diagnostic modes
+        if: ${{ inputs.upgrade_diagnostics_only && inputs.record_diagnostics_only }}
+        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -247,6 +300,11 @@ jobs:
           python scripts/prepare_mobile.py --download
           npm run build --prefix web
           python scripts/android_package_audit.py web/dist
+      - name: Generate synthetic record fixtures for Android tests
+        run: |
+          python -m pip install uv==0.10.0
+          uv sync --locked --all-groups
+          uv run python -m scripts.android_record_fixtures --output web/android/app/src/androidTest/assets
       - name: Android compiler, backup crypto tests and lint
         working-directory: web
         run: |
@@ -264,9 +322,14 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - name: Android persistence tests
+        if: ${{ !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only }}
         id: native_tests
         working-directory: web/android
-        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest,jp.stockai.app.LegacyUpgradeSeedTest,jp.stockai.app.UpgradeCompatibilityTest
+        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=jp.stockai.app.DailyLifecycleTest,jp.stockai.app.FullHistoryCapacityTest,jp.stockai.app.LegacyUpgradeSeedTest,jp.stockai.app.UpgradeCompatibilityTest,jp.stockai.app.ResearchEnsembleComputeTest
+      - name: Synthetic record and saved-view diagnostics
+        if: ${{ inputs.record_diagnostics_only && !inputs.upgrade_diagnostics_only }}
+        working-directory: web/android
+        run: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=jp.stockai.app.NativeRecordReaderTest,jp.stockai.app.SavedReadViewsTest,jp.stockai.app.LocalComputeOwnerTest,jp.stockai.app.SavedViewSchedulingTest
       - name: Native encrypted store capacity evidence
         if: always() && (steps.native_tests.outcome == 'success' || steps.native_tests.outcome == 'failure')
         run: |
@@ -284,6 +347,7 @@ jobs:
           (folder / 'report.json').write_text(json.dumps({'events': rows, 'latest': rows[-1]}, indent=2))
           PY
       - name: Real worker recovery and OS dispatch evidence
+        if: ${{ !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only }}
         timeout-minutes: 20
         env:
           LIFECYCLE_DELIVERY: ${{ inputs.lifecycle_delivery || 'screen-wake-and-scheduler' }}
@@ -294,6 +358,7 @@ jobs:
             *) exit 2 ;;
           esac
       - name: Build last published source for upgrade acceptance
+        if: ${{ !inputs.record_diagnostics_only }}
         timeout-minutes: 10
         run: |
           set -euo pipefail
@@ -310,6 +375,7 @@ jobs:
           chmod +x gradlew
           STOCKAI_VERSION_CODE=10012 ./gradlew --no-daemon :app:assembleDebug
       - name: Preserve data and keystore across actual same-signature APK upgrade
+        if: ${{ !inputs.record_diagnostics_only }}
         timeout-minutes: 10
         run: python -m scripts.android_upgrade_check --base-apk .demo-artifacts/android-upgrade-base/web/android/app/build/outputs/apk/debug/app-debug.apk
       - name: Android diagnostics
@@ -334,13 +400,14 @@ jobs:
             .demo-artifacts/android-upgrade/*.txt
           if-no-files-found: ignore
           retention-days: 3
+          include-hidden-files: true
       - name: Stop emulator
         if: always()
         run: |
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
   android-history:
-    if: ${{ always() && !cancelled() && needs.android.outputs.native_apks_ready == 'success' }}
+    if: ${{ always() && !cancelled() && !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only && needs.android.outputs.native_apks_ready == 'success' }}
     needs: [verify, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -403,6 +470,13 @@ jobs:
         env:
           PYTHONPATH: src
         run: uv run python -m scripts.android_history_check --fixture .demo-artifacts/native-history-input --apks .demo-artifacts/native-history-apks --output .demo-artifacts/android-history
+      - name: PC and native research ensemble parity
+        timeout-minutes: 12
+        env:
+          PYTHONPATH: src
+        run: |
+          uv run python -m scripts.generate_research_ensemble_golden
+          uv run python -m scripts.android_research_ensemble_check --fixture .demo-artifacts/android/research-ensemble-golden-v2.json --apks .demo-artifacts/native-history-apks --output .demo-artifacts/android-research-ensemble
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -413,6 +487,9 @@ jobs:
             .demo-artifacts/android-history/events.txt
             .demo-artifacts/android-history/capacity-stack.txt
             .demo-artifacts/android-history/renderer-memory.txt
+            .demo-artifacts/android-research-ensemble/report.json
+            .demo-artifacts/android-research-ensemble/instrumentation.txt
+            .demo-artifacts/android-research-ensemble/events.txt
           if-no-files-found: ignore
           retention-days: 3
       - name: Stop emulator
@@ -421,7 +498,7 @@ jobs:
           "$ANDROID_HOME/platform-tools/adb" emu kill || true
 
   release:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !inputs.upgrade_diagnostics_only && !inputs.record_diagnostics_only
     needs: [verify, android, android-history]
     runs-on: ubuntu-24.04
     timeout-minutes: 30

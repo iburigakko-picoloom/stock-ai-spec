@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 
-/** Activity-independent host. Only immutable APK resources can enter this WebView. */
+/** Activity-independent host with APK resources and request-fenced checkpoint reads. */
 final class ComputeHost {
     static final String ORIGIN = "https://compute.stockai.local";
     static final long TIMEOUT_SECONDS = 600;
@@ -36,12 +36,18 @@ final class ComputeHost {
     private LocalStateStore.PendingWrite outgoing;
     private long expectedGeneration;
     private boolean stateExpected;
-    private String transferPhase = "idle";
+    private boolean optimizedStartup;
+    private boolean deferredStartup;
+    private volatile String transferPhase = "idle";
     private volatile long requestId;
     private volatile boolean closed;
     private volatile boolean assetUnavailable;
     private final java.util.concurrent.atomic.AtomicInteger interpreterAssets = new java.util.concurrent.atomic.AtomicInteger();
     private WebView view;
+    AnalysisCheckpoints checkpoints;
+    String checkpointInput;
+    private StringBuilder checkpointOutput;
+    private int checkpointLength;
 
     ComputeHost(Context context) { this.context = context.getApplicationContext(); }
 
@@ -59,6 +65,18 @@ final class ComputeHost {
         String path = uri.getPath();
         if (path == null || !path.startsWith("/") || path.contains("\\") || path.contains("\u0000")) return denied();
         for (String part : path.split("/", -1)) if (part.equals(".") || part.equals("..")) return denied();
+        if (path.startsWith("/analysis-checkpoint/")) {
+            synchronized (transferLock) {
+                String[] parts = path.split("/");
+                if (parts.length != 4 || uri.getQuery() != null || closed || pending == null || pending.isDone()
+                        || !Long.toString(requestId).equals(parts[2]) || checkpoints == null) return denied();
+                try {
+                    byte[] value = checkpoints.read(parts[3]).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                    return new WebResourceResponse("text/plain", "UTF-8", 200, "OK",
+                        Map.of("Cache-Control", "no-store", "X-Content-Type-Options", "nosniff"), new ByteArrayInputStream(value));
+                } catch (Exception ignored) { return denied(); }
+            }
+        }
         int bit = path.equals("/python/pyodide.mjs") ? 1 : path.equals("/python/pyodide.asm.js") ? 2
             : path.equals("/python/pyodide.asm.wasm") ? 4 : path.equals("/python/pyodide-lock.json") ? 8 : 0;
         interpreterAssets.getAndUpdate(value -> value | bit);
@@ -107,12 +125,11 @@ final class ComputeHost {
                         if (request.isForMainFrame()) ready.completeExceptionally(new IllegalStateException("COMPUTE_HOST_UNAVAILABLE"));
                     }
                     @Override public boolean onRenderProcessGone(WebView source, android.webkit.RenderProcessGoneDetail detail) {
-                        synchronized (transferLock) {
-                            IllegalStateException failure = new IllegalStateException(
-                                "COMPUTE_RENDERER_" + (detail.didCrash() ? "CRASHED" : "KILLED") + "_STAGE_" + transferPhase);
-                            ready.completeExceptionally(failure);
-                            if (pending != null) pending.completeExceptionally(failure);
-                        }
+                        IllegalStateException failure = new IllegalStateException(
+                            "COMPUTE_RENDERER_" + (detail.didCrash() ? "CRASHED" : "KILLED") + "_STAGE_" + transferPhase);
+                        ready.completeExceptionally(failure);
+                        CompletableFuture<JSONObject> response = pending;
+                        if (response != null) response.completeExceptionally(failure);
                         ComputeHost.this.close(); return true;
                     }
                 });
@@ -131,7 +148,8 @@ final class ComputeHost {
 
     Reply request(JSONObject command, LocalStateStore.ReadLease source, long generation) throws Exception {
         if (closed) throw new IllegalStateException("COMPUTE_HOST_CLOSED");
-        if (command.has("state") || ("initialize".equals(command.optString("command")) != (source != null)))
+        boolean initialization = command.optString("command").matches("initialize|initialize_operations");
+        if (command.has("state") || (initialization != (source != null)))
             throw new IllegalArgumentException("STATE_TRANSFER_REQUIRED");
         long identity;
         CompletableFuture<JSONObject> response = new CompletableFuture<>();
@@ -140,10 +158,13 @@ final class ComputeHost {
             identity = ++requestId;
             pending = response; incoming = source; expectedGeneration = generation;
             transferPhase = "dispatch";
-            stateExpected = source != null || "POST".equals(command.optString("method"));
+            stateExpected = source != null || LocalComputeOwner.requiresPersistence(command.optString("method"), command.optString("path"));
+            optimizedStartup = initialization && command.optBoolean("optimized_startup");
+            deferredStartup = optimizedStartup && command.optBoolean("defer_initialize");
         }
         try {
             command.put("id", identity);
+            if (checkpointInput != null) command.put("checkpoint_length", checkpointInput.length());
             if (source != null) command.put("state_length", source.length);
             String script = "window.stockAICompute(" + command + ")";
             main.post(() -> {
@@ -162,6 +183,7 @@ final class ComputeHost {
                     pending = null;
                     if (incoming != null) incoming.close(); incoming = null;
                     if (outgoing != null) outgoing.close(); outgoing = null;
+                    checkpointInput = null; checkpointOutput = null;
                 }
             }
         }
@@ -170,16 +192,49 @@ final class ComputeHost {
     void close() {
         closed = true;
         ready.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // Renderer callbacks run on main; transfer cleanup can wait on disk/AES.
+            CompletableFuture.runAsync(this::close);
+            return;
+        }
         synchronized (transferLock) {
             CompletableFuture<JSONObject> response = pending;
             if (response != null) response.completeExceptionally(new IllegalStateException("COMPUTE_HOST_CLOSED"));
             if (incoming != null) incoming.close(); incoming = null;
             if (outgoing != null) outgoing.close(); outgoing = null;
+            checkpointInput = null; checkpointOutput = null;
         }
         main.post(() -> { if (view != null) { view.removeJavascriptInterface("StockAICompute"); view.destroy(); view = null; } });
     }
 
     final class Bridge {
+        @JavascriptInterface public String checkpointChunk(String identity, int offset) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpointInput == null || offset < 0 || offset >= checkpointInput.length()) return null;
+                return checkpointInput.substring(offset, Math.min(checkpointInput.length(), offset + AnalysisCheckpoints.CHUNK));
+            }
+        }
+        @JavascriptInterface public boolean beginCheckpoint(String identity, int length) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpoints == null || checkpointOutput != null || length < 1 || length > AnalysisCheckpoints.LIMIT + 4096) return false;
+                checkpointLength = length; checkpointOutput = new StringBuilder(); return true;
+            }
+        }
+        @JavascriptInterface public boolean appendCheckpoint(String identity, int offset, String value) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpointOutput == null || value == null || offset != checkpointOutput.length()
+                        || value.length() > AnalysisCheckpoints.CHUNK || value.length() == 0
+                        || offset + value.length() > checkpointLength) return false;
+                checkpointOutput.append(value); return true;
+            }
+        }
+        @JavascriptInterface public boolean commitCheckpoint(String identity) {
+            synchronized (transferLock) {
+                if (!active(identity) || checkpoints == null || checkpointOutput == null || checkpointOutput.length() != checkpointLength) return false;
+                try { checkpoints.write(new JSONObject(checkpointOutput.toString())); checkpointOutput = null; return true; }
+                catch (Exception error) { checkpointOutput = null; transferFailed(error); return false; }
+            }
+        }
         private boolean active(String identity) {
             return !closed && pending != null && !pending.isDone() && Long.toString(requestId).equals(identity);
         }
@@ -192,6 +247,13 @@ final class ComputeHost {
                 if (!active(identity) || phase == null
                         || !phase.matches("reading-input|posting-input|decoding-input|interpreter|packages|archive|state|request|export|export-archive|export-chunks|staging-output")) return;
                 transferPhase = phase;
+                if (checkpoints != null && phase.matches("export|export-archive|export-chunks|staging-output")) {
+                    try { checkpoints.phase("saving"); }
+                    catch (Exception error) { transferFailed(error); return; }
+                }
+                // Allowlisted stage only: no request bodies, provider URLs,
+                // credentials, holdings, or exception messages in release logs.
+                android.util.Log.i("StockAIComputeTiming", "request=" + requestId + " phase=" + phase);
                 if ((context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                     android.app.ActivityManager.MemoryInfo memory = new android.app.ActivityManager.MemoryInfo();
                     ((android.app.ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
@@ -250,12 +312,21 @@ final class ComputeHost {
                 JSONObject value = new JSONObject(payload);
                 if (value.has("error")) {
                     String code = value.optString("code");
-                    if (!code.matches("(interpreter|packages|archive|state|request)_(wasm|type|python|other)|worker_js")) code = "unknown";
+                    if (!code.matches("(interpreter|packages|archive|state|request)_(wasm|type|python|other)|worker_js|checkpoint_pause")) code = "unknown";
                     response.completeExceptionally(new IllegalStateException("COMPUTE_" + code + "_ASSETMASK_" + interpreterAssets.get() + (assetUnavailable ? "_APK_ASSET_UNAVAILABLE" : "")));
                     return;
                 }
                 if (value.getLong("id") != requestId || (incoming != null && !incoming.finished())) throw new SecurityException();
-                if (stateExpected) {
+                if (optimizedStartup) {
+                    String mode = value.getJSONObject("result").getString("persistence");
+                    if (deferredStartup ? !mode.equals("deferred") : !mode.matches("none|operations|full"))
+                        throw new SecurityException();
+                    boolean saves = mode.equals("operations") || mode.equals("full");
+                    if (saves) {
+                        if (!Boolean.TRUE.equals(value.opt("state")) || outgoing == null) throw new SecurityException();
+                        outgoing.seal();
+                    } else if (!value.has("state") || !value.isNull("state") || outgoing != null) throw new SecurityException();
+                } else if (stateExpected) {
                     if (!Boolean.TRUE.equals(value.opt("state")) || outgoing == null) throw new SecurityException();
                     outgoing.seal();
                 } else if (!value.has("state") || !value.isNull("state") || outgoing != null) throw new SecurityException();

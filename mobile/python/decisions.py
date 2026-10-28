@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from stock_ai.operations.store import OperationalConflictError
 from . import decision_market, forecasts, models, personal
 from .market import receipt_time
 from .model_bundle import ResearchModelBundle
+from .research_ensemble import ResearchEnsembleBundle
 from .storage import connect
 
 
@@ -198,38 +200,79 @@ def _publish(path, store, value, now=None):
     return {**value, "phase": "published"}
 
 
-def reconcile(path: Path, store) -> None:
+def reconcile(path: Path, store, *, integrity_guard=None) -> None:
+    if integrity_guard is not None:
+        # A preexisting proof covers every execution. Refresh it only before
+        # taking the reusable snapshot, never during reconciliation.
+        integrity_guard.verify()
+        if not integrity_guard.proof_is_current():
+            raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
+    actual = None
+    linked_cache = ({key: OrderedDict() for key in ("ledger", "manual", "forecast")}
+                    if integrity_guard is not None else None)
     with connect(path) as db:
         rows = db.execute("SELECT run_id,scope_hash,payload,content_hash,phase "
                           "FROM mobile_decision_runs ORDER BY sequence").fetchall()
         for row in rows:
             value = _checked(row)
-            _linked_inputs(store, value)
+            if integrity_guard is not None and value["frozen_inputs"] is not None:
+                if not integrity_guard.proof_is_current():
+                    raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
+                if actual is None:
+                    actual = {x.execution_id: x for x in store.executions()}
+                if not integrity_guard.proof_is_current():
+                    raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
+            _linked_inputs(store, value, actual=actual, cache=linked_cache)
             if value["phase"] == "published" and not _published_in_store(store, value):
                 raise ValueError("Published decision archive missing")
             if value["phase"] == "computed" and _published_in_store(store, value):
                 db.execute("UPDATE mobile_decision_runs SET phase='published' WHERE run_id=?",
                            (value["run_id"],))
+        if integrity_guard is not None and not integrity_guard.proof_is_current():
+            raise OperationalConflictError("判断記録の確認中にデータが更新されました。")
 
 
-def _linked_inputs(store, value):
+def _cached_linked(cache, kind, identity, read):
+    if cache is None:
+        return read()
+    values = cache[kind]
+    if identity in values:
+        values.move_to_end(identity)
+        return values[identity]
+    result = read()
+    values[identity] = result
+    if len(values) > 8:
+        values.popitem(last=False)
+    return result
+
+
+def _linked_inputs(store, value, *, actual=None, cache=None):
     frozen = value["frozen_inputs"]
     if frozen is None:
         return
     refs = value["scope"]["personal_refs"]
-    if (store.portfolio(refs["ledger_portfolio_id"])
+    ledger_id = refs["ledger_portfolio_id"]
+    if (_cached_linked(cache, "ledger", ledger_id, lambda: store.portfolio(ledger_id))
             != PortfolioState.model_validate(frozen["ledger"])):
         raise ValueError("Frozen ledger differs from original")
-    with connect(store.path) as db:
-        row = db.execute("SELECT content_hash FROM manual_portfolio_imports WHERE revision_id=?",
-                         (refs["manual_revision_id"],)).fetchone()
-    if row is None or row[0] != content_id(frozen["manual"]):
+    def manual_hash():
+        with connect(store.path) as db:
+            row = db.execute(
+                "SELECT content_hash FROM manual_portfolio_imports WHERE revision_id=?",
+                (refs["manual_revision_id"],),
+            ).fetchone()
+        return None if row is None else row[0]
+    original_hash = _cached_linked(cache, "manual", refs["manual_revision_id"], manual_hash)
+    if original_hash is None or original_hash != content_id(frozen["manual"]):
         raise ValueError("Frozen manual input differs from original")
     if frozen["forecast"] is not None:
         snapshot = PredictionSnapshot.model_validate(frozen["forecast"])
-        if store.prediction_snapshot(snapshot.snapshot_id) != snapshot:
+        original = _cached_linked(cache, "forecast", snapshot.snapshot_id,
+                                  lambda: store.prediction_snapshot(snapshot.snapshot_id))
+        if original != snapshot:
             raise ValueError("Frozen forecast differs from original")
-    actual = {x.execution_id: x for x in store.executions()}
+    if actual is None:
+        actual = {x.execution_id: x for x in store.executions()}
     if any(actual.get(x["execution_id"]) != ExecutionRecord.model_validate(x)
            for x in frozen["executions"]):
         raise ValueError("Frozen execution differs from original")
@@ -313,7 +356,8 @@ def _save(path, store, scope, now, *, comparison=None, market=None, frozen=None,
     return _publish(path, store, saved, now)
 
 
-def generate(path: Path, store, now: datetime, numerical=None) -> dict:
+def generate(path: Path, store, now: datetime, numerical=None, *,
+             refresh_consultation=False) -> dict:
     if now.tzinfo is None:
         raise ValueError("Aware decision execution time required")
     cutoff = now.astimezone(forecasts.JST).replace(hour=11, minute=30, second=0, microsecond=0)
@@ -360,7 +404,7 @@ def generate(path: Path, store, now: datetime, numerical=None) -> dict:
             or pin["sha256"] != numerical["scope"]["bundle_sha256"]):
         return blocked("MODEL_SELECTION_DIFFERS_FROM_NUMERICAL")
     scope["bundle_pin_sha256"] = content_id(pin)
-    if isinstance(bundle, ResearchModelBundle):
+    if refresh_consultation or isinstance(bundle, (ResearchModelBundle, ResearchEnsembleBundle)):
         # A fresh explicit calculation can renew the consultation context while
         # preserving the original forecast, prices and expired exchanges.
         elapsed = now - datetime.fromisoformat(numerical["checked_at"])

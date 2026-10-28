@@ -33,12 +33,23 @@ public class StockAIPlugin extends Plugin {
     static final String REPO = "iburigakko-picoloom/stock-ai-spec";
     final ExecutorService executor = Executors.newSingleThreadExecutor();
     final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
+    final ExecutorService displayExecutor = Executors.newSingleThreadExecutor();
+    // Saved views are optional historical displays; they must not delay durable work.
+    final java.util.concurrent.ThreadPoolExecutor savedViewExecutor = new java.util.concurrent.ThreadPoolExecutor(
+        0, 1, 30, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(4), task -> {
+            Thread thread = new Thread(task, "stockai-view-read"); thread.setDaemon(true); return thread;
+        });
     SQLiteDatabase db;
     volatile JSONObject pendingUpdate;
     static String hex(byte[] bytes) {
-        StringBuilder result = new StringBuilder();
-        for (byte value : bytes) result.append(String.format("%02x", value & 255));
-        return result.toString();
+        String digits = "0123456789abcdef";
+        char[] result = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 255;
+            result[i * 2] = digits.charAt(value >>> 4);
+            result[i * 2 + 1] = digits.charAt(value & 15);
+        }
+        return new String(result);
     }
 
     LocalComputeOwner owner() throws Exception { return LocalComputeOwner.get(getContext()); }
@@ -83,17 +94,53 @@ public class StockAIPlugin extends Plugin {
         });
     }
 
-    @PluginMethod public void compute(PluginCall call) { background(call, () -> {
+    @PluginMethod public void compute(PluginCall call) {
+        String personalPath = call.getString("path");
+        if (ManualAnalysisService.handles(call.getString("method"), personalPath)) {
+            completeLocal(call, ManualAnalysisService.start(getContext(), call.getString("body", "{}")));
+            return;
+        }
+        if ("GET".equals(call.getString("method")) && ("/api/v1/mobile/portfolio".equals(personalPath)
+                || "/api/v1/mobile/personal/current".equals(personalPath) || NativeRecordViews.handles(personalPath))) {
+            displayExecutor.execute(() -> {
+                try {
+                    JSObject result = NativePortfolioReader.hasRecordDisplayCopy(personalPath)
+                        ? NativePortfolioReader.readRecordWithDisplayCopy(getContext(), owner().state, owner().readViews, personalPath)
+                        : NativeRecordViews.handles(personalPath)
+                        ? NativePortfolioReader.readRecords(getContext(), owner().state, personalPath)
+                        : NativePortfolioReader.read(getContext(), owner().state, personalPath.endsWith("/current"));
+                    if (result != null) { call.resolve(result); return; }
+                    background(call, () -> completeLocal(call, owner().request("GET", personalPath, "null")));
+                } catch (Exception error) { call.reject("保存情報を確認できませんでした。再確認してください。", "PERSONAL_READ_FAILED"); }
+            });
+            return;
+        }
+        background(call, () -> {
         completeLocal(call, owner().request(call.getString("method"), call.getString("path"), call.getString("body", "null")));
     }); }
+    @PluginMethod public void readSavedView(PluginCall call) {
+        try {
+            savedViewExecutor.execute(() -> {
+                try {
+                    SavedReadViews views = SavedReadViews.forDatabase(getContext().getDatabasePath(LocalStateStore.DATABASE));
+                    views.readAndDeliver(call.getString("path"), call::resolve);
+                } catch (Exception ignored) { call.reject("保存済み表示を確認できません。", "SAVED_VIEW_INVALID"); }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // A busy optional preview must not prevent the authoritative request.
+            call.resolve(new JSObject().put("available", false));
+        }
+    }
     @PluginMethod public void readState(PluginCall call) { background(call, () -> {
         completeLocal(call, owner().readState());
     }); }
     @PluginMethod public void restoreState(PluginCall call) { background(call, () -> {
+        owner().readViews.clear();
         automation().stop();
         completeLocal(call, owner().restore(call.getString("payload"), null));
     }); }
     @PluginMethod public void writeState(PluginCall call) { background(call, () -> {
+        owner().readViews.clear();
         Object raw = call.getData().opt("generation");
         if (!(raw instanceof Number)) throw new IllegalArgumentException();
         double value = ((Number) raw).doubleValue();
@@ -104,6 +151,12 @@ public class StockAIPlugin extends Plugin {
 
     DailyAutomation automation() throws Exception { return new DailyAutomation(getContext(), owner().state.database); }
     @PluginMethod public void dailyStatus(PluginCall call) { background(call, () -> call.resolve(new JSObject(automation().status().toString()))); }
+    @PluginMethod public void analysisStatus(PluginCall call) { executor.execute(() -> {
+        try {
+            LocalComputeOwner current = owner();
+            call.resolve(current.checkpoints.status(current.analyzing || ManualAnalysisService.isRunning()));
+        } catch (Exception error) { call.reject("途中保存の状態を確認できません。", "CHECKPOINT_READ_FAILED"); }
+    }); }
     @PluginMethod public void startDaily(PluginCall call) { background(call, () -> {
         if (apiKey() == null) { call.reject("設定でJ-Quants APIキーを保存してから開始してください。", "API_KEY_REQUIRED"); return; }
         automation().start(); call.resolve(new JSObject(automation().status().toString()));
@@ -184,6 +237,7 @@ public class StockAIPlugin extends Plugin {
     }); }
 
     @PluginMethod public void restoreBackup(PluginCall call) { background(call, () -> {
+        owner().readViews.clear();
         if (!Boolean.TRUE.equals(call.getBoolean("confirmed"))) throw new IllegalArgumentException();
         completeBackup(call, owner().restoreBackup(call.getString("token")));
     }); }
@@ -242,6 +296,15 @@ public class StockAIPlugin extends Plugin {
     long installedVersion() throws Exception {
         PackageInfo info = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
         return Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+    }
+
+    @PluginMethod public void appInfo(PluginCall call) {
+        try {
+            String id = getContext().getPackageName();
+            PackageInfo info = getContext().getPackageManager().getPackageInfo(id, 0);
+            call.resolve(new JSObject().put("applicationId", id).put("versionName", info.versionName)
+                .put("versionCode", installedVersion()));
+        } catch (Exception error) { call.reject("アプリ情報を確認できませんでした。"); }
     }
 
     @PluginMethod public void checkUpdate(PluginCall call) { network(call, () -> {
@@ -303,6 +366,65 @@ public class StockAIPlugin extends Plugin {
         android.content.pm.Signature[] a = Build.VERSION.SDK_INT >= 28 ? incoming.signingInfo.getApkContentsSigners() : incoming.signatures;
         android.content.pm.Signature[] b = Build.VERSION.SDK_INT >= 28 ? current.signingInfo.getApkContentsSigners() : current.signatures;
         if (a.length != 1 || b.length != 1 || !MessageDigest.isEqual(a[0].toByteArray(), b[0].toByteArray())) throw new SecurityException();
+    }
+
+    // The document picker can read a private Drive file through Android's
+    // provider without granting this app access to the rest of the Drive.
+    @PluginMethod public void selectUpdate(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
+            getActivity().runOnUiThread(() -> getActivity().startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()))));
+            call.resolve(new JSObject().put("needsPermission", true)); return;
+        }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*")
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/vnd.android.package-archive", "application/octet-stream"});
+        startActivityForResult(call, intent, "updateSelected");
+    }
+
+    static void copySelectedApk(InputStream input, File target, long limit) throws Exception {
+        if (input == null) throw new IOException("UPDATE_INPUT_UNAVAILABLE");
+        try (InputStream source = input; FileOutputStream output = new FileOutputStream(target)) {
+            byte[] buffer = new byte[32768]; long count = 0; int length;
+            while ((length = source.read(buffer)) != -1) {
+                count += length;
+                if (count > limit) throw new IOException("UPDATE_TOO_LARGE");
+                output.write(buffer, 0, length);
+            }
+            if (count == 0) throw new IOException("UPDATE_EMPTY");
+            output.getFD().sync();
+        } catch (Exception error) { target.delete(); throw error; }
+    }
+
+    @ActivityCallback private void updateSelected(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            call.resolve(new JSObject().put("cancelled", true).put("needsPermission", false)); return;
+        }
+        Uri selected = result.getData().getData();
+        if (!"content".equals(selected.getScheme())) { call.reject("更新ファイルを開けません。", "UPDATE_FILE_INVALID"); return; }
+        networkExecutor.execute(() -> {
+            File apk = null;
+            try {
+                File directory = new File(getContext().getCacheDir(), "updates");
+                if (!directory.exists() && !directory.mkdirs()) throw new IOException("UPDATE_DIRECTORY_UNAVAILABLE");
+                apk = File.createTempFile("selected-", ".apk", directory);
+                copySelectedApk(getContext().getContentResolver().openInputStream(selected), apk, 300L * 1024 * 1024);
+                PackageInfo incoming = getContext().getPackageManager().getPackageArchiveInfo(apk.getAbsolutePath(), 0);
+                if (incoming == null) throw new SecurityException("UPDATE_INVALID_APK");
+                long version = Build.VERSION.SDK_INT >= 28 ? incoming.getLongVersionCode() : incoming.versionCode;
+                verifyApk(apk, version);
+                Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk);
+                Intent intent = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getActivity().runOnUiThread(() -> {
+                    try { getActivity().startActivity(intent); call.resolve(new JSObject().put("needsPermission", false)); }
+                    catch (Exception error) { call.reject("Androidの更新画面を開けませんでした。", "UPDATE_INSTALLER_UNAVAILABLE"); }
+                });
+            } catch (Exception error) {
+                if (apk != null) apk.delete();
+                call.reject("選んだAPKを確認できません。株AIの新しい更新ファイルを選んでください。", "UPDATE_FILE_INVALID");
+            }
+        });
     }
 
     @PluginMethod public void installUpdate(PluginCall call) { network(call, () -> {

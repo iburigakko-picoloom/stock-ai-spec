@@ -1,0 +1,299 @@
+{
+  "status": "D207_REQUIRED_CI_SIGNED_CANDIDATE_AND_NATIVE_PARITY_VERIFIED_XIAOMI_PENDING",
+  "product_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
+  "scope": "Actual 730-calendar-day market data and private research regression heads; pre-cutoff synthetic account; manually requested normal owner API on isolated Android 35 emulator",
+  "members": 493,
+  "forecastable_members": 489,
+  "excluded_for_insufficient_history": 4,
+  "exact_5d_and_20d_prediction_values": 978,
+  "warm": {
+    "owner_load_seconds": 113.495,
+    "forecast_and_encrypted_save_seconds": 128.941,
+    "same_day_GET_seconds": 0.942,
+    "sampled_app_and_renderer_peak_bytes": 2016321536,
+    "sampled_VM_peak_bytes": 5356269568,
+    "sampled_host_free_min_bytes": 1850560512,
+    "portable_export_seconds": 40.191,
+    "portable_preview_seconds": 92.244,
+    "portable_restore_seconds": 128.673,
+    "portable_encrypted_bytes": 246982234,
+    "kernel_reboot_and_cold_GET_seconds": 113.839,
+    "source_commit": "203f42b41f265b5c6818f7a483da5da6abfd70b7",
+    "scope_note": "Historical D205, not current D207 performance evidence"
+  },
+  "independent_host_checks": {
+    "all_feature_values_and_source_ids_exact": true,
+    "same_scope_data_proof_hash_exact": true,
+    "target_set_order_and_both_top20_exact": true,
+    "full_market_and_sector_context_existing_serialization_exact": true,
+    "protected_original_typed_tables_unchanged": true,
+    "all_20_mobile_and_27_operations_tables_exact_after_backup_and_reboot": true,
+    "only_forecast_receipts_and_publication_metadata_updated": true,
+    "warm_cache_payloads_unchanged": true,
+    "scope_note": "Historical D205; current D207 independent host checks are nested in D207_initial and D207_native_created_cache_reuse"
+  },
+  "legacy_reference": {
+    "source": "c2fa278 (D203/D204); preserved 0.1.23 and original evidence",
+    "individual_arithmetic_input_construction_seconds": 398.903,
+    "separate_actual_clock_WorkManager_forecast_save_state_seconds": 544.795,
+    "separate_actual_clock_run_sampled_app_renderer_peak_bytes": 3165564928,
+    "scope_caveat": "Legacy target300/held303 versus new493. The old398.903s input-only arithmetic and544.795s OS state interval are historical references, not a newly paired Android benchmark. Current562.541s initial normal call and106.142s same-input cache call include preparation/features/reuse or inference/encrypted save. Owner cold-load is separate. New-day receipt/update and3min end-to-end performance have not been demonstrated."
+  },
+  "limits_unchanged": {
+    "normal_request_seconds": 600,
+    "guest_RAM_MiB": 4096,
+    "guest_cores": 2,
+    "Java_heap_MiB": 192,
+    "app_renderer_guard_MiB": 3500,
+    "VM_guard_MiB": 5400,
+    "host_free_reserve_GiB": 1,
+    "clock_modified": false
+  },
+  "pending": [
+    "Actual new business-day append/update, monthly change, additional held security and correction on Android. Unit fixtures cover these branches; actual-field timing remains pending.",
+    "Three-minute daily goal including process startup and new data receipt has not been demonstrated.",
+    "Xiaomi acceptance and default-policy change. Legacy300 remains the default."
+  ],
+  "legacy_default_retained": true,
+  "Xiaomi_verified": false,
+  "formal_adoption": "HOLD",
+  "new_fits": 0,
+  "holdout_scored": false,
+  "real_orders": 0,
+  "external_AI_requests": 0,
+  "private_evidence": [
+    ".demo-artifacts/topix500-20261020/native-v3-cold-001/verified-result.json",
+    ".demo-artifacts/topix500-20261020/native-v3-reuse-001/verified-result.json"
+  ],
+  "initial_v1_failure": {
+    "source_commit": "203f42b41f265b5c6818f7a483da5da6abfd70b7",
+    "normal_compute_timeout_seconds": 600,
+    "sampled_app_renderer_peak_bytes": 3328581632,
+    "sampled_VM_peak_bytes": 5122539520,
+    "sampled_host_free_min_bytes": 2033336320,
+    "background_low_memory_kills_observed": true,
+    "compute_renderer_present_until_instrumentation_shutdown": true,
+    "forecast_published": false,
+    "failure_record": ".demo-artifacts/topix500-20261020/native-cold-001/"
+  },
+  "initial_D206_failure": {
+    "source_commit": "5b07f3e983aa3c6c4def9c2154e91f8d133473f5",
+    "normal_compute_timeout_seconds": 600,
+    "sampled_app_renderer_peak_bytes": 3049295872,
+    "forecast_encrypted_commit_verified": false,
+    "private_timing_observer_used_only_for_diagnosis": true,
+    "input_seconds_with_observer": 563.7446,
+    "source_read_seconds_inclusive": 478.0414999999999,
+    "raw_v1_hash_seconds_inclusive": 129.61989999999716,
+    "feature_seconds_with_observer": 11.789700000000039,
+    "timings_not_additive": true
+  },
+  "historical_D205_product_commit": "203f42b41f265b5c6818f7a483da5da6abfd70b7",
+  "D207_initial": {
+    "status": "NATIVE_TOPIX500_EXACT_DURABLE_BACKUP_REBOOT_VERIFIED",
+    "kind": "cold",
+    "source_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
+    "scope": "Manual normal owner API, actual market/model and pre-cutoff synthetic account, fresh API35 emulator; not Xiaomi or new-day scheduling",
+    "metrics": {
+      "calculate": {
+        "owner_load_seconds": 77.111,
+        "forecast_encrypted_save_seconds": 562.541,
+        "prediction_values_exact": 978,
+        "all_features_hash_exact": true,
+        "same_day_GET_seconds": 0.912
+      },
+      "backup": {
+        "prediction_values_exact": 978,
+        "all_features_hash_exact": true,
+        "portable_export_seconds": 33.96,
+        "portable_bytes": 246982282,
+        "portable_preview_seconds": 85.548,
+        "portable_restore_seconds": 101.712
+      },
+      "reopen": {
+        "cold_GET_seconds": 100.1,
+        "prediction_values_exact": 978,
+        "all_features_hash_exact": true
+      }
+    },
+    "sampled_app_renderer_peak_bytes": 2992934912,
+    "sampled_VM_peak_bytes": 5342351360,
+    "sampled_host_free_min_bytes": 1896226816,
+    "candidate_count": 493,
+    "forecastable_count": 489,
+    "exact_predictions": 978,
+    "top20_counts": {
+      "5": 20,
+      "20": 20
+    },
+    "all_features_hash_exact": true,
+    "source_ids_exact": true,
+    "common_context_existing_serialization_exact": true,
+    "original_protected_typed_tables_unchanged": true,
+    "mutable_publication_tables": {
+      "mobile.sqlite3": [
+        "mobile_forecast_runs",
+        "mobile_forecast_selections"
+      ],
+      "operations.sqlite3": [
+        "operational_metadata",
+        "prediction_snapshots"
+      ]
+    },
+    "all_20_and_27_tables_exact_after_backup_and_reboot": true,
+    "warm_cache_payloads_unchanged": false,
+    "CPU_RAM_limits_unchanged": true,
+    "new_real_business_day_update_measured": false,
+    "Xiaomi_verified": false,
+    "formal_adoption": "HOLD",
+    "new_fits": 0,
+    "holdout_scored": false,
+    "real_orders": 0,
+    "external_AI_requests": 0
+  },
+  "D207_native_created_cache_reuse": {
+    "status": "NATIVE_CREATED_CACHE_EXACT_REUSE_VERIFIED",
+    "source_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
+    "scope": "Same actual input/model and pre-cutoff synthetic account, same preserved API35 AVD after restart; not a new business day or Xiaomi",
+    "metrics": {
+      "owner_load_seconds": 107.137,
+      "prediction_values_exact": 978,
+      "all_features_hash_exact": true,
+      "native_cache_forecast_encrypted_save_seconds": 106.142,
+      "same_forecast_receipt": true,
+      "same_prediction_snapshot": true
+    },
+    "sampled_app_renderer_peak_bytes": 1969451008,
+    "sampled_VM_peak_bytes": 4547743744,
+    "sampled_host_free_min_bytes": 2677489664,
+    "protected_typed_tables_unchanged": true,
+    "cache_payloads_and_forecast_receipts_and_prediction_snapshots_exact": true,
+    "only_changed_tables": {
+      "mobile.sqlite3": [],
+      "operations.sqlite3": []
+    },
+    "all_feature_values_and_978_predictions_and_source_ids_exact": true,
+    "main_APK_unchanged": true,
+    "same_owned_AVD_and_keystore": true,
+    "state_reseeded": false,
+    "clock_modified": false,
+    "limits_unchanged": true,
+    "new_actual_business_day_measured": false,
+    "Xiaomi_verified": false,
+    "formal_adoption": "HOLD",
+    "real_orders": 0,
+    "external_AI_requests": 0
+  },
+  "D207_private_diagnostic_only": {
+    "status": "PRIVATE_TIMING_ONLY_NORMAL_LIMITS_EXACT_VALUES",
+    "product_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
+    "private_observer": true,
+    "candidate_acceptance": false,
+    "seconds_are_inclusive_and_not_additive": true,
+    "normal_compute_seconds_limit": 600,
+    "clock_modified": false,
+    "source_feature_and_978_prediction_values_exact": true,
+    "normal_generated_runtime_restored": true,
+    "normal_call_metrics_with_observer": {
+      "owner_load_seconds": 74.166,
+      "forecast_encrypted_save_seconds": 573.257,
+      "prediction_values_exact": 978,
+      "all_features_hash_exact": true,
+      "same_day_GET_seconds": 0.63
+    },
+    "timings": {
+      "stock_ai.mobile.runtime._export_archive": {
+        "calls": 2,
+        "seconds": 17.746200000000023
+      },
+      "stock_ai.mobile.market_codec.dtype_profile": {
+        "calls": 970,
+        "seconds": 41.232200000000304
+      },
+      "stock_ai.mobile.market_codec._raw_record_hashes": {
+        "calls": 2671,
+        "seconds": 118.24290000000043
+      },
+      "stock_ai.mobile.market_codec.frame": {
+        "calls": 2671,
+        "seconds": 283.9367999999998
+      },
+      "stock_ai.mobile.market._canonical_daily_part": {
+        "calls": 970,
+        "seconds": 50.59829999999978
+      },
+      "stock_ai.mobile.market._source_row_hashes": {
+        "calls": 1940,
+        "seconds": 53.735200000001086
+      },
+      "FeatureSource.point_in_time": {
+        "calls": 5,
+        "seconds": 460.87389999999994
+      },
+      "FeatureSource.source_frame_id": {
+        "calls": 5,
+        "seconds": 7.167400000000043
+      },
+      "stock_ai.data.production.build_point_in_time_universe": {
+        "calls": 1,
+        "seconds": 1.8756000000000768
+      },
+      "stock_ai.data.production._reconstruct_bulk_adjusted_prices": {
+        "calls": 1,
+        "seconds": 6.238100000000031
+      },
+      "stock_ai.data.production._canonical_daily": {
+        "calls": 1,
+        "seconds": 16.683299999999917
+      },
+      "stock_ai.data.production._aggregate_context": {
+        "calls": 1,
+        "seconds": 3.266300000000001
+      },
+      "stock_ai.mobile.input_cache.build_production_data": {
+        "calls": 1,
+        "seconds": 491.18610000000007
+      },
+      "stock_ai.mobile.input_cache._pack": {
+        "calls": 495,
+        "seconds": 9.837899999998513
+      },
+      "stock_ai.mobile.input_cache.complete_daily_financials": {
+        "calls": 1,
+        "seconds": 2.8384999999999536
+      },
+      "stock_ai.mobile.input_cache.model_input_frame": {
+        "calls": 4,
+        "seconds": 0.05060000000003129
+      },
+      "stock_ai.mobile.input_cache.inputs": {
+        "calls": 1,
+        "seconds": 506.77270000000004
+      },
+      "stock_ai.mobile.forecasts.calculate": {
+        "calls": 1,
+        "seconds": 15.497600000000034
+      },
+      "stock_ai.mobile.forecasts.predict": {
+        "calls": 2,
+        "seconds": 1.257199999999898
+      }
+    },
+    "per_call_ordered_source_timings": {
+      "FeatureSource.point_in_time": {
+        "security_master": 217.42129999999997,
+        "daily_prices": 210.2668,
+        "trading_calendar": 8.51339999999999,
+        "topix": 6.257000000000005,
+        "financial_summary": 18.415399999999977
+      },
+      "stock_ai.mobile.forecasts.predict": {
+        "5d": 0.9990999999999985,
+        "20d": 0.2580999999998994
+      }
+    }
+  },
+  "Android_SQL_returned_rows_bytes_separately_measured": false,
+  "CI_result": "ci-result.json",
+  "candidate_result": "candidate-apk.json"
+}

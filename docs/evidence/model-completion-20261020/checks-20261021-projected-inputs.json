@@ -1,0 +1,52 @@
+{
+  "schema_version": "holdout-projected-input-checks-v1",
+  "recorded_at": "2026-10-21T09:00:11.340962+00:00",
+  "base_commit": "65219fc3079fb4188d0d8e9259214e7cb5042090",
+  "change": "Project frozen input columns through existing full logical-identity loader; preserve receipt timestamps and unlabelled prediction rows",
+  "source_sha256": {
+    "src\\stock_ai\\ml\\holdout.py": "536795d94195bc5d91cef27b0d2664ed839c4ed38b5fb414cb1dd79037f6ff2b",
+    "tests\\test_holdout_frozen_composition.py": "f7ac18093a5f8efc32b7cedd4eaa935d854635474c78763efd07eaff1e1bcc24"
+  },
+  "tests": [
+    {
+      "path": ".demo-artifacts/completion-20261021/holdout-projection-001/results.xml",
+      "sha256": "65e21c74378af786d09a82430d27ab65950162e5a85cb3fe359676ddfe47c6a8",
+      "tests": 45,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 34.339
+    },
+    {
+      "path": ".demo-artifacts/completion-20261021/holdout-projection-003/results.xml",
+      "sha256": "9b0d98bd50cdd82eb629cd703d7ce61709ceffc2a7b733d0b32a967c0af83e5e",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 27.318
+    }
+  ],
+  "ruff": "PASS all repository checked",
+  "mypy": "PASS --no-incremental src 76 files",
+  "initial_final_strategy_invocation": {
+    "status": "SETUP_ERROR",
+    "reason": "root did not create parent of explicit pytest basetemp",
+    "real_model_or_holdout_access": false,
+    "failure_log_preserved": ".demo-artifacts/completion-20261021/holdout-projection-final-strategy.log",
+    "corrected_invocation": "holdout-projection-003"
+  },
+  "prior_CI": {
+    "commit": "65219fc3079fb4188d0d8e9259214e7cb5042090",
+    "run": 39565041769,
+    "verify": "success",
+    "android": "success",
+    "android-history": "success",
+    "release": "skipped",
+    "covers_new_source_difference": false
+  },
+  "real_holdout_executed": false,
+  "Xiaomi_checked": false,
+  "new_APK_published": false,
+  "owner_adoption_approval_created": false
+}

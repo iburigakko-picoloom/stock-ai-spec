@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -27,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from stock_ai.domain import (
     ExecutionRecord,
     PortfolioProposal,
+    PortfolioState,
     UserDecision,
     UserDecisionLine,
 )
@@ -43,8 +45,10 @@ from stock_ai.operations.daily import (
     PredictionSnapshot,
     content_id,
     export_prediction_snapshot,
+    prediction_score,
     validate_research_link,
 )
+from stock_ai.operations.integrity import IntegrityGuard
 from stock_ai.operations.models import (
     DailyOperationStatus,
     PaperReadoutPeriod,
@@ -54,7 +58,10 @@ from stock_ai.operations.personal import PersonalComparisonRequest, compare_stor
 from stock_ai.operations.store import (
     OperationalConflictError,
     OperationalIntegrityError,
+    OperationalStorageBusyError,
     OperationalStore,
+    PortfolioBaseConflictError,
+    ReconciliationConflictError,
 )
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -104,6 +111,14 @@ class SaveDecisionInput(ApiModel):
     saved_at: datetime
     lines: tuple[DecisionLineInput, ...]
     confirms_manual_order_only: bool = True
+
+
+class StockNoteInput(ApiModel):
+    model_config = ConfigDict(
+        alias_generator=_camel, populate_by_name=True, extra="forbid", str_strip_whitespace=False,
+    )
+    text: str = Field(max_length=5000, strict=True)
+    expected_revision: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class ExecutionInput(ApiModel):
@@ -170,7 +185,9 @@ def _daily_import(
         raw = json.loads(body.json_text)
         if not isinstance(raw, dict):
             raise ValueError("JSON object required")
-        if raw.get("schema_version") == "daily-prediction-snapshot-v1":
+        if raw.get("schema_version") in (
+            "daily-prediction-snapshot-v1", "daily-prediction-snapshot-v2"
+        ):
             return PredictionSnapshot.model_validate(raw)
         if raw.get("schema_version") == "company-research-v1":
             return CompanyResearchRecord.model_validate(raw)
@@ -189,6 +206,16 @@ def _require_manual_intent(
             status_code=428,
             detail="manual record confirmation header is required; this does not submit an order",
         )
+
+
+def _account_labels(portfolio: PortfolioState | None) -> dict[str, str]:
+    if portfolio is None:
+        return {}
+    names = {"taxable_specified": "特定口座", "taxable_general": "一般口座", "nisa": "NISA"}
+    return {
+        item.bucket_id: names.get(item.account_type.value, item.account_type.value)
+        for item in portfolio.account_buckets
+    }
 
 
 def _line_view(line: Any) -> dict[str, object]:
@@ -339,6 +366,14 @@ def create_app(
     clock: Callable[[], datetime] | None = None,
 ) -> FastAPI:
     store = OperationalStore(database_path)
+    integrity = IntegrityGuard(store)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            integrity.close()
 
     def current_time() -> datetime:
         value = datetime.now(JST) if clock is None else clock()
@@ -352,8 +387,10 @@ def create_app(
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         description="Local decision-support API. It cannot submit securities orders.",
+        lifespan=lifespan,
     )
     app.state.store = store
+    app.state.integrity_guard = integrity
 
     @app.middleware("http")
     async def security_headers(
@@ -374,7 +411,11 @@ def create_app(
                 return JSONResponse(status_code=403, content={"detail": "local origin required"})
         if request.url.path.startswith("/api/"):
             try:
-                store.verify_integrity()
+                request.state.integrity_counts = integrity.verify()
+            except OperationalStorageBusyError:
+                return JSONResponse(status_code=503, content={
+                    "code": "STORAGE_BUSY", "detail": "保存処理中です。再試行してください。",
+                })
             except OperationalIntegrityError:
                 return JSONResponse(
                     status_code=503,
@@ -396,7 +437,16 @@ def create_app(
 
     @app.exception_handler(OperationalConflictError)
     async def conflict_handler(_request: Request, exc: OperationalConflictError) -> JSONResponse:
+        if isinstance(exc, (PortfolioBaseConflictError, ReconciliationConflictError)):
+            return JSONResponse(status_code=409, content={"detail": str(exc), "code": exc.code})
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(OperationalStorageBusyError)
+    async def busy_handler(_request: Request, _exc: OperationalStorageBusyError) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"code": "STORAGE_BUSY", "detail": "保存処理中です。再試行してください。"},
+        )
 
     @app.exception_handler(OperationalIntegrityError)
     async def integrity_handler(_request: Request, _exc: OperationalIntegrityError) -> JSONResponse:
@@ -406,8 +456,8 @@ def create_app(
         )
 
     @app.get("/api/v1/health")
-    def health() -> dict[str, object]:
-        counts = store.verify_integrity()
+    def health(request: Request) -> dict[str, object]:
+        counts = request.state.integrity_counts
         return {
             "status": "ok",
             "orderSubmissionAvailable": False,
@@ -483,9 +533,12 @@ def create_app(
                 item.company_name for item in (() if proposal is None else proposal.lines)
                 if item.symbol == symbol
             ), f"証券コード {symbol}")
+            research_time = current_time()
+            evidence_reader = getattr(app.state, "research_market_evidence", None)
             return store.begin_research(
                 snapshot_id, symbol, body.configuration, company_name=company_name,
-                now=current_time(), rerun_previous_id=body.rerun_previous_id,
+                now=research_time, rerun_previous_id=body.rerun_previous_id,
+                market_evidence=None if evidence_reader is None else evidence_reader(research_time),
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="snapshot not found") from exc
@@ -619,20 +672,11 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {"inserted": inserted, "record": item.model_dump(mode="json")}
 
-    @app.get("/api/v1/home")
-    def home(
-        business_date: Annotated[date | None, Query(alias="businessDate")] = None,
+    def home_view(
+        portfolio: PortfolioState, proposal: PortfolioProposal | None, *, actions: bool,
     ) -> dict[str, object]:
-        selected = business_date or current_time().date()
-        portfolio = store.latest_portfolio()
-        if portfolio is None:
-            return {"portfolio": None, "holdings": [], "blockingReason": "保有未登録"}
-        proposal = _active_proposal(store, selected)
-        proposal_lines = (
-            {(line.symbol, line.account_bucket_id): line for line in proposal.lines}
-            if proposal is not None
-            else {}
-        )
+        proposal_lines = ({(line.symbol, line.account_bucket_id): line for line in proposal.lines}
+                          if proposal is not None else {})
         holdings = []
         for position in portfolio.positions:
             line = proposal_lines.get(position.key)
@@ -646,31 +690,185 @@ def create_app(
                     "currentPrice": str(position.market_price),
                     "marketValue": str(position.market_value),
                     "unrealizedPnlAmount": str(position.market_value - position.book_value),
-                    "latestAction": None if line is None else line.action.value,
-                    "recommendedShares": None if line is None else line.recommended_shares,
-                    "proposalId": None if proposal is None else proposal.proposal_id,
+                    "latestAction": line.action.value if actions and line is not None else None,
+                    "recommendedShares": (
+                        line.recommended_shares if actions and line is not None else None
+                    ),
+                    "proposalId": None if proposal is None or not actions else proposal.proposal_id,
                 }
             )
         cash_value = sum((item.available_cash for item in portfolio.cash), Decimal("0"))
         equity_value = sum((item.market_value for item in portfolio.positions), Decimal("0"))
         return {
             "runtimeMode": store.metadata("runtime_mode") or "UNCONFIGURED",
+            "portfolioId": portfolio.portfolio_id,
             "portfolio": {
                 "asOf": portfolio.as_of,
                 "totalAssets": str(cash_value + equity_value),
                 "cashValue": str(cash_value),
+                "reservedCash": str(
+                    sum((item.reserved_cash for item in portfolio.cash), Decimal("0"))
+                ),
+                "buyingPower": str(
+                    sum((item.deployable_cash for item in portfolio.cash), Decimal("0"))
+                ),
                 "equityValue": str(equity_value),
                 "holdingsCount": len(portfolio.positions),
             },
             "holdings": holdings,
+            "accountLabels": _account_labels(portfolio),
             "blockingReason": None,
         }
+
+    @app.get("/api/v1/home")
+    def home(
+        business_date: Annotated[date | None, Query(alias="businessDate")] = None,
+    ) -> dict[str, object]:
+        selected = business_date or current_time().date()
+        portfolio = store.latest_portfolio()
+        if portfolio is None:
+            return {"portfolio": None, "holdings": [], "blockingReason": "保有未登録"}
+        proposal = _active_proposal(store, selected)
+        return home_view(portfolio, proposal, actions=True)
+
+    @app.get("/api/v1/home/ledger")
+    def home_ledger() -> dict[str, object]:
+        # Display actual saved balances independently from prediction eligibility.
+        portfolio = store.latest_portfolio()
+        if portfolio is None:
+            return {"portfolio": None, "holdings": [], "blockingReason": "保有未登録"}
+        return home_view(portfolio, store.latest_proposal(current_time().date()), actions=False)
 
     @app.get("/api/v1/today")
     def today(
         business_date: Annotated[date | None, Query(alias="businessDate")] = None,
+        include_saved_analysis: Annotated[bool, Query(alias="includeSavedAnalysis")] = True,
     ) -> dict[str, object]:
-        return _today(store, business_date or current_time().date())
+        now = current_time()
+        selected_date = business_date or now.date()
+        payload = _today(store, selected_date)
+        payload["accountLabels"] = _account_labels(store.latest_portfolio())
+        if not include_saved_analysis:
+            return payload
+        end = now.replace(
+            year=selected_date.year,
+            month=selected_date.month,
+            day=selected_date.day,
+            hour=23,
+            minute=59,
+            second=59,
+        )
+        snapshot = store.latest_archived_prediction(min(now, end))
+        payload["savedAnalysis"] = None
+        if snapshot is not None:
+            symbols = snapshot.research_symbols()
+            predictions = {item.symbol: item for item in snapshot.predictions}
+            payload["savedAnalysis"] = {
+                "snapshotId": snapshot.snapshot_id,
+                "asOf": snapshot.as_of.isoformat(),
+                "generatedAt": snapshot.generated_at.isoformat(),
+                "dataAsOf": snapshot.data_as_of.isoformat(),
+                "modelVersion": snapshot.model_version,
+                "readOnly": True,
+                "holdingSymbols": snapshot.holding_symbols,
+                "predictions": [predictions[symbol].model_dump(mode="json") for symbol in symbols],
+            }
+        return payload
+
+    @app.get("/api/v1/execution-entry-context")
+    def manual_execution_context() -> dict[str, object]:
+        ledger = store.latest_portfolio()
+        return {
+            "portfolioId": None if ledger is None else ledger.portfolio_id,
+            "asOf": None if ledger is None else ledger.as_of.isoformat(),
+            "accountLabels": _account_labels(ledger),
+            "holdings": []
+            if ledger is None
+            else [
+                {"symbol": x.symbol, "accountBucketId": x.account_bucket_id, "shares": x.shares}
+                for x in ledger.positions
+            ],
+        }
+
+    @app.post("/api/v1/executions/manual", status_code=201)
+    def manual_execution(
+        body: ExecutionInput, _intent: Annotated[None, Depends(_require_manual_intent)]
+    ) -> object:
+        try:
+            if not body.symbol.isascii() or not body.symbol.isalnum() or len(body.symbol) > 10:
+                raise ValueError("銘柄コードを確認してください。")
+            execution = ExecutionRecord.model_validate(
+                {
+                    **body.model_dump(exclude={"confirm_difference"}),
+                    "decision_id": None,
+                    "source": "manual",
+                }
+            )
+            ledger = store.record_manual_execution(execution, now=current_time())
+        except (ValueError, KeyError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return {
+            "execution": jsonable_encoder(execution),
+            "portfolioId": ledger.portfolio_id,
+            "applied": execution.execution_id in ledger.applied_execution_ids,
+        }
+
+    @app.get("/api/v1/execution-context")
+    def execution_context(includeManual: bool = False) -> dict[str, object]:
+        # Actual fills refer to the saved judgment, even after an earlier fill
+        # changed holdings. Do not recalculate predictions or proposal eligibility.
+        day = current_time().date()
+        proposal = store.latest_proposal(day)
+        decision = None if proposal is None else store.latest_decision(proposal.proposal_id)
+        result: dict[str, object] = {
+            "businessDate": day.isoformat(),
+            "proposal": None
+            if proposal is None
+            else {
+                "proposalId": proposal.proposal_id,
+                "asOf": proposal.as_of.isoformat(),
+                "lines": [
+                    {
+                        key: value
+                        for key, value in _line_view(line).items()
+                        if key
+                        in {
+                            "lineId",
+                            "symbol",
+                            "companyName",
+                            "accountBucketId",
+                            "currentShares",
+                            "referencePrice",
+                        }
+                    }
+                    for line in proposal.lines
+                ],
+            },
+            "decision": None if decision is None else jsonable_encoder(decision),
+            "accountLabels": _account_labels(
+                None if proposal is None else store.portfolio(proposal.current_portfolio_id)
+            ),
+        }
+        if includeManual and decision is None:
+            result["manualContext"] = manual_execution_context()
+        return result
+
+    @app.get("/api/v1/stocks/{symbol}/note")
+    def stock_note(symbol: str) -> dict[str, Any]:
+        try:
+            return store.stock_note(symbol)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/api/v1/stocks/{symbol}/note")
+    def save_stock_note(
+        symbol: str, body: StockNoteInput,
+        _intent: Annotated[None, Depends(_require_manual_intent)],
+    ) -> dict[str, Any]:
+        try:
+            return store.save_stock_note(symbol, body.text, body.expected_revision, current_time())
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @app.get("/api/v1/proposals/{proposal_id}")
     def get_proposal(proposal_id: str) -> dict[str, object]:
@@ -766,6 +964,33 @@ def create_app(
     def executions(decision_id: str) -> object:
         return jsonable_encoder(store.executions(decision_id=decision_id), by_alias=True)
 
+    @app.get("/api/v1/portfolio/history")
+    def portfolio_history() -> object:
+        return [
+            {
+                **jsonable_encoder(item, by_alias=True),
+                "correctionRecord": store.portfolio_edit_record(item.portfolio_id),
+            }
+            for item in store.portfolio_history()
+        ]
+
+    @app.get("/api/v1/executions")
+    def execution_history() -> object:
+        current = store.latest_portfolio()
+        return {
+            "records": jsonable_encoder(store.executions(), by_alias=True),
+            "appliedIds": [] if current is None else list(current.applied_execution_ids),
+        }
+
+    @app.get("/api/v1/jobs")
+    def job_history() -> object:
+        return jsonable_encoder(
+            sorted(store.jobs(), key=lambda item: (item.started_at, item.run_id), reverse=True)[
+                :100
+            ],
+            by_alias=True,
+        )
+
     @app.post("/api/v1/portfolio/apply-executions")
     def apply_recorded_executions(
         body: ApplyExecutionsInput,
@@ -783,6 +1008,8 @@ def create_app(
                 next_portfolio_id=body.next_portfolio_id,
                 created_at=now,
             )
+        except PortfolioBaseConflictError:
+            raise
         except OperationalConflictError as exc:
             raise HTTPException(
                 status_code=409,
@@ -800,11 +1027,14 @@ def create_app(
         body: CsvPreviewInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        preview = store.preview_execution_csv(
-            body.csv_text,
-            preview_id=body.preview_id,
-            created_at=current_time(),
-        )
+        try:
+            preview = store.preview_execution_csv(
+                body.csv_text,
+                preview_id=body.preview_id,
+                created_at=current_time(),
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         return jsonable_encoder(preview, by_alias=True)
 
     @app.post("/api/v1/imports/executions/{preview_id}/confirm")
@@ -823,11 +1053,14 @@ def create_app(
         body: CsvPreviewInput,
         _intent: Annotated[None, Depends(_require_manual_intent)],
     ) -> object:
-        preview = store.preview_position_reconciliation_csv(
-            body.csv_text,
-            preview_id=body.preview_id,
-            created_at=current_time(),
-        )
+        try:
+            preview = store.preview_position_reconciliation_csv(
+                body.csv_text,
+                preview_id=body.preview_id,
+                created_at=current_time(),
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         return jsonable_encoder(preview, by_alias=True)
 
     @app.post("/api/v1/imports/positions/{preview_id}/confirm")
@@ -850,6 +1083,29 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
     ) -> object:
         records = store.latest_rankings(rank_type, limit=limit)
+        snapshot = store.latest_prediction_snapshot()
+        if (snapshot is not None and rank_type in ("overall", "5d", "20d")
+                and (not records or snapshot.as_of > max(item.as_of for item in records)
+                     or (snapshot.schema_version == "daily-prediction-snapshot-v2"
+                         and snapshot.as_of == max(item.as_of for item in records)))):
+            horizon: Literal[5, 20] = 5 if rank_type == "5d" else 20
+            ordered = sorted(snapshot.predictions, key=lambda item: (
+                -prediction_score(item, horizon), item.symbol,
+            ))
+            names = {item.symbol: item.company_name for item in records}
+            # Read-only projection of the original numerical snapshot. Overall
+            # uses the 20d priority; it never adds the two horizons or creates orders.
+            return [{
+                "ranking_id": content_id({"snapshot": snapshot.snapshot_id,
+                                          "rank_type": rank_type, "symbol": item.symbol}),
+                "as_of": snapshot.as_of, "symbol": item.symbol,
+                "company_name": names.get(item.symbol, item.symbol), "rank_type": rank_type,
+                "rank": index + 1, "total_universe": len(ordered),
+                "percentile": (index + 1) / len(ordered),
+                "candidate_status": "保有" if item.symbol in snapshot.holding_symbols else "候補",
+                "portfolio_action": None, "model_bundle_version": snapshot.model_version,
+                "data_snapshot_id": snapshot.data_snapshot_id,
+            } for index, item in enumerate(ordered[:limit])]
         return [
             {
                 **jsonable_encoder(item, by_alias=True),
@@ -883,35 +1139,68 @@ def create_app(
         snapshot = store.latest_prediction_snapshot()
         if snapshot is not None and snapshot.as_of.astimezone(JST).date() > proposal_date:
             snapshot = None
-        prediction = next((
-            item for item in (() if snapshot is None else snapshot.predictions)
-            if item.symbol == symbol
-        ), None)
+        prediction = next(
+            (
+                item
+                for item in (() if snapshot is None else snapshot.predictions)
+                if item.symbol == symbol
+            ),
+            None,
+        )
         if not positions and not lines and prediction is None:
             raise HTTPException(status_code=404, detail="symbol not found")
+        ranks: dict[str, int | None] = {}
+        if snapshot is not None:
+            ranks["total"] = len(snapshot.predictions)
+            for key, field in (
+                ("return5d", "expected_return_5d"),
+                ("return20d", "expected_return_20d"),
+                ("rank20d", "rank_score_20d"),
+            ):
+                available: list[tuple[float, str]] = []
+                for item in snapshot.predictions:
+                    score = getattr(item, field, None)
+                    if score is not None:
+                        available.append((float(score), item.symbol))
+                ordered = sorted(available, key=lambda item: (-item[0], item[1]))
+                ranks[key] = next(
+                    (index + 1 for index, (_, code) in enumerate(ordered) if code == symbol), None
+                )
         return {
             "symbol": symbol,
+            "accountLabels": _account_labels(portfolio),
             "positions": positions,
             "proposalLines": lines,
             "proposal": None if today_proposal is None else _proposal_view(today_proposal),
-            "forecast": None if prediction is None or snapshot is None else {
-                "snapshotId": snapshot.snapshot_id, "asOf": snapshot.as_of,
+            "forecast": None
+            if prediction is None or snapshot is None
+            else {
+                "snapshotId": snapshot.snapshot_id,
+                "asOf": snapshot.as_of,
                 "generatedAt": snapshot.generated_at,
                 "isStale": snapshot.as_of.astimezone(JST).date() != proposal_date,
-                "mode": snapshot.mode, "blockingReasons": snapshot.blocking_reasons,
+                "mode": snapshot.mode,
+                "blockingReasons": snapshot.blocking_reasons,
                 "labelDefinition": snapshot.label_definition,
                 "labelDefinitionSupported": (
                     snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL
                 ),
                 "prediction": prediction.model_dump(mode="json"),
-                "researchEligible": (symbol in snapshot.research_symbols()
-                                     and snapshot.label_definition
-                                     == DAILY_NEXT_SESSION_CLOSE_LABEL),
+                "ranks": ranks,
+                "researchEligible": (
+                    symbol in snapshot.research_symbols()
+                    and snapshot.label_definition == DAILY_NEXT_SESSION_CLOSE_LABEL
+                ),
             },
-            "researchRuns": [] if snapshot is None else store.research_runs(
-                snapshot.snapshot_id, symbol,
+            "researchRuns": []
+            if snapshot is None
+            else store.research_runs(
+                snapshot.snapshot_id,
+                symbol,
             ),
-            "chatgptResearch": [] if snapshot is None else [
+            "chatgptResearch": []
+            if snapshot is None
+            else [
                 item.model_dump(mode="json")
                 for item in store.chatgpt_research(snapshot.snapshot_id)
                 if item.context.symbol == symbol

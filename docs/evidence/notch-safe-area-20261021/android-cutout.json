@@ -1,0 +1,80 @@
+{
+  "status": "ACTUAL_ANDROID_SETTINGS_SCREEN_BACK_SMOKE_PASSED",
+  "kind": "signed-release",
+  "navigation_scope": "screen-back",
+  "source_commit": "3f5dc8b3a87f4c2ecd4751778937ce4525d9b421",
+  "APK_sha256": "026221c40c767d9509065bd317cf8ee8ea9c7e827da6706bc6070a5ae590fd71",
+  "fresh_empty_state": false,
+  "reused_only_owned_empty_attempt_001": true,
+  "settings_overview": true,
+  "capital_editor": true,
+  "model_editor": true,
+  "hardware_back_verified": false,
+  "UI_back": true,
+  "account_or_market_seed": false,
+  "native_actions_started": false,
+  "known_unresolved_hardware_back_closes_activity": true,
+  "clock_modified": false,
+  "production_limits_relaxed": false,
+  "Xiaomi_verified": false,
+  "actual_native_cutout_portrait_and_landscape": true,
+  "scope": "Isolated API35 Android emulator, actual signed release APK, native tall-cutout overlay; reused only the empty owned AVD created in this run, not Xiaomi",
+  "geometries": {
+    "notch-portrait": {
+      "cutout_insets_px": [
+        0,
+        126,
+        0,
+        0
+      ],
+      "brand_bounds_px": [
+        157,
+        165,
+        252,
+        233
+      ],
+      "rotation": 0,
+      "header_clears_cutout": true
+    },
+    "notch-landscape": {
+      "cutout_insets_px": [
+        126,
+        0,
+        0,
+        0
+      ],
+      "brand_bounds_px": [
+        288,
+        118,
+        672,
+        186
+      ],
+      "rotation": 1,
+      "header_clears_cutout": true
+    },
+    "notch-portrait-return": {
+      "cutout_insets_px": [
+        0,
+        126,
+        0,
+        0
+      ],
+      "brand_bounds_px": [
+        157,
+        165,
+        252,
+        233
+      ],
+      "rotation": 0,
+      "header_clears_cutout": true
+    }
+  },
+  "webview_version": "Current WebView package (name, version): (com.android.webview, 124.0.6367.219)",
+  "earlier_harness_failures_preserved": [
+    "001: settings rotation did not rotate emulator.",
+    "002: diagnostic wm help returned nonzero.",
+    "003: insufficient disk for new 12GiB userdata partition.",
+    "004: test header selector did not include the landscape subtitle.",
+    "005: owned empty AVD reused; WM rotation and actual header selector passed. APK unchanged."
+  ]
+}

@@ -12,14 +12,13 @@ interface SavedDecision {
 }
 
 export function DecisionSavedPage(): ReactNode {
-  const today = useApiData<TodayResponse>("/api/v1/today");
+  const today = useApiData<TodayResponse & { decision: SavedDecision | null }>("/api/v1/execution-context");
   const proposalId = today.data?.proposal?.proposalId;
-  const decision = useApiData<SavedDecision | null>(proposalId ? `/api/v1/proposals/${proposalId}/decision` : "/api/v1/health");
-  if (today.loading || decision.loading) return <StatePanel title="保存済み判断を確認しています" />;
-  if (!proposalId || !decision.data) return <StatePanel title="保存済み判断はありません" detail="今日の提案から判断を保存してください。" />;
+  const decision = today.data?.decision;
+  if (today.loading || today.error || !proposalId || !decision) return <div className="page"><Link className="back-link" to="/today">← 今日へ戻る</Link><PageHeader title="保存済み判断" /><StatePanel title={today.loading ? "保存済み判断を確認しています" : today.error ? "保存済み判断を取得できません" : "保存済み判断はありません"} detail={today.error || (!today.loading ? "今日の提案から判断を保存してください。" : undefined)} /></div>;
   return (
     <div className="page">
-      <PageHeader eyebrow={`Version ${decision.data.version}`} title="判断を保存しました" />
+      <PageHeader eyebrow={`Version ${decision.version}`} title="判断を保存しました" />
       <section className="success-panel">
         <span aria-hidden="true">✓</span>
         <strong>ローカル台帳へ保存済み</strong>

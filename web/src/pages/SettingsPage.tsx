@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { PageHeader, StatePanel, TabBar, dateTime, yen } from "../components";
 import { useApiData } from "../hooks";
 import { MobileDevicePanel } from "../mobile/MobileDevicePanel";
+import { isAndroid } from "../mobile/native";
 
 interface AccountSetting {
   bucketId: string;
@@ -68,6 +69,14 @@ const sections = [
 
 export function SettingsPage(): ReactNode {
   const { section } = useParams();
+  // The editable native form must survive focus/visibility and polling refreshes.
+  // Its own APIs load and save revisions; the read-only web settings poller does not own it.
+  if (!section && isAndroid()) return <div className="page page--settings"><MobileDevicePanel /></div>;
+  return <ReadOnlySettingsPage />;
+}
+
+function ReadOnlySettingsPage(): ReactNode {
+  const { section } = useParams();
   const [category, setCategory] = useState("account");
   const { data, error, loading } = useApiData<SettingsPayload>("/api/v1/settings");
   const [notificationState, setNotificationState] = useState<string>(() => (
@@ -91,7 +100,6 @@ export function SettingsPage(): ReactNode {
     <div className="page">
       {section && <Link className="back-link" to="/settings">← 設定一覧へ</Link>}
       <PageHeader title={currentSection?.title || "設定"} />
-      {!section && <MobileDevicePanel />}
       {!section && <TabBar label="設定の分類" options={[["account", "口座・資金"], ["ai", "AI・データ"], ["device", "通知"]]} value={category} onChange={setCategory} panelId="settings-panel" />}
       <div {...(!section ? { id: "settings-panel", role: "tabpanel", "aria-labelledby": `settings-panel-${category}` } : {})}>
       {!section && category !== "device" && <section className="settings-list">
@@ -118,8 +126,8 @@ export function SettingsPage(): ReactNode {
           <div><dt>年内確定利益</dt><dd>{yen(item.realizedGainYtd)}</dd></div>
           <div><dt>年内確定損失</dt><dd>{yen(item.realizedLossYtd)}</dd></div>
           <div><dt>繰越損失</dt><dd>{yen(item.lossCarryforward)}</dd></div>
-          <div><dt>NISA年間残枠</dt><dd>{yen(item.nisaAnnualCapacity)}</dd></div>
-          <div><dt>NISA生涯残枠</dt><dd>{yen(item.nisaLifetimeCapacity)}</dd></div>
+          <div><dt>NISA成長投資枠・今年の残枠</dt><dd>{yen(item.nisaAnnualCapacity)}{Number(item.nisaAnnualCapacity) > 2400000 && "（要確認：年間上限240万円）"}</dd></div>
+          <div><dt>NISA成長投資枠・残り保有限度</dt><dd>{yen(item.nisaLifetimeCapacity)}{Number(item.nisaLifetimeCapacity) > 12000000 && "（要確認：上限1200万円）"}</dd></div>
         </dl><p className="explain">税額・税効果は意思決定用の推定です。</p>
       </article>)}</section>}
       {section === "trading" && <section className="section"><dl className="status-list">

@@ -1,0 +1,23 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, expect, test, vi } from "vitest";
+import { useApiData } from "../hooks";
+import { ResearchHistoryPage } from "./ResearchHistoryPage";
+vi.mock("../hooks", () => ({useApiData:vi.fn()}));
+vi.mock("../mobile/CompanyResearchPanel", () => ({CompanyResearchPanel:({readOnly}:{readOnly:boolean}) => <div>{readOnly ? "履歴を閲覧中" : "最新の履歴"}</div>}));
+afterEach(cleanup);
+test("saved research history appears during the slow read and is read-only until verified", () => {
+  const data={forecast:null,researchRuns:[],chatgptResearch:[]};
+  vi.mocked(useApiData).mockReturnValue({data,loading:true,error:null,savedAt:"2026-10-26T00:00:00Z",reload:vi.fn()});
+  const element=()=><MemoryRouter initialEntries={["/stocks/7203/research"]}><Routes><Route path="/stocks/:symbol/research" element={<ResearchHistoryPage />} /></Routes></MemoryRouter>;
+  const view=render(element());
+  expect(screen.getByText("履歴を閲覧中")).toBeVisible();
+  expect(screen.getByRole("status")).toHaveTextContent("保存済み表示・閲覧用");
+  vi.mocked(useApiData).mockReturnValue({data,loading:false,error:null,savedAt:null,reload:vi.fn()});
+  view.rerender(element());
+  expect(screen.getByText("最新の履歴")).toBeVisible();
+  vi.mocked(useApiData).mockReturnValue({data:null,loading:false,error:"整合性エラー",savedAt:null,reload:vi.fn()});
+  view.rerender(element());
+  expect(screen.getByText("整合性エラー")).toBeVisible();
+  expect(screen.queryByText("履歴を閲覧中")).not.toBeInTheDocument();
+});

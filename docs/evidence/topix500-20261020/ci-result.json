@@ -1,0 +1,50 @@
+{
+  "status": "ALL_REQUIRED_CI_SUCCESS",
+  "product_commit": "a9e3bfada88327c54259fee50ad2848b3c92b133",
+  "run_id": 39380572689,
+  "url": "https://github.com/iburigakko-picoloom/stock-ai-spec/actions/runs/39380572689",
+  "tested_merge": "32490838c6575663c01fa092bb739e055b3d4001",
+  "source_tree_equals_tested_merge": true,
+  "jobs": {
+    "android": "success",
+    "verify": "success",
+    "android-history": "success",
+    "release": "skipped"
+  },
+  "ruff_passed": true,
+  "mypy_src_75_files_Linux_and_Windows_passed": true,
+  "Python_passed_invocations_including_repeated_cases": 1255,
+  "Python_batches": [
+    13,
+    98,
+    21,
+    83,
+    190,
+    104,
+    32,
+    70,
+    54,
+    584,
+    6
+  ],
+  "Python_skipped": 1,
+  "skip_reason": "Windows Task Scheduler runner is skipped on Linux; tests/test_locked_holdout.py:1076",
+  "Web_unit_tests": 100,
+  "Playwright_tests": [
+    19,
+    11,
+    6
+  ],
+  "native_tests": 89,
+  "native_failures_errors_skips": 0,
+  "JVM_tests": 15,
+  "JVM_failures_ignored": 0,
+  "native_recovery_and_debug_upgrade_scope": "Synthetic Android35 CI, debug same-signature upgrade; not release/Xiaomi or actual new-day TOPIX500 performance",
+  "synthetic_full_native_restore_seconds": 222.200755894,
+  "synthetic_full_native_Java_heap_bytes": 201326592,
+  "synthetic_full_PC_feature_seconds": 181.70026906800013,
+  "synthetic_full_PC_peak_bytes": 3146665984,
+  "synthetic_symbol_count": 5000,
+  "synthetic_sessions": 520,
+  "Xiaomi_verified": false
+}

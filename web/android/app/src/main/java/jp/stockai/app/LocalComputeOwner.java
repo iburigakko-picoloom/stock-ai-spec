@@ -21,7 +21,11 @@ final class LocalComputeOwner {
     private final String identity;
     private final ExecutorService queue = Executors.newSingleThreadExecutor();
     private final AtomicInteger queued = new AtomicInteger();
+    private final AtomicInteger operationSequence = new AtomicInteger();
     final LocalStateStore state;
+    final SavedReadViews readViews;
+    final AnalysisCheckpoints checkpoints;
+    volatile boolean analyzing;
     private volatile ComputeHost host;
     private long generation;
     private volatile boolean closed;
@@ -42,11 +46,13 @@ final class LocalComputeOwner {
         return owner;
     }
 
-    private LocalComputeOwner(Context context, File file, String identity) {
+    private LocalComputeOwner(Context context, File file, String identity) throws Exception {
         this.context = context.getApplicationContext(); this.identity = identity;
         File parent = file.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) throw new IllegalStateException("STATE_UNAVAILABLE");
         state = new LocalStateStore(SQLiteDatabase.openOrCreateDatabase(file, null));
+        checkpoints = new AnalysisCheckpoints(state.database);
+        readViews = SavedReadViews.forDatabase(file);
     }
 
     interface Operation<T> { T run() throws Exception; }
@@ -64,18 +70,30 @@ final class LocalComputeOwner {
         // interpreter wait. A stopped Worker must not leave an orphan ahead
         // of its replacement. Count queued/running work exactly once.
         AtomicInteger phase = new AtomicInteger(); // queued=0, running=1, released=2
+        int operationId = operationSequence.incrementAndGet();
+        long enqueuedAt = android.os.SystemClock.elapsedRealtime();
         FutureTask<Void> task = new FutureTask<>(() -> {
             if (!phase.compareAndSet(0, 1)) return null;
+            long startedAt = android.os.SystemClock.elapsedRealtime();
+            android.util.Log.i("StockAIComputeTiming", "operation=" + operationId
+                + " event=start queue_ms=" + (startedAt - enqueuedAt));
+            boolean succeeded = false;
             try {
                 if (!result.isCancelled()) {
                     if (Looper.myLooper() == Looper.getMainLooper()) throw new IllegalStateException("COMPUTE_ON_MAIN_THREAD");
                     result.complete(operation.run());
+                    succeeded = true;
                 }
             } catch (Exception error) {
                 // The plugin always exposes a fixed error. Internal causes aid
                 // isolated native tests; worker diagnostics contain only enums.
                 result.completeExceptionally(new IllegalStateException("COMPUTE_OPERATION_FAILED", error));
-            } finally { phase.set(2); queued.decrementAndGet(); }
+            } finally {
+                android.util.Log.i("StockAIComputeTiming", "operation=" + operationId
+                    + " event=finish success=" + succeeded + " run_ms="
+                    + (android.os.SystemClock.elapsedRealtime() - startedAt));
+                phase.set(2); queued.decrementAndGet();
+            }
             return null;
         });
         result.whenComplete((value, error) -> {
@@ -105,13 +123,36 @@ final class LocalComputeOwner {
     private void initializeIfNeeded() throws Exception {
         if (host != null && state.currentGeneration() != generation) dropHost();
         if (host != null) return;
-        try (LocalStateStore.ReadLease saved = state.openReadLease()) {
-            generation = saved.generation;
+        try (LocalStateStore.StartupLease saved = state.openStartupLease()) {
+            generation = saved.base.generation;
             ComputeHost candidate = new ComputeHost(context);
             try {
-                generation = initializeCandidate(candidate, saved, generation); host = candidate;
+                candidate.start();
+                JSONObject command = new JSONObject().put("command", "initialize").put("optimized_startup", true)
+                    .put("defer_initialize", saved.operations != null);
+                try (ComputeHost.Reply reply = candidate.request(command, saved.base, generation)) {
+                    if (saved.operations == null) commitStartup(reply);
+                    else if (!reply.json.getJSONObject("result").getString("persistence").equals("deferred") || reply.state != null)
+                        throw new IllegalStateException("INVALID_STARTUP_OVERLAY");
+                }
+                if (saved.operations != null) {
+                    try (ComputeHost.Reply reply = candidate.request(new JSONObject().put("command", "initialize_operations")
+                            .put("optimized_startup", true), saved.operations, generation)) { commitStartup(reply); }
+                }
+                host = candidate;
             } catch (Exception error) { candidate.close(); throw error; }
         }
+    }
+
+    private void commitStartup(ComputeHost.Reply reply) throws Exception {
+        String mode = reply.json.getJSONObject("result").getString("persistence");
+        if (mode.equals("none")) {
+            if (reply.state != null || state.currentGeneration() != generation) throw new IllegalStateException("STARTUP_STATE_CONFLICT");
+        } else if (mode.equals("operations") && reply.state != null) {
+            generation = state.commitOperations(generation, reply.state);
+        } else if (mode.equals("full") && reply.state != null) {
+            generation = state.commitTransfer(generation, reply.state);
+        } else throw new IllegalStateException("INVALID_STARTUP_STATE");
     }
 
     static void validateRequest(String method, String path, String body) {
@@ -119,6 +160,27 @@ final class LocalComputeOwner {
             || !path.startsWith("/api/v1/") || path.contains("\\") || path.contains("#")
             || path.chars().anyMatch(c -> c < 32 || c == 127)
             || body == null || body.length() > LocalStateStore.MAX_INLINE_CHARACTERS) throw new IllegalArgumentException();
+    }
+
+    static boolean operationsOnly(String method, String path) {
+        return "POST".equals(method) && (path.equals("/api/v1/mobile/portfolio")
+            || path.equals("/api/v1/mobile/personal/settings")
+            || path.equals("/api/v1/mobile/personal/initial/preview")
+            || path.equals("/api/v1/mobile/personal/initial/confirm")
+            || path.equals("/api/v1/mobile/personal/current/preview")
+            || path.equals("/api/v1/mobile/personal/current/confirm")
+            || path.matches("/api/v1/stocks/[A-Z0-9]{1,10}/note")
+            || path.equals("/api/v1/executions/manual")
+            || path.equals("/api/v1/portfolio/apply-executions")
+            || path.equals("/api/v1/imports/executions/preview")
+            || path.equals("/api/v1/imports/positions/preview")
+            || path.matches("/api/v1/proposals/[^/?#]+/decisions")
+            || path.matches("/api/v1/decisions/[^/?#]+/executions")
+            || path.matches("/api/v1/imports/(executions|positions)/[^/?#]+/confirm"));
+    }
+
+    static boolean requiresPersistence(String method, String path) {
+        return "POST".equals(method) && !path.matches("/api/v1/proposals/[^/?#]+/review");
     }
 
     CompletableFuture<JSObject> request(String method, String path, String body) {
@@ -130,19 +192,50 @@ final class LocalComputeOwner {
         return submit(() -> {
             try {
                 initializeIfNeeded();
+                boolean operations = operationsOnly(method, path);
+                boolean analysis = ManualAnalysisService.handles(method, path);
+                host.checkpoints = analysis ? checkpoints : null;
+                host.checkpointInput = analysis ? checkpoints.begin(context, generation, body) : null;
+                analyzing = analysis;
                 try (ComputeHost.Reply reply = host.request(new JSONObject().put("command", "request")
-                        .put("method", method).put("path", path).put("body", body), null, generation)) {
+                        .put("method", method).put("path", path).put("body", body)
+                        .put("operations_only", operations), null, generation)) {
                     JSONObject result = reply.json.getJSONObject("result");
                     int status = result.getInt("status");
                     if (status < 100 || status > 599 || !result.has("body")) throw new IllegalStateException("INVALID_COMPUTE_REPLY");
-                    if ("POST".equals(method)) {
+                    if (analysis) checkpoints.response(status, result.optJSONObject("body"));
+                    if (requiresPersistence(method, path)) {
                         if (reply.state == null || !Boolean.TRUE.equals(reply.json.opt("state"))) throw new IllegalStateException("COMPUTE_COMMIT_MISSING");
-                        generation = state.commitTransfer(generation, reply.state);
+                        long previous = generation;
+                        generation = operations ? state.commitOperations(generation, reply.state)
+                            : state.commitTransfer(generation, reply.state);
+                        if (analysis || path.equals("/api/v1/mobile/decision/generate")
+                                || path.equals("/api/v1/mobile/portfolio")
+                                || path.matches("/api/v1/mobile/personal/(initial|current)/preview"))
+                            checkpoints.committed(previous, generation);
+                        if (analysis) {
+                            JSONObject output = result.optJSONObject("body");
+                            boolean saved = status == 200 && output != null && (output.optString("phase").matches("published|reference_saved")
+                                || output.optString("outcome").equals("cash_only"));
+                            checkpoints.finish(saved ? "complete" : "blocked", output);
+                        }
+                        if (status == 200 && path.equals("/api/v1/mobile/personal/current/confirm")) readViews.clear();
                     } else if (reply.state != null || !reply.json.isNull("state") || state.currentGeneration() != generation)
                         throw new IllegalStateException("UNEXPECTED_READ_COMMIT_OR_STATE_CHANGE");
-                    return new JSObject(result.toString());
+                    String response = result.toString();
+                    if (("GET".equals(method) || ("POST".equals(method) && path.equals("/api/v1/mobile/portfolio"))) && SavedReadViews.allowed(path)) {
+                        if (status == 200) {
+                            try { readViews.saveAsync(path, response, generation); }
+                            catch (Exception ignored) { readViews.clear(); } // Optional display copy never fails a valid read.
+                        } else readViews.clear();
+                    }
+                    return new JSObject(response);
                 }
-            } catch (Exception error) { dropHost(); throw error; }
+            } catch (Exception error) {
+                if (analyzing) { try { checkpoints.failed(error); } catch (Exception ignored) { } }
+                if (!(error instanceof InterruptedException)) readViews.clear(); dropHost(); throw error;
+            }
+            finally { analyzing = false; }
         });
     }
 
@@ -209,6 +302,7 @@ final class LocalComputeOwner {
     private JSObject restoreFrom(LocalStateStore.ReadLease source, long previous) throws Exception {
         ComputeHost candidate = null;
         try (LocalStateStore.ReadLease incoming = source) {
+            readViews.clear();
             dropHost(); candidate = new ComputeHost(context);
             long saved = initializeCandidate(candidate, incoming, previous);
             host = candidate; generation = saved;
@@ -218,6 +312,10 @@ final class LocalComputeOwner {
             try { if (state.currentGeneration() != previous) dropHost(); }
             catch (Exception ignored) { dropHost(); }
             throw error;
+        } finally {
+            // A native display read can finish after the initial clear but before
+            // restoration commits. Invalidate that whole interval as well.
+            readViews.clear();
         }
     }
 

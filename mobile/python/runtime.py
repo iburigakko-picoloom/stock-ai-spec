@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import inspect
 import io
 import json
+import re
 import sqlite3
 import tempfile
 import zipfile
+import zlib
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,17 +23,25 @@ from fastapi.routing import APIRoute, request_response
 from stock_ai.operations.api import create_app
 from stock_ai.operations.manual_portfolio import ManualPortfolio, strict_json
 from stock_ai.operations.manual_settings import ManualPersonalSettings
-from stock_ai.operations.store import OperationalConflictError
+from stock_ai.operations.store import OperationalConflictError, OperationalIntegrityError
 
 from . import (
+    account_editor,
     decisions,
+    explanations,
+    forecast_history,
     forecasts,
+    forward_evidence,
+    forward_protocol,
+    holding_names,
     manual_chatgpt,
     market,
     membership,
     models,
     personal,
+    rankings,
     research,
+    stock_chart,
     universe,
 )
 from .features import bundled_selection, calculate
@@ -51,10 +62,12 @@ def _async_call(fn):
     return invoke
 
 
-def _restore_archive(archive: zipfile.ZipFile) -> None:
+def _restore_archive(archive: zipfile.ZipFile, *, operations_only=False) -> None:
     names = archive.namelist()
     if set(names) - {"operations.sqlite3", "mobile.sqlite3"} or len(names) != len(set(names)):
         raise ValueError("Unexpected backup file")
+    if operations_only and names != ["operations.sqlite3"]:
+        raise ValueError("Invalid operations overlay")
     # Validate both snapshots on disk before replacing either current database.
     with tempfile.TemporaryDirectory(prefix="state-import-", dir=STATE) as folder:
         staged = Path(folder)
@@ -77,7 +90,17 @@ def _restore_archive(archive: zipfile.ZipFile) -> None:
             with closing(sqlite3.connect(uri, uri=True)) as probe:
                 if probe.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                     raise ValueError("Invalid SQLite integrity")
+        # A live observer must release its WAL handles before replacing files.
+        # Close only after every staged snapshot has passed validation.
+        if _app is not None:
+            _app.state.integrity_guard.close()
         for name in names:
+            # The final connection may have been read-only, so SQLite cannot
+            # checkpoint/unlink the old WAL on close. This isolated interpreter
+            # has no live writer here: retire sidecars with the replaced DB,
+            # otherwise old committed pages can overwrite the restored snapshot.
+            for suffix in ("-wal", "-shm", "-journal"):
+                (STATE / (name + suffix)).unlink(missing_ok=True)
             (staged / name).replace(STATE / name)
 
 
@@ -109,7 +132,7 @@ class StateImport:
             self.close()
             raise
 
-    def finish(self) -> dict:
+    def finish(self, *, initialize_runtime=True, operations_only=False) -> dict:
         try:
             if self._closed or self._received != self.length:
                 raise ValueError("Incomplete native state")
@@ -117,8 +140,10 @@ class StateImport:
             if self.length:
                 self._archive.seek(0)
                 with zipfile.ZipFile(self._archive) as archive:
-                    _restore_archive(archive)
-            return initialize()
+                    _restore_archive(archive, operations_only=operations_only)
+            elif operations_only:
+                raise ValueError("Missing operations overlay")
+            return initialize() if initialize_runtime else {}
         finally:
             self.close()
 
@@ -130,11 +155,16 @@ class StateImport:
 
 def initialize(encoded: str = "") -> dict:
     global _app
+    if _app is not None:
+        _app.state.integrity_guard.close()
     STATE.mkdir(exist_ok=True)
     if encoded:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded, validate=True))) as archive:
             _restore_archive(archive)
     _app = create_app(STATE / "operations.sqlite3")
+    _app.state.research_market_evidence = lambda now: market.consultation_evidence(
+        STATE / "mobile.sqlite3", now
+    )
 
     # WASM has no Python threads. Run the already-validated synchronous route
     # functions on this dedicated Web Worker, retaining FastAPI validation,
@@ -149,26 +179,67 @@ def initialize(encoded: str = "") -> dict:
         if isinstance(route, APIRoute):
             adapt(route.dependant)
             route.app = request_response(route.get_route_handler())
-    _app.state.store.verify_integrity()
-    with mobile_db() as db:
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS manual_inputs ("
-            "id INTEGER PRIMARY KEY, saved_at TEXT NOT NULL, payload TEXT NOT NULL)"
-        )
-    market.initialize(STATE / "mobile.sqlite3")
-    membership.initialize(STATE / "mobile.sqlite3")
-    models.initialize(STATE / "mobile.sqlite3")
-    forecasts.initialize(STATE / "mobile.sqlite3")
-    forecasts.reconcile_publications(STATE / "mobile.sqlite3", _app.state.store)
-    personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
-    decisions.initialize(STATE / "mobile.sqlite3")
-    decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store)
-    _app.state.store.verify_integrity()
+    # The proof may be reused inside startup, but the observer must release
+    # its SQLite handles even on failure so backup/restore can replace files.
+    try:
+        _app.state.integrity_guard.verify()
+        with mobile_db() as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS manual_inputs ("
+                "id INTEGER PRIMARY KEY, saved_at TEXT NOT NULL, payload TEXT NOT NULL)"
+            )
+        market.initialize(STATE / "mobile.sqlite3")
+        membership.initialize(STATE / "mobile.sqlite3")
+        models.initialize(STATE / "mobile.sqlite3")
+        forecasts.initialize(STATE / "mobile.sqlite3")
+        forecasts.reconcile_publications(STATE / "mobile.sqlite3", _app.state.store)
+        personal.initialize(_app.state.store, STATE / "mobile.sqlite3", datetime.now(UTC))
+        decisions.initialize(STATE / "mobile.sqlite3")
+        decisions.reconcile(STATE / "mobile.sqlite3", _app.state.store,
+                            integrity_guard=_app.state.integrity_guard)
+        _app.state.integrity_guard.verify()
+    finally:
+        _app.state.integrity_guard.close()
     return {"research_only": True, "order_submission": False}
 
 
 def mobile_db():
     return connect(STATE / "mobile.sqlite3")
+
+
+def _startup_fingerprints() -> dict:
+    """Bounded reads; never allocate or recompress a complete market snapshot."""
+    result = {}
+    for name in ("operations.sqlite3", "mobile.sqlite3"):
+        path = STATE / name
+        if not path.exists():
+            result[name] = None
+            continue
+        with closing(sqlite3.connect(path)) as db:
+            # This interpreter is the sole writer. Include committed WAL pages.
+            if db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0] != 0:
+                raise ValueError("Startup checkpoint busy")
+            if name == "operations.sqlite3":
+                digest = hashlib.sha256()
+                # Small ledger: ignore physical page/header churn, not logical changes.
+                for line in db.iterdump():
+                    digest.update(line.encode("utf-8"))
+                    digest.update(b"\n")
+                result[name] = digest.hexdigest()
+                continue
+        with path.open("rb") as content:
+            result[name] = hashlib.file_digest(content, "sha256").hexdigest()
+    return result
+
+
+def initialize_checked() -> dict:
+    before = _startup_fingerprints()
+    initialize()
+    after = _startup_fingerprints()
+    mode = ("full" if before["mobile.sqlite3"] != after["mobile.sqlite3"]
+            else "operations" if before["operations.sqlite3"] != after["operations.sqlite3"]
+            else "none")
+    return {"persistence": mode}
 
 
 class _BoundedArchive(io.BytesIO):
@@ -182,12 +253,16 @@ class _BoundedArchive(io.BytesIO):
         return super().write(content)
 
 
-def _export_archive(limit: int | None = None) -> io.BytesIO:
-    market.compact_legacy(STATE / "mobile.sqlite3")
+def _export_archive(limit: int | None = None, *, operations_only=False) -> io.BytesIO:
+    if not operations_only:
+        market.compact_legacy(STATE / "mobile.sqlite3")
     output = io.BytesIO() if limit is None else _BoundedArchive(limit)
     try:
         with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name in ("operations.sqlite3", "mobile.sqlite3"):
+            names = ("operations.sqlite3",) if operations_only else (
+                "operations.sqlite3", "mobile.sqlite3",
+            )
+            for name in names:
                 backup_path = STATE / "export.sqlite3"
                 try:
                     with closing(sqlite3.connect(STATE / name)) as connection:
@@ -218,8 +293,10 @@ _STATE_CHUNK_CHARACTERS = 256 * 1024
 class StateExport:
     """Native-only base64 stream, with one archive and bounded encoded fragments."""
 
-    def __init__(self):
-        self._archive = _export_archive(_MAX_NATIVE_STATE_CHARACTERS // 4 * 3)
+    def __init__(self, operations_only=False):
+        self._archive = _export_archive(
+            _MAX_NATIVE_STATE_CHARACTERS // 4 * 3, operations_only=operations_only,
+        )
         self._view = self._archive.getbuffer()
         self.length = (len(self._view) + 2) // 3 * 4
         self._offset = 0
@@ -248,6 +325,96 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         raise RuntimeError("Runtime not initialized")
     if method not in {"GET", "POST"} or not path.startswith("/api/v1/") or "://" in path:
         return {"status": 400, "body": {"detail": "Unsupported local operation"}}
+    if path == "/api/v1/mobile/forward-evidence" and method == "GET":
+        try:
+            return {"status": 200, "body": forward_evidence.inventory(
+                STATE / "mobile.sqlite3", _app.state.store, now=datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "保存した日次予測の記録を確認できません。"}}
+    if path == "/api/v1/mobile/holdings/market" and method == "GET":
+        try:
+            return {"status": 200, "body": holding_names.read(
+                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "保存済みの銘柄名と株価を確認できません。"}}
+    if path == "/api/v1/mobile/forward-evidence/register" and method == "POST":
+        try:
+            if json.loads(body) != {}:
+                raise ValueError("Unexpected registration input")
+            return {"status": 200, "body": forward_protocol.register(
+                STATE / "mobile.sqlite3", datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error):
+            return {"status": 422, "body": {
+                "detail": "現在のモデルを確認できず、検証を開始できません。"}}
+    if path == "/api/v1/mobile/forward-evidence/observe" and method == "POST":
+        try:
+            incoming = json.loads(body)
+            if (not isinstance(incoming, dict)
+                    or set(incoming) != {"registration_id", "run_id", "horizon"}
+                    or any(not isinstance(incoming[k], str)
+                           or not re.fullmatch(r"[0-9a-f]{64}", incoming[k])
+                           for k in ("registration_id", "run_id"))
+                    or type(incoming["horizon"]) is not int):
+                raise ValueError("Invalid observation input")
+            return {"status": 200, "body": forward_protocol.observe(
+                STATE / "mobile.sqlite3", _app.state.store, incoming["registration_id"],
+                incoming["run_id"], incoming["horizon"], datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "予測と市場データの記録を照合できません。"}}
+    observation = re.fullmatch(r"/api/v1/mobile/forward-evidence/observations/([0-9a-f]{64})", path)
+    if observation and method == "GET":
+        try:
+            return {"status": 200, "body": forward_protocol.observation(
+                STATE / "mobile.sqlite3", observation[1],
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError):
+            return {"status": 422, "body": {"detail": "保存した実績記録を確認できません。"}}
+    history = re.fullmatch(
+        r"/api/v1/mobile/stocks/([A-Z0-9]{4})/forecast-history(?:\?days=(30|90|180|366))?",
+        path,
+    )
+    if history and method == "GET":
+        try:
+            return {"status": 200, "body": forecast_history.read(
+                STATE / "mobile.sqlite3", _app.state.store, history[1], datetime.now(UTC),
+                days=int(history[2] or 90),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "保存した予測を確認できません。"}}
+    chart = re.fullmatch(
+        r"/api/v1/mobile/stocks/([A-Z0-9]{4})/chart(?:\?days=(30|90|180|366))?", path
+    )
+    if chart and method == "GET":
+        try:
+            return {"status": 200, "body": stock_chart.read(
+                STATE / "mobile.sqlite3", _app.state.store, chart[1], datetime.now(UTC),
+                days=int(chart[2] or 90),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "株価または予測の保存内容を確認できません。"}}
+    explanation = re.fullmatch(
+        r"/api/v1/mobile/stocks/([A-Z0-9]{4})/explanation\?snapshot=([0-9a-f]{64})", path
+    )
+    if explanation and method == "GET":
+        try:
+            return {"status": 200, "body": explanations.read(
+                STATE / "mobile.sqlite3", _app.state.store, explanation[1], explanation[2],
+                datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {
+                "detail": "保存時の入力とモデルを再現できず、予測要因を表示できません。"
+            }}
     if path == "/api/v1/mobile/portfolio":
         if method == "POST":
             try:
@@ -273,6 +440,16 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         store = _app.state.store
         now = datetime.now(UTC)
         try:
+            if path == "/api/v1/mobile/personal/current" and method == "GET":
+                return {"status": 200, "body": account_editor.view(store)}
+            if path in (
+                "/api/v1/mobile/personal/current/preview",
+                "/api/v1/mobile/personal/current/confirm",
+            ) and method == "POST":
+                incoming = strict_json(body)
+                return {"status": 200, "body": account_editor.edit(
+                    store, incoming, now, confirm=path.endswith("/confirm"),
+                )}
             if path == "/api/v1/mobile/personal/settings":
                 if method == "POST":
                     incoming = strict_json(body)
@@ -303,7 +480,12 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 )}
         except OperationalConflictError as error:
             return {"status": 409, "body": {"detail": str(error)}}
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError) as error:
+            if path.startswith("/api/v1/mobile/personal/current"):
+                message = str(error)
+                return {"status": 422, "body": {"detail": message
+                    if len(message) < 160 and any("\u3040" <= c <= "\u9fff" for c in message)
+                    else "金額・口座区分・株数を確認してください。"}}
             return {"status": 422, "body": {
                 "detail": "補足設定・未入力項目・口座との対応を確認してください。"
             }}
@@ -334,6 +516,15 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             return {"status": 422, "body": {
                 "detail": "取得範囲は昨日までの最大2年分で指定してください。"
             }}
+    if path == "/api/v1/mobile/market/universe-policy" and method in ("GET", "POST"):
+        from .preselection import policy
+
+        try:
+            return {"status": 200, "body": policy(
+                STATE / "mobile.sqlite3", json.loads(body)["mode"] if method == "POST" else None,
+            )}
+        except (ValueError, KeyError, TypeError):
+            return {"status": 422, "body": {"detail": "対象銘柄方式を確認してください。"}}
     if method == "GET" and path in (
         "/api/v1/mobile/market/universe", "/api/v1/mobile/market/current-universe"
     ):
@@ -361,6 +552,27 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             }}
     if path == "/api/v1/mobile/market" and method == "GET":
         return {"status": 200, "body": market.status(STATE / "mobile.sqlite3")}
+    if path.startswith("/api/v1/mobile/ranking/"):
+        try:
+            parts = path.removeprefix("/api/v1/mobile/ranking/").split("/")
+            horizon = parts[0]
+            args = (STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC), horizon)
+            if len(parts) == 1 and method == "GET":
+                result = rankings.view(*args)
+            elif len(parts) == 2 and parts[1] == "names" and method == "GET":
+                result = rankings.display_names(*args)
+            elif (len(parts) == 2 and method == "POST"
+                  and parts[1] in ("export", "answer", "research", "review")):
+                operation = {"export": rankings.export, "answer": rankings.import_answer,
+                             "research": rankings.save_answer,
+                             "review": rankings.review_saved}[parts[1]]
+                result = operation(*args, json.loads(body))
+            else:
+                raise ValueError("ランキングの操作を確認してください")
+            return {"status": 200, "body": result}
+        except (ValueError, KeyError, TypeError) as error:
+            return {"status": 422, "body": {"detail": str(error) if type(error) is ValueError
+                    else "ランキング・回答JSONの形式を確認してください"}}
     if path.startswith("/api/v1/mobile/chatgpt-manual/"):
         try:
             store, now = _app.state.store, datetime.now(UTC)
@@ -371,6 +583,10 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 result = manual_chatgpt.export(local_path, store, json.loads(body), now)
             elif path == "/api/v1/mobile/chatgpt-manual/answer" and method == "POST":
                 result = manual_chatgpt.import_answer(local_path, store, json.loads(body), now)
+            elif path == "/api/v1/mobile/chatgpt-manual/research" and method == "POST":
+                result = manual_chatgpt.save_answer(local_path, store, json.loads(body), now)
+            elif path == "/api/v1/mobile/chatgpt-manual/review" and method == "POST":
+                result = manual_chatgpt.review_saved(local_path, store, json.loads(body), now)
             else:
                 raise ValueError("手動ChatGPTの操作を確認してください")
             return {"status": 200, "body": result}
@@ -394,6 +610,9 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         return {"status": 200, "body": models.status(STATE / "mobile.sqlite3", _app.state.store)}
     if path == "/api/v1/mobile/daily" and method == "GET":
         return {"status": 200, "body": forecasts.latest(STATE / "mobile.sqlite3")}
+    if path == "/api/v1/mobile/daily/reference" and method == "GET":
+        return {"status": 200, "body": forecasts.latest_reference(
+            STATE / "mobile.sqlite3", datetime.now(UTC))}
     if path == "/api/v1/mobile/decision" and method == "GET":
         return {"status": 200, "body": decisions.view(STATE / "mobile.sqlite3", _app.state.store)}
     if path == "/api/v1/mobile/decision/generate" and method == "POST":
@@ -414,16 +633,36 @@ async def request(method: str, path: str, body: str = "null") -> dict:
                 "detail": "原予測・市場情報・本人設定の整合を確認できず、株数提案を保存できません。"
             }}
     if path == "/api/v1/mobile/daily/generate" and method == "POST":
+        from .checkpoints import CheckpointPause
         try:
+            options = strict_json(body)
+            if (not isinstance(options, dict) or set(options) - {"reference_only"}
+                    or type(options.get("reference_only", False)) is not bool):
+                raise ValueError("Invalid forecast options")
             return {"status": 200, "body": forecasts.generate(
-                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC)
+                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC),
+                **({"reference_only": True} if options.get("reference_only") else {})
             )}
+        except CheckpointPause:
+            return {"status": 202, "body": {"code": "CHECKPOINT_CONTINUE"}}
         except OperationalConflictError:
             return {"status": 409, "body": {
+                "code": "FORECAST_INPUT_CHANGED",
                 "detail": "口座・保有が更新されています。保存済みの状態を読み直してください。"
             }}
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError) as error:
+            # Keep the failing code location, never exception arguments, rows or secrets.
+            import traceback
+
+            location = "runtime:request"
+            for frame, line in traceback.walk_tb(error.__traceback__):
+                module = frame.f_globals.get("__name__", "")
+                if module.startswith(("stock_ai.", "mobile.python.")):
+                    function = frame.f_code.co_name.strip("<>")
+                    location = f"{module}:{function}:{line}"
             return {"status": 422, "body": {
+                "code": "FORECAST_VALIDATION_FAILED",
+                "diagnostic": f"{type(error).__name__}:{location}",
                 "detail": "履歴・当日一覧・校正情報・保有の整合を確認できず、予測を更新できません。"
             }}
     if path == "/api/v1/mobile/models/import" and method == "POST":
@@ -444,6 +683,7 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             value = strict_json(body)
             return {"status": 200, "body": bundle_parity(
                 value["content"], value["rows"], bundled_selection(),
+                rank_universes=value.get("rank_universes"),
             )}
         except (ValueError, KeyError, TypeError, IndexError):
             return {"status": 422, "body": {"detail": "モデル一式の一致確認用データが不正です。"}}
@@ -514,6 +754,13 @@ async def request(method: str, path: str, body: str = "null") -> dict:
             payload = response.json()
         except ValueError:
             payload = {"detail": "この端末ではJSON形式で書き出してください。"}
-        if path == "/api/v1/home" and response.status_code == 200:
+        if path in ("/api/v1/home", "/api/v1/home/ledger") and response.status_code == 200:
             payload["initialLedger"] = personal.initial_reference(_app.state.store)
+        if path == "/api/v1/today" and response.status_code == 200:
+            reference = forecasts.reference_view(STATE / "mobile.sqlite3", datetime.now(UTC))
+            saved = payload.get("savedAnalysis")
+            if reference is not None and (saved is None or
+                    datetime.fromisoformat(reference["generatedAt"]) >
+                    datetime.fromisoformat(saved["generatedAt"])):
+                payload["savedAnalysis"] = reference
         return {"status": response.status_code, "body": payload}

@@ -1,6 +1,22 @@
 # 端末用モデル一式の受け渡し
 
-モデルの学習と大規模な検証はPCで行い、端末にはデータだけのJSONを一度取り込む。重み・市場履歴・本人の口座情報を公開APKやGitへ含めない。現在の確認済みbundleは0件であり、この形式やテストの完成を最終モデル採用とは数えない。
+D220（2026-10-21）：同sourceのprivate API35試験で実SQLiteから現版cache再構築/全特徴量/実3成分/合成/暗号化保存/再起動までPCと一致した。ownerPOST593.209秒/RSS標本最大3.203GBで、600秒以内だが余裕6.791秒。private技術snapshotのID指定保存を証明したもので、通常daily latest/採用/Xiaomiへ読み替えない。host照合のURI指定だけを直し、保存済み出力の全47tableを再照合した。元FAILEDも保全。詳細・hashはSTATUS D220を参照する。
+
+D219（2026-10-21）：research pinを含む製品2b0f361の必要CI3系統が成功し、同一sourceの非公開0.1.29候補を署名・内容検査済みとした。私有APK SHA256=`af719de47e1bb789fc1b76ffedf95b1c9f6f001c1ae5e821406fe1a8afade9df`、23,994,021 bytes。APKへ技術bundle本体を同梱せず、同じ私有handoffにbundle/実hash/一括Xiaomi票を保存した。現版cache再構築からのPC全特徴量/合成一致も確認済み。Xiaomi/真正次締切/選定ensembleの配備確認は未完で、混在foldの技術bundleを候補選定や正式採用へ昇格しない。
+
+D218（2026-10-21）：実モデル3component/1,921,442 bytesの混在fold技術bundleを別research pinへ追加した。PC native/portableとAPI35 debug emulatorの全1,467基本出力・合成後・上位20が一致し、暗号化保存/再読込と保護table不変を確認。risk/5日rankingはnull。これは保存済み実特徴量・保有0の接続証拠で、選定戦略/全owner経路/Xiaomi/正式採用の証拠ではない。元return-only pinは保持し、approved_models/bundlesは空。作成/取込時刻後の真正な締切だけで通常予測へ使い、過去の11:30へ遡及しない。bundle本体/入力/モデルは非公開のまま、APKへはpinだけを含める。詳細はSTATUSのD218を参照する。
+
+D217（2026-10-21）：`predictable_decision_symbols` を明示した研究recipeでは、既存250営業日条件からラベルと独立に予測可能集合を固定し、入力/計算コード/特徴量版/全候補/棄権理由の証拠を保存する。別pinのない宣言や、5/20日の集合不一致、component不足、保有不足は拒否する。旧 `decision_symbols` は全候補必須のままで、欠落後のintersectionへ置換しない。旧bundle/固定compositionの省略項目とidentityは維持する。特徴量コードhashが変わるため入力cacheの再構築を伴い、過去の実測時間を現版の実測とはしない。
+
+D216（2026-10-21）：`stockai-mobile-research-ensemble-v1`を別schemaとして追加。複数portable componentと前処理hash、horizon/役割別の単位・保存重み・recipe・校正・順位母集団を保持する。全基本出力の後に平均percentile順位を計算し、batch/入力順による変更と欠落した順位母集団を拒否する。全市場rankをTOPIX内rankへ置換しない。既存64MiB/policy evidence pin/実機一致/公開承認を維持する。
+
+研究ensembleの原予測はschema4/snapshotv2でreturnとrankを分離し、未提供return/riskはnull。ranking20を優先し、なければ20日returnを使い、5/20を加算しない。全保有を残して手動相談へ渡し、回答取込は提案保存のみ。optional raw riskの値があっても採用/校正がそろうとは扱わず、自動株数提案を許可しない。保存読戻しでcomponent/recipe/全対象/合成値を再検査する。現時点では合成統合試験済みで、実選定ensemble bundleやXiaomi完了を意味しない。
+
+各horizonにreturnまたはrankingが必要で、riskだけのbundleは保存前に拒否する。順位母集団が`decision_symbols`なら、特徴量が一つでも欠けた際は`ENSEMBLE_RANK_POPULATION_INCOMPLETE`として対象と棄権理由を保存する。欠けた銘柄を取り除いた母集団を新たに宣言して順位を成功扱いにしない。全市場順位が必要なrecipeは、候補限定cacheでは`ENSEMBLE_REQUIRES_ALL_MARKET_FEATURES`として停止する。
+
+D213（2026-10-20）：現在の私有研究bundleは5日CatBoost/20日LightGBM・seed17の2回帰であり、重み・前処理・元fit plan・bundleの対応を再照合した。正式採用bundleは0件。以下の通常4head契約と研究2回帰契約を区別する。ランキングhead、rank-space合成、保存forward-crossfit weighted_return、riskなしの採用構成をそのまま表現できるとは扱わない。候補が確定した後、その構成に必要な最小対応と不足fitだけを行う。既存2weightを使いやすさだけで採用せず、未提供のrisk/校正はnullを維持する。採用審査・配備の未接続をbundle取込で回避しない。
+
+モデルの学習と大規模な検証はPCで行い、端末にはデータだけのJSONを一度取り込む。重み・市場履歴・本人の口座情報を公開APKやGitへ含めない。正式採用bundleは0件であり、研究用2回帰bundleや形式・テストの完成を最終モデル採用とは数えない。
 
 ## 内容と時点
 

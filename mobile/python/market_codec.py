@@ -34,6 +34,7 @@ class _VerifiedColumn(NamedTuple):
     compressed: bytes
     tokens: tuple[str, ...]
     utf8_bytes: int
+    canonical_utf8: tuple[bytes, ...] | None = None
 
 
 def initialize(db):
@@ -290,11 +291,21 @@ def table(db, payload, raw, expected):
     return decoded
 
 
+def _canonical_token_utf8(token):
+    # Encode each verified token once, before assembling the exact v1 JSON row.
+    value = (token if re.fullmatch(r'"[^"\\\x00-\x1f]*"', token) else
+             json.dumps(json.loads(token), ensure_ascii=False, sort_keys=True,
+                        separators=(",", ":"), allow_nan=False))
+    return value.encode()
+
+
 def _raw_record_hashes(db, payload, cache):
     """The frozen v1 raw identity without a dict/JSON roundtrip for every row."""
     if not payload.startswith(PREFIX):
         return [record_hash_v1(row) for row in records(db, payload, cache=cache)]
     document, names, values, presence = _read(db, payload, "records", cache=cache)
+    if not document["rows"]:
+        return []
     if any(indexes is not None for indexes in presence) or len(set(names)) != len(names):
         return [record_hash_v1(row) for row in records(db, payload, cache=cache)]
     if not names:
@@ -302,16 +313,29 @@ def _raw_record_hashes(db, payload, cache):
 
     keys, columns = [], []
     for index in sorted(range(len(names)), key=names.__getitem__):
-        keys.append(json.dumps(names[index], ensure_ascii=False) + ":")
-        canonical = {}
-        for token in values[index]:
-            if token not in canonical:
-                # A valid quoted string with no escape is already canonical v1.
-                canonical[token] = (token if re.fullmatch(r'"[^"\\\x00-\x1f]*"', token) else
-                    json.dumps(json.loads(token), ensure_ascii=False, sort_keys=True,
-                               separators=(",", ":"), allow_nan=False))
-        columns.append([canonical[token] for token in values[index]])
-    return [hashlib.sha256(("{" + ",".join(map(add, keys, row)) + "}").encode()).hexdigest()
+        keys.append((json.dumps(names[index], ensure_ascii=False) + ":").encode())
+        spec = document["columns"][index]
+        if "constant" in spec:
+            columns.append((_canonical_token_utf8(spec["constant"]),) * document["rows"])
+            continue
+        key = ("tokens", spec.get("ref"))
+        verified = cache.get(key) if cache is not None else None
+        trusted = isinstance(verified, _VerifiedColumn) and verified.tokens is values[index]
+        canonical_values = verified.canonical_utf8 if trusted else None
+        if canonical_values is None:
+            canonical = {}
+            for token in values[index]:
+                if token not in canonical:
+                    canonical[token] = _canonical_token_utf8(token)
+            canonical_values = tuple(canonical[token] for token in values[index])
+            if trusted:
+                # _read() has just re-read/verified the DB bytes, even on hits.
+                # Reuse is tied to that exact verified token tuple and stays in
+                # the existing bounded LRU; changed bytes invalidate it there.
+                cache[key] = verified._replace(canonical_utf8=canonical_values)
+                cache.move_to_end(key)
+        columns.append(canonical_values)
+    return [hashlib.sha256(b"{" + b",".join(map(add, keys, row)) + b"}").hexdigest()
             for row in zip(*columns, strict=True)]
 
 

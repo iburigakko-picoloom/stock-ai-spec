@@ -1,0 +1,97 @@
+{
+  "status": "IMPLEMENTED_LOCAL_CHECKS_PASS_NEW_CI_AND_APK_PENDING",
+  "base_commit": "8c56c723237d1ffb785643d81c5a20e9491d3713",
+  "scope": "Five primary pages and existing stock/review/saved/execution/consultation/settings detail screens",
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS",
+  "web_unit": {
+    "passed": 108,
+    "failed": 0,
+    "seconds": 7.1
+  },
+  "mobile_layout": {
+    "other_cases_passed": 19,
+    "market_cases_passed": 2,
+    "unique_passed": 21
+  },
+  "routes_and_reference_layout": {
+    "passed": 9,
+    "failed": 0,
+    "seconds": 27.3
+  },
+  "company_research": {
+    "passed": 2,
+    "failed": 0
+  },
+  "execution_and_cash_tax": {
+    "passed": 4,
+    "failed": 0,
+    "seconds": 8.2
+  },
+  "browser_cases_unique_passed": 36,
+  "widths": [
+    320,
+    360,
+    390,
+    430,
+    1280
+  ],
+  "font_percent": [
+    100,
+    150
+  ],
+  "checks": [
+    "one branded page title",
+    "shared cards and blue actions",
+    "actual ranking and universe counts",
+    "zero observations remain unknown",
+    "home/ranking stock details return to origin",
+    "stock details retain source navigation selection",
+    "opened diagnosis and readouts",
+    "fixed actions clear navigation with enlarged text",
+    "safe area and keyboard-equivalent bottom inset",
+    "draft and validation errors preserved",
+    "stale proposals refused"
+  ],
+  "synthetic_only": true,
+  "personal_data_used": false,
+  "real_model_fits": 0,
+  "backend_native_financial_model_code_changed": false,
+  "real_orders": false,
+  "screenshots": {
+    "home-synthetic.png": "89b5cce77e8e58208317d1dee40f7df7f0b6c84db6e0f5a194681ed2ccf9dc3f",
+    "today-synthetic.png": "9ba1e176e8ef8b58ade4802125c77da141c89027d5c2b062a74e5553c21803d1",
+    "ranking-synthetic.png": "346b208ff6da2fbceef9cf5d05f33f9954660b2e7eed940ce54dd4dad0364039",
+    "validation-synthetic.png": "e1ca15be4ce0a340d5df41983d9da21aae53150da29e08b07e06beb711ed50b8",
+    "ranking-detail-synthetic.png": "2fd35265e4e85933f7e2f3d35cea9dacee63671fbab738fcca0ae6f557f43fa3",
+    "decision-review-large-text-synthetic.png": "a7f251882d41eaa31b6077b9992ef6f282b7efc4ea35b4d42a12976ad3870c27",
+    "settings-synthetic.png": "88f0e99e9b676fd7fac871952eb75b4b17a4b65fe478a2a6d5ef17800758fa4c"
+  },
+  "product_source_sha256": {
+    "web/src/components.tsx": "d82835bf00d9195d7bd25e504b4b4eae20afa4dece8589fc7054ed779f20b8f9",
+    "web/src/mobile/DailyPanel.tsx": "03014d156aa3a92192a6044e512746e6a608d1c99de86e1970d593aa35942513",
+    "web/src/mobile/MobileDevicePanel.tsx": "c22312b765d46ee77e21230acd6dcd62f36577503ea2f6f2060e6466af869de1",
+    "web/src/pages/DecisionReviewPage.tsx": "f7d34115b505852e03850721924a495a0d2d646d91ddf2c421d3794857e12056",
+    "web/src/pages/DecisionSavedPage.tsx": "28574ffdc9ff6ab89d9dfb4681fae2a9106e5c8e27d8272baf3f03744e43a1da",
+    "web/src/pages/ExecutionPage.tsx": "c17bc377539703139b85bbbcb28e77085a2c211c0b6f827ba51b05e2b31d3319",
+    "web/src/pages/HomePage.tsx": "860f8ba43d449e69d995d51ca498b961cf15b16bcebb44a002514ef51e5266db",
+    "web/src/pages/RankingPage.tsx": "893bbd1076eddd0de24d549de4d57af0dcb774c43f3d27e15e2dc3f29583225a",
+    "web/src/pages/StockDetailPage.tsx": "15d83273321fbcdf165be8f0f9c690e11d9d6fb7ee6477a268861945f32cc48e",
+    "web/src/pages/TodayPage.tsx": "39105d22fa50e5604c888ef2cd30c5acd798644a631ea1c6d80445f021a1ca9a",
+    "web/src/pages/ValidationPage.tsx": "03b5b1ab58267880dcaa261858f270231094e9ed24458455740a6eebf7fc9130",
+    "web/src/styles.css": "84c690bdac3a7e97ee4f35996172a4bbccee6f7abe1358f7f200c83981d6b294"
+  },
+  "actual_android_APK_for_this_UI_tested": false,
+  "Xiaomi_verified": false,
+  "new_APK_for_this_UI_created": false,
+  "public_distribution": false,
+  "previous_private_0128_preserved": true,
+  "earlier_failures_preserved": [
+    "minimal empty-paper payload needed missing-array fallbacks",
+    "landscape centered content required checking safe bounds",
+    "atomic geometry snapshot avoided a re-render race",
+    "hidden inactive daily controls required visible-target checks; credentials still has two actions",
+    "missing local synthetic golden was reused as test input with hash; fresh tests rerun"
+  ]
+}
