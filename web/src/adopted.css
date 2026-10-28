@@ -103,3 +103,11 @@
 
 /* Keep the adopted compact design while retaining a 48px settings touch target. */
 .app-shell--adopted .device-settings .button { min-height: 48px; }
+.app-shell--adopted .screen-home .home-stock-button { min-width: 0; overflow-wrap: anywhere; }
+.app-shell--adopted .screen-home .home-amount { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.app-shell--adopted .screen-home .home-holding-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; margin:10px 0; }
+.app-shell--adopted .screen-home .home-holding-metrics div { min-width:0; }
+.app-shell--adopted .screen-home .home-holding-metrics dt { color:#636d73; font-size:.6875rem; }
+.app-shell--adopted .screen-home .home-holding-metrics dd { margin:2px 0 0; font-size:.8125rem; font-weight:600; overflow-wrap:anywhere; }
+.app-shell--adopted .screen-home .home-price-date { display:block; color:#636d73; font-size:.625rem; font-weight:400; }
+.app-shell--adopted .screen-home .home-account-detail { display:flex; justify-content:space-between; flex-wrap:wrap; gap:0 8px; overflow-wrap:anywhere; }

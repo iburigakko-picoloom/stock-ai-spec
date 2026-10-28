@@ -33,6 +33,7 @@ from . import (
     forecasts,
     forward_evidence,
     forward_protocol,
+    holding_names,
     manual_chatgpt,
     market,
     membership,
@@ -332,6 +333,14 @@ async def request(method: str, path: str, body: str = "null") -> dict:
         except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
                 OperationalIntegrityError):
             return {"status": 422, "body": {"detail": "保存した日次予測の記録を確認できません。"}}
+    if path == "/api/v1/mobile/holdings/market" and method == "GET":
+        try:
+            return {"status": 200, "body": holding_names.read(
+                STATE / "mobile.sqlite3", _app.state.store, datetime.now(UTC),
+            )}
+        except (ValueError, KeyError, TypeError, sqlite3.DatabaseError, zlib.error,
+                OperationalIntegrityError):
+            return {"status": 422, "body": {"detail": "保存済みの銘柄名と株価を確認できません。"}}
     if path == "/api/v1/mobile/forward-evidence/register" and method == "POST":
         try:
             if json.loads(body) != {}:

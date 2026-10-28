@@ -784,3 +784,34 @@ for(const width of [320,390])test(`model comparison opens from validation at ${w
   await page.addStyleTag({content:"html{font-size:150%}"});
   expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
 });
+
+for(const width of [320,390])test(`home shows holding name and gains without waiting for names at ${width}px`,async({page},info)=>{
+  const source=adoptedPayloads(null)["/api/v1/home"] as {holdings:Record<string,unknown>[]};
+  const first={...source.holdings[0],symbol:"7203",companyName:"7203",accountBucketId:"tax",shares:200,averageAcquisitionPrice:"900",currentPrice:"1000",marketValue:"200000"};
+  const second={...first,accountBucketId:"nisa",shares:100,averageAcquisitionPrice:"800",marketValue:"100000"};
+  await page.route("**/api/v1/home/ledger",route=>route.fulfill({json:{...source,portfolioId:"ledger-a",holdings:[first,second],accountLabels:{tax:"特定口座",nisa:"NISA"}}}));
+  let release!:()=>void;
+  const waiting=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/api/v1/mobile/holdings/market",async route=>{await waiting;return route.fulfill({json:{portfolioId:"ledger-a",names:{"7203":"トヨタ自動車"},prices:{"7203":"1100"},priceDate:"2026-10-27"}});});
+  try{
+    await page.setViewportSize({width,height:800});
+    await page.goto("http://127.0.0.1:5196/#/");
+    const holdings=page.getByRole("region",{name:"実保有"});
+    await expect(holdings.getByRole("link",{name:/銘柄名未確認/})).toBeVisible();
+    await expect(holdings.getByText("+¥40,000",{exact:true})).toBeVisible();
+    await expect(holdings.getByText("+15.38%",{exact:true})).toBeVisible();
+    await expect(holdings.getByText("¥866.67",{exact:true})).toBeVisible();
+    release();
+    await expect(holdings.getByRole("link",{name:/トヨタ自動車/})).toBeVisible();
+    await expect(holdings.getByText("+¥70,000",{exact:true})).toBeVisible();
+    await expect(holdings.getByText("2026-10-27 終値",{exact:true})).toBeVisible();
+    await expect(holdings.getByText("7203",{exact:true})).toBeVisible();
+    await page.addStyleTag({content:"html{font-size:150%}"});
+    expect(await page.locator(".app-main").evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThanOrEqual(1);
+    const boxes=await holdings.locator(".home-held-head > *").evaluateAll(nodes=>nodes.map(node=>{const box=node.getBoundingClientRect();return {left:box.left,right:box.right};}));
+    expect(boxes[0].right).toBeLessThanOrEqual(boxes[1].left+1);
+    await holdings.scrollIntoViewIfNeeded();
+    if(process.env.STOCKAI_ANDROID_UI)await writeFile(info.outputPath(`holding-${width}.png`),await activeDevice!.screenshot());
+    else await page.screenshot({path:info.outputPath(`holding-${width}.png`)});
+  }finally{release();}
+});

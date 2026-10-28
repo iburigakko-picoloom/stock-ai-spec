@@ -95,7 +95,7 @@ final class NativeRecordViews {
         }
         String mode = "UNCONFIGURED";
         try (Cursor row = db.rawQuery("SELECT value FROM operational_metadata WHERE key='runtime_mode'",null)) {if(row.moveToFirst())mode=row.getString(0);}
-        result.put("runtimeMode",mode).put("holdings",holdings).put("accountLabels",labels(ledger)).put("blockingReason",JSONObject.NULL)
+        result.put("runtimeMode",mode).put("portfolioId",ledger.getString("portfolio_id")).put("holdings",holdings).put("accountLabels",labels(ledger)).put("blockingReason",JSONObject.NULL)
             .put("portfolio",new JSONObject().put("asOf",jsonTime(ledger.getString("as_of")))
                 .put("totalAssets",cash.add(equity,MONEY).toString()).put("cashValue",cash.toString()).put("reservedCash",reserved.toString())
                 .put("buyingPower",buying.toString()).put("equityValue",equity.toString()).put("holdingsCount",positions.length()));

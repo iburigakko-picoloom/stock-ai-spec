@@ -701,6 +701,7 @@ def create_app(
         equity_value = sum((item.market_value for item in portfolio.positions), Decimal("0"))
         return {
             "runtimeMode": store.metadata("runtime_mode") or "UNCONFIGURED",
+            "portfolioId": portfolio.portfolio_id,
             "portfolio": {
                 "asOf": portfolio.as_of,
                 "totalAssets": str(cash_value + equity_value),

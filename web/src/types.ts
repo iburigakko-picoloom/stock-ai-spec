@@ -92,6 +92,7 @@ export interface HoldingView {
 }
 
 export interface HomeResponse {
+  portfolioId?: string;
   accountLabels?: Record<string,string>;
   initialLedger?: { confirmedAt: string; referencePriceDate: string | null } | null;
   runtimeMode: string;
