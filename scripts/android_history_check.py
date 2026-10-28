@@ -15,6 +15,7 @@ from mobile.python import market, models, runtime
 from scripts.android_lifecycle_check import PACKAGE, RUNNER, Controller
 from scripts.mobile_native_history_fixture import (
     FORMAT,
+    MOBILE_TABLES,
     ROOT,
     SOURCE_FILES,
     digest,
@@ -35,7 +36,7 @@ def validate_fixture(folder: Path) -> dict:
         or report.get("models") != 0
         or not 90_000_000 <= report.get("characters", 0) <= 128 * 1024 * 1024
         or set(report.get("source_sha256", {})) != set(SOURCE_FILES)
-        or len(report.get("mobile", {}).get("tables", {})) != 17
+        or set(report.get("mobile", {}).get("tables", {})) != MOBILE_TABLES
         or payload.stat().st_size != report["characters"]
         or digest(payload) != report.get("payload_sha256")
     ):

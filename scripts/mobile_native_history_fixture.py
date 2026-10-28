@@ -13,6 +13,13 @@ from scripts.sqlite_evidence import table_snapshot as table_snapshot
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMAT = "synthetic-native-history-v1"
+MOBILE_TABLES = frozenset({
+    "manual_inputs", "market_acquisitions", "market_batches", "market_columns",
+    "market_compaction", "market_days", "market_download_plan", "market_valuations",
+    "mobile_decision_runs", "mobile_decision_selections", "mobile_forecast_runs",
+    "mobile_forecast_selections", "mobile_membership", "mobile_model_bundles",
+    "mobile_model_repairs", "mobile_model_selections", "mobile_models", "mobile_reference_runs",
+})
 SOURCE_FILES = (
     "scripts/mobile_native_history_fixture.py",
     "scripts/sqlite_evidence.py",
@@ -88,7 +95,7 @@ def prepare(source: Path, output: Path) -> dict:
     if model_status["imported_bundle_count"] != 0:
         raise ValueError("Synthetic native fixture must contain no model")
     reference = table_snapshot(work / "mobile.sqlite3")
-    if len(reference["tables"]) != 17:
+    if set(reference["tables"]) != MOBILE_TABLES:
         raise ValueError("Unexpected synthetic mobile schema")
     encoded = runtime.export_state()
     if not 90_000_000 <= len(encoded) <= 128 * 1024 * 1024:
